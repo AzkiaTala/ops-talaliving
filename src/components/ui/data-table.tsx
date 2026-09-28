@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Pager } from "./pager";
+import { useTr } from "@/lib/i18n";
 
 export interface Column<T> {
   key: string;
@@ -49,6 +50,7 @@ export function DataTable<T>({
   /** Off only where the whole set is the point — a slip, a printed sheet. */
   paginate?: boolean;
 }) {
+  const tr = useTr();
   const alignClass = (a?: "left" | "right" | "center") =>
     a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left";
 
@@ -89,7 +91,7 @@ export function DataTable<T>({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-slate-400">
-                  {empty ?? "No data."}
+                  {empty ?? tr("No data.", "Tidak ada data.")}
                 </td>
               </tr>
             ) : (

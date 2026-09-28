@@ -10,6 +10,7 @@ import { crm, procurement } from "@/demo/api";
 import type { ClientView } from "@/services/procurement/contracts";
 import { ClientDrawer } from "./ClientDrawer";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** The client master (0111).
  *
@@ -19,6 +20,7 @@ import { useSession } from "@/store/session";
  *  who to call. A project picks its client from here.
  */
 export default function ClientsPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [showArchived, setShowArchived] = useState(false);
   const [clients, reload] = useLoad(() => procurement.listClients({ include_archived: showArchived }), [showArchived]);
@@ -34,28 +36,28 @@ export default function ClientsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Master Data"
-        title="Klien"
-        description="Siapa yang memesan: satu baris per klien, dengan kontaknya. Proyek memilih kliennya dari daftar ini."
-        actions={mayCreate ? <Button icon={Plus} onClick={() => setOpen("new")}>Klien baru</Button> : undefined}
+        breadcrumb={tr("Master Data", "Data Master")}
+        title={tr("Clients", "Klien")}
+        description={tr("Who orders: one row per client, with their contact. A project picks its client from this list.", "Siapa yang memesan: satu baris per klien, dengan kontaknya. Proyek memilih kliennya dari daftar ini.")}
+        actions={mayCreate ? <Button icon={Plus} onClick={() => setOpen("new")}>{tr("New client", "Klien baru")}</Button> : undefined}
       />
       <Card>
         <CardHeader
-          title="Daftar klien" icon={Building2}
-          subtitle="Klik untuk membuka klien: proyek, quotation, catatan komunikasi, dan follow-up."
+          title={tr("Client list", "Daftar klien")} icon={Building2}
+          subtitle={tr("Click to open a client: projects, quotations, communication log and follow-ups.", "Klik untuk membuka klien: proyek, quotation, catatan komunikasi, dan follow-up.")}
           action={<SourceBadge state={clients} />}
         />
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
           <label className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 px-2">
             <Search className="h-4 w-4 text-slate-400" />
             <input
-              value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama, kode, kontak…"
-              aria-label="Cari klien" className="h-8 w-full text-sm focus:outline-none"
+              value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("Search name, code, contact…", "Cari nama, kode, kontak…")}
+              aria-label={tr("Search clients", "Cari klien")} className="h-8 w-full text-sm focus:outline-none"
             />
           </label>
           <label className="flex items-center gap-1.5 text-[12px] text-slate-600">
             <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-            tampilkan yang diarsipkan
+            {tr("show archived", "tampilkan yang diarsipkan")}
           </label>
         </div>
         <Loaded state={clients} onRetry={reload}>
@@ -63,16 +65,16 @@ export default function ClientsPage() {
             const rows = all.filter((c) =>
               `${c.code} ${c.name} ${c.contact_name ?? ""} ${c.phone ?? ""}`.toLowerCase().includes(q.toLowerCase()));
             return (
-              <Paged rows={rows} pageSize={25} unit="klien">
+              <Paged rows={rows} pageSize={25} unit={tr("clients", "klien")}>
                 {(shown) => (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[640px] border-collapse text-[13px]">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                          <th className="px-4 py-2 text-left">Klien</th>
-                          <th className="px-4 py-2 text-left">Kontak</th>
-                          <th className="px-4 py-2 text-right">Proyek</th>
-                          <th className="px-4 py-2 text-right">Follow-up</th>
+                          <th className="px-4 py-2 text-left">{tr("Client", "Klien")}</th>
+                          <th className="px-4 py-2 text-left">{tr("Contact", "Kontak")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Projects", "Proyek")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Follow-up", "Follow-up")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -82,7 +84,7 @@ export default function ClientsPage() {
                             <td className="px-4 py-2">
                               <span className="block font-medium text-slate-800">
                                 {c.name}
-                                {c.archived_at && <Badge tone="slate" className="ml-2">diarsipkan</Badge>}
+                                {c.archived_at && <Badge tone="slate" className="ml-2">{tr("archived", "diarsipkan")}</Badge>}
                               </span>
                               <span className="block font-mono text-[10px] text-slate-400">{c.code}</span>
                             </td>
@@ -97,7 +99,7 @@ export default function ClientsPage() {
                             <td className="px-4 py-2 text-right tabular-nums text-slate-700">
                               {c.project_count}
                               {c.active_project_count > 0 && (
-                                <span className="block text-[11px] text-slate-400">{c.active_project_count} berjalan</span>
+                                <span className="block text-[11px] text-slate-400">{tr(`${c.active_project_count} running`, `${c.active_project_count} berjalan`)}</span>
                               )}
                             </td>
                             <td className="px-4 py-2 text-right text-[12px]">
@@ -107,7 +109,7 @@ export default function ClientsPage() {
                         ))}
                         {rows.length === 0 && (
                           <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">
-                            {all.length === 0 ? "Belum ada klien." : "Tidak ada yang cocok."}
+                            {all.length === 0 ? tr("No clients yet.", "Belum ada klien.") : tr("Nothing matches.", "Tidak ada yang cocok.")}
                           </td></tr>
                         )}
                       </tbody>
@@ -132,10 +134,11 @@ export default function ClientsPage() {
 }
 
 function FollowUpCount({ n, late }: { n: number; late: number }) {
+  const tr = useTr();
   if (n === 0) return <span className="text-slate-300">—</span>;
   return (
     <span className={late > 0 ? "font-medium text-rose-700" : "text-slate-700"}>
-      {n} terbuka{late > 0 && <span className="block text-[11px]">{late} terlambat</span>}
+      {tr(`${n} open`, `${n} terbuka`)}{late > 0 && <span className="block text-[11px]">{tr(`${late} overdue`, `${late} terlambat`)}</span>}
     </span>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** One person, one day, and everything that is known about it.
  *
@@ -37,6 +38,7 @@ export function DayDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { can, hasAuthority } = useSession();
   const { toast } = useToast();
   const [day, reload] = useLoad(() => hr.getDay({ employee_no: employeeNo, work_date: workDate }), [employeeNo, workDate]);
@@ -74,9 +76,9 @@ export function DayDrawer({
     setBusy(true);
     const res = await hr.addScan({ employee_no: employeeNo, work_date: workDate, time, reason: addReason });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Not added", res.error.message); return; }
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not added", "Tidak ditambahkan"), res.error.message); return; }
     setAdding(false); setTime(""); setAddReason("");
-    after("Tap added", `${workDate} · ${time} · typed by hand, with a reason on the audit row.`);
+    after(tr("Tap added", "Tap ditambahkan"), tr(`${workDate} · ${time} · typed by hand, with a reason on the audit row.`, `${workDate} · ${time} · diketik manual, dengan alasan di baris audit.`));
   }
 
   async function mark() {
@@ -84,18 +86,18 @@ export function DayDrawer({
     setBusy(true);
     const res = await hr.markDay({ work_date: workDate, kind, reason: markReason, employee_no: employeeNo });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Not marked", res.error.message); return; }
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not marked", "Tidak ditandai"), res.error.message); return; }
     setKind(null); setMarkReason("");
-    after("Day marked", `${workDate} · ${DAY_MARK_LABEL[res.data.kind]}`);
+    after(tr("Day marked", "Hari ditandai"), `${workDate} · ${DAY_MARK_LABEL[res.data.kind]}`);
   }
 
   async function unmark(markId: string) {
     setBusy(true);
     const res = await hr.unmarkDay(markId, undoReason);
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Not removed", res.error.message); return; }
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not removed", "Tidak dihapus"), res.error.message); return; }
     setUndoing(false); setUndoReason("");
-    after("Mark withdrawn", `${workDate} is back to what the machine recorded.`);
+    after(tr("Mark withdrawn", "Tanda ditarik"), tr(`${workDate} is back to what the machine recorded.`, `${workDate} kembali ke yang direkam mesin.`));
   }
 
   /* HRD deciding the day earns no tunjangan, and saying why. A separate act
@@ -108,21 +110,21 @@ export function DayDrawer({
       employee_no: employeeNo, work_date: workDate, reason: holdReason,
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak tersimpan", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
     setHoldOpen(false); setHoldReason("");
     reloadHolds();
-    after("Tunjangan ditahan", `${workDate} · ${res.data.reason}`);
+    after(tr("Allowance withheld", "Tunjangan ditahan"), `${workDate} · ${res.data.reason}`);
   }
 
   async function release(id: string) {
-    const why = window.prompt("Kenapa dikembalikan? Biasanya karena yang pertama salah baca.");
+    const why = window.prompt(tr("Why is it being restored? Usually because the first one was misread.", "Kenapa dikembalikan? Biasanya karena yang pertama salah baca."));
     if (!why?.trim()) return;
     setBusy(true);
     const res = await hr.restoreAllowance({ id, reason: why });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak bisa dikembalikan", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Could not be restored", "Tidak bisa dikembalikan"), res.error.message); return; }
     reloadHolds();
-    after("Tunjangan dikembalikan", res.data.restored_reason ?? "");
+    after(tr("Allowance restored", "Tunjangan dikembalikan"), res.data.restored_reason ?? "");
   }
 
   /** The surat dokter is what turns a sick day into a paid one (D144), so it
@@ -131,11 +133,11 @@ export function DayDrawer({
   async function attachSurat(f: File, markId: string) {
     setBusy(true);
     const up = await documents.upload({ file: f, kind: "Surat Dokter" });
-    if (up.error) { setBusy(false); toast("critical", "Upload gagal", up.error.message); return; }
+    if (up.error) { setBusy(false); toast("critical", tr("Upload failed", "Upload gagal"), up.error.message); return; }
     const res = await hr.attachSuratDokter({ mark_id: markId, attachment_id: up.data.id });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak terlampir", res.error.message); return; }
-    after("Surat dokter terlampir", "Hari ini sekarang terhitung dibayar.");
+    if (res.error) { toast("warning", tr("Not attached", "Tidak terlampir"), res.error.message); return; }
+    after(tr("Doctor’s note attached", "Surat dokter terlampir"), tr("This day now counts as paid.", "Hari ini sekarang terhitung dibayar."));
   }
 
   return (
@@ -148,15 +150,15 @@ export function DayDrawer({
         {(d) => (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              {d.state === "complete" && <Badge tone="green" dot>read cleanly</Badge>}
-              {d.state === "review" && <Badge tone="amber" dot>needs reading</Badge>}
+              {d.state === "complete" && <Badge tone="green" dot>{tr("read cleanly", "terbaca bersih")}</Badge>}
+              {d.state === "review" && <Badge tone="amber" dot>{tr("needs reading", "perlu dibaca")}</Badge>}
               {d.state === "marked" && <Badge tone="violet" dot>{DAY_MARK_LABEL[d.mark!.kind]}</Badge>}
-              {d.state === "off" && <Badge tone="slate" dot>no tap at all</Badge>}
+              {d.state === "off" && <Badge tone="slate" dot>{tr("no tap at all", "tidak ada tap sama sekali")}</Badge>}
               <span className="text-[12px] text-slate-500">
-                {formatNumber(d.work_hours)} jam kerja
-                {d.break_hours > 0 && ` · ${formatNumber(d.break_hours)} jam istirahat`}
-                {d.overtime_hours > 0 && ` · ${formatNumber(d.overtime_hours)} jam lembur`}
-                {` · nilai hari ${formatNumber(d.day_value)}`}
+                {tr(`${formatNumber(d.work_hours)} h worked`, `${formatNumber(d.work_hours)} jam kerja`)}
+                {d.break_hours > 0 && tr(` · ${formatNumber(d.break_hours)} h break`, ` · ${formatNumber(d.break_hours)} jam istirahat`)}
+                {d.overtime_hours > 0 && tr(` · ${formatNumber(d.overtime_hours)} h overtime`, ` · ${formatNumber(d.overtime_hours)} jam lembur`)}
+                {tr(` · day value ${formatNumber(d.day_value)}`, ` · nilai hari ${formatNumber(d.day_value)}`)}
               </span>
             </div>
 
@@ -168,7 +170,7 @@ export function DayDrawer({
             )}>
               <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
                 <Wallet className="h-4 w-4 text-slate-400" />
-                Nilai untuk payroll: <strong className="tabular-nums">{formatNumber(d.day_value)} hari</strong>
+                {tr("Value for payroll:", "Nilai untuk payroll:")} <strong className="tabular-nums">{tr(`${formatNumber(d.day_value)} days`, `${formatNumber(d.day_value)} hari`)}</strong>
               </p>
               <p className="mt-0.5 text-[12px] text-slate-600">{d.pay.why}</p>
               {d.pay.fixable && (
@@ -182,7 +184,7 @@ export function DayDrawer({
                   />
                   <Button size="sm" variant="outline" icon={Paperclip} className="mt-2" disabled={busy}
                     onClick={() => suratRef.current?.click()}>
-                    Lampirkan surat dokter
+                    {tr("Attach doctor’s note", "Lampirkan surat dokter")}
                   </Button>
                 </>
               )}
@@ -192,51 +194,54 @@ export function DayDrawer({
               <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
                 <p className="text-[13px] font-semibold text-violet-900">
                   {DAY_MARK_LABEL[d.mark.kind]}
-                  {d.mark.employee_id === null && <span className="ml-2 font-normal">— seluruh kantor</span>}
+                  {d.mark.employee_id === null && <span className="ml-2 font-normal">— {tr("whole office", "seluruh kantor")}</span>}
                 </p>
                 <p className="mt-0.5 text-[12px] text-violet-900">{d.mark.reason}</p>
                 {d.mark.kind === "holiday" && (
                   <p className="mt-1 text-[11px] text-violet-800">
-                    Tanggal merah: hours on this day count as lembur, and the day itself adds nothing to the days worked.
+                    {tr(
+                      "Public holiday: hours on this day count as overtime, and the day itself adds nothing to the days worked.",
+                      "Tanggal merah: jam pada hari ini dihitung lembur, dan hari itu sendiri tidak menambah hari kerja.",
+                    )}
                   </p>
                 )}
                 {d.mark.kind === "half_day" && (
-                  <p className="mt-1 text-[11px] text-violet-800">Setengah hari: payroll counts this as 0,5 hari.</p>
+                  <p className="mt-1 text-[11px] text-violet-800">{tr("Half day: payroll counts this as 0.5 day.", "Setengah hari: payroll menghitung ini 0,5 hari.")}</p>
                 )}
                 {d.mark.kind === "sick" && d.day_value > 0 && (
-                  <p className="mt-1 text-[11px] text-violet-800">Surat dokter sudah dilampirkan — hari ini dibayar penuh.</p>
+                  <p className="mt-1 text-[11px] text-violet-800">{tr("Doctor’s note attached — this day is paid in full.", "Surat dokter sudah dilampirkan — hari ini dibayar penuh.")}</p>
                 )}
                 {mayEdit && d.mark.employee_id !== null && !undoing && (
                   <Button size="sm" variant="ghost" icon={Undo2} className="mt-2" disabled={busy}
                     onClick={() => setUndoing(true)}>
-                    Withdraw this mark
+                    {tr("Withdraw this mark", "Tarik tanda ini")}
                   </Button>
                 )}
                 {mayEdit && d.mark.employee_id !== null && undoing && (
                   <div className="mt-2">
                     <input
                       value={undoReason} onChange={(e) => setUndoReason(e.target.value)}
-                      placeholder="Kenapa ditarik — salah orang, salah tanggal, suratnya ternyata ada…"
+                      placeholder={tr("Why it is withdrawn — wrong person, wrong date, the note turned up…", "Kenapa ditarik — salah orang, salah tanggal, suratnya ternyata ada…")}
                       className="h-9 w-full rounded-lg border border-violet-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     />
                     <p className="mt-1 text-[11px] text-violet-800">
-                      Tandanya tetap tercatat. Yang dibaca orang berikutnya adalah alasannya.
+                      {tr("The mark stays on record. What the next person reads is the reason.", "Tandanya tetap tercatat. Yang dibaca orang berikutnya adalah alasannya.")}
                     </p>
                     <div className="mt-2 flex justify-end gap-2">
                       <Button size="sm" variant="ghost" disabled={busy}
                         onClick={() => { setUndoing(false); setUndoReason(""); }}>
-                        Batal
+                        {tr("Cancel", "Batal")}
                       </Button>
                       <Button size="sm" icon={Undo2} disabled={busy || !undoReason.trim()}
                         onClick={() => unmark(d.mark!.id)}>
-                        Withdraw
+                        {tr("Withdraw", "Tarik")}
                       </Button>
                     </div>
                   </div>
                 )}
                 {d.mark.employee_id === null && (
                   <p className="mt-2 text-[11px] text-violet-800">
-                    Marked for everybody — remove it from the date header on the timesheet.
+                    {tr("Marked for everybody — remove it from the date header on the timesheet.", "Ditandai untuk semua orang — hapus dari judul tanggal di absensi.")}
                   </p>
                 )}
               </div>
@@ -245,7 +250,7 @@ export function DayDrawer({
             {d.issues.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-900">
-                  <AlertTriangle className="h-4 w-4" /> What the machine could not tell us
+                  <AlertTriangle className="h-4 w-4" /> {tr("What the machine could not tell us", "Yang tidak bisa diberitahukan mesin")}
                 </p>
                 <ul className="mt-1 space-y-0.5 text-[12px] text-amber-900">
                   {d.issues.map((i) => <li key={i}>· {i}</li>)}
@@ -259,20 +264,22 @@ export function DayDrawer({
                 only the first one stops the day being paid (D270). */}
             {d.notes.length > 0 && (
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[13px] font-semibold text-slate-700">Catatan hari ini</p>
+                <p className="text-[13px] font-semibold text-slate-700">{tr("Notes on this day", "Catatan hari ini")}</p>
                 <ul className="mt-1 space-y-0.5 text-[12px] text-slate-600">
                   {d.notes.map((n) => <li key={n}>· {n}</li>)}
                 </ul>
                 <p className="mt-1.5 text-[11px] text-slate-400">
-                  Tidak memengaruhi pembayaran hari ini. Istirahat yang lewat jatah dilaporkan, tidak
-                  pernah dipotong — sama seperti keterlambatan, sampai ada yang memutuskan sebaliknya.
+                  {tr(
+                    "Does not affect this day's pay. A break over the allowance is reported, never deducted — the same as lateness, until somebody decides otherwise.",
+                    "Tidak memengaruhi pembayaran hari ini. Istirahat yang lewat jatah dilaporkan, tidak pernah dipotong — sama seperti keterlambatan, sampai ada yang memutuskan sebaliknya.",
+                  )}
                 </p>
               </div>
             )}
 
             {/* The six slots, holes included. */}
             <div>
-              <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-400">The six taps of a full day</p>
+              <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-400">{tr("The six taps of a full day", "Enam tap dalam sehari penuh")}</p>
               <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                 {SCAN_SLOTS.map((slot: ScanSlot) => {
                   const at = d.slots[slot];
@@ -301,12 +308,14 @@ export function DayDrawer({
             {/* Everything the reader recorded, including what the rule could not place. */}
             <div>
               <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-400">
-                Every tap on the machine ({d.scans.length})
+                {tr(`Every tap on the machine (${d.scans.length})`, `Semua tap di mesin (${d.scans.length})`)}
               </p>
               {d.scans.length === 0 ? (
                 <p className="rounded-xl border border-slate-200 px-3 py-3 text-[13px] text-slate-500">
-                  Nobody scanned on this day. That is a fact, not a gap — but only HRD can say whether it was
-                  a day off, sick leave or an absence.
+                  {tr(
+                    "Nobody scanned on this day. That is a fact, not a gap — but only HRD can say whether it was a day off, sick leave or an absence.",
+                    "Tidak ada yang tap pada hari ini. Itu fakta, bukan celah — tetapi hanya HRD yang bisa mengatakan apakah itu hari libur, sakit, atau absen.",
+                  )}
                 </p>
               ) : (
                 <ul className="flex flex-wrap gap-2">
@@ -317,8 +326,8 @@ export function DayDrawer({
                     )}>
                       <span className="font-mono tabular-nums">{s.at.slice(11, 16)}</span>
                       <span className="ml-1.5 text-slate-400">{s.verify}</span>
-                      <span className="ml-1.5">{s.slot ? SLOT_LABEL[s.slot] : "tidak terbaca"}</span>
-                      {s.source === "manual" && <span className="ml-1.5 text-slate-400">· manual</span>}
+                      <span className="ml-1.5">{s.slot ? SLOT_LABEL[s.slot] : tr("unreadable", "tidak terbaca")}</span>
+                      {s.source === "manual" && <span className="ml-1.5 text-slate-400">· {tr("manual", "manual")}</span>}
                     </li>
                   ))}
                 </ul>
@@ -330,30 +339,30 @@ export function DayDrawer({
                 {/* Add the tap the machine missed. */}
                 {adding ? (
                   <div className="rounded-xl border border-slate-200 px-4 py-3">
-                    <p className="text-[13px] font-medium text-slate-800">Put in a tap the machine missed</p>
+                    <p className="text-[13px] font-medium text-slate-800">{tr("Put in a tap the machine missed", "Masukkan tap yang terlewat oleh mesin")}</p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-[120px_1fr]">
                       <input
                         type="time" value={time} onChange={(e) => setTime(e.target.value)}
-                        aria-label="Time"
+                        aria-label={tr("Time", "Waktu")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       />
                       <input
                         value={addReason} onChange={(e) => setAddReason(e.target.value)}
-                        placeholder="Why the machine missed it — mesin mati, jari tidak terbaca…"
+                        placeholder={tr("Why the machine missed it — machine off, finger not read…", "Kenapa mesin melewatkannya — mesin mati, jari tidak terbaca…")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       />
                     </div>
                     <p className="mt-1 text-[11px] text-slate-500">
-                      The reason is what separates a correction from a favour three months later.
+                      {tr("The reason is what separates a correction from a favour three months later.", "Alasan itulah yang membedakan koreksi dari bantuan tiga bulan kemudian.")}
                     </p>
                     <div className="mt-2 flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setAdding(false)} disabled={busy}>Cancel</Button>
-                      <Button size="sm" onClick={addScan} disabled={busy || !time || !addReason.trim()}>Add tap</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setAdding(false)} disabled={busy}>{tr("Cancel", "Batal")}</Button>
+                      <Button size="sm" onClick={addScan} disabled={busy || !time || !addReason.trim()}>{tr("Add tap", "Tambah tap")}</Button>
                     </div>
                   </div>
                 ) : (
                   <Button size="sm" variant="outline" icon={Plus} onClick={() => setAdding(true)}>
-                    Tap the machine missed
+                    {tr("Tap the machine missed", "Tap yang terlewat mesin")}
                   </Button>
                 )}
 
@@ -361,7 +370,7 @@ export function DayDrawer({
                 {!d.mark && (
                   <div className="rounded-xl border border-slate-200 px-4 py-3">
                     <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
-                      <Flag className="h-4 w-4 text-slate-400" /> Mark this day for {d.full_name}
+                      <Flag className="h-4 w-4 text-slate-400" /> {tr(`Mark this day for ${d.full_name}`, `Tandai hari ini untuk ${d.full_name}`)}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {(Object.keys(DAY_MARK_LABEL) as DayMarkKind[]).map((k) => (
@@ -375,19 +384,19 @@ export function DayDrawer({
                       <>
                         <input
                           value={markReason} onChange={(e) => setMarkReason(e.target.value)}
-                          placeholder="Keterangan — surat dokter, izin keluarga, acara kantor…"
+                          placeholder={tr("Reason — doctor’s note, family permit, office event…", "Keterangan — surat dokter, izin keluarga, acara kantor…")}
                           className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         />
                         <p className="mt-1 text-[11px] text-slate-500">
-                          {kind === "half_day" ? "Dihitung 0,5 hari."
-                            : kind === "holiday" ? "Jam yang dikerjakan pada tanggal merah dihitung lembur."
-                              : kind === "sick" ? "Dibayar penuh bila surat dokter dilampirkan — bisa menyusul."
-                                : kind === "leave" ? "Dibayar bila hak cuti orang ini masih ada; sisanya tercatat tanpa dibayar."
-                                  : "Tercatat, tidak dibayar."}
+                          {kind === "half_day" ? tr("Counted as 0.5 day.", "Dihitung 0,5 hari.")
+                            : kind === "holiday" ? tr("Hours worked on a public holiday count as overtime.", "Jam yang dikerjakan pada tanggal merah dihitung lembur.")
+                              : kind === "sick" ? tr("Paid in full when a doctor’s note is attached — it can follow later.", "Dibayar penuh bila surat dokter dilampirkan — bisa menyusul.")
+                                : kind === "leave" ? tr("Paid while this person still has leave entitlement; the rest is recorded unpaid.", "Dibayar bila hak cuti orang ini masih ada; sisanya tercatat tanpa dibayar.")
+                                  : tr("Recorded, not paid.", "Tercatat, tidak dibayar.")}
                         </p>
                         <div className="mt-2 flex justify-end">
                           <Button size="sm" onClick={mark} disabled={busy || !markReason.trim()}>
-                            Mark as {DAY_MARK_LABEL[kind].toLowerCase()}
+                            {tr(`Mark as ${DAY_MARK_LABEL[kind].toLowerCase()}`, `Tandai sebagai ${DAY_MARK_LABEL[kind].toLowerCase()}`)}
                           </Button>
                         </div>
                       </>
@@ -403,7 +412,7 @@ export function DayDrawer({
             {mayEdit && (
               <div className="rounded-xl border border-slate-200 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
-                  <Wallet className="h-4 w-4 text-slate-400" /> Tunjangan hari ini
+                  <Wallet className="h-4 w-4 text-slate-400" /> {tr("Allowance for this day", "Tunjangan hari ini")}
                 </p>
                 <Loaded state={holds} onRetry={reloadHolds}>
                   {(rows) => {
@@ -413,48 +422,51 @@ export function DayDrawer({
                       <>
                         {active ? (
                           <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[12px] text-amber-900">
-                            <strong className="font-medium">Ditahan</strong> — {active.reason}
+                            <strong className="font-medium">{tr("Withheld", "Ditahan")}</strong> — {active.reason}
                             <span className="mt-0.5 block text-[11px] text-amber-700">
                               {active.by_name}, {active.at.slice(0, 10)}
                             </span>
                             <Button size="sm" variant="outline" icon={Undo2} className="mt-2"
                               disabled={busy} onClick={() => release(active.id)}>
-                              Kembalikan
+                              {tr("Restore", "Kembalikan")}
                             </Button>
                           </div>
                         ) : holdOpen ? (
                           <div className="mt-1.5 rounded-lg border border-slate-200 px-3 py-2">
                             <input
                               value={holdReason} onChange={(e) => setHoldReason(e.target.value)}
-                              placeholder="WFH · setengah hari · tidak masuk — alasannya"
+                              placeholder={tr("WFH · half day · absent — the reason", "WFH · setengah hari · tidak masuk — alasannya")}
                               className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                             />
                             <p className="mt-1 text-[11px] text-slate-500">
-                              Terlambat <strong>bukan</strong> alasan di sini: terlambat dipotong per jam,
-                              tunjangannya tetap dibayar kalau orangnya hadir.
+                              {tr("Lateness is", "Terlambat")} <strong>{tr("not", "bukan")}</strong>{" "}
+                              {tr(
+                                "a reason here: lateness is deducted per hour, and the allowance is still paid if the person was present.",
+                                "alasan di sini: terlambat dipotong per jam, tunjangannya tetap dibayar kalau orangnya hadir.",
+                              )}
                             </p>
                             <div className="mt-2 flex justify-end gap-2">
                               <Button size="sm" variant="ghost" disabled={busy}
-                                onClick={() => setHoldOpen(false)}>Batal</Button>
+                                onClick={() => setHoldOpen(false)}>{tr("Cancel", "Batal")}</Button>
                               <Button size="sm" disabled={busy || !holdReason.trim()} onClick={hold}>
-                                Tahan tunjangan
+                                {tr("Withhold allowance", "Tahan tunjangan")}
                               </Button>
                             </div>
                           </div>
                         ) : (
                           <>
                             <p className="mt-0.5 text-[12px] text-slate-500">
-                              Dibayar — hari ini tercatat hadir.
+                              {tr("Paid — this day is recorded as present.", "Dibayar — hari ini tercatat hadir.")}
                             </p>
                             <Button size="sm" variant="outline" className="mt-2"
                               onClick={() => setHoldOpen(true)}>
-                              Tahan tunjangan hari ini
+                              {tr("Withhold this day’s allowance", "Tahan tunjangan hari ini")}
                             </Button>
                           </>
                         )}
                         {restored.map((w) => (
                           <p key={w.id} className="mt-1.5 text-[11px] text-slate-400">
-                            Pernah ditahan ({w.reason}) — dikembalikan {w.restored_by_name}: {w.restored_reason}
+                            {tr(`Withheld once (${w.reason}) — restored by ${w.restored_by_name}: ${w.restored_reason}`, `Pernah ditahan (${w.reason}) — dikembalikan ${w.restored_by_name}: ${w.restored_reason}`)}
                           </p>
                         ))}
                       </>
@@ -473,14 +485,16 @@ export function DayDrawer({
               <div className="rounded-xl border border-slate-200 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
                   <Clock className="h-4 w-4 text-slate-400" />
-                  {formatNumber(d.overtime_hours)} jam lewat jam kerja tercatat di mesin
+                  {tr(`${formatNumber(d.overtime_hours)} h past working hours recorded on the machine`, `${formatNumber(d.overtime_hours)} jam lewat jam kerja tercatat di mesin`)}
                 </p>
                 <p className="mt-0.5 text-[12px] text-slate-500">
-                  Mesin tahu dia masih di tempat, bukan bahwa dia bekerja. Jam ini baru dibayar
-                  setelah masuk lembar lembur — produksi ditandatangani pimpinan, staff diputuskan HRD.
+                  {tr(
+                    "The machine knows the person was still on site, not that they were working. These hours are paid only once they are on an overtime sheet — production is signed by the leader, staff is decided by HRD.",
+                    "Mesin tahu dia masih di tempat, bukan bahwa dia bekerja. Jam ini baru dibayar setelah masuk lembar lembur — produksi ditandatangani pimpinan, staff diputuskan HRD.",
+                  )}
                 </p>
                 <Link href="/hrd/lembur">
-                  <Button size="sm" variant="outline" className="mt-2">Buka lembar lembur</Button>
+                  <Button size="sm" variant="outline" className="mt-2">{tr("Open overtime sheets", "Buka lembar lembur")}</Button>
                 </Link>
               </div>
             )}

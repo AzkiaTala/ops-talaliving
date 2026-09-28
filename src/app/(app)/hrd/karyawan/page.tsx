@@ -9,6 +9,7 @@ import { formatIDR, formatNumber } from "@/lib/format";
 import { hr } from "@/demo/api";
 import type { Employee } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 import { EmployeeDrawer } from "./EmployeeDrawer";
 
 /** Who works here, and what a day of their time costs.
@@ -19,6 +20,7 @@ import { EmployeeDrawer } from "./EmployeeDrawer";
  *  money — so it is a column, not two screens.
  */
 export default function EmployeesPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [rows, reload] = useLoad(() => hr.listEmployees({ include_left: true }), []);
   const [editing, setEditing] = useState<Employee | null>(null);
@@ -30,7 +32,7 @@ export default function EmployeesPage() {
   const columns: Column<Employee>[] = [
     {
       key: "who",
-      header: "Employee",
+      header: tr("Employee", "Karyawan"),
       className: "whitespace-normal",
       render: (e) => (
         <div className="max-w-[280px]">
@@ -42,7 +44,7 @@ export default function EmployeesPage() {
     },
     {
       key: "schedule",
-      header: "Jadwal",
+      header: tr("Schedule", "Jadwal"),
       render: (e) => {
         /* Which pattern, and **whether it is this person's or their unit's**.
            The two look the same on a payslip and are different facts: one
@@ -52,13 +54,13 @@ export default function EmployeesPage() {
           : undefined;
         const viaUnit = schedules.find((sc) => sc.units.includes(e.unit));
         const sc = own ?? viaUnit;
-        if (!sc) return <span className="text-[12px] text-amber-700">tanpa jadwal</span>;
+        if (!sc) return <span className="text-[12px] text-amber-700">{tr("no schedule", "tanpa jadwal")}</span>;
         return (
           <div className="max-w-[190px]">
             <p className="text-[12px] text-slate-700">{sc.name}</p>
             <p className="text-[10px] text-slate-400">
-              {own ? "ditetapkan" : "ikut unit"}
-              {sc.hours.weekly_hours != null && ` · ${sc.hours.weekly_hours} jam/mg`}
+              {own ? tr("assigned", "ditetapkan") : tr("via unit", "ikut unit")}
+              {sc.hours.weekly_hours != null && tr(` · ${sc.hours.weekly_hours} h/wk`, ` · ${sc.hours.weekly_hours} jam/mg`)}
             </p>
           </div>
         );
@@ -66,28 +68,28 @@ export default function EmployeesPage() {
     },
     {
       key: "basis",
-      header: "Paid",
+      header: tr("Paid", "Dibayar"),
       render: (e) => (
         <Badge tone={e.pay_basis === "monthly" ? "brand" : "slate"}>
-          {e.pay_basis === "monthly" ? "monthly" : e.pay_basis === "daily" ? "per day" : "per hour"}
+          {e.pay_basis === "monthly" ? tr("monthly", "bulanan") : e.pay_basis === "daily" ? tr("per day", "per hari") : tr("per hour", "per jam")}
         </Badge>
       ),
     },
     {
       key: "rate",
-      header: "Rate",
+      header: tr("Rate", "Tarif"),
       align: "right",
       render: (e) => (
         <div className="whitespace-nowrap text-right">
           <span className="tabular-nums font-medium text-slate-800">{formatIDR(e.base_rate)}</span>
           <p className="text-[11px] text-slate-500">
-            pokok · {e.pay_basis === "monthly" ? "per month"
-              : e.pay_basis === "daily" ? `per day · ${formatNumber(e.daily_hours)}h`
-                : "per hour"}
+            {tr("base", "pokok")} · {e.pay_basis === "monthly" ? tr("per month", "per bulan")
+              : e.pay_basis === "daily" ? tr(`per day · ${formatNumber(e.daily_hours)}h`, `per hari · ${formatNumber(e.daily_hours)} jam`)
+                : tr("per hour", "per jam")}
           </p>
           {e.allowance_rate > 0 && (
             <p className="text-[11px] text-slate-500">
-              + {formatIDR(e.allowance_rate)} tunjangan / hari hadir
+              + {formatIDR(e.allowance_rate)} {tr("allowance / day present", "tunjangan / hari hadir")}
             </p>
           )}
         </div>
@@ -95,26 +97,26 @@ export default function EmployeesPage() {
     },
     {
       key: "leave",
-      header: "Hak cuti",
+      header: tr("Leave entitlement", "Hak cuti"),
       align: "right",
       render: (e) => (
         <div className="whitespace-nowrap text-right">
           <span className="tabular-nums text-slate-700">{formatNumber(e.paid_leave_days)}</span>
-          <p className="text-[11px] text-slate-400">hari berbayar</p>
+          <p className="text-[11px] text-slate-400">{tr("paid days", "hari berbayar")}</p>
         </div>
       ),
     },
     {
       key: "joined",
-      header: "Since",
+      header: tr("Since", "Sejak"),
       render: (e) => <span className="whitespace-nowrap text-[12px] text-slate-500">{e.joined_on}</span>,
     },
     {
       key: "state",
       header: "",
       render: (e) => e.active
-        ? <Badge tone="green">active</Badge>
-        : <Badge tone="slate">left {e.left_on}</Badge>,
+        ? <Badge tone="green">{tr("active", "aktif")}</Badge>
+        : <Badge tone="slate">{tr("left", "keluar")} {e.left_on}</Badge>,
     },
   ];
 
@@ -122,9 +124,12 @@ export default function EmployeesPage() {
     <div>
       <PageHeader
         breadcrumb="HRD"
-        title="Employees"
-        description="Everybody on the payroll, and what their time costs. Deductions are not modelled yet — see the payroll screen."
-        actions={mayEdit ? <Button icon={Plus} onClick={() => setAdding(true)}>Add somebody</Button> : undefined}
+        title={tr("Employees", "Karyawan")}
+        description={tr(
+          "Everybody on the payroll, and what their time costs. Deductions are not modelled yet — see the payroll screen.",
+          "Semua orang di daftar gaji, dan berapa biaya waktu mereka. Potongan belum dimodelkan — lihat layar penggajian.",
+        )}
+        actions={mayEdit ? <Button icon={Plus} onClick={() => setAdding(true)}>{tr("Add somebody", "Tambah orang")}</Button> : undefined}
       />
 
       <Loaded state={rows} onRetry={reload}>
@@ -148,12 +153,12 @@ export default function EmployeesPage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["People", String(active.length), `${monthly.length} on salary, ${daily.length} on a rate`],
-                    ["Salaries", formatIDR(monthlyCost), monthlyAllowance > 0
-                      ? `pokok setiap bulan · + ${formatIDR(monthlyAllowance)} tunjangan per hari hadir`
-                      : "every month, whatever the machine says"],
-                    ["A full day of the workshop", formatIDR(dailyCost), `${daily.length} people, if everybody is in — pokok + tunjangan`],
-                    ["Left", String(left.length), "records kept — a payslip from March is still a fact"],
+                    [tr("People", "Orang"), String(active.length), tr(`${monthly.length} on salary, ${daily.length} on a rate`, `${monthly.length} bergaji bulanan, ${daily.length} dengan tarif`)],
+                    [tr("Salaries", "Gaji"), formatIDR(monthlyCost), monthlyAllowance > 0
+                      ? tr(`base pay every month · + ${formatIDR(monthlyAllowance)} allowance per day present`, `pokok setiap bulan · + ${formatIDR(monthlyAllowance)} tunjangan per hari hadir`)
+                      : tr("every month, whatever the machine says", "setiap bulan, apa pun kata mesin")],
+                    [tr("A full day of the workshop", "Sehari penuh workshop"), formatIDR(dailyCost), tr(`${daily.length} people, if everybody is in — base + allowance`, `${daily.length} orang, kalau semua hadir — pokok + tunjangan`)],
+                    [tr("Left", "Keluar"), String(left.length), tr("records kept — a payslip from March is still a fact", "catatan tetap disimpan — slip gaji bulan Maret tetap sebuah fakta")],
                   ] as [string, string, string][]).map(([k, v, note]) => (
                     <div key={k} className="px-4 py-3.5">
                       <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -166,24 +171,27 @@ export default function EmployeesPage() {
 
               <Card className="mb-4">
                 <CardHeader
-                  title={`${active.length} working here`}
-                  subtitle="Click somebody to change what they are paid — the figure before and after goes on the audit row."
+                  title={tr(`${active.length} working here`, `${active.length} bekerja di sini`)}
+                  subtitle={tr(
+                    "Click somebody to change what they are paid — the figure before and after goes on the audit row.",
+                    "Klik seseorang untuk mengubah bayarannya — angka sebelum dan sesudahnya dicatat di baris audit.",
+                  )}
                   icon={Users}
                   action={<SourceBadge state={rows} />}
                 />
                 <DataTable
                   dense columns={columns} rows={active} rowKey={(e) => e.employee_no}
                   onRowClick={(e) => mayEdit && setEditing(e)}
-                  empty="Nobody on the payroll yet."
+                  empty={tr("Nobody on the payroll yet.", "Belum ada orang di daftar gaji.")}
                 />
               </Card>
 
               {left.length > 0 && (
                 <Card>
-                  <CardHeader title={`${left.length} who have left`} icon={Wallet} />
+                  <CardHeader title={tr(`${left.length} who have left`, `${left.length} yang sudah keluar`)} icon={Wallet} />
                   <DataTable
                     dense columns={columns} rows={left} rowKey={(e) => e.employee_no}
-                    empty="Nobody has left."
+                    empty={tr("Nobody has left.", "Belum ada yang keluar.")}
                   />
                 </Card>
               )}

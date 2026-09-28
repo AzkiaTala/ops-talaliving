@@ -23,16 +23,28 @@
  *  Cost and margin are for the people who can edit a project (`project.update`);
  *  a reader sees prices only. That is a screen rule, not a secret — see 0133.
  */
+import { trNow, type Message } from "@/lib/i18n";
 
 export type QuotationStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "SUPERSEDED";
 
-export const QUOTATION_STATUSES: { code: QuotationStatus; label: string; tone: "slate" | "brand" | "green" | "red" | "amber" }[] = [
-  { code: "DRAFT", label: "Draft", tone: "slate" },
-  { code: "SENT", label: "Terkirim", tone: "brand" },
-  { code: "ACCEPTED", label: "Disetujui", tone: "green" },
-  { code: "REJECTED", label: "Ditolak", tone: "red" },
-  { code: "SUPERSEDED", label: "Diganti revisi", tone: "amber" },
-];
+const QUOTATION_STATUS_LABELS: Record<QuotationStatus, Message> = {
+  DRAFT: { en: "Draft", id: "Draft" },
+  SENT: { en: "Sent", id: "Terkirim" },
+  ACCEPTED: { en: "Accepted", id: "Disetujui" },
+  REJECTED: { en: "Rejected", id: "Ditolak" },
+  SUPERSEDED: { en: "Superseded by a revision", id: "Diganti revisi" },
+};
+
+const QUOTATION_STATUS_TONE: Record<QuotationStatus, "slate" | "brand" | "green" | "red" | "amber"> = {
+  DRAFT: "slate", SENT: "brand", ACCEPTED: "green", REJECTED: "red", SUPERSEDED: "amber",
+};
+
+export const QUOTATION_STATUSES: { code: QuotationStatus; label: string; tone: "slate" | "brand" | "green" | "red" | "amber" }[] =
+  (Object.keys(QUOTATION_STATUS_LABELS) as QuotationStatus[]).map((code) => ({
+    code,
+    get label() { return trNow(QUOTATION_STATUS_LABELS[code].en, QUOTATION_STATUS_LABELS[code].id); },
+    tone: QUOTATION_STATUS_TONE[code],
+  }));
 
 export const QUOTATION_STATUS_LABEL = (s: QuotationStatus): string =>
   QUOTATION_STATUSES.find((x) => x.code === s)?.label ?? s;

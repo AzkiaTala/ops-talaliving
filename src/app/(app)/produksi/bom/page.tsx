@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { production } from "@/demo/api";
 import { useSession } from "@/store/session";
 import { ProductDrawer } from "./ProductDrawer";
+import { useTr } from "@/lib/i18n";
 
 /** Master data: what we sell and make, what each one is made of, and what
  *  one unit costs us to make.
@@ -26,6 +27,7 @@ import { ProductDrawer } from "./ProductDrawer";
  *  (D149). It is a cost, never a selling price.
  */
 export default function BomPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [products, reload] = useLoad(() => production.listProducts({ include_inactive: true }), []);
   const [q, setQ] = useState("");
@@ -44,11 +46,14 @@ export default function BomPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Production"
-        title="Produk &amp; Bill of Materials"
-        description="Per item code: gambar kerja, komponen per unit (bahan, sub-rakitan, tenaga kerja) dengan rate masing-masing, dan biaya produksinya. Bukan harga jual."
+        breadcrumb={tr("Production", "Produksi")}
+        title={tr("Products & Bill of Materials", "Produk & Bill of Materials")}
+        description={tr(
+          "Per item code: working drawing, components per unit (materials, sub-assemblies, labour) with their rates, and the production cost. Not a selling price.",
+          "Per item code: gambar kerja, komponen per unit (bahan, sub-rakitan, tenaga kerja) dengan rate masing-masing, dan biaya produksinya. Bukan harga jual.",
+        )}
         actions={mayEdit ? (
-          <Button icon={Plus} onClick={() => { setCreating(true); setOpen(null); }}>Produk baru</Button>
+          <Button icon={Plus} onClick={() => { setCreating(true); setOpen(null); }}>{tr("New product", "Produk baru")}</Button>
         ) : undefined}
       />
 
@@ -65,17 +70,17 @@ export default function BomPage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["Produk", String(all.length), "yang dijual dan dibuat sendiri"],
-                    ["Punya BOM", String(withBom.length), "komponennya sudah tercatat"],
-                    ["Belum ada BOM", String(noBom.length), noBom.length > 0 ? "kebutuhan bahannya belum bisa dihitung" : "semua sudah punya"],
-                    ["Data belum lengkap", String(incomplete.length), "ukuran, gambar kerja atau gambar jadi"],
+                    [tr("Products", "Produk"), String(all.length), tr("sold and made in-house", "yang dijual dan dibuat sendiri")],
+                    [tr("Has a BOM", "Punya BOM"), String(withBom.length), tr("components recorded", "komponennya sudah tercatat")],
+                    [tr("No BOM yet", "Belum ada BOM"), String(noBom.length), noBom.length > 0 ? tr("material needs cannot be calculated yet", "kebutuhan bahannya belum bisa dihitung") : tr("all have one", "semua sudah punya")],
+                    [tr("Data incomplete", "Data belum lengkap"), String(incomplete.length), tr("size, working drawing or finished photo", "ukuran, gambar kerja atau gambar jadi")],
                   ] as [string, string, string][]).map(([k, v, note]) => (
                     <div key={k} className="px-4 py-3.5">
                       <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                       <dd className={cn(
                         "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                        (k === "Belum ada BOM" && noBom.length > 0)
-                          || (k === "Data belum lengkap" && incomplete.length > 0)
+                        (k === tr("No BOM yet", "Belum ada BOM") && noBom.length > 0)
+                          || (k === tr("Data incomplete", "Data belum lengkap") && incomplete.length > 0)
                           ? "text-amber-700" : "text-slate-800",
                       )}>
                         {v}
@@ -88,8 +93,11 @@ export default function BomPage() {
 
               <Card>
                 <CardHeader
-                  title="Katalog produk"
-                  subtitle="Klik untuk melihat komponennya, mengubah jumlah, dan menghitung kebutuhan bahan untuk sekian unit."
+                  title={tr("Product catalogue", "Katalog produk")}
+                  subtitle={tr(
+                    "Click to see its components, change quantities, and work out the material needed for a number of units.",
+                    "Klik untuk melihat komponennya, mengubah jumlah, dan menghitung kebutuhan bahan untuk sekian unit.",
+                  )}
                   icon={ListTree}
                   action={<SourceBadge state={products} />}
                 />
@@ -98,23 +106,23 @@ export default function BomPage() {
                     <Search className="h-4 w-4 text-slate-400" />
                     <input
                       value={q} onChange={(e) => setQ(e.target.value)}
-                      placeholder="Cari nama, kode atau kategori…"
+                      placeholder={tr("Search name, code or category…", "Cari nama, kode atau kategori…")}
                       className="h-8 w-full text-sm focus:outline-none"
                     />
                   </label>
                 </div>
                 {/* Katalog produk tumbuh terus; tabelnya dipaginasi (D157). */}
-                <Paged rows={rows} pageSize={20} unit="produk">
+                <Paged rows={rows} pageSize={20} unit={tr("products", "produk")}>
                   {(shown) => (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[760px] border-collapse text-[13px]">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                          <th className="px-4 py-2 text-left">Produk</th>
-                          <th className="px-4 py-2 text-left">Kategori</th>
-                          <th className="px-4 py-2 text-right">Komponen</th>
-                          <th className="px-4 py-2 text-right">Biaya produksi / unit</th>
-                          <th className="px-4 py-2 text-left">Kelengkapan</th>
+                          <th className="px-4 py-2 text-left">{tr("Product", "Produk")}</th>
+                          <th className="px-4 py-2 text-left">{tr("Category", "Kategori")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Components", "Komponen")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Production cost / unit", "Biaya produksi / unit")}</th>
+                          <th className="px-4 py-2 text-left">{tr("Completeness", "Kelengkapan")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -133,7 +141,7 @@ export default function BomPage() {
                             </td>
                             <td className="px-4 py-2 text-slate-600">
                               {p.category}
-                              {!p.active && <Badge tone="slate" className="ml-2">nonaktif</Badge>}
+                              {!p.active && <Badge tone="slate" className="ml-2">{tr("inactive", "nonaktif")}</Badge>}
                             </td>
                             <td className="px-4 py-2 text-right tabular-nums text-slate-700">
                               {p.components.length || "—"}
@@ -143,14 +151,14 @@ export default function BomPage() {
                                 <span className="text-slate-300">—</span>
                               ) : p.production_cost == null ? (
                                 <span className="text-[12px] text-amber-700">
-                                  belum lengkap · {p.unpriced} tanpa rate
+                                  {tr(`incomplete · ${p.unpriced} without a rate`, `belum lengkap · ${p.unpriced} tanpa rate`)}
                                 </span>
                               ) : (
                                 <>
                                   <span className="tabular-nums text-slate-800">{formatIDR(p.production_cost)}</span>
                                   <span className="block text-[11px] text-slate-400">
                                     rev {p.viewing_rev}{p.draft_rev != null ? " · draft" : ""}
-                                    {p.labour_cost == null && " · tanpa tenaga kerja"}
+                                    {p.labour_cost == null && tr(" · no labour", " · tanpa tenaga kerja")}
                                   </span>
                                 </>
                               )}
@@ -160,15 +168,15 @@ export default function BomPage() {
                                 (D150). */}
                             <td className="px-4 py-2 text-[12px]">
                               {p.missing.length === 0 ? (
-                                <span className="text-emerald-700">lengkap</span>
+                                <span className="text-emerald-700">{tr("complete", "lengkap")}</span>
                               ) : (
-                                <span className="text-amber-700">belum ada {p.missing.join(", ")}</span>
+                                <span className="text-amber-700">{tr("missing", "belum ada")} {p.missing.join(", ")}</span>
                               )}
                             </td>
                           </tr>
                         ))}
                         {rows.length === 0 && (
-                          <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Tidak ada yang cocok.</td></tr>
+                          <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">{tr("Nothing matches.", "Tidak ada yang cocok.")}</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -177,10 +185,13 @@ export default function BomPage() {
                 </Paged>
                 <p className="flex items-start gap-2 border-t border-slate-100 px-4 py-2.5 text-[11px] text-slate-500">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                  Biaya produksi = bahan + sub-rakitan + tenaga kerja, ditambah persentase
-                  miskalkulasi. Rate yang tidak diisi mengikuti harga standar katalog, atau harga
-                  beli terakhir; saat BOM dirilis, rate-nya dikunci. Komponen tanpa rate tidak
-                  dihitung nol — totalnya ditandai belum lengkap. <strong>Bukan harga jual.</strong>
+                  <span>
+                    {tr(
+                      "Production cost = materials + sub-assemblies + labour, plus the miscalculation percentage. A rate left empty follows the catalogue standard price, or the last purchase price; when the BOM is released, its rates are locked. A component with no rate is not counted as zero — the total is marked incomplete.",
+                      "Biaya produksi = bahan + sub-rakitan + tenaga kerja, ditambah persentase miskalkulasi. Rate yang tidak diisi mengikuti harga standar katalog, atau harga beli terakhir; saat BOM dirilis, rate-nya dikunci. Komponen tanpa rate tidak dihitung nol — totalnya ditandai belum lengkap.",
+                    )}{" "}
+                    <strong>{tr("Not a selling price.", "Bukan harga jual.")}</strong>
+                  </span>
                 </p>
               </Card>
             </>

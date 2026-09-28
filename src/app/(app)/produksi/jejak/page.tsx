@@ -11,6 +11,7 @@ import {
   MATERIAL_STATUS_LABEL, TRAIL_STAGE_LABEL,
   type JobTrail, type TrailStage,
 } from "@/services/production/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** One number, the whole story (`0171`, D312).
  *
@@ -23,6 +24,7 @@ import {
  *  code, a JO, a PR, a PO, a receiving report or a surat jalan.
  */
 export default function JobTrailPage() {
+  const tr = useTr();
   const [input, setInput] = useState("");
   const [no, setNo] = useState("");
   /* A link from a Job Order lands here already opened. Read once from the
@@ -41,9 +43,12 @@ export default function JobTrailPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Produksi"
-        title="Jejak pembelian–produksi"
-        description="Ketik satu nomor — proyek, Job Order, PR, PO, receiving report, surat jalan, atau kode barang — untuk melihat seluruh kejadiannya: dari barang masuk katalog, BOM, pembelian, gudang, sampai Job Order dan BAST."
+        breadcrumb={tr("Production", "Produksi")}
+        title={tr("Purchasing–production trail", "Jejak pembelian–produksi")}
+        description={tr(
+          "Type one number — project, Job Order, PR, PO, receiving report, surat jalan, or item code — to see everything that happened: from the item entering the catalogue, BOM, purchasing, warehouse, through to the Job Order and BAST.",
+          "Ketik satu nomor — proyek, Job Order, PR, PO, receiving report, surat jalan, atau kode barang — untuk melihat seluruh kejadiannya: dari barang masuk katalog, BOM, pembelian, gudang, sampai Job Order dan BAST.",
+        )}
       />
       <form
         className="mb-4 flex flex-wrap items-center gap-2"
@@ -51,18 +56,20 @@ export default function JobTrailPage() {
       >
         <label className="flex h-9 flex-1 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 sm:max-w-md">
           <Search className="h-4 w-4 text-slate-400" />
-          <input value={input} onChange={(e) => setInput(e.target.value)} aria-label="Nomor"
-            placeholder="25007, spk-26-08-24_01, pr-…, po-…, rcv-…, krm-…, kode barang"
+          <input value={input} onChange={(e) => setInput(e.target.value)} aria-label={tr("Number", "Nomor")}
+            placeholder={tr("25007, spk-26-08-24_01, pr-…, po-…, rcv-…, krm-…, item code", "25007, spk-26-08-24_01, pr-…, po-…, rcv-…, krm-…, kode barang")}
             className="h-8 w-full text-sm focus:outline-none" />
         </label>
-        <Button size="sm" icon={Route} disabled={!input.trim()}>Buka jejak</Button>
+        <Button size="sm" icon={Route} disabled={!input.trim()}>{tr("Open trail", "Buka jejak")}</Button>
       </form>
 
       {no ? <Trail key={no} no={no} onOpen={open} /> : (
         <Card>
           <p className="px-5 py-8 text-center text-[13px] text-slate-500">
-            Satu nomor cukup. Nomor dokumen apa pun di rantai ini membuka proyeknya — lalu semua Job Order,
-            pembelian, penerimaan, stok, produksi, dan pengirimannya ikut.
+            {tr(
+              "One number is enough. Any document number in this chain opens its project — and with it every Job Order, purchase, receipt, stock move, production entry and delivery.",
+              "Satu nomor cukup. Nomor dokumen apa pun di rantai ini membuka proyeknya — lalu semua Job Order, pembelian, penerimaan, stok, produksi, dan pengirimannya ikut.",
+            )}
           </p>
         </Card>
       )}
@@ -78,6 +85,7 @@ const STAGE_TONE: Record<TrailStage, Tone> = {
 };
 
 function Trail({ no, onOpen }: { no: string; onOpen: (n: string) => void }) {
+  const tr = useTr();
   const [state, reload] = useLoad(() => production.jobTrail(no), [no]);
   const [jo, setJo] = useState<string | null>(null);
   return (
@@ -90,33 +98,43 @@ function Trail({ no, onOpen }: { no: string; onOpen: (n: string) => void }) {
             {t.hidden.length > 0 && (
               <p className="mb-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-[12px] text-slate-600">
                 <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                Tidak ditampilkan untuk akun ini: {t.hidden.map((h) => TRAIL_STAGE_LABEL[h]).join(", ")}.
-                Bukan berarti tidak terjadi — akses modulnya tidak ada.
+                {tr("Not shown for this account:", "Tidak ditampilkan untuk akun ini:")} {t.hidden.map((h) => TRAIL_STAGE_LABEL[h]).join(", ")}.{" "}
+                {tr("That does not mean it did not happen — the account has no access to that module.", "Bukan berarti tidak terjadi — akses modulnya tidak ada.")}
               </p>
             )}
             {(t.unlinked_purchase_lines ?? 0) > 0 && (
               <p className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-2.5 text-[12px] text-amber-900">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {t.unlinked_purchase_lines} baris pembelian {t.item ? "barang ini" : "di proyek ini"} tidak menyebut
-                Job Order — biayanya tercatat, tapi tidak bisa ditelusuri ke produksi mana.
+                {t.item
+                  ? tr(
+                    `${t.unlinked_purchase_lines} purchase lines for this item name no Job Order — the cost is recorded, but cannot be traced to any production.`,
+                    `${t.unlinked_purchase_lines} baris pembelian barang ini tidak menyebut Job Order — biayanya tercatat, tapi tidak bisa ditelusuri ke produksi mana.`,
+                  )
+                  : tr(
+                    `${t.unlinked_purchase_lines} purchase lines in this project name no Job Order — the cost is recorded, but cannot be traced to any production.`,
+                    `${t.unlinked_purchase_lines} baris pembelian di proyek ini tidak menyebut Job Order — biayanya tercatat, tapi tidak bisa ditelusuri ke produksi mana.`,
+                  )}
               </p>
             )}
             <Card>
               <CardHeader
-                title={`${shown.length} kejadian${jo ? ` · ${jo}` : ""}`}
-                subtitle="Urut waktu. Kode barang menyambung bahan dari PR sampai keluar ke JO; nomor JO menyambung ke proyek."
+                title={tr(`${shown.length} events${jo ? ` · ${jo}` : ""}`, `${shown.length} kejadian${jo ? ` · ${jo}` : ""}`)}
+                subtitle={tr(
+                  "In time order. The item code threads material from the PR to its issue to a JO; the JO number threads to the project.",
+                  "Urut waktu. Kode barang menyambung bahan dari PR sampai keluar ke JO; nomor JO menyambung ke proyek.",
+                )}
                 icon={Route}
               />
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[860px] border-collapse text-[12.5px]">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-2 text-left">Waktu</th>
-                      <th className="px-4 py-2 text-left">Kejadian</th>
-                      <th className="px-4 py-2 text-left">Nomor</th>
+                      <th className="px-4 py-2 text-left">{tr("Time", "Waktu")}</th>
+                      <th className="px-4 py-2 text-left">{tr("Event", "Kejadian")}</th>
+                      <th className="px-4 py-2 text-left">{tr("Number", "Nomor")}</th>
                       <th className="px-4 py-2 text-left">JO</th>
-                      <th className="px-4 py-2 text-left">Barang</th>
-                      <th className="px-4 py-2 text-right">Jumlah</th>
+                      <th className="px-4 py-2 text-left">{tr("Item", "Barang")}</th>
+                      <th className="px-4 py-2 text-right">{tr("Quantity", "Jumlah")}</th>
                       <th className="px-4 py-2 text-right">Rupiah</th>
                     </tr>
                   </thead>
@@ -145,12 +163,12 @@ function Trail({ no, onOpen }: { no: string; onOpen: (n: string) => void }) {
                         </td>
                         <td className="px-4 py-1.5 text-right tabular-nums text-slate-600">
                           {e.amount != null && formatIDR(e.amount)}
-                          {e.paid != null && e.paid > 0 && <div className="text-[11px] text-emerald-700">dibayar {formatIDR(e.paid)}</div>}
+                          {e.paid != null && e.paid > 0 && <div className="text-[11px] text-emerald-700">{tr("paid", "dibayar")} {formatIDR(e.paid)}</div>}
                         </td>
                       </tr>
                     ))}
                     {shown.length === 0 && (
-                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Belum ada kejadian yang tercatat.</td></tr>
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">{tr("No events recorded yet.", "Belum ada kejadian yang tercatat.")}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -164,6 +182,7 @@ function Trail({ no, onOpen }: { no: string; onOpen: (n: string) => void }) {
 }
 
 function Summary({ trail: t, jo, onJo }: { trail: JobTrail; jo: string | null; onJo: (w: string | null) => void }) {
+  const tr = useTr();
   return (
     <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -172,7 +191,7 @@ function Summary({ trail: t, jo, onJo }: { trail: JobTrail; jo: string | null; o
             <span className="font-mono text-[12px] text-slate-500">{t.item.code}</span>
             <span className="text-base font-semibold text-slate-800">{t.item.name}</span>
             {t.item.name_local && <span className="text-[12px] text-slate-500">{t.item.name_local}</span>}
-            <Badge tone="slate">riwayat barang</Badge>
+            <Badge tone="slate">{tr("item history", "riwayat barang")}</Badge>
           </>
         ) : t.project ? (
           <>
@@ -182,16 +201,16 @@ function Summary({ trail: t, jo, onJo }: { trail: JobTrail; jo: string | null; o
             {t.project.status && <Badge tone="slate">{t.project.status}</Badge>}
           </>
         ) : (
-          <span className="text-[13px] text-slate-500">Tidak terhubung ke proyek mana pun.</span>
+          <span className="text-[13px] text-slate-500">{tr("Not linked to any project.", "Tidak terhubung ke proyek mana pun.")}</span>
         )}
-        <span className="ml-auto text-[11px] text-slate-400">dibuka dari {t.no}</span>
+        <span className="ml-auto text-[11px] text-slate-400">{tr("opened from", "dibuka dari")} {t.no}</span>
       </div>
       {t.job_orders.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-2">
           <button type="button" onClick={() => onJo(null)}
             className={cn("rounded-lg border px-2.5 py-1.5 text-left text-[12px]",
               !jo ? "border-brand-300 bg-brand-50" : "border-slate-200 hover:bg-slate-50")}>
-            Semua JO
+            {tr("All JOs", "Semua JO")}
           </button>
           {t.job_orders.map((w) => (
             <button key={w.wo_no} type="button" onClick={() => onJo(jo === w.wo_no ? null : w.wo_no)}
@@ -200,7 +219,7 @@ function Summary({ trail: t, jo, onJo }: { trail: JobTrail; jo: string | null; o
               <span className="block font-mono text-[11px] text-slate-500">{w.wo_no} · {w.status}</span>
               <span className="block text-slate-700">{w.item_name}</span>
               <span className="block text-[11px] text-slate-500">
-                {formatNumber(w.completed)}/{formatNumber(w.qty)} {w.uom} jadi · <JoMaterial woNo={w.wo_no} />
+                {formatNumber(w.completed)}/{formatNumber(w.qty)} {w.uom} {tr("made", "jadi")} · <JoMaterial woNo={w.wo_no} />
               </span>
             </button>
           ))}

@@ -14,6 +14,7 @@ import { MOVE_LABEL, type StockItemDetail } from "@/services/inventory/contracts
 import { useToast } from "@/store/toast";
 import { EvidenceStrip } from "@/components/ui/evidence-strip";
 import { ITEM_PHOTO_MAX, ITEM_PHOTO_MIN } from "@/services/documents/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** One item: what is on the rack, where it came from, and what needs it.
  *
@@ -31,6 +32,7 @@ export function StockDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [detail, reload] = useLoad(() => inventory.getStockItem(itemCode), [itemCode]);
   const [locations] = useLoad(() => inventory.listStockLocations(), []);
@@ -55,18 +57,21 @@ export function StockDrawer({
       });
       setBusy(false);
       if (res.error) {
-        toast(res.error.status === 403 ? "critical" : "warning", "Tidak tercatat", res.error.message);
+        toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
         return;
       }
       if (res.data.went_negative) {
         /* Recorded either way — the rack is the truth, not the record — but
            somebody has to count it again. */
         toast(
-          "warning", "Tercatat, tapi stok jadi minus",
-          `Sistem sekarang mencatat ${formatNumber(res.data.on_hand_after)} ${d.uom}. Berarti ada yang belum tercatat sebelumnya — perlu opname.`,
+          "warning", tr("Recorded, but stock went negative", "Tercatat, tapi stok jadi minus"),
+          tr(
+            `The system now records ${formatNumber(res.data.on_hand_after)} ${d.uom}. Something was not recorded earlier — an opname is needed.`,
+            `Sistem sekarang mencatat ${formatNumber(res.data.on_hand_after)} ${d.uom}. Berarti ada yang belum tercatat sebelumnya — perlu opname.`,
+          ),
         );
       } else {
-        toast("success", "Tercatat", `Keluar ${formatNumber(form.qty)} ${d.uom}`);
+        toast("success", tr("Recorded", "Tercatat"), tr(`Issued ${formatNumber(form.qty)} ${d.uom}`, `Keluar ${formatNumber(form.qty)} ${d.uom}`));
       }
       after();
       return;
@@ -77,10 +82,10 @@ export function StockDrawer({
       : await inventory.transferStock({ item_code: d.item_code, from: location, to: form.to, qty: form.qty, reason: form.reason || null });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak tercatat", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", "Tercatat", `${MOVE_LABEL[form.kind]} ${formatNumber(form.qty)} ${d.uom}`);
+    toast("success", tr("Recorded", "Tercatat"), `${MOVE_LABEL[form.kind]} ${formatNumber(form.qty)} ${d.uom}`);
     after();
   }
 
@@ -88,7 +93,7 @@ export function StockDrawer({
     setBusy(true);
     const res = await inventory.setItemLocalName(itemCode, value.trim() || null);
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak tersimpan", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
     setLocalName(null);
     reload();
     onChanged();
@@ -111,17 +116,17 @@ export function StockDrawer({
           subtitle={
             <span className="text-[11px]">
               {d.item_name_local && <span className="mr-1 text-slate-700">{d.item_name_local} ·</span>}
-              <span className="font-mono">{d.item_code} · {d.category_name} · per {d.uom}</span>
+              <span className="font-mono">{d.item_code} · {d.category_name} · {tr("per", "per")} {d.uom}</span>
             </span>
           }
         >
           <div className="space-y-4">
             <dl className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 sm:grid-cols-4">
               {([
-                ["Di rak", `${formatNumber(d.on_hand)} ${d.uom}`, d.below_min ? `minimum ${formatNumber(d.min_qty ?? 0)}` : d.min_qty == null ? "minimum belum ditetapkan" : "di atas minimum"],
-                ["Harga rata-rata", d.avg_cost == null ? "—" : formatIDR(d.avg_cost), d.avg_cost == null ? "belum ada harga masuk" : "dari barang masuk yang berharga"],
-                ["Nilai", d.value == null ? "—" : formatIDR(d.value), d.unpriced_qty > 0 ? `belum termasuk ${formatNumber(d.unpriced_qty)} ${d.uom} tanpa harga` : "seluruh stok terhitung"],
-                ["Pergerakan", String(d.moves_count), d.last_move_at ? `terakhir ${d.last_move_at.slice(0, 10)}` : "belum pernah"],
+                [tr("On the rack", "Di rak"), `${formatNumber(d.on_hand)} ${d.uom}`, d.below_min ? `minimum ${formatNumber(d.min_qty ?? 0)}` : d.min_qty == null ? tr("minimum not set", "minimum belum ditetapkan") : tr("above minimum", "di atas minimum")],
+                [tr("Average price", "Harga rata-rata"), d.avg_cost == null ? "—" : formatIDR(d.avg_cost), d.avg_cost == null ? tr("no priced receipts yet", "belum ada harga masuk") : tr("from priced goods received", "dari barang masuk yang berharga")],
+                [tr("Value", "Nilai"), d.value == null ? "—" : formatIDR(d.value), d.unpriced_qty > 0 ? tr(`excludes ${formatNumber(d.unpriced_qty)} ${d.uom} without a price`, `belum termasuk ${formatNumber(d.unpriced_qty)} ${d.uom} tanpa harga`) : tr("all stock counted", "seluruh stok terhitung")],
+                [tr("Movements", "Pergerakan"), String(d.moves_count), d.last_move_at ? tr(`last ${d.last_move_at.slice(0, 10)}`, `terakhir ${d.last_move_at.slice(0, 10)}`) : tr("never", "belum pernah")],
               ] as [string, string, string][]).map(([k, v, note]) => (
                 <div key={k}>
                   <dt className="text-[10px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -145,21 +150,21 @@ export function StockDrawer({
                 catalogue's English one (0168). */}
             {mayMove && (
               <div className="flex flex-wrap items-center gap-2 text-[12px]">
-                <span className="text-slate-500">Nama lapangan</span>
+                <span className="text-slate-500">{tr("Floor name", "Nama lapangan")}</span>
                 {localName == null ? (
                   <>
-                    <span className="font-medium text-slate-800">{d.item_name_local ?? <span className="text-amber-700">belum diisi</span>}</span>
-                    <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setLocalName(d.item_name_local ?? "")}>Ubah</Button>
+                    <span className="font-medium text-slate-800">{d.item_name_local ?? <span className="text-amber-700">{tr("not filled in", "belum diisi")}</span>}</span>
+                    <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setLocalName(d.item_name_local ?? "")}>{tr("Edit", "Ubah")}</Button>
                   </>
                 ) : (
                   <>
                     <input
                       value={localName} onChange={(e) => setLocalName(e.target.value)} autoFocus
-                      placeholder="mis. amplas 240"
+                      placeholder={tr("e.g. amplas 240", "mis. amplas 240")}
                       className="h-8 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     />
-                    <Button size="sm" disabled={busy} onClick={() => saveLocalName(localName)}>Simpan</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setLocalName(null)}>Batal</Button>
+                    <Button size="sm" disabled={busy} onClick={() => saveLocalName(localName)}>{tr("Save", "Simpan")}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setLocalName(null)}>{tr("Cancel", "Batal")}</Button>
                   </>
                 )}
               </div>
@@ -170,20 +175,20 @@ export function StockDrawer({
               entityNo={d.item_code}
               canEdit={mayMove}
               defaultKind="Foto"
-              slots={[{ kind: "Foto", label: `Foto barang (${ITEM_PHOTO_MIN}–${ITEM_PHOTO_MAX})` }]}
+              slots={[{ kind: "Foto", label: tr(`Item photos (${ITEM_PHOTO_MIN}–${ITEM_PHOTO_MAX})`, `Foto barang (${ITEM_PHOTO_MIN}–${ITEM_PHOTO_MAX})`) }]}
               onChanged={() => { reload(); onChanged(); }}
               note={d.photo_count === 0
-                ? "Barang ini belum punya foto — didaftarkan sebelum foto diwajibkan. Tambahkan minimal satu."
-                : `${d.photo_count} dari ${ITEM_PHOTO_MAX} foto. Foto terakhir tidak bisa dihapus — tambah penggantinya dulu.`}
+                ? tr("This item has no photo yet — it was registered before photos were required. Add at least one.", "Barang ini belum punya foto — didaftarkan sebelum foto diwajibkan. Tambahkan minimal satu.")
+                : tr(`${d.photo_count} of ${ITEM_PHOTO_MAX} photos. The last photo cannot be deleted — add its replacement first.`, `${d.photo_count} dari ${ITEM_PHOTO_MAX} foto. Foto terakhir tidak bisa dihapus — tambah penggantinya dulu.`)}
             />
 
             {mayMove && (
               <div className="rounded-xl border border-slate-200 px-4 py-3">
                 <div className="flex flex-wrap gap-1.5">
                   {([
-                    ["issue", "Keluarkan", PackageMinus],
-                    ["return", "Kembalikan", Undo2],
-                    ["transfer", "Pindah lokasi", ArrowRightLeft],
+                    ["issue", tr("Issue", "Keluarkan"), PackageMinus],
+                    ["return", tr("Return", "Kembalikan"), Undo2],
+                    ["transfer", tr("Move location", "Pindah lokasi"), ArrowRightLeft],
                   ] as const).map(([kind, label, Icon]) => (
                     <Button
                       key={kind} size="sm" icon={Icon}
@@ -201,25 +206,25 @@ export function StockDrawer({
                       <NumberInput value={form.qty} onChange={(v) => setForm({ ...form, qty: v })} />
                       <select
                         value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}
-                        aria-label="Dari lokasi"
+                        aria-label={tr("From location", "Dari lokasi")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">{d.by_location[0]?.location_name ?? "Gudang utama"}</option>
+                        <option value="">{d.by_location[0]?.location_name ?? tr("Main warehouse", "Gudang utama")}</option>
                         {locs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
                       </select>
                       {form.kind === "transfer" ? (
                         <select
                           value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })}
-                          aria-label="Ke lokasi"
+                          aria-label={tr("To location", "Ke lokasi")}
                           className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         >
-                          <option value="">Ke lokasi…</option>
+                          <option value="">{tr("To location…", "Ke lokasi…")}</option>
                           {locs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
                         </select>
                       ) : (
                         <input
                           value={form.ref} onChange={(e) => setForm({ ...form, ref: e.target.value })}
-                          placeholder="Nomor Job Order (opsional)"
+                          placeholder={tr("Job Order number (optional)", "Nomor Job Order (opsional)")}
                           className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         />
                       )}
@@ -230,14 +235,14 @@ export function StockDrawer({
                 <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
                   <input
                     value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                    placeholder="Untuk apa — dibaca di riwayat bulan depan"
+                    placeholder={tr("What for — read in the history next month", "Untuk apa — dibaca di riwayat bulan depan")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                   <Button
                     size="sm" disabled={busy || form.qty <= 0 || (form.kind === "transfer" && !form.to)}
                     onClick={() => run(d)}
                   >
-                    {busy ? "Menyimpan…" : "Catat"}
+                    {busy ? tr("Saving…", "Menyimpan…") : tr("Record", "Catat")}
                   </Button>
                 </div>
               </div>
@@ -247,10 +252,10 @@ export function StockDrawer({
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 px-4 py-3">
                   <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
-                    <Hammer className="h-3.5 w-3.5 text-slate-400" /> Dipakai di produk
+                    <Hammer className="h-3.5 w-3.5 text-slate-400" /> {tr("Used in products", "Dipakai di produk")}
                   </p>
                   {d.used_in.length === 0 ? (
-                    <p className="mt-1 text-[12px] text-slate-500">Belum ada BOM yang memakainya.</p>
+                    <p className="mt-1 text-[12px] text-slate-500">{tr("No BOM uses it yet.", "Belum ada BOM yang memakainya.")}</p>
                   ) : (
                     <ul className="mt-1 space-y-0.5 text-[12px] text-slate-600">
                       {d.used_in.map((u) => (
@@ -263,16 +268,16 @@ export function StockDrawer({
                 </div>
                 <div className="rounded-xl border border-slate-200 px-4 py-3">
                   <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
-                    <Truck className="h-3.5 w-3.5 text-slate-400" /> Sudah disetujui, belum datang
+                    <Truck className="h-3.5 w-3.5 text-slate-400" /> {tr("Approved, not yet arrived", "Sudah disetujui, belum datang")}
                   </p>
                   {d.on_order.length === 0 ? (
-                    <p className="mt-1 text-[12px] text-slate-500">Tidak ada yang sedang dipesan.</p>
+                    <p className="mt-1 text-[12px] text-slate-500">{tr("Nothing is on order.", "Tidak ada yang sedang dipesan.")}</p>
                   ) : (
                     <ul className="mt-1 space-y-0.5 text-[12px] text-slate-600">
                       {d.on_order.map((o) => (
                         <li key={o.pr_line_no}>
                           <span className="font-mono text-[11px]">{o.pr_line_no}</span> · {formatNumber(o.qty)} {d.uom}
-                          {o.need_by ? ` · butuh ${o.need_by}` : ""}
+                          {o.need_by ? tr(` · needed ${o.need_by}`, ` · butuh ${o.need_by}`) : ""}
                         </li>
                       ))}
                     </ul>
@@ -285,19 +290,21 @@ export function StockDrawer({
                 item link, never guessed from a description (0104, 0168). */}
             <div>
               <p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
-                <Receipt className="h-3.5 w-3.5 text-slate-400" /> Transaksi pembelian
+                <Receipt className="h-3.5 w-3.5 text-slate-400" /> {tr("Purchase transactions", "Transaksi pembelian")}
                 {/* The whole life — catalogue, BOM, PR, PO, receiving, stock,
                     Job Order — is the trail opened by this item's code (D313). */}
                 <Link href={`/produksi/jejak?no=${encodeURIComponent(d.item_code)}`}
                   className="ml-auto text-[11px] font-normal text-brand-700 hover:underline">
-                  Riwayat lengkap barang →
+                  {tr("Full item history →", "Riwayat lengkap barang →")}
                 </Link>
               </p>
               <Loaded state={purchases} skeletonRows={2}>
                 {(rows) => rows.length === 0 ? (
                   <p className="rounded-xl border border-slate-200 px-4 py-3 text-[12px] text-slate-500">
-                    Belum ada baris buku besar yang menyebut barang ini. Pembelian yang dicatat tanpa memilih
-                    barangnya tidak akan muncul di sini — bukan berarti belum pernah dibeli.
+                    {tr(
+                      "No ledger line names this item yet. A purchase recorded without choosing the item will not appear here — that does not mean it was never bought.",
+                      "Belum ada baris buku besar yang menyebut barang ini. Pembelian yang dicatat tanpa memilih barangnya tidak akan muncul di sini — bukan berarti belum pernah dibeli.",
+                    )}
                   </p>
                 ) : (
                   <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
@@ -312,12 +319,12 @@ export function StockDrawer({
                         </span>
                         <span className="w-28 text-right font-semibold tabular-nums text-slate-800">{formatIDR(p.amount)}</span>
                         {p.item_code !== d.item_code && (
-                          <span className="w-full text-[11px] text-slate-400">dicatat sebagai {p.item_name} ({p.item_code}), sudah digabung</span>
+                          <span className="w-full text-[11px] text-slate-400">{tr(`recorded as ${p.item_name} (${p.item_code}), merged`, `dicatat sebagai ${p.item_name} (${p.item_code}), sudah digabung`)}</span>
                         )}
                       </li>
                     ))}
                     {rows.length > 10 && (
-                      <li className="px-4 py-2 text-[11px] text-slate-500">+{rows.length - 10} transaksi lebih lama</li>
+                      <li className="px-4 py-2 text-[11px] text-slate-500">{tr(`+${rows.length - 10} older transactions`, `+${rows.length - 10} transaksi lebih lama`)}</li>
                     )}
                   </ul>
                 )}
@@ -326,13 +333,15 @@ export function StockDrawer({
 
             <div>
               <p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
-                <Boxes className="h-3.5 w-3.5 text-slate-400" /> Riwayat pergerakan
+                <Boxes className="h-3.5 w-3.5 text-slate-400" /> {tr("Movement history", "Riwayat pergerakan")}
               </p>
               <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                 {d.moves.length === 0 && (
                   <li className="px-4 py-6 text-[12px] text-slate-500">
-                    Barang ini ada di katalog tapi belum pernah masuk atau keluar. Bukan berarti habis —
-                    berarti belum pernah tercatat.
+                    {tr(
+                      "This item is in the catalogue but has never come in or gone out. That does not mean it ran out — it means it was never recorded.",
+                      "Barang ini ada di katalog tapi belum pernah masuk atau keluar. Bukan berarti habis — berarti belum pernah tercatat.",
+                    )}
                   </li>
                 )}
                 {d.moves.map((m) => (
@@ -356,7 +365,7 @@ export function StockDrawer({
                         {/* A reference nothing follows is a reference nothing
                             checks — which is how nine seeded issues pointed at
                             work orders that had never existed (F86). */}
-                        {m.ref_missing && <span className="ml-1">· Job Order ini tidak ada</span>}
+                        {m.ref_missing && <span className="ml-1">· {tr("this Job Order does not exist", "Job Order ini tidak ada")}</span>}
                       </span>
                     )}
                     <span className="min-w-[160px] flex-1 text-[11px] text-slate-500">

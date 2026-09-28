@@ -5,6 +5,7 @@ import { Scale, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 import { procurement } from "@/demo/api";
 import {
   VARIANCE_REASONS, VARIANCE_REASON_LABEL,
@@ -31,6 +32,7 @@ export function VariancePanel({
   line: PrLineView;
   onChanged: (l: PrLineView) => void;
 }) {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const v = line.variance;
@@ -49,10 +51,10 @@ export function VariancePanel({
     });
     setSaving(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Not recorded", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not recorded", "Tidak dicatat"), res.error.message);
       return;
     }
-    toast("success", "Explanation recorded", VARIANCE_REASON_LABEL[reason]);
+    toast("success", tr("Explanation recorded", "Penjelasan dicatat"), VARIANCE_REASON_LABEL[reason]);
     setOpen(false);
     setNote("");
     onChanged(res.data);
@@ -65,9 +67,10 @@ export function VariancePanel({
     if (!cutByCeo) return null;
     return (
       <div className="rounded-lg border border-slate-200 px-3 py-2.5 text-[13px] text-slate-600">
-        Asked for {formatIDR(v.requested)}, approved at {formatIDR(v.approved)} —{" "}
-        a decision, not a difference. Everything from here is measured against
-        the approved figure.
+        {tr(
+          `Asked for ${formatIDR(v.requested)}, approved at ${formatIDR(v.approved)} — a decision, not a difference. Everything from here is measured against the approved figure.`,
+          `Diminta ${formatIDR(v.requested)}, disetujui ${formatIDR(v.approved)} — itu keputusan, bukan selisih. Semua yang berikutnya diukur terhadap angka yang disetujui.`,
+        )}
       </div>
     );
   }
@@ -83,39 +86,48 @@ export function VariancePanel({
     >
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
         <Scale className="h-3.5 w-3.5" />
-        Approved against paid
+        {tr("Approved against paid", "Disetujui terhadap dibayar")}
       </p>
 
       <dl className="mt-3 space-y-1.5 text-[13px]">
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Requested</dt>
+          <dt className="text-slate-500">{tr("Requested", "Diminta")}</dt>
           <dd className="tabular-nums text-slate-700">{formatIDR(v.requested)}</dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-slate-500">
-            Approved{cutByCeo && <span className="ml-1 text-[11px] text-slate-400">(cut at approval)</span>}
+            {tr("Approved", "Disetujui")}{cutByCeo && <span className="ml-1 text-[11px] text-slate-400">{tr("(cut at approval)", "(dipotong saat persetujuan)")}</span>}
           </dt>
           <dd className="tabular-nums text-slate-700">{formatIDR(v.approved)}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Actually paid</dt>
+          <dt className="text-slate-500">{tr("Actually paid", "Benar-benar dibayar")}</dt>
           <dd className="tabular-nums text-slate-700">{formatIDR(v.paid)}</dd>
         </div>
         <div className={cn(
           "flex justify-between gap-4 border-t pt-1.5 font-semibold",
           over ? "border-rose-200 text-rose-700" : "border-amber-200 text-amber-800",
         )}>
-          <dt>{over ? "Paid beyond the approval" : "Short of the approval"}</dt>
+          <dt>{over ? tr("Paid beyond the approval", "Dibayar melebihi persetujuan") : tr("Short of the approval", "Kurang dari persetujuan")}</dt>
           <dd className="tabular-nums">{over ? "+" : "−"}{formatIDR(Math.abs(v.delta))}</dd>
         </div>
       </dl>
 
       <p className={cn("mt-2 text-[12px]", over ? "text-rose-800" : "text-amber-800")}>
         {over
-          ? `Money left the company beyond what was authorised. Until somebody says why, ${formatIDR(Math.abs(v.delta))} is a balance the vendor owes back or the next invoice has to carry.`
+          ? tr(
+            `Money left the company beyond what was authorised. Until somebody says why, ${formatIDR(Math.abs(v.delta))} is a balance the vendor owes back or the next invoice has to carry.`,
+            `Uang keluar dari perusahaan melebihi yang disetujui. Sampai ada yang menjelaskan alasannya, ${formatIDR(Math.abs(v.delta))} adalah saldo yang harus dikembalikan vendor atau dibawa ke tagihan berikutnya.`,
+          )
           : line.coverage.settled
-            ? `Closed cheaper than approved. The ${formatIDR(Math.abs(v.delta))} was never spent.`
-            : `${formatIDR(Math.abs(v.delta))} of the approved amount has not been paid — either it is still owed, or the line finished cheaper and somebody has to say so.`}
+            ? tr(
+              `Closed cheaper than approved. The ${formatIDR(Math.abs(v.delta))} was never spent.`,
+              `Ditutup lebih murah dari yang disetujui. ${formatIDR(Math.abs(v.delta))} tidak pernah dibelanjakan.`,
+            )
+            : tr(
+              `${formatIDR(Math.abs(v.delta))} of the approved amount has not been paid — either it is still owed, or the line finished cheaper and somebody has to say so.`,
+              `${formatIDR(Math.abs(v.delta))} dari jumlah yang disetujui belum dibayar — entah masih terutang, atau baris ini selesai lebih murah dan seseorang harus menyatakannya.`,
+            )}
       </p>
 
       {v.explanation ? (
@@ -128,27 +140,27 @@ export function VariancePanel({
           )}
           <p className="mt-1 text-[11px] text-slate-400">
             {v.explanation.recorded_by_email} ·{" "}
-            {new Date(v.explanation.recorded_at).toLocaleString()} · on a gap of{" "}
+            {new Date(v.explanation.recorded_at).toLocaleString()} · {tr("on a gap of", "atas selisih")}{" "}
             {formatIDR(Math.abs(v.explanation.amount_at_time))}
           </p>
         </div>
       ) : (
         <p className="mt-3 flex items-center gap-2 text-[13px] font-medium text-slate-700">
           <AlertTriangle className="h-4 w-4 text-rose-600" />
-          Nobody has explained this yet.
+          {tr("Nobody has explained this yet.", "Belum ada yang menjelaskan ini.")}
         </p>
       )}
 
       {mayExplain && !open && (
         <Button variant="outline" size="sm" className="mt-3" onClick={() => setOpen(true)}>
-          {v.explanation ? "Record a different explanation" : "Explain the difference"}
+          {v.explanation ? tr("Record a different explanation", "Catat penjelasan lain") : tr("Explain the difference", "Jelaskan selisihnya")}
         </Button>
       )}
 
       {mayExplain && open && (
         <div className="mt-3 space-y-2.5 rounded-lg border border-slate-200 bg-white px-3 py-3">
           <div>
-            <label htmlFor="var-reason" className="block text-xs text-slate-500">What happened</label>
+            <label htmlFor="var-reason" className="block text-xs text-slate-500">{tr("What happened", "Apa yang terjadi")}</label>
             <select
               id="var-reason"
               value={reason}
@@ -162,31 +174,34 @@ export function VariancePanel({
           </div>
           <div>
             <label htmlFor="var-note" className="block text-xs text-slate-500">
-              Detail {reason === "other" ? "(required)" : "(optional)"}
+              {tr("Detail", "Rincian")} {reason === "other" ? tr("(required)", "(wajib)") : tr("(optional)", "(opsional)")}
             </label>
             <input
               id="var-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. Vendor raised the price after the quote expired"
+              placeholder={tr("e.g. Vendor raised the price after the quote expired", "mis. Vendor menaikkan harga setelah penawaran kedaluwarsa")}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
             />
           </div>
           {v.kind === "under" && reason !== "partial_payment" && (
             <p className="text-[11px] text-slate-500">
-              This closes the line at {formatIDR(v.paid)}. Choose <em>paid in parts</em>{" "}
-              instead if the rest is still coming.
+              {tr(`This closes the line at ${formatIDR(v.paid)}. Choose`, `Ini menutup baris di ${formatIDR(v.paid)}. Pilih`)}{" "}
+              <em>{tr("paid in parts", "dibayar bertahap")}</em>{" "}
+              {tr("instead if the rest is still coming.", "jika sisanya masih akan datang.")}
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>{tr("Cancel", "Batal")}</Button>
             <Button size="sm" onClick={submit} disabled={saving}>
-              {saving ? "Recording…" : "Record explanation"}
+              {saving ? tr("Recording…", "Mencatat…") : tr("Record explanation", "Catat penjelasan")}
             </Button>
           </div>
           <p className="text-[11px] text-slate-400">
-            Kept, never overwritten — a later correction is a new statement beside
-            this one, so the first answer stays readable.
+            {tr(
+              "Kept, never overwritten — a later correction is a new statement beside this one, so the first answer stays readable.",
+              "Disimpan, tidak pernah ditimpa — koreksi berikutnya adalah pernyataan baru di samping yang ini, sehingga jawaban pertama tetap terbaca.",
+            )}
           </p>
         </div>
       )}

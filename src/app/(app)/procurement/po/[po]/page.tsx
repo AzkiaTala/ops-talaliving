@@ -12,6 +12,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 import { procurement } from "@/demo/api";
 import type { PoTermView, PoTermState } from "@/services/procurement/contracts";
 import { useSession } from "@/store/session";
@@ -44,6 +45,7 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
      rest of the component reads the same plain string it always did. */
   const { po } = use(params);
   const poNo = decodeURIComponent(po);
+  const tr = useTr();
   const { can, hasAuthority } = useSession();
   const { toast } = useToast();
   const [detail, reload] = useLoad(() => procurement.getPoDetail(poNo), [poNo]);
@@ -57,8 +59,12 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
     setBusy(true);
     const res = await procurement.requestPoApproval({ po_no: poNo });
     setBusy(false);
-    if (res.error) { toast("warning", "Not sent", res.error.message); return; }
-    toast("success", `${poNo} sent for confirmation`, "It cannot go to the supplier until leadership says yes.");
+    if (res.error) { toast("warning", tr("Not sent", "Tidak terkirim"), res.error.message); return; }
+    toast(
+      "success",
+      tr(`${poNo} sent for confirmation`, `${poNo} dikirim untuk konfirmasi`),
+      tr("It cannot go to the supplier until leadership says yes.", "Order ini tidak bisa dikirim ke pemasok sampai pimpinan menyetujuinya."),
+    );
     reload();
   }
 
@@ -66,8 +72,12 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
     setBusy(true);
     const res = await procurement.approvePo({ po_no: poNo, approved: true });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Not confirmed", res.error.message); return; }
-    toast("success", `${poNo} confirmed`, "It can be issued and sent to the supplier.");
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not confirmed", "Tidak dikonfirmasi"), res.error.message); return; }
+    toast(
+      "success",
+      tr(`${poNo} confirmed`, `${poNo} dikonfirmasi`),
+      tr("It can be issued and sent to the supplier.", "Order ini bisa diterbitkan dan dikirim ke pemasok."),
+    );
     reload();
   }
 
@@ -86,27 +96,31 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
     setBusy(true);
     const res = await procurement.issuePo(poNo);
     setBusy(false);
-    if (res.error) { toast("warning", "Not issued", res.error.message); return; }
-    toast("success", `${poNo} issued`, "The deposit is payable and it now counts against what we owe.");
+    if (res.error) { toast("warning", tr("Not issued", "Tidak diterbitkan"), res.error.message); return; }
+    toast(
+      "success",
+      tr(`${poNo} issued`, `${poNo} diterbitkan`),
+      tr("The deposit is payable and it now counts against what we owe.", "Uang muka sekarang wajib dibayar dan order ini mulai dihitung dalam utang kita."),
+    );
     reload();
   }
 
   const termColumns: Column<PoTermView>[] = [
     {
       key: "term",
-      header: "Term",
+      header: tr("Term", "Termin"),
       render: (t) => (
         <div className="whitespace-nowrap">
           <p className="font-mono text-[12px] text-slate-700">{t.term_no}</p>
           <p className="text-[11px] text-slate-500">
-            {t.kind} · {t.basis === "percent" ? `${t.basis_value}%` : "fixed"}
+            {t.kind} · {t.basis === "percent" ? `${t.basis_value}%` : tr("fixed", "tetap")}
           </p>
         </div>
       ),
     },
     {
       key: "trigger",
-      header: "When",
+      header: tr("When", "Kapan"),
       className: "whitespace-normal",
       render: (t) => (
         <div>
@@ -126,13 +140,13 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
     },
     {
       key: "amount",
-      header: "Amount",
+      header: tr("Amount", "Jumlah"),
       align: "right",
       render: (t) => <span className="whitespace-nowrap tabular-nums text-slate-800">{formatIDR(t.amount)}</span>,
     },
     {
       key: "covered",
-      header: "Paid against it",
+      header: tr("Paid against it", "Sudah dibayar"),
       align: "right",
       render: (t) => (
         <span className={cn("whitespace-nowrap tabular-nums", t.covered > 0 ? "text-slate-700" : "text-slate-300")}>
@@ -147,7 +161,7 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
         <div className="whitespace-nowrap">
           <Badge tone={TERM_TONE[t.state] as "green"}>{t.state}</Badge>
           {t.blocked_by && (
-            <p className="mt-0.5 text-[11px] text-rose-700">{t.blocked_by} has not been paid</p>
+            <p className="mt-0.5 text-[11px] text-rose-700">{tr(`${t.blocked_by} has not been paid`, `${t.blocked_by} belum dibayar`)}</p>
           )}
         </div>
       ),
@@ -161,19 +175,22 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
         className="mb-3 inline-flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        All orders
+        {tr("All orders", "Semua order")}
       </Link>
 
       <Loaded state={detail} onRetry={reload}>
         {(d) => (
           <>
             <PageHeader
-              breadcrumb="Purchase order"
+              breadcrumb={tr("Purchase order", "Purchase order")}
               title={d.po_no}
               description={`${d.vendor_name} · ${d.status === "DRAFT"
-                ? "a draft — not sent, so nothing is owed"
+                ? tr("a draft — not sent, so nothing is owed", "draf — belum dikirim, jadi belum ada utang")
                 : d.issued_at
-                  ? `issued ${d.issued_at.slice(0, 10)}${d.issued_by_name ? ` by ${d.issued_by_name}` : ""}`
+                  ? tr(
+                    `issued ${d.issued_at.slice(0, 10)}${d.issued_by_name ? ` by ${d.issued_by_name}` : ""}`,
+                    `diterbitkan ${d.issued_at.slice(0, 10)}${d.issued_by_name ? ` oleh ${d.issued_by_name}` : ""}`,
+                  )
                   : d.status.toLowerCase()}`}
               actions={
                 <div className="flex flex-wrap items-center gap-2">
@@ -184,7 +201,7 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                         variant="outline" icon={Printer}
                         onClick={() => window.open(`/procurement/po/${encodeURIComponent(d.po_no)}/print`, "_blank", "noopener")}
                       >
-                        Print / PDF
+                        {tr("Print / PDF", "Cetak / PDF")}
                       </Button>
                       <Button
                         variant="outline" icon={MessageCircle}
@@ -193,27 +210,27 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                           `Halo${d.vendor_pic ? ` ${d.vendor_pic}` : ""}, berikut PO ${d.po_no} dari ${"PT TALAHOME"} senilai ${formatIDR(d.status_view.contract_value)}${d.expected_delivery ? `, diharapkan tiba ${d.expected_delivery}` : ""}. PDF menyusul. Terima kasih.`,
                         )}
                       >
-                        Send on WhatsApp
+                        {tr("Send on WhatsApp", "Kirim lewat WhatsApp")}
                       </Button>
                     </>
                   )}
                   {mayEdit && d.status === "DRAFT" && !d.approval_asked_at && !d.approved_at && (
                     <Button variant="outline" icon={Send} disabled={busy} onClick={ask}>
-                      {busy ? "Sending…" : "Ask leadership to confirm"}
+                      {busy ? tr("Sending…", "Mengirim…") : tr("Ask leadership to confirm", "Minta konfirmasi pimpinan")}
                     </Button>
                   )}
                   {mayApprove && d.status === "DRAFT" && !d.approved_at && (
                     <Button icon={Check} disabled={busy} onClick={approve}>
-                      {busy ? "Confirming…" : "Confirm it"}
+                      {busy ? tr("Confirming…", "Mengonfirmasi…") : tr("Confirm it", "Konfirmasi")}
                     </Button>
                   )}
                   {mayEdit && d.status === "DRAFT" && d.approved_at && (
                     <Button icon={Send} disabled={busy} onClick={issue}>
-                      {busy ? "Issuing…" : "Issue and send it"}
+                      {busy ? tr("Issuing…", "Menerbitkan…") : tr("Issue and send it", "Terbitkan dan kirim")}
                     </Button>
                   )}
                   {mayEdit && d.status === "ISSUED" && (
-                    <Button variant="outline" icon={Lock} onClick={() => setClosing(true)}>Close it</Button>
+                    <Button variant="outline" icon={Lock} onClick={() => setClosing(true)}>{tr("Close it", "Tutup")}</Button>
                   )}
                 </div>
               }
@@ -229,29 +246,42 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                 <Check className="h-4 w-4 shrink-0" />
                 {d.approved_at ? (
                   <span>
-                    Confirmed by {d.approved_by_name ?? "leadership"} on {d.approved_at.slice(0, 10)} —
-                    it can be issued and sent to the supplier.
+                    {tr(
+                      `Confirmed by ${d.approved_by_name ?? "leadership"} on ${d.approved_at.slice(0, 10)} — it can be issued and sent to the supplier.`,
+                      `Dikonfirmasi oleh ${d.approved_by_name ?? "pimpinan"} pada ${d.approved_at.slice(0, 10)} — order ini bisa diterbitkan dan dikirim ke pemasok.`,
+                    )}
                     {/* Which road it came down is recorded, not inferred. A
                         rubber stamp that looks like a second pair of eyes is
                         worse than no stamp, so a self-confirmation says so on
                         its face (D267). */}
                     {d.self_confirmed && (
-                      <strong> Ditulis dan dikonfirmasi dalam satu tindakan — pembuatnya sendiri yang
-                      memegang wewenangnya, jadi tidak ada pihak kedua yang memeriksanya.</strong>
+                      <strong>
+                        {" "}{tr(
+                          "Written and confirmed in one action — the author holds the authority, so no second person checked it.",
+                          "Ditulis dan dikonfirmasi dalam satu tindakan — pembuatnya sendiri yang memegang wewenangnya, jadi tidak ada pihak kedua yang memeriksanya.",
+                        )}
+                      </strong>
                     )}
                   </span>
                 ) : d.approval_asked_at ? (
                   <span>
-                    Waiting on leadership since {d.approval_asked_at.slice(0, 16).replace("T", " ")}
-                    {d.approval_asked_by_name ? `, asked by ${d.approval_asked_by_name}` : ""}
-                    {d.approval_sent_to ? `, sent to ${d.approval_sent_to}` : ""}. Nothing
-                    goes to the supplier until they answer — from their own account, not from whoever&apos;s
-                    laptop the meeting is running on.
+                    {tr(
+                      `Waiting on leadership since ${d.approval_asked_at.slice(0, 16).replace("T", " ")}`
+                      + (d.approval_asked_by_name ? `, asked by ${d.approval_asked_by_name}` : "")
+                      + (d.approval_sent_to ? `, sent to ${d.approval_sent_to}` : "")
+                      + ". Nothing goes to the supplier until they answer — from their own account, not from whoever’s laptop the meeting is running on.",
+                      `Menunggu pimpinan sejak ${d.approval_asked_at.slice(0, 16).replace("T", " ")}`
+                      + (d.approval_asked_by_name ? `, diminta oleh ${d.approval_asked_by_name}` : "")
+                      + (d.approval_sent_to ? `, dikirim ke ${d.approval_sent_to}` : "")
+                      + ". Tidak ada yang dikirim ke pemasok sampai mereka menjawab — dari akun mereka sendiri, bukan dari laptop siapa pun yang dipakai untuk rapat.",
+                    )}
                   </span>
                 ) : (
                   <span>
-                    A draft. An order is a promise made in the company&apos;s name, so leadership
-                    confirms it before the supplier hears about it.
+                    {tr(
+                      "A draft. An order is a promise made in the company’s name, so leadership confirms it before the supplier hears about it.",
+                      "Draf. Order adalah janji atas nama perusahaan, jadi pimpinan mengonfirmasinya sebelum pemasok mengetahuinya.",
+                    )}
                   </span>
                 )}
               </div>
@@ -268,8 +298,11 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-2.5 text-[13px] text-amber-900">
                 <PenLine className="h-4 w-4 shrink-0" />
                 <span>
-                  Changed since it was sent — the supplier has revision {d.sent_revision}, this is{" "}
-                  <strong>revision {d.revision}</strong>.
+                  {tr(
+                    `Changed since it was sent — the supplier has revision ${d.sent_revision}, this is`,
+                    `Berubah sejak dikirim — pemasok memegang revisi ${d.sent_revision}, ini`,
+                  )}{" "}
+                  <strong>{tr(`revision ${d.revision}`, `revisi ${d.revision}`)}</strong>.
                 </span>
                 {mayEdit && (
                   <Button
@@ -278,12 +311,16 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                       setBusy(true);
                       const res = await procurement.markPoResent(d.po_no);
                       setBusy(false);
-                      if (res.error) { toast("warning", "Not marked", res.error.message); return; }
-                      toast("success", `Revision ${d.revision} sent`, "Print it and send it on WhatsApp if you have not already.");
+                      if (res.error) { toast("warning", tr("Not marked", "Tidak ditandai"), res.error.message); return; }
+                      toast(
+                        "success",
+                        tr(`Revision ${d.revision} sent`, `Revisi ${d.revision} terkirim`),
+                        tr("Print it and send it on WhatsApp if you have not already.", "Cetak dan kirim lewat WhatsApp jika belum."),
+                      );
                       reload();
                     }}
                   >
-                    I have sent revision {d.revision}
+                    {tr(`I have sent revision ${d.revision}`, `Saya sudah mengirim revisi ${d.revision}`)}
                   </Button>
                 )}
               </div>
@@ -296,24 +333,30 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
               )}>
                 <Truck className="h-4 w-4 shrink-0" />
                 {d.days_late
-                  ? <span>Promised for <strong>{d.expected_delivery}</strong> — <strong>{d.days_late} day(s) late</strong>, and not everything has arrived.</span>
-                  : <span>Expected <strong>{d.expected_delivery}</strong>.</span>}
+                  ? (
+                    <span>
+                      {tr("Promised for", "Dijanjikan untuk")} <strong>{d.expected_delivery}</strong> —{" "}
+                      <strong>{tr(`${d.days_late} day(s) late`, `terlambat ${d.days_late} hari`)}</strong>
+                      {tr(", and not everything has arrived.", ", dan belum semua barang tiba.")}
+                    </span>
+                  )
+                  : <span>{tr("Expected", "Diharapkan")} <strong>{d.expected_delivery}</strong>.</span>}
               </div>
             )}
 
             <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
               <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                 {([
-                  ["Contract", formatIDR(d.status_view.contract_value), `${d.lines.length} line(s)`],
-                  ["Paid", formatIDR(d.status_view.paid_to_date), d.status_view.payment_state.toLowerCase()],
-                  ["Arrived", formatIDR(d.status_view.value_received), d.status_view.delivery_state.toLowerCase()],
-                  ["Payable now", formatIDR(d.payable_now), "terms whose trigger has fired"],
+                  [tr("Contract", "Kontrak"), formatIDR(d.status_view.contract_value), tr(`${d.lines.length} line(s)`, `${d.lines.length} baris`)],
+                  [tr("Paid", "Dibayar"), formatIDR(d.status_view.paid_to_date), d.status_view.payment_state.toLowerCase()],
+                  [tr("Arrived", "Tiba"), formatIDR(d.status_view.value_received), d.status_view.delivery_state.toLowerCase()],
+                  [tr("Payable now", "Wajib dibayar sekarang"), formatIDR(d.payable_now), tr("terms whose trigger has fired", "termin yang pemicunya sudah terjadi")],
                 ] as [string, string, string][]).map(([k, v, note]) => (
                   <div key={k} className="px-4 py-3.5">
                     <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                     <dd className={cn(
                       "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                      k === "Payable now" && d.payable_now > 0 ? "text-brand-700" : "text-slate-800",
+                      k === tr("Payable now", "Wajib dibayar sekarang") && d.payable_now > 0 ? "text-brand-700" : "text-slate-800",
                     )}>
                       {v}
                     </dd>
@@ -325,15 +368,21 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                 {d.status_view.exposure > 0 ? (
                   <>
                     <strong className="tabular-nums text-amber-800">{formatIDR(d.status_view.exposure)}</strong>{" "}
-                    has been paid ahead of what has arrived — our money is with the vendor.
+                    {tr(
+                      "has been paid ahead of what has arrived — our money is with the vendor.",
+                      "sudah dibayar mendahului barang yang tiba — uang kita ada di vendor.",
+                    )}
                   </>
                 ) : d.status_view.exposure < 0 ? (
                   <>
                     <strong className="tabular-nums">{formatIDR(Math.abs(d.status_view.exposure))}</strong>{" "}
-                    of goods are here that have not been paid for — the vendor is carrying us.
+                    {tr(
+                      "of goods are here that have not been paid for — the vendor is carrying us.",
+                      "barang sudah di sini tetapi belum dibayar — vendor menanggung kita.",
+                    )}
                   </>
                 ) : (
-                  <>Money and goods are level on this order.</>
+                  <>{tr("Money and goods are level on this order.", "Uang dan barang seimbang pada order ini.")}</>
                 )}
               </p>
             </div>
@@ -352,14 +401,19 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
               <div className="flex items-start gap-4 p-5">
                 <QrCode path={`/procurement/po/${encodeURIComponent(d.po_no)}`} title={d.po_no} size={88} className="shrink-0 rounded ring-1 ring-slate-200" />
                 <div className="min-w-0 text-[13px]">
-                  <p className="font-medium text-slate-800">Scan untuk membuka order ini</p>
+                  <p className="font-medium text-slate-800">{tr("Scan to open this order", "Scan untuk membuka order ini")}</p>
                   <p className="mt-0.5 text-slate-500">
-                    Mengarah ke halaman PO <span className="font-mono">{d.po_no}</span> di sistem ini — untuk tim
-                    kita sendiri yang sudah punya login, misalnya saat barang datang di gerbang.
+                    {tr("Leads to the page of PO", "Mengarah ke halaman PO")} <span className="font-mono">{d.po_no}</span>{" "}
+                    {tr(
+                      "in this system — for our own team who already have a login, for example when goods arrive at the gate.",
+                      "di sistem ini — untuk tim kita sendiri yang sudah punya login, misalnya saat barang datang di gerbang.",
+                    )}
                   </p>
                   <p className="mt-1.5 text-[12px] text-amber-700">
-                    Belum dicetak di PDF yang diterima vendor. Vendor tidak punya akun di sini, jadi QR itu
-                    baru berguna kalau ada halaman publik dan token per order — itu bagian Fase 2.
+                    {tr(
+                      "Not yet printed on the PDF the vendor receives. Vendors have no account here, so that QR only becomes useful once there is a public page and a token per order — that is part of Phase 2.",
+                      "Belum dicetak di PDF yang diterima vendor. Vendor tidak punya akun di sini, jadi QR itu baru berguna kalau ada halaman publik dan token per order — itu bagian Fase 2.",
+                    )}
                   </p>
                 </div>
               </div>
@@ -369,29 +423,35 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
 
             <Card className="mb-4">
               <CardHeader
-                title="Payment terms"
-                subtitle="A term is a trigger and a share. What has been paid is applied oldest first, because nothing in a transfer says which term it was for."
+                title={tr("Payment terms", "Termin pembayaran")}
+                subtitle={tr(
+                  "A term is a trigger and a share. What has been paid is applied oldest first, because nothing in a transfer says which term it was for.",
+                  "Termin adalah pemicu dan porsi. Yang sudah dibayar diterapkan dari yang paling lama, karena tidak ada apa pun di transfer yang menyebut termin mana yang dibayar.",
+                )}
                 icon={CalendarClock}
               />
               <DataTable
                 dense columns={termColumns} rows={d.terms} rowKey={(t) => t.term_no}
-                empty="No schedule — this order is payable as one amount."
+                empty={tr("No schedule — this order is payable as one amount.", "Tanpa jadwal — order ini dibayar sekaligus.")}
               />
             </Card>
 
             <Card className="mb-4">
               <CardHeader
-                title="What was ordered"
+                title={tr("What was ordered", "Yang dipesan")}
                 subtitle={d.status === "ISSUED"
-                  ? "An issued order only moves by amendment: the old line stays and points at the new one."
-                  : "Still a draft — change it freely until it is issued."}
+                  ? tr(
+                    "An issued order only moves by amendment: the old line stays and points at the new one.",
+                    "Order yang sudah terbit hanya berubah lewat amandemen: baris lama tetap ada dan menunjuk ke baris baru.",
+                  )
+                  : tr("Still a draft — change it freely until it is issued.", "Masih draf — ubah sesuka Anda sampai diterbitkan.")}
                 icon={Package}
               />
               <DataTable
                 dense
                 columns={[
                   {
-                    key: "item", header: "Item", className: "whitespace-normal",
+                    key: "item", header: tr("Item", "Barang"), className: "whitespace-normal",
                     render: (l) => (
                       <span className="block max-w-[340px] whitespace-normal break-words text-[13px] text-slate-800">
                         {l.description}
@@ -405,18 +465,18 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                       </span>
                     ),
                   },
-                  { key: "qty", header: "Qty", align: "right", render: (l) => (
+                  { key: "qty", header: tr("Qty", "Jml"), align: "right", render: (l) => (
                     <span className="whitespace-nowrap text-[13px] text-slate-600">{formatNumber(l.qty)} {l.uom}</span>
                   ) },
-                  { key: "price", header: "Unit price", align: "right", render: (l) => (
+                  { key: "price", header: tr("Unit price", "Harga satuan"), align: "right", render: (l) => (
                     <span className="whitespace-nowrap tabular-nums text-slate-700">{formatIDR(l.unit_price)}</span>
                   ) },
                   { key: "total", header: "Total", align: "right", render: (l) => (
                     <span className="whitespace-nowrap tabular-nums text-slate-800">{formatIDR(l.line_total)}</span>
                   ) },
-                  { key: "recv", header: "Received", align: "right", render: (l) => (
+                  { key: "recv", header: tr("Received", "Diterima"), align: "right", render: (l) => (
                     <span className="whitespace-nowrap text-[13px] text-slate-600">
-                      {formatNumber(l.received)} of {formatNumber(l.qty)}
+                      {tr(`${formatNumber(l.received)} of ${formatNumber(l.qty)}`, `${formatNumber(l.received)} dari ${formatNumber(l.qty)}`)}
                     </span>
                   ) },
                   { key: "cond", header: "", render: (l) => (
@@ -428,24 +488,31 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                     key: "amend", header: "", align: "right" as const,
                     render: (l: typeof d.lines[number]) => (
                       <Button variant="ghost" size="sm" icon={PenLine} onClick={() => setAmending(l.line_no)}>
-                        Amend
+                        {tr("Amend", "Ubah")}
                       </Button>
                     ),
                   }] : []),
                 ]}
                 rows={d.lines}
                 rowKey={(l) => l.po_line_id}
-                empty="No lines on this order."
+                empty={tr("No lines on this order.", "Tidak ada baris di order ini.")}
               />
             </Card>
 
             {d.amendments.length > 0 && (
               <Card className="mb-4">
-                <CardHeader title="What it used to say" subtitle="An issued obligation moves by supersession — the old rows stay." icon={PenLine} />
+                <CardHeader
+                  title={tr("What it used to say", "Isi sebelumnya")}
+                  subtitle={tr(
+                    "An issued obligation moves by supersession — the old rows stay.",
+                    "Kewajiban yang sudah terbit berubah dengan penggantian — baris lama tetap ada.",
+                  )}
+                  icon={PenLine}
+                />
                 <ul className="divide-y divide-slate-100">
                   {d.amendments.map((a, i) => (
                     <li key={`${a.line_no}:${i}`} className="flex flex-wrap items-center gap-x-3 px-5 py-2 text-[13px]">
-                      <span className="font-mono text-[12px] text-slate-500">line {a.line_no}</span>
+                      <span className="font-mono text-[12px] text-slate-500">{tr(`line ${a.line_no}`, `baris ${a.line_no}`)}</span>
                       <span className="text-slate-500 line-through">{a.from}</span>
                       <span className="text-slate-400">→</span>
                       <span className="text-slate-800">{a.to}</span>
@@ -457,28 +524,28 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
 
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
-                <CardHeader title="Paid against this order" icon={Banknote} />
+                <CardHeader title={tr("Paid against this order", "Dibayar untuk order ini")} icon={Banknote} />
                 <DataTable
                   dense
                   columns={[
-                    { key: "when", header: "Date", render: (p) => (
+                    { key: "when", header: tr("Date", "Tanggal"), render: (p) => (
                       <div className="whitespace-nowrap">
                         <p className="text-[13px] text-slate-700">{p.trx_date}</p>
                         <p className="font-mono text-[10px] text-slate-400">{p.trx_no}</p>
                       </div>
                     ) },
-                    { key: "what", header: "Note", className: "whitespace-normal", render: (p) => (
+                    { key: "what", header: tr("Note", "Catatan"), className: "whitespace-normal", render: (p) => (
                       <span className="block max-w-[260px] whitespace-normal break-words text-[12px] text-slate-500">
                         {p.description}
                       </span>
                     ) },
-                    { key: "amt", header: "Amount", align: "right", render: (p) => (
+                    { key: "amt", header: tr("Amount", "Jumlah"), align: "right", render: (p) => (
                       <span className="whitespace-nowrap tabular-nums text-slate-800">{formatIDR(p.amount)}</span>
                     ) },
                   ]}
                   rows={d.payments}
                   rowKey={(p) => p.trx_no}
-                  empty="Nothing has been paid against this order."
+                  empty={tr("Nothing has been paid against this order.", "Belum ada yang dibayar untuk order ini.")}
                   footer={d.payments.length > 0 ? (
                     <tr>
                       <td className="px-4 py-2 text-[13px] text-slate-600" colSpan={2}>Total</td>
@@ -492,14 +559,19 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
 
               <Card>
                 <CardHeader
-                  title="Filed against it"
-                  subtitle="Everything attached to the order or to a delivery made against it."
+                  title={tr("Filed against it", "Berkas terlampir")}
+                  subtitle={tr(
+                    "Everything attached to the order or to a delivery made against it.",
+                    "Semua yang dilampirkan ke order ini atau ke pengiriman untuk order ini.",
+                  )}
                   icon={FileText}
                 />
                 {d.documents.length === 0 ? (
                   <p className="px-5 py-6 text-[13px] text-amber-700">
-                    Nothing is filed against this order — no photo, no tanda terima, no invoice.
-                    It cannot be closed until something is.
+                    {tr(
+                      "Nothing is filed against this order — no photo, no tanda terima, no invoice. It cannot be closed until something is.",
+                      "Belum ada berkas untuk order ini — tidak ada foto, tanda terima, atau faktur. Order ini tidak bisa ditutup sampai ada.",
+                    )}
                   </p>
                 ) : (
                   <ul className="divide-y divide-slate-100">

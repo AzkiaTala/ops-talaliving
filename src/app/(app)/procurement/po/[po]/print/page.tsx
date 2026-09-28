@@ -5,6 +5,12 @@ import { Loaded, useLoad } from "@/components/ui/loaded";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { procurement } from "@/demo/api";
 import { useBrand } from "@/lib/brand";
+import { useTr, type Tr } from "@/lib/i18n";
+
+/** The document goes to a vendor, so it reads the same whoever prints it:
+ *  Indonesian first, English beside it — the shape it had before D318. Only
+ *  the on-screen hint follows the viewer's language. */
+const both: Tr = (en, id) => (en === id ? en : `${id} / ${en}`);
 
 /** The order as the supplier sees it.
  *
@@ -23,6 +29,7 @@ export default function PoPrintPage({ params }: { params: Promise<{ po: string }
      rendering before the segment is resolved. `use` unwraps it here — the
      rest of the component reads the same plain string it always did. */
   const { po } = use(params);
+  const tr = useTr();
   const brand = useBrand();
   const poNo = decodeURIComponent(po);
   const [detail] = useLoad(() => procurement.getPoDetail(poNo), [poNo]);
@@ -55,21 +62,21 @@ export default function PoPrintPage({ params }: { params: Promise<{ po: string }
                   {d.po_no}{d.revision > 0 && <span className="font-bold"> · REV {d.revision}</span>}
                 </p>
                 <p className="text-[12px] text-slate-500">
-                  {d.issued_at ? d.issued_at.slice(0, 10) : "draft — not yet issued"}
+                  {d.issued_at ? d.issued_at.slice(0, 10) : both("draft — not yet issued", "draf — belum diterbitkan")}
                 </p>
               </div>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-6 text-[13px]">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Kepada / To</p>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">{both("To", "Kepada")}</p>
                 <p className="font-semibold">{d.vendor_name}</p>
                 {d.vendor_pic && <p>{d.vendor_pic}</p>}
                 {d.vendor_phone && <p className="text-slate-600">{d.vendor_phone}</p>}
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Pengiriman diharapkan / Expected delivery</p>
-                <p className="font-semibold">{d.expected_delivery ?? "belum ditentukan"}</p>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">{both("Expected delivery", "Pengiriman diharapkan")}</p>
+                <p className="font-semibold">{d.expected_delivery ?? both("not decided yet", "belum ditentukan")}</p>
                 {d.note && <p className="mt-2 text-slate-600">{d.note}</p>}
               </div>
             </div>
@@ -77,10 +84,10 @@ export default function PoPrintPage({ params }: { params: Promise<{ po: string }
             <table className="mt-6 w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-y border-slate-300 text-left">
-                  <th className="py-2 font-semibold">Uraian / Description</th>
+                  <th className="py-2 font-semibold">{both("Description", "Uraian")}</th>
                   <th className="py-2 text-right font-semibold">Qty</th>
-                  <th className="py-2 text-right font-semibold">Harga satuan</th>
-                  <th className="py-2 text-right font-semibold">Jumlah</th>
+                  <th className="py-2 text-right font-semibold">{both("Unit price", "Harga satuan")}</th>
+                  <th className="py-2 text-right font-semibold">{both("Amount", "Jumlah")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -105,16 +112,16 @@ export default function PoPrintPage({ params }: { params: Promise<{ po: string }
 
             {d.terms.length > 0 && (
               <div className="mt-5">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Termin pembayaran</p>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">{both("Payment terms", "Termin pembayaran")}</p>
                 <ul className="mt-1 space-y-0.5 text-[13px]">
                   {d.terms.map((t) => (
                     <li key={t.term_no}>
-                      {t.kind} — {t.basis === "percent" ? `${t.basis_value}%` : "nilai tetap"} ·{" "}
+                      {t.kind} — {t.basis === "percent" ? `${t.basis_value}%` : both("fixed amount", "nilai tetap")} ·{" "}
                       <span className="tabular-nums">{formatIDR(t.amount)}</span>{" "}
                       <span className="text-slate-600">
-                        ({t.due_rule === "on_issue" ? "saat PO diterbitkan"
-                          : t.due_rule === "on_delivery" ? "saat barang diterima"
-                            : `jatuh tempo ${t.due_date}`})
+                        ({t.due_rule === "on_issue" ? both("when the PO is issued", "saat PO diterbitkan")
+                          : t.due_rule === "on_delivery" ? both("when the goods are received", "saat barang diterima")
+                            : both(`due ${t.due_date}`, `jatuh tempo ${t.due_date}`)})
                       </span>
                     </li>
                   ))}
@@ -124,20 +131,22 @@ export default function PoPrintPage({ params }: { params: Promise<{ po: string }
 
             <div className="mt-10 grid grid-cols-2 gap-6 text-[13px]">
               <div>
-                <p className="text-slate-500">Hormat kami,</p>
+                <p className="text-slate-500">{both("Sincerely,", "Hormat kami,")}</p>
                 <div className="mt-12 border-t border-slate-400 pt-1">
                   {d.issued_at ? `${brand.tagline}` : "—"}
                 </div>
               </div>
               <div>
-                <p className="text-slate-500">Diterima dan disetujui,</p>
+                <p className="text-slate-500">{both("Received and agreed,", "Diterima dan disetujui,")}</p>
                 <div className="mt-12 border-t border-slate-400 pt-1">{d.vendor_name}</div>
               </div>
             </div>
 
             <p className="no-print mt-8 text-center text-[12px] text-slate-400">
-              Printing does not start automatically? Use your browser&apos;s print, and choose
-              &ldquo;Save as PDF&rdquo;.
+              {tr(
+                "Printing does not start automatically? Use your browser’s print, and choose “Save as PDF”.",
+                "Pencetakan tidak mulai otomatis? Gunakan fitur cetak peramban Anda, lalu pilih “Save as PDF”.",
+              )}
             </p>
           </>
         )}

@@ -17,6 +17,8 @@
  *  vendor.
  */
 
+import { bilingual, type Message } from "@/lib/i18n";
+
 /** How a log's volume was arrived at.
  *
  *  Two methods are in use in this trade and they do not agree, so the record
@@ -31,10 +33,11 @@
  */
 export type LogMeasure = "round" | "square";
 
-export const LOG_MEASURE_LABEL: Record<LogMeasure, string> = {
-  round: "Kubikasi bulat (π/4 × d² × p)",
-  square: "Kubikasi persegi (d² × p)",
+export const LOG_MEASURE_LABELS: Record<LogMeasure, Message> = {
+  round: { en: "Round kubikasi (π/4 × d² × l)", id: "Kubikasi bulat (π/4 × d² × p)" },
+  square: { en: "Square kubikasi (d² × l)", id: "Kubikasi persegi (d² × p)" },
 };
+export const LOG_MEASURE_LABEL = bilingual(LOG_MEASURE_LABELS);
 
 /* ── The nota, and why it must be recognised before it is parsed ──────────
  *
@@ -120,12 +123,13 @@ export interface NotaScan {
  */
 export type LogCostKind = "angkut" | "potong" | "bongkar" | "lain";
 
-export const LOG_COST_LABEL: Record<LogCostKind, string> = {
-  angkut: "Angkut",
-  potong: "Potong / gergaji",
-  bongkar: "Bongkar muat",
-  lain: "Lain-lain",
+export const LOG_COST_LABELS: Record<LogCostKind, Message> = {
+  angkut: { en: "Haulage", id: "Angkut" },
+  potong: { en: "Cutting / sawing", id: "Potong / gergaji" },
+  bongkar: { en: "Loading / unloading", id: "Bongkar muat" },
+  lain: { en: "Other", id: "Lain-lain" },
 };
+export const LOG_COST_LABEL = bilingual(LOG_COST_LABELS);
 
 /** A charge read off a nota — a proposal until somebody files it. */
 export interface NotaCostLine {
@@ -303,13 +307,14 @@ export type BoardMoveKind =
   /** Split, warped, cut wrong. Gone, and not to a work order. */
   | "scrap";
 
-export const BOARD_MOVE_LABEL: Record<BoardMoveKind, string> = {
-  sawn: "Hasil gergajian",
-  issue: "Dipakai",
-  return: "Dikembalikan",
-  adjust: "Penyesuaian opname",
-  scrap: "Rusak / terbuang",
+export const BOARD_MOVE_LABELS: Record<BoardMoveKind, Message> = {
+  sawn: { en: "Sawn", id: "Hasil gergajian" },
+  issue: { en: "Used", id: "Dipakai" },
+  return: { en: "Returned", id: "Dikembalikan" },
+  adjust: { en: "Opname adjustment", id: "Penyesuaian opname" },
+  scrap: { en: "Damaged / scrapped", id: "Rusak / terbuang" },
 };
+export const BOARD_MOVE_LABEL = bilingual(BOARD_MOVE_LABELS);
 
 /** One movement of boards of one size. Signed: `sawn` and `return` are
  *  positive, `issue` and `scrap` negative, `adjust` either way. */
@@ -474,13 +479,14 @@ export type StockMoveKind =
    *  other — so every location's own history stays readable. */
   | "transfer";
 
-export const MOVE_LABEL: Record<StockMoveKind, string> = {
-  receipt: "Barang masuk",
-  issue: "Dikeluarkan",
-  return: "Dikembalikan",
-  adjust: "Penyesuaian",
-  transfer: "Pindah lokasi",
+export const MOVE_LABELS: Record<StockMoveKind, Message> = {
+  receipt: { en: "Goods in", id: "Barang masuk" },
+  issue: { en: "Issued", id: "Dikeluarkan" },
+  return: { en: "Returned", id: "Dikembalikan" },
+  adjust: { en: "Adjustment", id: "Penyesuaian" },
+  transfer: { en: "Moved location", id: "Pindah lokasi" },
 };
+export const MOVE_LABEL = bilingual(MOVE_LABELS);
 
 /** Where stock physically is. Deliberately few: a location nobody walks to is
  *  a location nobody counts. */
@@ -598,16 +604,17 @@ export type ProductMoveKind = "produced" | "adjust" | "transfer" | "scrap" | "so
  *  through a delivery. */
 export type ProductMoveInputKind = "produced" | "transfer" | "scrap" | "sold" | "return";
 
-export const PRODUCT_MOVE_LABEL: Record<ProductMoveKind, string> = {
-  produced: "Hasil produksi",
-  adjust: "Penyesuaian opname",
-  transfer: "Pindah lokasi",
-  scrap: "Rusak / afkir",
-  sold: "Dijual lepas",
-  return: "Retur dari klien",
-  allocated: "Dipakai untuk pesanan lain",
-  shipped: "Dikirim (surat jalan)",
+export const PRODUCT_MOVE_LABELS: Record<ProductMoveKind, Message> = {
+  produced: { en: "Produced", id: "Hasil produksi" },
+  adjust: { en: "Opname adjustment", id: "Penyesuaian opname" },
+  transfer: { en: "Moved location", id: "Pindah lokasi" },
+  scrap: { en: "Damaged / rejected", id: "Rusak / afkir" },
+  sold: { en: "Sold separately", id: "Dijual lepas" },
+  return: { en: "Returned by client", id: "Retur dari klien" },
+  allocated: { en: "Used for another order", id: "Dipakai untuk pesanan lain" },
+  shipped: { en: "Shipped (surat jalan)", id: "Dikirim (surat jalan)" },
 };
+export const PRODUCT_MOVE_LABEL = bilingual(PRODUCT_MOVE_LABELS);
 
 export interface ProductLedgerRow {
   move_no: string;
@@ -724,32 +731,35 @@ export type AssetStatus = "in_use" | "in_storage" | "under_repair" | "disposed" 
 /** Whose it is (`0116`). Anything not owned ends by going back — `returned`. */
 export type AssetOwnership = "owned" | "rented" | "leased" | "borrowed";
 
-export const ASSET_OWNERSHIP_LABEL: Record<AssetOwnership, string> = {
-  owned: "Owned",
-  rented: "Rented",
-  leased: "Leased",
-  borrowed: "Borrowed",
+export const ASSET_OWNERSHIP_LABELS: Record<AssetOwnership, Message> = {
+  owned: { en: "Owned", id: "Milik sendiri" },
+  rented: { en: "Rented", id: "Sewa" },
+  leased: { en: "Leased", id: "Leasing" },
+  borrowed: { en: "Borrowed", id: "Pinjam" },
 };
+export const ASSET_OWNERSHIP_LABEL = bilingual(ASSET_OWNERSHIP_LABELS);
 
 export type RentPeriod = "monthly" | "yearly" | "upfront";
 
-export const RENT_PERIOD_LABEL: Record<RentPeriod, string> = {
-  monthly: "per month",
-  yearly: "per year",
-  upfront: "once, up front",
+export const RENT_PERIOD_LABELS: Record<RentPeriod, Message> = {
+  monthly: { en: "per month", id: "per bulan" },
+  yearly: { en: "per year", id: "per tahun" },
+  upfront: { en: "once, up front", id: "sekali, di muka" },
 };
+export const RENT_PERIOD_LABEL = bilingual(RENT_PERIOD_LABELS);
 
 /** The statuses an asset leaves the register by. */
 export const ASSET_GONE: readonly AssetStatus[] = ["disposed", "lost", "returned"];
 
-export const ASSET_STATUS_LABEL: Record<AssetStatus, string> = {
-  in_use: "In use",
-  in_storage: "In storage",
-  under_repair: "Under repair",
-  disposed: "Disposed",
-  lost: "Lost",
-  returned: "Returned",
+export const ASSET_STATUS_LABELS: Record<AssetStatus, Message> = {
+  in_use: { en: "In use", id: "Dipakai" },
+  in_storage: { en: "In storage", id: "Disimpan" },
+  under_repair: { en: "Under repair", id: "Sedang diperbaiki" },
+  disposed: { en: "Disposed", id: "Dilepas" },
+  lost: { en: "Lost", id: "Hilang" },
+  returned: { en: "Returned", id: "Dikembalikan" },
 };
+export const ASSET_STATUS_LABEL = bilingual(ASSET_STATUS_LABELS);
 
 /** Master data: what kind of thing it is. Retired categories stay on their
  *  assets and leave the pickers. */
@@ -817,12 +827,13 @@ export interface AssetView extends Asset {
 
 export type AssetServiceKind = "service" | "repair" | "inspection" | "other";
 
-export const ASSET_SERVICE_KIND_LABEL: Record<AssetServiceKind, string> = {
-  service: "Service",
-  repair: "Repair",
-  inspection: "Inspection",
-  other: "Other",
+export const ASSET_SERVICE_KIND_LABELS: Record<AssetServiceKind, Message> = {
+  service: { en: "Service", id: "Servis" },
+  repair: { en: "Repair", id: "Perbaikan" },
+  inspection: { en: "Inspection", id: "Inspeksi" },
+  other: { en: "Other", id: "Lainnya" },
 };
+export const ASSET_SERVICE_KIND_LABEL = bilingual(ASSET_SERVICE_KIND_LABELS);
 
 /** One job done on an asset — `v_asset_service` (`0121`). */
 export interface AssetService {

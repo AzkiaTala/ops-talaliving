@@ -17,6 +17,7 @@ import { procurement } from "@/demo/api";
 import type { VendorView } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** Vendors.
  *
@@ -66,6 +67,7 @@ function Field({
 }
 
 export default function SuppliersPage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [q, setQ] = useState("");
@@ -152,8 +154,8 @@ export default function SuppliersPage() {
       supplied_categories: draft.supplied_categories,
     });
     setSaving(false);
-    if (res.error) { toast("critical", "Not saved", res.error.message); return; }
-    toast("success", "Vendor updated", `Contact details for "${res.data.name}" are on record.`);
+    if (res.error) { toast("critical", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", tr("Vendor updated", "Vendor diperbarui"), tr(`Contact details for "${res.data.name}" are on record.`, `Detail kontak untuk "${res.data.name}" sudah tercatat.`));
     setSelected(res.data);
     setEditing(false);
     reload();
@@ -165,10 +167,10 @@ export default function SuppliersPage() {
     const res = await procurement.createVendor({ name: newName }, `vendor-${newName}`);
     setSaving(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Not added", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not added", "Tidak ditambahkan"), res.error.message);
       return;
     }
-    toast("success", "Vendor added", `"${res.data.name}" is recorded and not yet curated. Open it to add a contact and bank details.`);
+    toast("success", tr("Vendor added", "Vendor ditambahkan"), tr(`"${res.data.name}" is recorded and not yet curated. Open it to add a contact and bank details.`, `"${res.data.name}" tercatat dan belum dikurasi. Buka untuk menambahkan kontak dan detail bank.`));
     setNewName("");
     setAdding(false);
     reload();
@@ -176,16 +178,16 @@ export default function SuppliersPage() {
 
   async function curate(v: VendorView, curated: boolean) {
     const res = await procurement.curateVendor(v.id, curated);
-    if (res.error) { toast("warning", "Nothing changed", res.error.message); return; }
-    toast("success", curated ? "Curated" : "Moved back to uncurated",
-      curated ? `"${v.name}" will now appear in dropdowns.` : `"${v.name}" is still recorded, just not offered.`);
+    if (res.error) { toast("warning", tr("Nothing changed", "Tidak ada yang berubah"), res.error.message); return; }
+    toast("success", curated ? tr("Curated", "Dikurasi") : tr("Moved back to uncurated", "Dikembalikan ke belum dikurasi"),
+      curated ? tr(`"${v.name}" will now appear in dropdowns.`, `"${v.name}" sekarang akan muncul di dropdown.`) : tr(`"${v.name}" is still recorded, just not offered.`, `"${v.name}" tetap tercatat, hanya tidak ditawarkan.`));
     refresh();
   }
 
   async function merge(loser: VendorView, winnerId: string) {
     const res = await procurement.mergeVendor(loser.id, winnerId);
-    if (res.error) { toast("warning", "Not merged", res.error.message); return; }
-    toast("success", "Merged", `"${loser.name}" is kept as an alternative spelling. Its history stays where it is.`);
+    if (res.error) { toast("warning", tr("Not merged", "Tidak digabung"), res.error.message); return; }
+    toast("success", tr("Merged", "Digabung"), tr(`"${loser.name}" is kept as an alternative spelling. Its history stays where it is.`, `"${loser.name}" disimpan sebagai ejaan alternatif. Riwayatnya tetap di tempatnya.`));
     setMerging(null);
     refresh();
   }
@@ -201,11 +203,11 @@ export default function SuppliersPage() {
     const res = await procurement.renameVendor(renaming.id, renameTo);
     setSaving(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Not renamed", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not renamed", "Nama tidak diganti"), res.error.message);
       return;
     }
-    toast("success", "Display name changed",
-      `Now shown as "${res.data.name}". "${renaming.name}" is kept as another spelling, so searching for it still works.`);
+    toast("success", tr("Display name changed", "Nama tampilan diganti"),
+      tr(`Now shown as "${res.data.name}". "${renaming.name}" is kept as another spelling, so searching for it still works.`, `Sekarang ditampilkan sebagai "${res.data.name}". "${renaming.name}" disimpan sebagai ejaan lain, jadi pencarian dengan nama itu tetap berfungsi.`));
     setRenaming(null);
     setSelected(res.data);
     reload();
@@ -213,11 +215,11 @@ export default function SuppliersPage() {
 
   async function archive(v: VendorView, archived: boolean) {
     const res = await procurement.archiveVendor(v.id, archived);
-    if (res.error) { toast("warning", "Nothing changed", res.error.message); return; }
-    toast("success", archived ? "Archived" : "Restored",
+    if (res.error) { toast("warning", tr("Nothing changed", "Tidak ada yang berubah"), res.error.message); return; }
+    toast("success", archived ? tr("Archived", "Diarsipkan") : tr("Restored", "Dipulihkan"),
       archived
-        ? `"${v.name}" no longer appears in any dropdown. Its transactions and orders are unchanged.`
-        : `"${v.name}" is back in the dropdowns.`);
+        ? tr(`"${v.name}" no longer appears in any dropdown. Its transactions and orders are unchanged.`, `"${v.name}" tidak lagi muncul di dropdown mana pun. Transaksi dan PO-nya tidak berubah.`)
+        : tr(`"${v.name}" is back in the dropdowns.`, `"${v.name}" kembali ada di dropdown.`));
     setDeleting(null);
     refresh();
   }
@@ -229,10 +231,10 @@ export default function SuppliersPage() {
     if (res.error) {
       /* 409 is the expected answer for nearly every vendor: something still
          names it. The modal stays open and offers archive instead. */
-      toast(res.error.status === 409 ? "warning" : "critical", "Not deleted", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not deleted", "Tidak terhapus"), res.error.message);
       return;
     }
-    toast("success", "Deleted", `"${v.name}" is gone. Nothing referred to it.`);
+    toast("success", tr("Deleted", "Dihapus"), tr(`"${v.name}" is gone. Nothing referred to it.`, `"${v.name}" sudah dihapus. Tidak ada yang merujuk padanya.`));
     setDeleting(null);
     refresh();
   }
@@ -240,31 +242,31 @@ export default function SuppliersPage() {
   const columns: Column<VendorView>[] = [
     {
       key: "name",
-      header: "Vendor",
+      header: tr("Vendor", "Vendor"),
       className: "max-w-[280px]",
       render: (v) => (
         <div>
           <p className="font-medium text-slate-800">{v.name}</p>
           <p className="font-mono text-[11px] text-slate-400">{v.code}</p>
           {v.aka.length > 0 && (
-            <p className="mt-0.5 text-[11px] text-slate-400">also written: {v.aka.join(" · ")}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{tr("also written:", "juga ditulis:")} {v.aka.join(" · ")}</p>
           )}
         </div>
       ),
     },
     {
       key: "curated",
-      header: "Catalogue",
+      header: tr("Catalogue", "Katalog"),
       render: (v) =>
         v.archived_at
-          ? <Badge tone="slate" dot>Archived</Badge>
+          ? <Badge tone="slate" dot>{tr("Archived", "Diarsipkan")}</Badge>
           : v.is_curated
-            ? <Badge tone="green" dot>Curated</Badge>
-            : <Badge tone="amber" dot>Not yet curated</Badge>,
+            ? <Badge tone="green" dot>{tr("Curated", "Dikurasi")}</Badge>
+            : <Badge tone="amber" dot>{tr("Not yet curated", "Belum dikurasi")}</Badge>,
     },
     {
       key: "supplies",
-      header: "Supplies",
+      header: tr("Supplies", "Memasok"),
       className: "max-w-[220px] whitespace-normal",
       render: (v) => {
         /* What we have actually bought wins over what the record claims: the
@@ -283,19 +285,19 @@ export default function SuppliersPage() {
         );
       },
     },
-    { key: "trx", header: "Transactions", align: "right", render: (v) => formatNumber(v.transaction_count) },
-    { key: "spend", header: "Total spend", align: "right", render: (v) => <span className="tabular-nums">{formatIDR(v.total_spend)}</span> },
-    { key: "last", header: "Last purchase", render: (v) => v.last_purchase ?? <span className="text-slate-300">—</span> },
+    { key: "trx", header: tr("Transactions", "Transaksi"), align: "right", render: (v) => formatNumber(v.transaction_count) },
+    { key: "spend", header: tr("Total spend", "Total belanja"), align: "right", render: (v) => <span className="tabular-nums">{formatIDR(v.total_spend)}</span> },
+    { key: "last", header: tr("Last purchase", "Pembelian terakhir"), render: (v) => v.last_purchase ?? <span className="text-slate-300">—</span> },
   ];
 
   return (
     <div>
       <PageHeader
-        breadcrumb="Master Data"
-        title="Suppliers"
-        description="Everyone we buy from, curated or not. A name somebody types is always accepted — it is recorded first and judged later."
+        breadcrumb={tr("Master Data", "Data Master")}
+        title={tr("Suppliers", "Pemasok")}
+        description={tr("Everyone we buy from, curated or not. A name somebody types is always accepted — it is recorded first and judged later.", "Semua tempat kita membeli, sudah dikurasi atau belum. Nama yang diketik seseorang selalu diterima — dicatat dulu, dinilai kemudian.")}
         actions={
-          mayEdit && <Button icon={Plus} onClick={() => setAdding(true)}>Add vendor</Button>
+          mayEdit && <Button icon={Plus} onClick={() => setAdding(true)}>{tr("Add vendor", "Tambah vendor")}</Button>
         }
       />
 
@@ -306,16 +308,16 @@ export default function SuppliersPage() {
           return (
             <>
               <div className="mb-6 grid gap-4 sm:grid-cols-3">
-                <StatCard label="Vendors on record" value={vendors.length} icon={Truck} hint={`${curated.length} curated`} />
+                <StatCard label={tr("Vendors on record", "Vendor tercatat")} value={vendors.length} icon={Truck} hint={tr(`${curated.length} curated`, `${curated.length} dikurasi`)} />
                 <StatCard
-                  label="Not yet curated"
+                  label={tr("Not yet curated", "Belum dikurasi")}
                   value={uncurated.length}
                   icon={Search}
                   tone="amber"
-                  hint="Recorded and visible — absent from dropdowns"
+                  hint={tr("Recorded and visible — absent from dropdowns", "Tercatat dan terlihat — tidak ada di dropdown")}
                 />
                 <StatCard
-                  label="Spend on record"
+                  label={tr("Spend on record", "Belanja tercatat")}
                   value={formatIDR(vendors.reduce((s, v) => s + v.total_spend, 0))}
                   icon={Truck}
                   tone="green"
@@ -324,8 +326,8 @@ export default function SuppliersPage() {
 
               <Card>
                 <CardHeader
-                  title="All vendors"
-                  subtitle="Search reaches into what each vendor supplies — type an item like “thinner” and the vendor comes back, not the other way round."
+                  title={tr("All vendors", "Semua vendor")}
+                  subtitle={tr("Search reaches into what each vendor supplies — type an item like “thinner” and the vendor comes back, not the other way round.", "Pencarian menjangkau apa yang dipasok setiap vendor — ketik barang seperti “thinner” dan vendornya yang muncul, bukan sebaliknya.")}
                   icon={Truck}
                   action={
                     <div className="flex items-center gap-2">
@@ -338,13 +340,13 @@ export default function SuppliersPage() {
                           onChange={(e) => setShowArchived(e.target.checked)}
                           className="h-3.5 w-3.5 rounded border-slate-300"
                         />
-                        Show archived
+                        {tr("Show archived", "Tampilkan yang diarsipkan")}
                       </label>
                       <input
                         id="vendor-search"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Vendor, contact, or item…"
+                        placeholder={tr("Vendor, contact, or item…", "Vendor, kontak, atau barang…")}
                         className="h-9 w-44 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
                       />
                     </div>
@@ -355,7 +357,7 @@ export default function SuppliersPage() {
                   rows={vendors}
                   rowKey={(v) => v.id}
                   onRowClick={open}
-                  empty={q ? `Nothing matches “${q}”.` : "No vendors yet."}
+                  empty={q ? tr(`Nothing matches “${q}”.`, `Tidak ada yang cocok dengan “${q}”.`) : tr("No vendors yet.", "Belum ada vendor.")}
                 />
               </Card>
             </>
@@ -367,40 +369,40 @@ export default function SuppliersPage() {
         open={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.name ?? ""}
-        subtitle={editing ? `${selected?.code} · editing` : selected?.code}
+        subtitle={editing ? tr(`${selected?.code} · editing`, `${selected?.code} · sedang diubah`) : selected?.code}
         footer={
           selected && mayEdit ? (
             editing ? (
               <div className="flex justify-end gap-2">
                 <Button variant="outline" size="sm" onClick={() => setEditing(false)} disabled={saving}>
-                  Cancel
+                  {tr("Cancel", "Batal")}
                 </Button>
                 <Button size="sm" icon={Save} onClick={saveContact} disabled={saving}>
-                  {saving ? "Saving…" : "Save details"}
+                  {saving ? tr("Saving…", "Menyimpan…") : tr("Save details", "Simpan detail")}
                 </Button>
               </div>
             ) : (
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="outline" size="sm" icon={Trash2} onClick={() => setDeleting(selected)}>
-                  Delete
+                  {tr("Delete", "Hapus")}
                 </Button>
                 {selected.archived_at ? (
                   <Button variant="outline" size="sm" icon={ArchiveRestore} onClick={() => archive(selected, false)}>
-                    Restore
+                    {tr("Restore", "Pulihkan")}
                   </Button>
                 ) : (
                   <Button variant="outline" size="sm" icon={Archive} onClick={() => archive(selected, true)}>
-                    Archive
+                    {tr("Archive", "Arsipkan")}
                   </Button>
                 )}
                 <Button variant="outline" size="sm" icon={Merge} onClick={() => setMerging(selected)}>
-                  Merge
+                  {tr("Merge", "Gabungkan")}
                 </Button>
                 <Button variant="outline" size="sm" icon={Type} onClick={() => startRename(selected)}>
-                  Rename
+                  {tr("Rename", "Ganti nama")}
                 </Button>
                 <Button variant="outline" size="sm" icon={Pencil} onClick={() => startEditing(selected)}>
-                  Edit details
+                  {tr("Edit details", "Ubah detail")}
                 </Button>
                 <Button
                   size="sm"
@@ -408,7 +410,7 @@ export default function SuppliersPage() {
                   variant={selected.is_curated ? "outline" : "primary"}
                   onClick={() => curate(selected, !selected.is_curated)}
                 >
-                  {selected.is_curated ? "Uncurate" : "Curate"}
+                  {selected.is_curated ? tr("Uncurate", "Batalkan kurasi") : tr("Curate", "Kurasi")}
                 </Button>
               </div>
             )
@@ -418,43 +420,41 @@ export default function SuppliersPage() {
         {selected && editing && (
           <div className="space-y-6 text-sm">
             <p className="rounded-lg bg-slate-50 px-3 py-2.5 text-[13px] text-slate-600">
-              Leave anything blank that is genuinely unknown. A blank field reads as
-              &ldquo;not on record&rdquo; and the screen will say so; a placeholder
-              typed in to fill the gap reads as an answer.
+              {tr("Leave anything blank that is genuinely unknown. A blank field reads as “not on record” and the screen will say so; a placeholder typed in to fill the gap reads as an answer.", "Kosongkan apa pun yang memang tidak diketahui. Kolom kosong terbaca sebagai “belum tercatat” dan layar akan menyebutnya begitu; isian asal untuk menutup celah terbaca sebagai jawaban.")}
             </p>
 
             <section className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</p>
-              <Field id="v-pic" label="PIC name" value={draft.pic_name}
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{tr("Contact", "Kontak")}</p>
+              <Field id="v-pic" label={tr("PIC name", "Nama PIC")} value={draft.pic_name}
                      onChange={(v) => setDraft({ ...draft, pic_name: v })}
-                     placeholder="e.g. Hendra Wijaya" />
-              <Field id="v-picphone" label="PIC phone" value={draft.pic_phone}
+                     placeholder={tr("e.g. Hendra Wijaya", "mis. Hendra Wijaya")} />
+              <Field id="v-picphone" label={tr("PIC phone", "Telepon PIC")} value={draft.pic_phone}
                      onChange={(v) => setDraft({ ...draft, pic_phone: v })}
-                     placeholder="e.g. 0812-3811-4402" mono />
-              <Field id="v-phone" label="Office phone" value={draft.phone}
+                     placeholder={tr("e.g. 0812-3811-4402", "mis. 0812-3811-4402")} mono />
+              <Field id="v-phone" label={tr("Office phone", "Telepon kantor")} value={draft.phone}
                      onChange={(v) => setDraft({ ...draft, phone: v })}
-                     placeholder="e.g. 0361-812445" mono />
+                     placeholder={tr("e.g. 0361-812445", "mis. 0361-812445")} mono />
               <div>
-                <label htmlFor="v-address" className="block text-xs text-slate-500">Address</label>
+                <label htmlFor="v-address" className="block text-xs text-slate-500">{tr("Address", "Alamat")}</label>
                 <textarea
                   id="v-address"
                   value={draft.address}
                   onChange={(e) => setDraft({ ...draft, address: e.target.value })}
                   rows={2}
-                  placeholder="Street, city"
+                  placeholder={tr("Street, city", "Jalan, kota")}
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
                 />
               </div>
             </section>
 
             <section className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Payment details</p>
-              <Field id="v-bank" label="Bank account" value={draft.bank_account}
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{tr("Payment details", "Detail pembayaran")}</p>
+              <Field id="v-bank" label={tr("Bank account", "Rekening bank")} value={draft.bank_account}
                      onChange={(v) => setDraft({ ...draft, bank_account: v })}
-                     placeholder="e.g. BCA 145-0882-771" mono />
-              <Field id="v-bank2" label="Second account" value={draft.bank_account_secondary}
+                     placeholder={tr("e.g. BCA 145-0882-771", "mis. BCA 145-0882-771")} mono />
+              <Field id="v-bank2" label={tr("Second account", "Rekening kedua")} value={draft.bank_account_secondary}
                      onChange={(v) => setDraft({ ...draft, bank_account_secondary: v })}
-                     placeholder="Only if they really have two" mono />
+                     placeholder={tr("Only if they really have two", "Hanya bila memang punya dua")} mono />
               <Field id="v-npwp" label="NPWP" value={draft.npwp}
                      onChange={(v) => setDraft({ ...draft, npwp: v })}
                      placeholder="00.000.000.0-000.000" mono />
@@ -462,12 +462,10 @@ export default function SuppliersPage() {
 
             <section>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                What they supply
+                {tr("What they supply", "Yang mereka pasok")}
               </p>
               <p className="mb-2 text-xs text-slate-500">
-                A claim on the record, useful before we have bought anything. Once we
-                have, the screen shows what we actually bought instead — that one
-                cannot go stale.
+                {tr("A claim on the record, useful before we have bought anything. Once we have, the screen shows what we actually bought instead — that one cannot go stale.", "Klaim di catatan, berguna sebelum kita membeli apa pun. Setelah membeli, layar menampilkan apa yang benar-benar kita beli — yang itu tidak bisa usang.")}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {cats.status === "ready" && cats.data
@@ -504,28 +502,24 @@ export default function SuppliersPage() {
           <div className="space-y-6 text-sm">
             {selected.archived_at && (
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-600">
-                <p className="font-medium text-slate-700">Archived {selected.archived_at.slice(0, 10)}</p>
+                <p className="font-medium text-slate-700">{tr(`Archived ${selected.archived_at.slice(0, 10)}`, `Diarsipkan ${selected.archived_at.slice(0, 10)}`)}</p>
                 <p className="mt-1">
-                  Not offered in any dropdown. Every transaction, request and order
-                  that names this vendor still does. Restore it if you buy from them again.
+                  {tr("Not offered in any dropdown. Every transaction, request and order that names this vendor still does. Restore it if you buy from them again.", "Tidak ditawarkan di dropdown mana pun. Setiap transaksi, PR, dan PO yang menyebut vendor ini tetap menyebutnya. Pulihkan bila Anda membeli dari mereka lagi.")}
                 </p>
               </div>
             )}
             {!selected.is_curated && !selected.archived_at && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-                <p className="font-medium">Not yet curated</p>
+                <p className="font-medium">{tr("Not yet curated", "Belum dikurasi")}</p>
                 <p className="mt-1">
-                  Recorded, and it will not be offered in a dropdown or treated as a
-                  canonical name until someone curates it. That is deliberate:
-                  promoting every new spelling automatically is how a vendor ends up
-                  in the books under four different names.
+                  {tr("Recorded, and it will not be offered in a dropdown or treated as a canonical name until someone curates it. That is deliberate: promoting every new spelling automatically is how a vendor ends up in the books under four different names.", "Tercatat, dan tidak akan ditawarkan di dropdown atau dianggap nama baku sampai ada yang mengkurasinya. Itu disengaja: menaikkan setiap ejaan baru secara otomatis adalah cara satu vendor berakhir di pembukuan dengan empat nama berbeda.")}
                 </p>
               </div>
             )}
 
             <section>
               <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <UserRound className="h-3.5 w-3.5" /> Who to contact
+                <UserRound className="h-3.5 w-3.5" /> {tr("Who to contact", "Siapa yang dihubungi")}
               </p>
               {selected.pic_name || selected.pic_phone ? (
                 <div className="rounded-lg border border-slate-200 px-4 py-3">
@@ -537,14 +531,14 @@ export default function SuppliersPage() {
                     </a>
                   )}
                   {selected.phone && (
-                    <p className="mt-1 text-xs text-slate-500">Office: {selected.phone}</p>
+                    <p className="mt-1 text-xs text-slate-500">{tr("Office:", "Kantor:")} {selected.phone}</p>
                   )}
                 </div>
               ) : (
                 /* An empty contact on a vendor we keep buying from is a question,
                    not a blank. Say so rather than showing a dash. */
                 <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-4 py-3 text-slate-500">
-                  No contact on record{selected.transaction_count > 0 && ` — and we have bought from them ${selected.transaction_count} time(s)`}.
+                  {tr("No contact on record", "Belum ada kontak tercatat")}{selected.transaction_count > 0 && tr(` — and we have bought from them ${selected.transaction_count} time(s)`, ` — padahal kita sudah membeli dari mereka ${selected.transaction_count} kali`)}.
                 </div>
               )}
               {selected.address && (
@@ -556,12 +550,12 @@ export default function SuppliersPage() {
 
             <section>
               <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <Landmark className="h-3.5 w-3.5" /> Payment details
+                <Landmark className="h-3.5 w-3.5" /> {tr("Payment details", "Detail pembayaran")}
               </p>
               <dl className="space-y-2.5">
                 {([
-                  ["Bank account", selected.bank_account],
-                  ["Second account", selected.bank_account_secondary],
+                  [tr("Bank account", "Rekening bank"), selected.bank_account],
+                  [tr("Second account", "Rekening kedua"), selected.bank_account_secondary],
                   ["NPWP", selected.npwp],
                 ] as [string, string | null][]).map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-4 border-b border-slate-100 pb-2">
@@ -574,15 +568,14 @@ export default function SuppliersPage() {
               </dl>
               {selected.bank_account_secondary && (
                 <p className="mt-2 text-xs text-slate-500">
-                  Two accounts on record. Check the invoice for which one to use —
-                  paying into the wrong one is a week of chasing.
+                  {tr("Two accounts on record. Check the invoice for which one to use — paying into the wrong one is a week of chasing.", "Ada dua rekening tercatat. Periksa invoice untuk rekening yang dipakai — salah transfer berarti seminggu mengejar.")}
                 </p>
               )}
             </section>
 
             <section>
               <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <Boxes className="h-3.5 w-3.5" /> What we buy here
+                <Boxes className="h-3.5 w-3.5" /> {tr("What we buy here", "Yang kita beli di sini")}
               </p>
               {selected.bought_categories.length > 0 ? (
                 <div className="mb-3 flex flex-wrap gap-1.5">
@@ -591,7 +584,7 @@ export default function SuppliersPage() {
                   ))}
                 </div>
               ) : (
-                <p className="mb-3 text-slate-500">Nothing bought from them yet.</p>
+                <p className="mb-3 text-slate-500">{tr("Nothing bought from them yet.", "Belum ada yang dibeli dari mereka.")}</p>
               )}
 
               {selected.items_bought.length > 0 && (
@@ -615,9 +608,7 @@ export default function SuppliersPage() {
 
               {selected.supplied_categories.length > 0 && (
                 <p className="mt-2 text-xs text-slate-500">
-                  Also listed as supplying{" "}
-                  {selected.supplied_category_names.join(", ")} — a note on the record
-                  rather than something we have bought.
+                  {tr(`Also listed as supplying ${selected.supplied_category_names.join(", ")} — a note on the record rather than something we have bought.`, `Juga tercatat memasok ${selected.supplied_category_names.join(", ")} — catatan di data, bukan sesuatu yang sudah kita beli.`)}
                 </p>
               )}
             </section>
@@ -625,10 +616,10 @@ export default function SuppliersPage() {
             <section>
               <dl className="space-y-2.5">
                 {([
-                  ["Transactions", formatNumber(selected.transaction_count)],
-                  ["Total spend", formatIDR(selected.total_spend)],
-                  ["Last purchase", selected.last_purchase ?? "—"],
-                  ["Open PR lines", formatNumber(selected.open_pr_lines)],
+                  [tr("Transactions", "Transaksi"), formatNumber(selected.transaction_count)],
+                  [tr("Total spend", "Total belanja"), formatIDR(selected.total_spend)],
+                  [tr("Last purchase", "Pembelian terakhir"), selected.last_purchase ?? "—"],
+                  [tr("Open PR lines", "Baris PR terbuka"), formatNumber(selected.open_pr_lines)],
                 ] as [string, string][]).map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-4 border-b border-slate-100 pb-2">
                     <dt className="text-slate-500">{k}</dt>
@@ -641,15 +632,14 @@ export default function SuppliersPage() {
             {(selected.aka.length > 0 || selected.absorbed.length > 0) && (
               <section>
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Other spellings
+                  {tr("Other spellings", "Ejaan lain")}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {selected.aka.map((a) => <Badge key={a} tone="slate">{a}</Badge>)}
                 </div>
                 {selected.absorbed.length > 0 && (
                   <p className="mt-2 text-xs text-slate-500">
-                    {selected.absorbed.length} merged record(s) still carry their own
-                    history — nothing was rewritten.
+                    {tr(`${selected.absorbed.length} merged record(s) still carry their own history — nothing was rewritten.`, `${selected.absorbed.length} catatan yang digabung tetap membawa riwayatnya sendiri — tidak ada yang ditulis ulang.`)}
                   </p>
                 )}
               </section>
@@ -658,38 +648,38 @@ export default function SuppliersPage() {
         )}
       </Drawer>
 
-      <Modal open={adding} onClose={() => setAdding(false)} title="Add vendor">
+      <Modal open={adding} onClose={() => setAdding(false)} title={tr("Add vendor", "Tambah vendor")}>
         <div className="space-y-3">
           <label htmlFor="new-vendor" className="block text-sm text-slate-600">
-            Vendor name
+            {tr("Vendor name", "Nama vendor")}
           </label>
           <input
             id="new-vendor"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. UD SUMBER MAKMUR"
+            placeholder={tr("e.g. UD SUMBER MAKMUR", "mis. UD SUMBER MAKMUR")}
             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
           />
           <p className="text-xs text-slate-500">
-            Whatever you type is accepted. It is saved as <strong>not yet curated</strong>,
-            which means it is on record and searchable but will not be offered in
-            dropdowns until someone confirms it is the real name. Contact and bank
-            details are added afterwards, from the vendor&rsquo;s own panel.
+            {tr("Whatever you type is accepted. It is saved as", "Apa pun yang Anda ketik diterima. Disimpan sebagai")} <strong>{tr("not yet curated", "belum dikurasi")}</strong>{tr(
+              ", which means it is on record and searchable but will not be offered in dropdowns until someone confirms it is the real name. Contact and bank details are added afterwards, from the vendor’s own panel.",
+              ", artinya tercatat dan bisa dicari tetapi tidak ditawarkan di dropdown sampai ada yang memastikan itu nama sebenarnya. Kontak dan detail bank ditambahkan sesudahnya, dari panel vendor itu sendiri.",
+            )}
           </p>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setAdding(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAdding(false)}>{tr("Cancel", "Batal")}</Button>
             <Button onClick={addVendor} disabled={saving || !newName.trim()}>
-              {saving ? "Saving…" : "Add vendor"}
+              {saving ? tr("Saving…", "Menyimpan…") : tr("Add vendor", "Tambah vendor")}
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={!!renaming} onClose={() => setRenaming(null)} title="Change display name">
+      <Modal open={!!renaming} onClose={() => setRenaming(null)} title={tr("Change display name", "Ganti nama tampilan")}>
         {renaming && (
           <div className="space-y-3">
             <label htmlFor="rename-vendor" className="block text-sm text-slate-600">
-              The name shown in every dropdown, list and printed order
+              {tr("The name shown in every dropdown, list and printed order", "Nama yang ditampilkan di setiap dropdown, daftar, dan PO cetak")}
             </label>
             <input
               id="rename-vendor"
@@ -699,7 +689,7 @@ export default function SuppliersPage() {
             />
             {renaming.aka.length > 0 && (
               <div>
-                <p className="mb-1.5 text-xs text-slate-500">Or pick one of its other spellings:</p>
+                <p className="mb-1.5 text-xs text-slate-500">{tr("Or pick one of its other spellings:", "Atau pilih salah satu ejaan lainnya:")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {renaming.aka.map((a) => (
                     <button
@@ -720,45 +710,47 @@ export default function SuppliersPage() {
               </div>
             )}
             <p className="text-xs text-slate-500">
-              The current name, <strong>{renaming.name}</strong>, is kept as another
-              spelling, so searching for it — and reading it off an old nota — still
-              finds this vendor.
+              {tr("The current name,", "Nama saat ini,")} <strong>{renaming.name}</strong>{tr(
+                ", is kept as another spelling, so searching for it — and reading it off an old nota — still finds this vendor.",
+                ", disimpan sebagai ejaan lain, jadi mencarinya — dan membacanya dari nota lama — tetap menemukan vendor ini.",
+              )}
             </p>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setRenaming(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setRenaming(null)}>{tr("Cancel", "Batal")}</Button>
               <Button onClick={rename} disabled={saving || !renameTo.trim() || renameTo.trim() === renaming.name}>
-                {saving ? "Saving…" : "Save name"}
+                {saving ? tr("Saving…", "Menyimpan…") : tr("Save name", "Simpan nama")}
               </Button>
             </div>
           </div>
         )}
       </Modal>
 
-      <Modal open={!!deleting} onClose={() => setDeleting(null)} title="Delete vendor">
+      <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tr("Delete vendor", "Hapus vendor")}>
         {deleting && (
           <div className="space-y-3 text-sm text-slate-600">
             <p>
-              Delete <strong>{deleting.name}</strong> permanently? This only works for a
-              vendor nothing refers to — no transaction, request, order, planned
-              payment or item.
+              {tr("Delete", "Hapus")} <strong>{deleting.name}</strong> {tr(
+                "permanently? This only works for a vendor nothing refers to — no transaction, request, order, planned payment or item.",
+                "secara permanen? Ini hanya berlaku untuk vendor yang tidak dirujuk apa pun — tidak ada transaksi, PR, PO, rencana pembayaran, atau barang.",
+              )}
             </p>
             {deleting.transaction_count > 0 ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
-                We have {formatNumber(deleting.transaction_count)} transaction(s) with this
-                vendor, so it cannot be deleted. Archive it instead: it disappears from
-                every dropdown and its history keeps its name.
+                {tr(
+                  `We have ${formatNumber(deleting.transaction_count)} transaction(s) with this vendor, so it cannot be deleted. Archive it instead: it disappears from every dropdown and its history keeps its name.`,
+                  `Ada ${formatNumber(deleting.transaction_count)} transaksi dengan vendor ini, jadi tidak bisa dihapus. Arsipkan saja: vendor hilang dari setiap dropdown dan riwayatnya tetap memakai namanya.`,
+                )}
               </p>
             ) : (
               <p className="text-xs text-slate-500">
-                If something does still refer to it, you will be told what, and can
-                archive it instead.
+                {tr("If something does still refer to it, you will be told what, and can archive it instead.", "Bila masih ada yang merujuk padanya, Anda akan diberi tahu apa, dan bisa mengarsipkannya saja.")}
               </p>
             )}
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setDeleting(null)}>{tr("Cancel", "Batal")}</Button>
               {!deleting.archived_at && (
                 <Button variant="outline" icon={Archive} onClick={() => archive(deleting, true)}>
-                  Archive instead
+                  {tr("Archive instead", "Arsipkan saja")}
                 </Button>
               )}
               <Button
@@ -766,21 +758,21 @@ export default function SuppliersPage() {
                 onClick={() => remove(deleting)}
                 disabled={saving || deleting.transaction_count > 0}
               >
-                {saving ? "Deleting…" : "Delete"}
+                {saving ? tr("Deleting…", "Menghapus…") : tr("Delete", "Hapus")}
               </Button>
             </div>
           </div>
         )}
       </Modal>
 
-      <Modal open={!!merging} onClose={() => setMerging(null)} title="Merge into another vendor" width="max-w-lg">
+      <Modal open={!!merging} onClose={() => setMerging(null)} title={tr("Merge into another vendor", "Gabungkan ke vendor lain")} width="max-w-lg">
         {merging && state.status === "ready" && (
           <div className="space-y-3">
             <p className="text-sm text-slate-600">
-              Pick the vendor <strong>{merging.name}</strong> is really the same as. Its
-              spelling is kept as an alternative, and its existing transactions stay
-              pointed where they are — history does not move because a name was
-              corrected later.
+              {tr("Pick the vendor", "Pilih vendor yang sebenarnya sama dengan")} <strong>{merging.name}</strong>{tr(
+                " is really the same as. Its spelling is kept as an alternative, and its existing transactions stay pointed where they are — history does not move because a name was corrected later.",
+                ". Ejaannya disimpan sebagai alternatif, dan transaksi yang ada tetap menunjuk ke tempatnya — riwayat tidak berpindah karena nama dikoreksi belakangan.",
+              )}
             </p>
             <div className="max-h-72 space-y-1 overflow-y-auto">
               {state.data.filter((v) => v.id !== merging.id).map((v) => (
@@ -790,7 +782,7 @@ export default function SuppliersPage() {
                   className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/40"
                 >
                   <span className="font-medium text-slate-700">{v.name}</span>
-                  {v.is_curated && <Badge tone="green">Curated</Badge>}
+                  {v.is_curated && <Badge tone="green">{tr("Curated", "Dikurasi")}</Badge>}
                 </button>
               ))}
             </div>

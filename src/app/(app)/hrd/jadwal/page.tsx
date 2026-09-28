@@ -9,6 +9,7 @@ import { formatNumber } from "@/lib/format";
 import { hr } from "@/demo/api";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** Working patterns, and who is on them (Q53, D279).
  *
@@ -28,6 +29,7 @@ import { useSession } from "@/store/session";
  *  is the mistake this whole line of questions started from (F70).
  */
 export default function SchedulePage() {
+  const tr = useTr();
   const { can } = useSession();
   const mayEdit = can("hrd.update");
   const [data, reload] = useLoad(() => hr.listSchedules(), []);
@@ -36,17 +38,20 @@ export default function SchedulePage() {
     <div>
       <PageHeader
         breadcrumb="HRD"
-        title="Jadwal kerja"
-        description="Pola kerja yang benar-benar dijalankan perusahaan ini, siapa yang ada di masing-masing, dan berapa jam seminggu serta sebulannya. Angkanya dihitung dari jam masuk, jam pulang dan istirahat — tidak ada yang disimpan dua kali."
+        title={tr("Work schedules", "Jadwal kerja")}
+        description={tr(
+          "The working patterns this company actually runs, who is on each, and how many hours a week and a month they make. The figures are computed from start time, end time and break — nothing is stored twice.",
+          "Pola kerja yang benar-benar dijalankan perusahaan ini, siapa yang ada di masing-masing, dan berapa jam seminggu serta sebulannya. Angkanya dihitung dari jam masuk, jam pulang dan istirahat — tidak ada yang disimpan dua kali.",
+        )}
       />
 
       <Loaded state={data} onRetry={reload}>
         {(d) => (
           <>
             <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <StatCard label="Pola kerja" value={String(d.schedules.length)} icon={CalendarClock} />
+              <StatCard label={tr("Work patterns", "Pola kerja")} value={String(d.schedules.length)} icon={CalendarClock} />
               <StatCard
-                label="Ditetapkan HR"
+                label={tr("Set by HR", "Ditetapkan HR")}
                 value={String(d.schedules.reduce((t, sc) => t + sc.assigned, 0))}
                 icon={Link2}
               />
@@ -55,12 +60,12 @@ export default function SchedulePage() {
                   not a gap somebody has to close. What stays worth flagging is
                   a person on no pattern at all, and that is the tile below. */}
               <StatCard
-                label="Ikut bawaan unit"
+                label={tr("Following unit default", "Ikut bawaan unit")}
                 value={String(d.inherited.length)}
                 icon={Users}
               />
               <StatCard
-                label="Pola belum lengkap"
+                label={tr("Incomplete patterns", "Pola belum lengkap")}
                 value={String(d.schedules.filter((sc) => sc.hours.blocked_by).length)}
                 icon={AlertTriangle}
                 tone={d.schedules.some((sc) => sc.hours.blocked_by) ? "amber" : "slate"}
@@ -69,8 +74,11 @@ export default function SchedulePage() {
 
             <Card className="mb-4">
               <CardHeader
-                title="Pola kerja"
-                subtitle={`Pola ${d.week_pattern === "5day" ? "lima" : "enam"} hari kerja seminggu. Jam seminggu menghitung Jumat dengan panjangnya sendiri kalau istirahatnya beda — selisih setengah jam pada satu hari dari enam hampir satu jam seminggu.`}
+                title={tr("Work patterns", "Pola kerja")}
+                subtitle={tr(
+                  `A ${d.week_pattern === "5day" ? "five" : "six"}-day working week. Weekly hours count Friday at its own length when its break differs — half an hour on one day in six is nearly an hour a week.`,
+                  `Pola ${d.week_pattern === "5day" ? "lima" : "enam"} hari kerja seminggu. Jam seminggu menghitung Jumat dengan panjangnya sendiri kalau istirahatnya beda — selisih setengah jam pada satu hari dari enam hampir satu jam seminggu.`,
+                )}
                 icon={CalendarClock}
                 action={<SourceBadge state={data} />}
               />
@@ -78,13 +86,13 @@ export default function SchedulePage() {
                 <table className="w-full min-w-[720px] text-[13px]">
                   <thead>
                     <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-wide text-slate-400">
-                      <th className="px-5 py-2 font-medium">Pola</th>
-                      <th className="px-3 py-2 font-medium">Jam</th>
-                      <th className="px-3 py-2 text-right font-medium">Sehari</th>
-                      <th className="px-3 py-2 text-right font-medium">Jumat</th>
-                      <th className="px-3 py-2 text-right font-medium">Seminggu</th>
-                      <th className="px-3 py-2 text-right font-medium">Sebulan</th>
-                      <th className="px-5 py-2 text-right font-medium">Orang</th>
+                      <th className="px-5 py-2 font-medium">{tr("Pattern", "Pola")}</th>
+                      <th className="px-3 py-2 font-medium">{tr("Hours", "Jam")}</th>
+                      <th className="px-3 py-2 text-right font-medium">{tr("Per day", "Sehari")}</th>
+                      <th className="px-3 py-2 text-right font-medium">{tr("Friday", "Jumat")}</th>
+                      <th className="px-3 py-2 text-right font-medium">{tr("Per week", "Seminggu")}</th>
+                      <th className="px-3 py-2 text-right font-medium">{tr("Per month", "Sebulan")}</th>
+                      <th className="px-5 py-2 text-right font-medium">{tr("People", "Orang")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -93,20 +101,20 @@ export default function SchedulePage() {
                         <td className="px-5 py-2.5">
                           <span className="block font-medium text-slate-800">{sc.name}</span>
                           <span className="block text-[11px] text-slate-400">
-                            {sc.units.length > 0 ? sc.units.join(", ") : "tidak dipasang ke unit mana pun"}
+                            {sc.units.length > 0 ? sc.units.join(", ") : tr("not assigned to any unit", "tidak dipasang ke unit mana pun")}
                           </span>
                         </td>
                         <td className="px-3 py-2.5 tabular-nums text-slate-600">
                           {clock(sc.start_minutes)} – {clock(sc.end_minutes)}
                           <span className="block text-[11px] text-slate-400">
-                            istirahat {sc.break_minutes == null ? "—" : `${sc.break_minutes} m`}
+                            {tr("break", "istirahat")} {sc.break_minutes == null ? "—" : `${sc.break_minutes} m`}
                             {/* Jumat disebut hanya kalau ia memang berbeda, dan
                                 disebut lengkap: jam pulangnya lebih dulu, karena
                                 itu yang orang rasakan, lalu istirahatnya. */}
                             {(sc.friday_end_minutes != null || sc.friday_break_minutes != null) && (
-                              <> · Jumat
-                                {sc.friday_end_minutes != null && ` s/d ${clock(sc.friday_end_minutes)}`}
-                                {sc.friday_break_minutes != null && ` istirahat ${sc.friday_break_minutes} m`}
+                              <> · {tr("Friday", "Jumat")}
+                                {sc.friday_end_minutes != null && tr(` until ${clock(sc.friday_end_minutes)}`, ` s/d ${clock(sc.friday_end_minutes)}`)}
+                                {sc.friday_break_minutes != null && tr(` break ${sc.friday_break_minutes} m`, ` istirahat ${sc.friday_break_minutes} m`)}
                               </>
                             )}
                           </span>
@@ -118,7 +126,7 @@ export default function SchedulePage() {
                         <td className="px-5 py-2.5 text-right tabular-nums text-slate-600">
                           {sc.assigned + sc.inherited}
                           {sc.inherited > 0 && (
-                            <span className="block text-[11px] text-slate-400">{sc.inherited} ikut unit</span>
+                            <span className="block text-[11px] text-slate-400">{tr(`${sc.inherited} via unit`, `${sc.inherited} ikut unit`)}</span>
                           )}
                         </td>
                       </tr>
@@ -133,23 +141,28 @@ export default function SchedulePage() {
                 </p>
               ))}
               <p className="border-t border-slate-100 px-5 py-2 text-[11px] text-slate-500">
-                Sebulan = seminggu × 52 ÷ 12. Tidak disimpan di mana pun — dua angka yang harus cocok
-                adalah cara paling mudah membuatnya tidak cocok.
+                {tr(
+                  "Per month = per week × 52 ÷ 12. Not stored anywhere — two figures that must agree are the easiest way to make them disagree.",
+                  "Sebulan = seminggu × 52 ÷ 12. Tidak disimpan di mana pun — dua angka yang harus cocok adalah cara paling mudah membuatnya tidak cocok.",
+                )}
               </p>
             </Card>
 
             {d.unlinked.length > 0 ? (
               <Card>
                 <CardHeader
-                  title={`${d.unlinked.length} karyawan belum punya jadwal`}
-                  subtitle="Unitnya juga tidak punya pola bawaan, jadi tidak ada jam yang bisa dipakai menilai ketepatan waktu mereka. Bukan berarti mereka tidak pernah terlambat — berarti belum ada yang menuliskan jamnya."
+                  title={tr(`${d.unlinked.length} employees have no schedule yet`, `${d.unlinked.length} karyawan belum punya jadwal`)}
+                  subtitle={tr(
+                    "Their unit has no default pattern either, so there are no hours to judge their punctuality against. It does not mean they are never late — it means nobody has written the hours down yet.",
+                    "Unitnya juga tidak punya pola bawaan, jadi tidak ada jam yang bisa dipakai menilai ketepatan waktu mereka. Bukan berarti mereka tidak pernah terlambat — berarti belum ada yang menuliskan jamnya.",
+                  )}
                   icon={AlertTriangle}
                 />
                 <ul className="divide-y divide-slate-100">
                   {d.unlinked.map((e) => (
                     <AssignRow
                       key={e.employee_no} row={e} mayEdit={mayEdit}
-                      options={d.schedules.map((sc) => ({ value: sc.code, label: sc.name, sublabel: `${hours(sc.hours.weekly_hours)} jam/minggu` }))}
+                      options={d.schedules.map((sc) => ({ value: sc.code, label: sc.name, sublabel: tr(`${hours(sc.hours.weekly_hours)} h/week`, `${hours(sc.hours.weekly_hours)} jam/minggu`) }))}
                       onDone={reload}
                     />
                   ))}
@@ -158,8 +171,11 @@ export default function SchedulePage() {
             ) : (
               <EmptyState
                 icon={Users}
-                title="Semua karyawan aktif sudah punya jadwal"
-                description="Setiap orang tertaut ke satu pola kerja, lewat unitnya atau lewat jadwalnya sendiri."
+                title={tr("Every active employee has a schedule", "Semua karyawan aktif sudah punya jadwal")}
+                description={tr(
+                  "Every person is linked to one work pattern, through their unit or through their own schedule.",
+                  "Setiap orang tertaut ke satu pola kerja, lewat unitnya atau lewat jadwalnya sendiri.",
+                )}
               />
             )}
           </>
@@ -193,6 +209,7 @@ function AssignRow({
   suggestion?: string;
   onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [picked, setPicked] = useState(suggestion ?? "");
   const [busy, setBusy] = useState(false);
@@ -202,10 +219,10 @@ function AssignRow({
     const res = await hr.setEmployeeSchedule({ employee_no: row.employee_no, schedule_code: picked });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "critical" : "warning", "Belum tersimpan", res.error.message);
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not saved yet", "Belum tersimpan"), res.error.message);
       return;
     }
-    toast("success", row.full_name, `Dipasang ke jadwal ${picked}.`);
+    toast("success", row.full_name, tr(`Assigned to schedule ${picked}.`, `Dipasang ke jadwal ${picked}.`));
     onDone();
   }
 
@@ -215,13 +232,13 @@ function AssignRow({
         <span className="block text-[13px] font-medium text-slate-800">{row.full_name}</span>
         <span className="block text-[11px] text-slate-400">{row.employee_no} · {row.unit}</span>
       </span>
-      <Badge tone="amber">{suggestion ? "ikut unit" : "tanpa jadwal"}</Badge>
+      <Badge tone="amber">{suggestion ? tr("via unit", "ikut unit") : tr("no schedule", "tanpa jadwal")}</Badge>
       {mayEdit && (
         <>
           <div className="w-[240px]">
-            <Combobox options={options} value={picked} onChange={setPicked} placeholder="Pilih pola kerja…" />
+            <Combobox options={options} value={picked} onChange={setPicked} placeholder={tr("Choose work pattern…", "Pilih pola kerja…")} />
           </div>
-          <Button size="sm" icon={Link2} disabled={busy || !picked} onClick={save}>Pasang</Button>
+          <Button size="sm" icon={Link2} disabled={busy || !picked} onClick={save}>{tr("Assign", "Pasang")}</Button>
         </>
       )}
     </li>

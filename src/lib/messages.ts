@@ -86,6 +86,27 @@ export const MESSAGES = {
     settings: m("Settings", "Pengaturan"),
     general: m("General", "Umum"),
     demo: m("Demo", "Demo"),
+
+    contracts: m("Employment contracts", "Kontrak kerja"),
+    taskMonitoring: m("Task monitoring", "Pemantauan tugas"),
+    wlkp: m("Workforce report (WLKP)", "Wajib Lapor (WLKP)"),
+    meetingBoard: m("Meeting board", "Papan rapat"),
+    purchaseTracker: m("Purchase Tracker", "Pelacak pembelian"),
+    purchaseOrder: m("Purchase Order", "Purchase Order"),
+    receivingReport: m("Receiving Report", "Laporan penerimaan barang"),
+    finishedGoods: m("Finished Goods", "Barang jadi"),
+    assets: m("Assets", "Aset"),
+    masterData: m("Master Data", "Data master"),
+    items: m("Items", "Barang"),
+    itemCategories: m("Item categories", "Kategori barang"),
+    units: m("Units", "Satuan"),
+    accounts: m("Accounts", "Akun"),
+    transactionTypes: m("Transaction types", "Jenis transaksi"),
+    assetCategories: m("Asset categories", "Kategori aset"),
+    clients: m("Clients", "Klien"),
+    jobTrail: m("Job trail", "Jejak pekerjaan"),
+    diagnostics: m("Diagnostics", "Diagnostik"),
+    chatSimulated: m("Google Chat (simulated)", "Google Chat (simulasi)"),
   },
 
   common: {
@@ -123,6 +144,14 @@ export const MESSAGES = {
     writeIt: m("Yes, write it", "Ya, tulis"),
     savedAs: m("Saved", "Tersimpan"),
     abandoned: m("Cancelled. Nothing was written.", "Dibatalkan. Tidak ada yang ditulis."),
+    /* What the seam said when it did not write (D317) — read out on the card,
+       by outcome, because *refused*, *invalid* and *conflict* are fixed by
+       different people: IT, the person typing, and nobody (it is already
+       there). */
+    seamRefused: m("Refused — nothing was written", "Ditolak — tidak ada yang ditulis"),
+    seamInvalid: m("A field needs fixing — nothing was written", "Ada isian yang perlu dibetulkan — tidak ada yang ditulis"),
+    seamConflict: m("Already there — nothing was written", "Sudah ada — tidak ada yang ditulis"),
+    seamNotFound: m("Not found — nothing was written", "Tidak ditemukan — tidak ada yang ditulis"),
   },
 } as const;
 

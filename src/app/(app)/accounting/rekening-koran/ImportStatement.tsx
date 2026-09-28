@@ -11,6 +11,7 @@ import { accounting } from "@/demo/api";
 import { parseCsv } from "@/lib/csv";
 import type { Direction } from "@/services/accounting/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Reading a bank's own export.
  *
@@ -111,6 +112,7 @@ function parseStatement(text: string): { rows: Row[]; skipped: number } {
 }
 
 export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
   const [file, setFile] = useState<{ name: string; rows: Row[]; skipped: number } | null>(null);
@@ -121,7 +123,7 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
     const { rows, skipped } = parseStatement(await f.text());
     setFile({ name: f.name, rows, skipped });
     if (rows.length === 0) {
-      toast("warning", "Tidak terbaca", "Tidak ada baris bertanggal dengan jumlah di file itu.");
+      toast("warning", tr("Not readable", "Tidak terbaca"), tr("There is no dated row with an amount in that file.", "Tidak ada baris bertanggal dengan jumlah di file itu."));
     }
   }
 
@@ -148,15 +150,15 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Tidak masuk", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not imported", "Tidak masuk"), res.error.message);
       return;
     }
     toast(
       res.data.balance_ok ? "success" : "warning",
-      `${res.data.statement_no} masuk`,
+      tr(`${res.data.statement_no} imported`, `${res.data.statement_no} masuk`),
       res.data.balance_ok
-        ? `${res.data.lines.length} baris, saldo cocok.`
-        : `${res.data.lines.length} baris — tapi saldo tidak cocok, filenya belum utuh.`,
+        ? tr(`${res.data.lines.length} row(s), the balance matches.`, `${res.data.lines.length} baris, saldo cocok.`)
+        : tr(`${res.data.lines.length} row(s) — but the balance does not match; the file is incomplete.`, `${res.data.lines.length} baris — tapi saldo tidak cocok, filenya belum utuh.`),
     );
     onDone();
   }
@@ -164,14 +166,14 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
   return (
     <Modal
       open onClose={onClose} width="max-w-xl"
-      title="Upload rekening koran"
+      title={tr("Upload a bank statement", "Upload rekening koran")}
       footer={
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-slate-500">Periode yang sama tidak bisa diunggah dua kali.</p>
+          <p className="text-[11px] text-slate-500">{tr("The same period cannot be uploaded twice.", "Periode yang sama tidak bisa diunggah dua kali.")}</p>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose} disabled={busy}>Batal</Button>
+            <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
             <Button icon={Upload} onClick={run} disabled={busy || !file || file.rows.length === 0 || form.closing === 0}>
-              {busy ? "Membaca…" : file ? `Masukkan ${file.rows.length} baris` : "Masukkan"}
+              {busy ? tr("Reading…", "Membaca…") : file ? tr(`Import ${file.rows.length} row(s)`, `Masukkan ${file.rows.length} baris`) : tr("Import", "Masukkan")}
             </Button>
           </div>
         </div>
@@ -181,7 +183,7 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
         <Loaded state={accounts} skeletonRows={1}>
           {(accs) => (
             <label className="block">
-              <span className="block text-xs text-slate-500">Rekening</span>
+              <span className="block text-xs text-slate-500">{tr("Account", "Rekening")}</span>
               <select
                 value={form.account_code}
                 onChange={(e) => setForm({ ...form, account_code: e.target.value })}
@@ -199,8 +201,8 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
 
         <div>
           <label htmlFor="rk-file" className="block text-xs text-slate-500">
-            Export dari bank — <code className="text-[11px]">Tanggal, Keterangan, Jumlah (DB/CR), Saldo</code>,
-            atau kolom Debit/Kredit terpisah
+            {tr("Export from the bank —", "Export dari bank —")} <code className="text-[11px]">Tanggal, Keterangan, Jumlah (DB/CR), Saldo</code>,
+            {" "}{tr("or separate Debit/Kredit columns", "atau kolom Debit/Kredit terpisah")}
           </label>
           <input
             id="rk-file" type="file" accept=".csv,text/csv,text/plain"
@@ -211,11 +213,11 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
 
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="block">
-            <span className="block text-xs text-slate-500">Saldo awal (dari rekening koran)</span>
+            <span className="block text-xs text-slate-500">{tr("Opening balance (from the statement)", "Saldo awal (dari rekening koran)")}</span>
             <div className="mt-1"><MoneyInput value={form.opening} onChange={(v) => setForm({ ...form, opening: v })} /></div>
           </label>
           <label className="block">
-            <span className="block text-xs text-slate-500">Saldo akhir (dari rekening koran)</span>
+            <span className="block text-xs text-slate-500">{tr("Closing balance (from the statement)", "Saldo akhir (dari rekening koran)")}</span>
             <div className="mt-1"><MoneyInput value={form.closing} onChange={(v) => setForm({ ...form, closing: v })} /></div>
           </label>
         </div>
@@ -227,17 +229,17 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
             </p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-[12px]">
               <div>
-                <dt className="text-slate-500">Baris terbaca</dt>
+                <dt className="text-slate-500">{tr("Rows read", "Baris terbaca")}</dt>
                 <dd className="font-semibold tabular-nums text-slate-800">{file.rows.length}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Mutasi bersih</dt>
+                <dt className="text-slate-500">{tr("Net movement", "Mutasi bersih")}</dt>
                 <dd className="font-semibold tabular-nums text-slate-800">
                   {movement >= 0 ? "+" : "−"}{formatNumber(Math.abs(movement))}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Saldo akhir (hitung)</dt>
+                <dt className="text-slate-500">{tr("Closing balance (computed)", "Saldo akhir (hitung)")}</dt>
                 <dd className={`font-semibold tabular-nums ${balanced ? "text-emerald-700" : "text-rose-700"}`}>
                   {formatNumber(computed)}
                 </dd>
@@ -245,14 +247,14 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
             </dl>
             {file.skipped > 0 && (
               <p className="mt-2 text-[11px] text-amber-700">
-                {file.skipped} baris tanpa tanggal atau tanpa jumlah yang terbaca — tidak ikut, dan tidak ditebak.
+                {tr(`${file.skipped} row(s) with no readable date or amount — left out, and not guessed at.`, `${file.skipped} baris tanpa tanggal atau tanpa jumlah yang terbaca — tidak ikut, dan tidak ditebak.`)}
               </p>
             )}
             {form.closing > 0 && !balanced && (
               <p className="mt-2 flex items-start gap-1.5 text-[11px] text-rose-700">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                Saldo hitung tidak sama dengan saldo akhir yang Anda masukkan. Tetap bisa diunggah —
-                tapi ketidakcocokannya akan tercatat di layar, bukan disembunyikan.
+                {tr("The computed balance does not equal the closing balance you entered. It can still be uploaded — but the mismatch will be shown on the screen, not hidden.",
+                  "Saldo hitung tidak sama dengan saldo akhir yang Anda masukkan. Tetap bisa diunggah — tapi ketidakcocokannya akan tercatat di layar, bukan disembunyikan.")}
               </p>
             )}
             <ul className="mt-2 space-y-0.5 text-[11px] text-slate-600">
@@ -261,14 +263,14 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
                   {r.value_date} · {r.direction === "IN" ? "+" : "−"}{formatNumber(r.amount)} · {r.raw_description}
                 </li>
               ))}
-              {file.rows.length > 5 && <li className="text-slate-400">+{file.rows.length - 5} baris lagi</li>}
+              {file.rows.length > 5 && <li className="text-slate-400">{tr(`+${file.rows.length - 5} more row(s)`, `+${file.rows.length - 5} baris lagi`)}</li>}
             </ul>
           </div>
         )}
 
         <input
           value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })}
-          placeholder="Catatan — mis. diserahkan pimpinan lewat WhatsApp"
+          placeholder={tr("Note — e.g. handed over by leadership on WhatsApp", "Catatan — mis. diserahkan pimpinan lewat WhatsApp")}
           className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
         />
       </div>

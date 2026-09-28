@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTr } from "@/lib/i18n";
 
 /** Paging, for lists that are not tables.
  *
@@ -43,24 +44,25 @@ export function usePaged<T>(rows: T[], pageSize = DEFAULT_PAGE_SIZE, unit?: stri
 }
 
 export function Pager({
-  from, to, total, page, pages, onPage, unit = "baris",
+  from, to, total, page, pages, onPage, unit,
 }: {
   from: number; to: number; total: number; page: number; pages: number;
   onPage: (p: number) => void;
   unit?: string;
 }) {
+  const tr = useTr();
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5">
       <p className="text-[12px] text-slate-500">
-        <span className="font-medium tabular-nums text-slate-700">{from}–{to}</span> dari{" "}
-        <span className="tabular-nums">{total}</span> {unit}
+        <span className="font-medium tabular-nums text-slate-700">{from}–{to}</span> {tr("of", "dari")}{" "}
+        <span className="tabular-nums">{total}</span> {unit ?? tr("rows", "baris")}
       </p>
       <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={() => onPage(page - 1)}
           disabled={page === 0}
-          aria-label="Halaman sebelumnya"
+          aria-label={tr("Previous page", "Halaman sebelumnya")}
           className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -70,7 +72,7 @@ export function Pager({
           type="button"
           onClick={() => onPage(page + 1)}
           disabled={page >= pages - 1}
-          aria-label="Halaman berikutnya"
+          aria-label={tr("Next page", "Halaman berikutnya")}
           className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronRight className="h-4 w-4" />

@@ -12,6 +12,7 @@ import { procurement } from "@/demo/api";
 import type { VendorJourney } from "@/services/procurement/contracts";
 import { useSession } from "@/store/session";
 import { NewPo } from "./NewPo";
+import { useTr } from "@/lib/i18n";
 
 /** What we owe every supplier, and where each order stands.
  *
@@ -27,6 +28,7 @@ import { NewPo } from "./NewPo";
  *  in July" is a real question.
  */
 export default function TrackerPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [rows, reload] = useLoad(() => procurement.listVendorJourneys(), []);
   const [creating, setCreating] = useState(false);
@@ -36,7 +38,7 @@ export default function TrackerPage() {
   const columns: Column<VendorJourney>[] = [
     {
       key: "vendor",
-      header: "Vendor",
+      header: tr("Vendor", "Vendor"),
       className: "whitespace-normal",
       render: (v) => (
         <div className="flex items-start gap-2">
@@ -48,12 +50,12 @@ export default function TrackerPage() {
         </div>
       ),
     },
-    { key: "orders", header: "Orders", align: "right", render: (v) => <span className="tabular-nums text-[13px] text-slate-600">{v.orders}</span> },
-    { key: "contract", header: "Contract", align: "right", render: (v) => <span className="tabular-nums text-slate-700">{formatIDR(v.contract_value)}</span> },
-    { key: "paid", header: "Paid", align: "right", render: (v) => <span className="tabular-nums text-slate-700">{formatIDR(v.paid)}</span> },
+    { key: "orders", header: tr("Orders", "Order"), align: "right", render: (v) => <span className="tabular-nums text-[13px] text-slate-600">{v.orders}</span> },
+    { key: "contract", header: tr("Contract", "Kontrak"), align: "right", render: (v) => <span className="tabular-nums text-slate-700">{formatIDR(v.contract_value)}</span> },
+    { key: "paid", header: tr("Paid", "Dibayar"), align: "right", render: (v) => <span className="tabular-nums text-slate-700">{formatIDR(v.paid)}</span> },
     {
       key: "outstanding",
-      header: "Outstanding",
+      header: tr("Outstanding", "Sisa utang"),
       align: "right",
       render: (v) => (
         <span className={cn("tabular-nums", v.outstanding > 0 ? "text-slate-800" : "text-slate-400")}>
@@ -63,7 +65,7 @@ export default function TrackerPage() {
     },
     {
       key: "billable",
-      header: "Billable now",
+      header: tr("Billable now", "Bisa ditagih sekarang"),
       align: "right",
       render: (v) => (
         <span className={cn(
@@ -76,23 +78,26 @@ export default function TrackerPage() {
     },
     {
       key: "state",
-      header: "Status",
+      header: tr("Status", "Status"),
       render: (v) => v.billable_now > 0
-        ? <Badge tone="amber">goods to be invoiced</Badge>
+        ? <Badge tone="amber">{tr("goods to be invoiced", "barang menunggu ditagih")}</Badge>
         : v.outstanding > 0
-          ? <Badge tone="brand">contract open</Badge>
-          : <Badge tone="green">fully settled</Badge>,
+          ? <Badge tone="brand">{tr("contract open", "kontrak terbuka")}</Badge>
+          : <Badge tone="green">{tr("fully settled", "lunas")}</Badge>,
     },
   ];
 
   return (
     <div>
       <PageHeader
-        breadcrumb="Procurement"
-        title="Purchase tracker"
-        description="Every supplier we have an order with: what is contracted, what has been paid, what has actually arrived, and what they could invoice next."
+        breadcrumb={tr("Procurement", "Pengadaan")}
+        title={tr("Purchase tracker", "Pelacak pembelian")}
+        description={tr(
+          "Every supplier we have an order with: what is contracted, what has been paid, what has actually arrived, and what they could invoice next.",
+          "Setiap pemasok yang punya order dengan kita: berapa yang dikontrak, yang sudah dibayar, yang benar-benar sudah tiba, dan yang bisa mereka tagih berikutnya.",
+        )}
         actions={mayCreate ? (
-          <Button icon={Plus} onClick={() => setCreating(true)}>Add new PO</Button>
+          <Button icon={Plus} onClick={() => setCreating(true)}>{tr("Add new PO", "Tambah PO baru")}</Button>
         ) : undefined}
       />
 
@@ -112,19 +117,19 @@ export default function TrackerPage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["Contracted", formatIDR(contracted), `${all.length} supplier(s), every open order`],
-                    ["Paid to date", formatIDR(paid), "money that has left our bank"],
-                    ["Owed to suppliers", formatIDR(owed), "contracted and not yet paid"],
-                    ["Billable now", formatIDR(billable), "goods here that nobody has paid for"],
-                  ] as [string, string, string][]).map(([k, v, note]) => (
-                    <div key={k} className="px-4 py-3.5">
+                    ["contracted", tr("Contracted", "Dikontrak"), formatIDR(contracted), tr(`${all.length} supplier(s), every open order`, `${all.length} pemasok, semua order terbuka`)],
+                    ["paid", tr("Paid to date", "Dibayar sampai kini"), formatIDR(paid), tr("money that has left our bank", "uang yang sudah keluar dari bank kita")],
+                    ["owed", tr("Owed to suppliers", "Utang ke pemasok"), formatIDR(owed), tr("contracted and not yet paid", "dikontrak dan belum dibayar")],
+                    ["billable", tr("Billable now", "Bisa ditagih sekarang"), formatIDR(billable), tr("goods here that nobody has paid for", "barang sudah di sini tapi belum dibayar")],
+                  ] as [string, string, string, string][]).map(([id, k, v, note]) => (
+                    <div key={id} className="px-4 py-3.5">
                       <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-400">
-                        {k === "Owed to suppliers" && <Landmark className="h-3 w-3" />}
+                        {id === "owed" && <Landmark className="h-3 w-3" />}
                         {k}
                       </dt>
                       <dd className={cn(
                         "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                        k === "Billable now" && billable > 0 ? "text-amber-700" : "text-slate-800",
+                        id === "billable" && billable > 0 ? "text-amber-700" : "text-slate-800",
                       )}>
                         {v}
                       </dd>
@@ -133,20 +138,33 @@ export default function TrackerPage() {
                   ))}
                 </dl>
                 <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">
-                  <strong className="text-slate-700">{formatIDR(owed)}</strong> is the commitment;{" "}
-                  <strong className="text-amber-800">{formatIDR(billable)}</strong> of it is a bill a
-                  supplier could send today. The rest waits on deliveries that have not happened.
+                  <strong className="text-slate-700">{formatIDR(owed)}</strong>{" "}
+                  {tr("is the commitment;", "adalah komitmennya;")}{" "}
+                  <strong className="text-amber-800">{formatIDR(billable)}</strong>{" "}
+                  {tr(
+                    "of it is a bill a supplier could send today. The rest waits on deliveries that have not happened.",
+                    "di antaranya adalah tagihan yang bisa dikirim pemasok hari ini. Sisanya menunggu kiriman yang belum datang.",
+                  )}
                   {credit > 0 && (
-                    <> Separately, <strong className="text-slate-700">{formatIDR(credit)}</strong> of
-                    goods arrived beyond what was ordered — credit sitting with vendors, not ours to spend.</>
+                    <>
+                      {" "}{tr("Separately,", "Selain itu,")}{" "}
+                      <strong className="text-slate-700">{formatIDR(credit)}</strong>{" "}
+                      {tr(
+                        "of goods arrived beyond what was ordered — credit sitting with vendors, not ours to spend.",
+                        "barang datang melebihi pesanan — kredit yang ada di vendor, bukan uang kita untuk dibelanjakan.",
+                      )}
+                    </>
                   )}
                 </p>
               </div>
 
               <Card className="mb-4">
                 <CardHeader
-                  title={`${live.length} supplier(s) with something open`}
-                  subtitle="Most billable first — the ones with goods here that nobody has paid for."
+                  title={tr(`${live.length} supplier(s) with something open`, `${live.length} pemasok dengan urusan terbuka`)}
+                  subtitle={tr(
+                    "Most billable first — the ones with goods here that nobody has paid for.",
+                    "Yang paling bisa ditagih lebih dulu — pemasok yang barangnya sudah di sini tapi belum dibayar.",
+                  )}
                   icon={Route}
                   action={<SourceBadge state={rows} />}
                 />
@@ -156,7 +174,7 @@ export default function TrackerPage() {
                   rows={live}
                   rowKey={(v) => v.vendor_id}
                   onRowClick={(v) => { window.location.href = `/procurement/tracker/${v.vendor_id}`; }}
-                  empty="Nothing open with any supplier."
+                  empty={tr("Nothing open with any supplier.", "Tidak ada urusan terbuka dengan pemasok mana pun.")}
                 />
               </Card>
 
@@ -164,12 +182,15 @@ export default function TrackerPage() {
               {settled.length > 0 && (
                 <Card>
                   <CardHeader
-                    title={`${settled.length} fully settled`}
-                    subtitle="Paid against everything that arrived. Nothing to do — kept because last month's questions arrive next month."
+                    title={tr(`${settled.length} fully settled`, `${settled.length} lunas`)}
+                    subtitle={tr(
+                      "Paid against everything that arrived. Nothing to do — kept because last month's questions arrive next month.",
+                      "Sudah dibayar untuk semua yang datang. Tidak ada yang perlu dilakukan — tetap disimpan karena pertanyaan bulan lalu datang bulan depan.",
+                    )}
                     icon={CheckCircle2}
                     action={
                       <Button variant="outline" size="sm" onClick={() => setShowSettled((v) => !v)}>
-                        {showSettled ? "Hide" : "Show"}
+                        {showSettled ? tr("Hide", "Sembunyikan") : tr("Show", "Tampilkan")}
                       </Button>
                     }
                   />
@@ -179,7 +200,7 @@ export default function TrackerPage() {
                       columns={columns}
                       rows={settled}
                       rowKey={(v) => v.vendor_id}
-                      empty="Nothing is fully settled yet."
+                      empty={tr("Nothing is fully settled yet.", "Belum ada yang lunas.")}
                       onRowClick={(v) => { window.location.href = `/procurement/tracker/${v.vendor_id}`; }}
                     />
                   )}
@@ -195,8 +216,12 @@ export default function TrackerPage() {
       </Loaded>
 
       <p className="mt-4 text-[12px] text-slate-400">
-        Open a supplier to see every order, every payment and every delivery —{" "}
-        <Link href="/procurement/po" className="underline">the plain order list</Link> is still there.
+        {tr(
+          "Open a supplier to see every order, every payment and every delivery —",
+          "Buka pemasok untuk melihat setiap order, pembayaran, dan kiriman —",
+        )}{" "}
+        <Link href="/procurement/po" className="underline">{tr("the plain order list", "daftar order biasa")}</Link>{" "}
+        {tr("is still there.", "tetap tersedia.")}
       </p>
     </div>
   );

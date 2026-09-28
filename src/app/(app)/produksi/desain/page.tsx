@@ -14,6 +14,7 @@ import {
 import { DesignDrawer } from "./DesignDrawer";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Desain — the drafting queue, built for the people doing the drawing (D179).
  *
@@ -31,6 +32,7 @@ import { useToast } from "@/store/toast";
  *     cannot prioritise a list of products; they can prioritise dates.
  */
 export default function DesignPage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [tasks, reload] = useLoad(() => production.listDesignTasks(), []);
@@ -44,19 +46,22 @@ export default function DesignPage() {
     const res = await production.createDesignTask({ product_code: productCode, kind });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Tidak dibuat", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not created", "Tidak dibuat"), res.error.message);
       return;
     }
-    toast("success", `${res.data.task_no} dibuat`, `${res.data.product_name} · ${DESIGN_KIND_LABEL[kind]}`);
+    toast("success", tr(`${res.data.task_no} created`, `${res.data.task_no} dibuat`), `${res.data.product_name} · ${DESIGN_KIND_LABEL[kind]}`);
     reload(); reloadGaps();
   }
 
   return (
     <div>
       <PageHeader
-        breadcrumb="Produksi"
-        title="Desain"
-        description="Antrean gambar: yang tertahan pertanyaan, yang revisinya belum dirilis, yang belum digambar sama sekali — diurutkan dari tanggal barang itu dibutuhkan."
+        breadcrumb={tr("Production", "Produksi")}
+        title={tr("Design", "Desain")}
+        description={tr(
+          "The drawing queue: what is held up by a question, what has an unreleased revision, what has not been drawn at all — ordered by the date the piece is needed.",
+          "Antrean gambar: yang tertahan pertanyaan, yang revisinya belum dirilis, yang belum digambar sama sekali — diurutkan dari tanggal barang itu dibutuhkan.",
+        )}
         actions={<SourceBadge state={tasks} />}
       />
 
@@ -75,20 +80,20 @@ export default function DesignPage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["Menunggu jawaban", String(blocked.length),
-                      blocked.length > 0 ? "tertahan orang lain" : "tidak ada yang tertahan"],
-                    ["Revisi belum dirilis", String(ahead.length),
-                      ahead.length > 0 ? "bengkel masih pakai yang lama" : "semua yang terbaru sudah dirilis"],
-                    ["Belum digambar", String(undrawn.length), "belum ada yang mulai"],
-                    ["Lewat tanggal", String(late.length), late.length > 0 ? "dibutuhkan sebelum hari ini" : "tidak ada yang lewat"],
+                    [tr("Waiting for an answer", "Menunggu jawaban"), String(blocked.length),
+                      blocked.length > 0 ? tr("held up by someone else", "tertahan orang lain") : tr("nothing is held up", "tidak ada yang tertahan")],
+                    [tr("Unreleased revisions", "Revisi belum dirilis"), String(ahead.length),
+                      ahead.length > 0 ? tr("the workshop still uses the old one", "bengkel masih pakai yang lama") : tr("every latest one is released", "semua yang terbaru sudah dirilis")],
+                    [tr("Not drawn yet", "Belum digambar"), String(undrawn.length), tr("nobody has started", "belum ada yang mulai")],
+                    [tr("Past the date", "Lewat tanggal"), String(late.length), late.length > 0 ? tr("needed before today", "dibutuhkan sebelum hari ini") : tr("nothing is past", "tidak ada yang lewat")],
                   ] as [string, string, string][]).map(([k, v, note]) => (
                     <div key={k} className="px-4 py-3.5">
                       <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                       <dd className={cn(
                         "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                        (k === "Menunggu jawaban" && blocked.length > 0)
-                          || (k === "Revisi belum dirilis" && ahead.length > 0)
-                          || (k === "Lewat tanggal" && late.length > 0)
+                        (k === tr("Waiting for an answer", "Menunggu jawaban") && blocked.length > 0)
+                          || (k === tr("Unreleased revisions", "Revisi belum dirilis") && ahead.length > 0)
+                          || (k === tr("Past the date", "Lewat tanggal") && late.length > 0)
                           ? "text-amber-700" : "text-slate-800",
                       )}>
                         {v}
@@ -103,20 +108,29 @@ export default function DesignPage() {
                 <div className="mb-4 flex flex-wrap items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-[13px] text-amber-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    <strong>Bengkel memotong dari gambar lama.</strong>{" "}
-                    {ahead.map((t) => `${t.product_name} — rilis ${t.released_rev}, terbaru ${t.latest_rev}`).join(" · ")}.
-                    Revisi yang diunggah bukan revisi yang dirilis; lantai produksi hanya melihat yang dirilis.
+                    <strong>{tr("The workshop is cutting from an old drawing.", "Bengkel memotong dari gambar lama.")}</strong>{" "}
+                    {ahead.map((t) => tr(
+                      `${t.product_name} — released ${t.released_rev}, latest ${t.latest_rev}`,
+                      `${t.product_name} — rilis ${t.released_rev}, terbaru ${t.latest_rev}`,
+                    )).join(" · ")}.{" "}
+                    {tr(
+                      "An uploaded revision is not a released one; the production floor only sees what is released.",
+                      "Revisi yang diunggah bukan revisi yang dirilis; lantai produksi hanya melihat yang dirilis.",
+                    )}
                   </span>
                 </div>
               )}
 
               <Card className="mb-4">
                 <CardHeader
-                  title={`${all.length} tugas gambar`}
-                  subtitle="Tertahan dulu, lalu yang revisinya belum dirilis, lalu menurut tanggal dibutuhkan."
+                  title={tr(`${all.length} drawing tasks`, `${all.length} tugas gambar`)}
+                  subtitle={tr(
+                    "Held up first, then unreleased revisions, then by the date needed.",
+                    "Tertahan dulu, lalu yang revisinya belum dirilis, lalu menurut tanggal dibutuhkan.",
+                  )}
                   icon={PencilRuler}
                 />
-                <Paged rows={all} pageSize={12} unit="tugas">
+                <Paged rows={all} pageSize={12} unit={tr("tasks", "tugas")}>
                   {(page) => (
                     <ul className="divide-y divide-slate-100">
                       {page.map((t) => <Row key={t.id} task={t} onOpen={() => setOpen(t.task_no)} />)}
@@ -129,8 +143,11 @@ export default function DesignPage() {
                 {(g) => g.length === 0 ? <></> : (
                   <Card>
                     <CardHeader
-                      title={`${g.length} gambar belum punya tugas`}
-                      subtitle="Produk yang dipesan atau sedang dikerjakan, dan belum ada satu pun tugas gambar untuknya. Dihitung dari pesanan, bukan diingat orang."
+                      title={tr(`${g.length} drawings without a task`, `${g.length} gambar belum punya tugas`)}
+                      subtitle={tr(
+                        "Products that are ordered or in production with no drawing task at all. Worked out from the orders, not from anyone's memory.",
+                        "Produk yang dipesan atau sedang dikerjakan, dan belum ada satu pun tugas gambar untuknya. Dihitung dari pesanan, bukan diingat orang.",
+                      )}
                       icon={FileStack}
                     />
                     <ul className="divide-y divide-slate-100">
@@ -145,7 +162,7 @@ export default function DesignPage() {
                           {mayEdit && (
                             <Button size="sm" variant="outline" icon={Plus} disabled={busy}
                               onClick={() => raise(row.product_code, row.kind)}>
-                              Buat tugas
+                              {tr("Create task", "Buat tugas")}
                             </Button>
                           )}
                         </li>
@@ -172,6 +189,7 @@ export default function DesignPage() {
 }
 
 function Row({ task: t, onOpen }: { task: DesignTaskView; onOpen: () => void }) {
+  const tr = useTr();
   const done = t.status === "RILIS" && !t.ahead_of_release && !t.blocked;
   return (
     <li>
@@ -188,18 +206,18 @@ function Row({ task: t, onOpen }: { task: DesignTaskView; onOpen: () => void }) 
             : t.status === "RILIS" ? "green"
               : t.status === "DIGAMBAR" ? "brand" : "slate"
         }>
-          {t.blocked ? "Menunggu jawaban" : DESIGN_STATUS_LABEL[t.status]}
+          {t.blocked ? tr("Waiting for an answer", "Menunggu jawaban") : DESIGN_STATUS_LABEL[t.status]}
         </Badge>
 
         <span className="whitespace-nowrap text-[12px] text-slate-600">
-          {t.released_rev ? `rilis ${t.released_rev}` : "belum ada rilis"}
+          {t.released_rev ? tr(`released ${t.released_rev}`, `rilis ${t.released_rev}`) : tr("no release yet", "belum ada rilis")}
           {t.ahead_of_release && (
-            <span className="ml-1 font-medium text-amber-700">· ada {t.latest_rev} belum dirilis</span>
+            <span className="ml-1 font-medium text-amber-700">· {tr(`${t.latest_rev} not released yet`, `ada ${t.latest_rev} belum dirilis`)}</span>
           )}
         </span>
 
         <span className="whitespace-nowrap text-[12px] text-slate-500">
-          {t.assignee ?? <span className="text-slate-400">belum ada yang pegang</span>}
+          {t.assignee ?? <span className="text-slate-400">{tr("nobody assigned", "belum ada yang pegang")}</span>}
         </span>
 
         <span className={cn(
@@ -209,12 +227,12 @@ function Row({ task: t, onOpen }: { task: DesignTaskView; onOpen: () => void }) 
               : (t.days_left ?? 99) <= 3 ? "font-medium text-amber-700" : "text-slate-500",
         )}>
           {done
-            ? "selesai"
+            ? tr("done", "selesai")
             : t.needed_by
               ? t.days_left != null && t.days_left < 0
-                ? `lewat ${Math.abs(t.days_left)} hari`
-                : `${t.days_left} hari lagi`
-              : "belum ada yang menunggu"}
+                ? tr(`${Math.abs(t.days_left)} days over`, `lewat ${Math.abs(t.days_left)} hari`)
+                : tr(`${t.days_left} days left`, `${t.days_left} hari lagi`)
+              : tr("nobody waiting yet", "belum ada yang menunggu")}
         </span>
 
         {t.blocked && (
@@ -222,7 +240,10 @@ function Row({ task: t, onOpen }: { task: DesignTaskView; onOpen: () => void }) 
             <MessageCircleQuestion className="h-3.5 w-3.5" />
             {t.questions.find((q) => !q.answer)?.question}
             {" — "}
-            {t.questions.find((q) => !q.answer)?.waiting_days} hari menunggu jawaban{" "}
+            {tr(
+              `${t.questions.find((q) => !q.answer)?.waiting_days} days waiting for an answer from`,
+              `${t.questions.find((q) => !q.answer)?.waiting_days} hari menunggu jawaban`,
+            )}{" "}
             {t.questions.find((q) => !q.answer)?.asked_of}
           </span>
         )}

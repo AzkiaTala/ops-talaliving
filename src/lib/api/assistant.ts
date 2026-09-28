@@ -52,17 +52,20 @@
  */
 import type {
   AssistantReply, AssistantTurn, AssistantTool, AnswerFact, AssistantDraft,
-  UnmatchedPrompt, RouterHealth, RouterRule, AskContext,
+  UnmatchedPrompt, RouterHealth, RouterRule, AskContext, ToolSeam,
 } from "@/services/assistant/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromSeam, fromRows, invalid, ok, refused, type Result } from "./_kit";
 import { getActiveLang } from "@/lib/i18n";
 import { GUIDES, resolveGuide, draftShape, resolvePoDraft, confirmPoDraft, resolveLeaveDraft, confirmLeaveDraft } from "@/lib/john-lau";
+import { seamInitial, seamDraftShape, confirmSeam, apiSeamCall, type SeamCall } from "@/lib/john-lau-seams";
 import { officeToday } from "@/lib/office";
 import * as procurement from "./procurement";
 import * as hr from "./hr";
 import * as accounting from "./accounting";
 import * as inventory from "./inventory";
+import * as marketing from "./marketing";
+import * as production from "./production";
 import { isOk } from "@/services/_shared/envelope";
 
 /** John Lau stamps his envelopes `procurement`, as the demo does. Inventing an
@@ -73,6 +76,48 @@ const SERVICE = "procurement" as const;
 const db = () => supabaseBrowser().schema("ops_asst");
 
 /* ── the catalogue ─────────────────────────────────────────────────────── */
+
+/* ── declared writes (D317) ────────────────────────────────────────────── */
+
+/** The declared tools, read once per page from `v_tool_seams` (0176).
+ *
+ *  Read from the database rather than from the demo's copy for the reason
+ *  `tools` is (0038): which seam a Confirm knocks on is the catalogue's to
+ *  say, and the catalogue is a migration, not a file in this bundle. Cached
+ *  for the page because it only changes with a deploy of the ladder. A failed
+ *  read is not cached, so the next draft asks again. */
+let seamsCache: Promise<Map<string, ToolSeam>> | null = null;
+async function seamFor(tool: string): Promise<ToolSeam | null> {
+  if (!seamsCache) {
+    seamsCache = (async () => {
+      const { data, error } = await db().from("v_tool_seams").select("*");
+      if (error) throw error;
+      return new Map(((data ?? []) as ToolSeam[]).map((r) => [r.tool, r]));
+    })();
+    seamsCache.catch(() => { seamsCache = null; });
+  }
+  try {
+    return (await seamsCache).get(tool) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** A declared seam, called **as the person**.
+ *
+ *  `rpc`: straight to PostgREST, in the schema the row names, with the draft's
+ *  idempotency key in the parameter the row names — the security-definer
+ *  function decides, exactly as it does for a screen. `api`: the function of
+ *  that name in this layer's own modules, which is the screen's own call. */
+const API_SEAMS = { procurement, hr, accounting, inventory, marketing, production } as unknown as
+  Record<string, Record<string, unknown>>;
+const callSeam: SeamCall = async (spec, params, key) => {
+  if (spec.kind === "api") return apiSeamCall(API_SEAMS)(spec, params, key);
+  const [schema, fn] = spec.seam.split(".");
+  const args = spec.key_param ? { ...params, [spec.key_param]: key } : params;
+  const { data, error } = await supabaseBrowser().schema(schema).rpc(fn, args);
+  return fromSeam<unknown>(SERVICE, data, error);
+};
 
 interface CatalogueRow {
   name: string;
@@ -172,11 +217,11 @@ function toTurn(row: TurnRow, email: string, draft: AssistantDraft | null = null
   };
 }
 
-function toDraft(row: DraftRow, tool: string, args: Record<string, string>): AssistantDraft {
+function toDraft(row: DraftRow, tool: string, args: Record<string, string>, spec: ToolSeam | null = null): AssistantDraft {
   return {
     id: row.id,
     tool,
-    ...draftShape(tool, args, getActiveLang()),
+    ...(spec ? seamDraftShape(spec, row.args ?? args, getActiveLang()) : draftShape(tool, args, getActiveLang())),
     args: row.args ?? args,
     idempotency_key: row.idempotency_key,
     created_at: row.created_at,
@@ -384,6 +429,10 @@ export async function ask(prompt: string, context?: AskContext): Promise<Result<
       const people = await hr.listEmployees();
       if (isOk(people)) match = { ...match, args: resolveLeaveDraft(match.args ?? {}, people.data, prompt, officeToday()) };
     }
+    /* A declared tool (D317): what the card shows first, resolved now and
+       stored as the draft — only from the arguments its fields name (D300). */
+    const spec = await seamFor(tool.name);
+    if (spec) match = { ...match, args: seamInitial(spec, match.args ?? {}, lang, officeToday()) };
     const res = await record(prompt, {
       kind: "draft",
       understood_as: understood,
@@ -406,7 +455,7 @@ export async function ask(prompt: string, context?: AskContext): Promise<Result<
     if (!isOk(opened)) return opened;
 
     return ok(SERVICE, {
-      turn: toTurn(res.data, email, toDraft(opened.data, tool.name, match.args ?? {})),
+      turn: toTurn(res.data, email, toDraft(opened.data, tool.name, match.args ?? {}, spec)),
       understood_as: understood,
     });
   }
@@ -619,26 +668,27 @@ export async function confirmDraft(
          : `This draft was already ${draft.outcome}.`, { outcome: draft.outcome });
   }
 
+  /* **The gate again, at the yes** (D219, D317). A grant can be taken away
+     between the draft and the Confirm, and a draft is not a licence. The
+     seam refuses on its own as well — this is the sentence, the seam is the
+     boundary (0039) — but the person should hear *your access changed*, not
+     whatever the seam happens to call it. */
+  const { data: gData, error: gErr } = await db().rpc("may_run", { p_name: draft.tool, p_lang: lang });
+  if (gErr) return fail(SERVICE, gErr);
+  const again = fromSeam<Gate>(SERVICE, gData, null);
+  if (!isOk(again)) return again as unknown as Result<AssistantTurn>;
+
   let produced: string | null = null;
 
-  if (draft.tool === "procurement.draft_pr_line") {
-    /* Read by key, never by label: `fields` arrives keyed by `key` precisely
-       so that what the person filled in survives a language switch between the
-       draft and the yes. */
-    const qty = input.fields.qty ?? "";
-    const res = await procurement.quickAddLine({
-      description: input.fields.item ?? "",
-      qty: Number(qty.split(" ")[0]) || 1,
-      uom: (qty.split(" ")[1] ?? "pcs") as never,
-      unit_price: null,
-      vendor_id: null,
-      purpose: input.fields.purpose
-        || (id ? "Diminta lewat John Lau" : "Requested through John Lau"),
-    });
-    /* The write refused. Nothing is settled, so the draft is still open and
-       the person can fix the field the seam named and press yes again. */
+  /* A declared tool (D317): the fields as the person left them — read by key,
+     never by label — through the seam its catalogue row names, keyed by the
+     draft's idempotency key. A refusal, an invalid field or a conflict comes
+     back untouched and the draft stays open to fix and confirm again. */
+  const spec = await seamFor(draft.tool);
+  if (spec) {
+    const res = await confirmSeam(spec, input.fields, draft.idempotency_key, lang, callSeam);
     if (!isOk(res)) return res as unknown as Result<AssistantTurn>;
-    produced = res.data.line_no_full;
+    produced = res.data;
   }
   /* A purchase order is written as a DRAFT through the same seam the screen
      uses, and goes to leadership unless its author is leadership (D299,
@@ -705,7 +755,7 @@ async function reread(turnId: string, settled: DraftRow): Promise<Result<Assista
     });
   }
   const email = await myEmail();
-  const turn = toTurn(row, email, toDraft(settled, settled.tool, settled.args ?? {}));
+  const turn = toTurn(row, email, toDraft(settled, settled.tool, settled.args ?? {}, await seamFor(settled.tool)));
   turn.draft_outcome = settled.outcome;
   turn.produced_ref = settled.produced_ref;
   return ok(SERVICE, turn);

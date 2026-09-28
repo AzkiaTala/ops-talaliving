@@ -10,6 +10,7 @@ import { Loaded, useLoad } from "@/components/ui/loaded";
 import { useToast } from "@/store/toast";
 import { cn } from "@/lib/cn";
 import { ROUTES, STAGE_NAME, type RouteCode } from "@/services/production/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** Putting something on the floor.
  *
@@ -24,6 +25,7 @@ export function NewWorkOrder({
   onClose: () => void;
   onDone: (woNo: string) => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [products] = useLoad(() => production.listProducts(), []);
   const [projects] = useLoad(() => procurement.listProjects(), []);
@@ -46,22 +48,22 @@ export function NewWorkOrder({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak dibuat", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not created", "Tidak dibuat"), res.error.message);
       return;
     }
-    toast("success", "Job Order dibuat", `${res.data.wo_no} · ${qty} ${uom} · jatuh tempo ${due}`);
+    toast("success", tr("Job Order created", "Job Order dibuat"), tr(`${res.data.wo_no} · ${qty} ${uom} · due ${due}`, `${res.data.wo_no} · ${qty} ${uom} · jatuh tempo ${due}`));
     onDone(res.data.wo_no);
   }
 
   return (
     <Modal
       open onClose={onClose} width="max-w-lg"
-      title="Job Order baru"
+      title={tr("New Job Order", "Job Order baru")}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>Batal</Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
           <Button icon={Save} onClick={save} disabled={busy || !item.trim() || qty <= 0 || !due}>
-            {busy ? "Menyimpan…" : "Simpan"}
+            {busy ? tr("Saving…", "Menyimpan…") : tr("Save", "Simpan")}
           </Button>
         </div>
       }
@@ -72,7 +74,7 @@ export function NewWorkOrder({
         <Loaded state={products} skeletonRows={1}>
           {(prods) => (
             <div>
-              <label htmlFor="w-prod" className="block text-xs text-slate-500">Item yang dibuat</label>
+              <label htmlFor="w-prod" className="block text-xs text-slate-500">{tr("Item to make", "Item yang dibuat")}</label>
               <select
                 id="w-prod" value={productCode}
                 onChange={(e) => {
@@ -82,7 +84,7 @@ export function NewWorkOrder({
                 }}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
               >
-                <option value="">Di luar katalog — ketik sendiri…</option>
+                <option value="">{tr("Not in the catalogue — type it yourself…", "Di luar katalog — ketik sendiri…")}</option>
                 {prods.map((x) => (
                   <option key={x.product_code} value={x.product_code}>
                     {x.name} · {x.product_code}
@@ -91,35 +93,35 @@ export function NewWorkOrder({
               </select>
               <input
                 value={item} onChange={(e) => setItem(e.target.value)}
-                placeholder="Meja makan jati 220×100"
-                aria-label="Nama item"
+                placeholder={tr("Teak dining table 220×100", "Meja makan jati 220×100")}
+                aria-label={tr("Item name", "Nama item")}
                 className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
               />
             </div>
           )}
         </Loaded>
         <div>
-          <label htmlFor="w-desc" className="block text-xs text-slate-500">Keterangan</label>
+          <label htmlFor="w-desc" className="block text-xs text-slate-500">{tr("Description", "Keterangan")}</label>
           <input
             id="w-desc" value={description} onChange={(e) => setDescription(e.target.value)}
-            placeholder="Finishing natural matt, sesuai gambar revisi 2."
+            placeholder={tr("Natural matt finish, per drawing revision 2.", "Finishing natural matt, sesuai gambar revisi 2.")}
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label htmlFor="w-qty" className="block text-xs text-slate-500">Jumlah</label>
+            <label htmlFor="w-qty" className="block text-xs text-slate-500">{tr("Quantity", "Jumlah")}</label>
             <NumberInput id="w-qty" value={qty} min={1} max={9999} onChange={setQty} className="mt-1" />
           </div>
           <div>
-            <label htmlFor="w-uom" className="block text-xs text-slate-500">Satuan</label>
+            <label htmlFor="w-uom" className="block text-xs text-slate-500">{tr("Unit", "Satuan")}</label>
             <input
               id="w-uom" value={uom} onChange={(e) => setUom(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="w-due" className="block text-xs text-slate-500">Jatuh tempo</label>
+            <label htmlFor="w-due" className="block text-xs text-slate-500">{tr("Due date", "Jatuh tempo")}</label>
             <input
               id="w-due" type="date" value={due} onChange={(e) => setDue(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
@@ -130,7 +132,7 @@ export function NewWorkOrder({
             subcontracted order is a different route, not five skipped stages
             (D254). */}
         <div>
-          <span className="block text-xs text-slate-500">Cara dikerjakan</span>
+          <span className="block text-xs text-slate-500">{tr("How it is made", "Cara dikerjakan")}</span>
           <div className="mt-1 grid gap-2 sm:grid-cols-2">
             {ROUTES.map((r) => (
               <button
@@ -152,8 +154,10 @@ export function NewWorkOrder({
           </div>
           {route === "SUBCON" && (
             <p className="mt-1 text-[11px] text-slate-500">
-              Vendor dan tanggal kirimnya dicatat nanti, di Job Order ini — bukan di sini, karena
-              biasanya belum ditentukan saat Job Order dibuat.
+              {tr(
+                "The vendor and its send date are recorded later, on this Job Order — not here, because they are usually not decided yet when the Job Order is created.",
+                "Vendor dan tanggal kirimnya dicatat nanti, di Job Order ini — bukan di sini, karena biasanya belum ditentukan saat Job Order dibuat.",
+              )}
             </p>
           )}
         </div>
@@ -161,12 +165,12 @@ export function NewWorkOrder({
         <Loaded state={projects} skeletonRows={1}>
           {(prjs) => (
             <div>
-              <label htmlFor="w-proj" className="block text-xs text-slate-500">Proyek / pelanggan</label>
+              <label htmlFor="w-proj" className="block text-xs text-slate-500">{tr("Project / customer", "Proyek / pelanggan")}</label>
               <select
                 id="w-proj" value={project} onChange={(e) => setProject(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
               >
-                <option value="">Tanpa proyek</option>
+                <option value="">{tr("No project", "Tanpa proyek")}</option>
                 {prjs.map((x) => (
                   <option key={x.code} value={x.code}>{x.name} · {x.code}</option>
                 ))}
@@ -177,8 +181,10 @@ export function NewWorkOrder({
           )}
         </Loaded>
         <p className="text-[11px] text-slate-500">
-          Tanggal jatuh tempo wajib. Job Order tanpa tanggal tidak bisa terlambat, artinya tidak ada
-          yang tahu kapan ia terlambat.
+          {tr(
+            "The due date is required. A Job Order with no date cannot be late, which means nobody can tell when it is.",
+            "Tanggal jatuh tempo wajib. Job Order tanpa tanggal tidak bisa terlambat, artinya tidak ada yang tahu kapan ia terlambat.",
+          )}
         </p>
       </div>
     </Modal>

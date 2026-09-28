@@ -23,11 +23,13 @@ import type {
 } from "@/services/assistant/contracts";
 import { getState, apply, newId, writeAudit } from "../store";
 import { latency, actingUser, requireModule, replayed, remember } from "./_kit";
-import { TOOLS, findTool, resolveTool } from "../assistant/catalogue";
-import { settingText } from "../settings";
+import { TOOLS, findTool, resolveTool, findSeam } from "../assistant/catalogue";
+import { DEMO_RPC } from "../assistant/seams";
 import type { Lang } from "@/lib/i18n";
+import { getActiveLang } from "@/lib/i18n";
 import { route, normalise, rules } from "../assistant/router";
 import { GUIDES, resolveGuide, draftShape, resolvePoDraft, confirmPoDraft, resolveLeaveDraft, confirmLeaveDraft } from "@/lib/john-lau";
+import { seamInitial, seamDraftShape, confirmSeam, apiSeamCall, type SeamCall } from "@/lib/john-lau-seams";
 import { accountBalances, approvalQueue, vendorJourney } from "../derive";
 import { stockItems } from "../inventory-derive";
 import { workOrderViews } from "../production-derive";
@@ -35,14 +37,36 @@ import { fulfilmentViews } from "../delivery-derive";
 import { officeToday } from "@/lib/office";
 import * as procurement from "./procurement";
 import * as hr from "./hr";
+import * as accounting from "./accounting";
+import * as inventory from "./inventory";
+import * as marketing from "./marketing";
+import * as production from "./production";
+
+/** A declared tool's seam, as the sandbox runs it (D317): an `api` seam is the
+ *  demo function of the same name, an `rpc` seam is its stand-in in
+ *  `../assistant/seams`. Neither is chosen per tool — the catalogue row says
+ *  which, and this is the only place that reads it. */
+const API_SEAMS = { procurement, hr, accounting, inventory, marketing, production } as unknown as
+  Record<string, Record<string, unknown>>;
+const callSeam: SeamCall = async (spec, params, key) => {
+  if (spec.kind === "api") return apiSeamCall(API_SEAMS)(spec, params, key);
+  const run = DEMO_RPC[spec.seam];
+  if (!run) {
+    return refused(SERVICE, "not_in_sandbox",
+      lang() === "id"
+        ? `${spec.seam} hanya ada di database; sandbox belum punya tiruannya.`
+        : `${spec.seam} exists only in the database; the sandbox has no stand-in for it yet.`, { seam: spec.seam });
+  }
+  return run(params, key);
+};
 
 const SERVICE = "procurement" as const;
 
-/** The language in force, from the setting (D216, D224). Resolved here so a
+/** The language in force — the viewer's choice, else the setting (D216, D224, D318). Resolved here so a
  *  Phase-2 HTTP client receives finished sentences, and the language of a
  *  refusal is decided in the same place as the refusal. */
 function lang(): Lang {
-  return settingText(getState(), "format.language", "en") === "id" ? "id" : "en";
+  return getActiveLang();
 }
 
 export async function listTools(): Promise<Result<AssistantTool[]>> {
@@ -175,6 +199,10 @@ export async function ask(prompt: string, context?: AskContext): Promise<Result<
       const people = await hr.listEmployees();
       if (!people.error) args = resolveLeaveDraft(args, people.data, prompt, officeToday());
     }
+    /* A declared tool (D317): the sentence's arguments choose what the card
+       shows first, and only the ones its fields name survive (D300). */
+    const spec = findSeam(tool.name);
+    if (spec) args = seamInitial(spec, args, lang(), officeToday());
     const draft = buildDraft(tool.name, args);
     const turn = newTurn(prompt, "draft");
     turn.tools_used = [tool.name];
@@ -316,7 +344,7 @@ function readFor(tool: string): { text: string; facts: AnswerFact[] } {
 function buildDraft(tool: string, args: Record<string, string>): AssistantDraft {
   return {
     id: newId("dft"), tool,
-    ...draftShape(tool, args, lang()),
+    ...(findSeam(tool) ? seamDraftShape(findSeam(tool)!, args, lang()) : draftShape(tool, args, lang())),
     args: { ...args },
     idempotency_key: newId("idem"),
     created_at: new Date().toISOString(),
@@ -354,19 +382,14 @@ export async function confirmDraft(
   }
 
   let produced: string | null = null;
-  if (turn.draft.tool === "procurement.draft_pr_line") {
-    /* By key, not by label — a label is display text and changes with the
-       language in force (see `AssistantDraft.fields`). */
-    const res = await procurement.quickAddLine({
-      description: input.fields.item ?? "",
-      qty: Number(input.fields.qty?.split(" ")[0] ?? 1),
-      uom: (input.fields.qty?.split(" ")[1] ?? "pcs") as never,
-      unit_price: null,
-      vendor_id: null,
-      purpose: input.fields.purpose || "Diminta lewat John Lau",
-    });
+  const spec = findSeam(turn.draft.tool);
+  if (spec) {
+    /* The declared road (D317): the fields as the person left them, through
+       the seam the catalogue names, keyed by the draft's own idempotency key.
+       What the seam says back is returned as it is. */
+    const res = await confirmSeam(spec, input.fields, turn.draft.idempotency_key, lang(), callSeam);
     if (res.error) return res as unknown as Result<AssistantTurn>;
-    produced = res.data.line_no_full;
+    produced = res.data;
   } else if (turn.draft.tool === "procurement.draft_po") {
     /* Written as a DRAFT through `createPo`, confirmed on creation when the
        author holds the authority, sent to leadership otherwise (D299, D300).

@@ -7,6 +7,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { procurement } from "@/demo/api";
 import type { ItemCategory, ItemGroupSuggestion } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** The uncurated pile, grouped by the words the names lead with (Master Data
  *  phase 5). Each group is one proposed item type: accept it and the type is
@@ -31,6 +32,7 @@ export function SuggestPanel({
   categories: ItemCategory[];
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [names, setNames] = useState<Map<string, string>>(new Map());
@@ -68,13 +70,14 @@ export function SuggestPanel({
     let target = r.into;
     if (!target) {
       const created = await procurement.createCategory({ name: r.name.trim(), parent_code: r.parent });
-      if (created.error) { setBusy(null); toast("warning", "Type not created", created.error.message); return; }
+      if (created.error) { setBusy(null); toast("warning", tr("Type not created", "Jenis tidak dibuat"), created.error.message); return; }
       target = created.data.code;
     }
     const res = await procurement.setItemsCategory(ids, target, true);
     setBusy(null);
-    if (res.error) { toast("warning", "Not filed", res.error.message); return; }
-    toast("success", "Filed", `${res.data.updated} item${res.data.updated === 1 ? "" : "s"} into ${r.into ? types.find((t) => t.code === r.into)?.name : r.name}, curated.`);
+    if (res.error) { toast("warning", tr("Not filed", "Tidak dimasukkan"), res.error.message); return; }
+    const into = r.into ? types.find((t) => t.code === r.into)?.name : r.name;
+    toast("success", tr("Filed", "Dimasukkan"), tr(`${res.data.updated} item${res.data.updated === 1 ? "" : "s"} into ${into}, curated.`, `${res.data.updated} barang masuk ke ${into}, sudah dikurasi.`));
     done(r.key);
     onChanged();
   }
@@ -85,8 +88,8 @@ export function SuggestPanel({
     setBusy(r.key);
     const res = await procurement.archiveItems(ids, ARCHIVE_REASON);
     setBusy(null);
-    if (res.error) { toast("warning", "Not archived", res.error.message); return; }
-    toast("success", "Archived", `${res.data.archived} item${res.data.archived === 1 ? "" : "s"} out of every picker. Their ledger lines stay.`);
+    if (res.error) { toast("warning", tr("Not archived", "Tidak diarsipkan"), res.error.message); return; }
+    toast("success", tr("Archived", "Diarsipkan"), tr(`${res.data.archived} item${res.data.archived === 1 ? "" : "s"} out of every picker. Their ledger lines stay.`, `${res.data.archived} barang dikeluarkan dari semua pilihan. Baris buku besarnya tetap ada.`));
     done(r.key);
     onChanged();
   }
@@ -106,27 +109,27 @@ export function SuggestPanel({
           ) : (
             <>
               <input
-                aria-label={`Type name for ${r.key}`} value={r.name}
+                aria-label={tr(`Type name for ${r.key}`, `Nama jenis untuk ${r.key}`)} value={r.name}
                 onChange={(e) => patch(r.key, { name: e.target.value, into: "" })}
                 disabled={!!r.into}
                 className="h-8 w-40 rounded-lg border border-slate-200 px-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
               />
-              <span className="text-[12px] text-slate-400">under</span>
+              <span className="text-[12px] text-slate-400">{tr("under", "di bawah")}</span>
               <select
-                aria-label={`Category for ${r.key}`} value={r.parent} disabled={!!r.into}
+                aria-label={tr(`Category for ${r.key}`, `Kategori untuk ${r.key}`)} value={r.parent} disabled={!!r.into}
                 onChange={(e) => patch(r.key, { parent: e.target.value })}
                 className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm disabled:bg-slate-50"
               >
-                <option value="">Pick a category…</option>
+                <option value="">{tr("Pick a category…", "Pilih kategori…")}</option>
                 {tops.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
               </select>
               {types.length > 0 && (
                 <select
-                  aria-label={`Existing type for ${r.key}`} value={r.into}
+                  aria-label={tr(`Existing type for ${r.key}`, `Jenis yang sudah ada untuk ${r.key}`)} value={r.into}
                   onChange={(e) => patch(r.key, { into: e.target.value })}
                   className="h-8 max-w-[11rem] rounded-lg border border-slate-200 bg-white px-2 text-sm"
                 >
-                  <option value="">…or an existing type</option>
+                  <option value="">{tr("…or an existing type", "…atau jenis yang sudah ada")}</option>
                   {types.map((t) => (
                     <option key={t.code} value={t.code}>
                       {categories.find((c) => c.code === t.parent_code)?.name} › {t.name}
@@ -139,12 +142,12 @@ export function SuggestPanel({
           <span className="ml-auto flex gap-1.5">
             {r.not_goods && (
               <Button size="sm" icon={Archive} disabled={busy !== null || n === 0} onClick={() => archive(r)}>
-                Archive {n}
+                {tr(`Archive ${n}`, `Arsipkan ${n}`)}
               </Button>
             )}
             {!r.not_goods && (
               <Button size="sm" icon={FolderInput} disabled={busy !== null || !canFile} onClick={() => file(r)}>
-                {busy === r.key ? "Filing…" : r.into ? `File ${n}` : `Create & file ${n}`}
+                {busy === r.key ? tr("Filing…", "Memasukkan…") : r.into ? tr(`File ${n}`, `Masukkan ${n}`) : tr(`Create & file ${n}`, `Buat & masukkan ${n}`)}
               </Button>
             )}
           </span>
@@ -153,7 +156,7 @@ export function SuggestPanel({
           type="button" onClick={() => patch(r.key, { open: !r.open })}
           className="mt-1 block text-left text-[12px] text-slate-500 hover:text-slate-700"
         >
-          {r.open ? "Hide names" : `${r.sample.slice(0, 3).join(" · ")}${r.count > 3 ? ` · +${r.count - 3} more` : ""}`}
+          {r.open ? tr("Hide names", "Sembunyikan nama") : `${r.sample.slice(0, 3).join(" · ")}${r.count > 3 ? tr(` · +${r.count - 3} more`, ` · +${r.count - 3} lagi`) : ""}`}
         </button>
         {r.open && (
           <ul className="mt-1.5 max-h-48 space-y-0.5 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/60 px-2 py-1.5">
@@ -181,21 +184,21 @@ export function SuggestPanel({
   return (
     <Drawer
       open={open} onClose={onClose} width="max-w-3xl"
-      title={<span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-600" /> Suggested filing</span>}
-      subtitle="Uncurated items grouped by the words their names start with. A guess — check the names before accepting."
+      title={<span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-600" /> {tr("Suggested filing", "Saran pengelompokan")}</span>}
+      subtitle={tr("Uncurated items grouped by the words their names start with. A guess — check the names before accepting.", "Barang yang belum dikurasi, dikelompokkan menurut kata awal namanya. Hanya tebakan — periksa nama-namanya sebelum menerima.")}
     >
       {rows === null ? (
-        <p className="text-sm text-slate-400">Reading the uncurated pile…</p>
+        <p className="text-sm text-slate-400">{tr("Reading the uncurated pile…", "Membaca tumpukan yang belum dikurasi…")}</p>
       ) : rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-3 text-sm text-slate-500">
-          No group of three or more uncurated items shares a name. What is left is filed one at a time.
+          {tr("No group of three or more uncurated items shares a name. What is left is filed one at a time.", "Tidak ada kelompok berisi tiga barang atau lebih yang belum dikurasi dengan nama serupa. Sisanya dimasukkan satu per satu.")}
         </p>
       ) : (
         <div className="space-y-5">
           {goods.length > 0 && (
             <section>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Item types — {goods.length} groups, {goods.reduce((s, r) => s + r.count, 0)} items
+                {tr(`Item types — ${goods.length} groups, ${goods.reduce((s, r) => s + r.count, 0)} items`, `Jenis barang — ${goods.length} kelompok, ${goods.reduce((s, r) => s + r.count, 0)} barang`)}
               </p>
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">{goods.map(group)}</ul>
             </section>
@@ -203,11 +206,10 @@ export function SuggestPanel({
           {payments.length > 0 && (
             <section>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Not items — {payments.reduce((s, r) => s + r.count, 0)} payment descriptions
+                {tr(`Not items — ${payments.reduce((s, r) => s + r.count, 0)} payment descriptions`, `Bukan barang — ${payments.reduce((s, r) => s + r.count, 0)} deskripsi pembayaran`)}
               </p>
               <p className="mb-2 text-[12px] text-slate-500">
-                These came in from the old ledger as &ldquo;items&rdquo;. Archiving takes them out of every picker;
-                the ledger lines written against them stay exactly as they are.
+                {tr("These came in from the old ledger as “items”. Archiving takes them out of every picker; the ledger lines written against them stay exactly as they are.", "Ini masuk dari buku besar lama sebagai “barang”. Mengarsipkan mengeluarkannya dari semua pilihan; baris buku besar yang memakainya tetap persis seperti adanya.")}
               </p>
               <ul className="divide-y divide-slate-100 rounded-lg border border-amber-200">{payments.map(group)}</ul>
             </section>

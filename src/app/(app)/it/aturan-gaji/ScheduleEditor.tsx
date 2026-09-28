@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 import type { PayRules, WorkSchedule } from "@/services/hr/contracts";
 import { scheduleProblems, scheduleHoursOf } from "@/services/hr/contracts";
 import { formatNumber } from "@/lib/format";
+import { useTr } from "@/lib/i18n";
 
 /** The working patterns, editable (Q44, D274, D289, D291).
  *
@@ -35,6 +36,7 @@ export function ScheduleEditor({
   disabled: boolean;
   onChange: (patch: Partial<PayRules>) => void;
 }) {
+  const tr = useTr();
   const schedules = rules.schedules ?? [];
   const byUnit = rules.schedule_by_unit ?? {};
   const problems = scheduleProblems(schedules, byUnit);
@@ -73,7 +75,7 @@ export function ScheduleEditor({
             <li key={`${p.code}-${i}`} className={i === 0 ? "font-medium" : "mt-0.5"}>
               {p.message}
               {i === 0 && problems.length > 1 && (
-                <span className="font-normal text-amber-700"> — ini yang akan ditolak lebih dulu.</span>
+                <span className="font-normal text-amber-700"> {tr("— this is the one that will be refused first.", "— ini yang akan ditolak lebih dulu.")}</span>
               )}
             </li>
           ))}
@@ -82,8 +84,10 @@ export function ScheduleEditor({
 
       {schedules.length === 0 && (
         <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[12px] text-slate-500">
-          Belum ada pola kerja di buku ini. Semua unit memakai jam masuk perusahaan di atas, dan
-          ketepatan waktu tidak bisa diukur terhadap apa pun yang tertulis.
+          {tr(
+            "No working pattern in this book yet. Every unit uses the company start time above, and punctuality cannot be measured against anything written down.",
+            "Belum ada pola kerja di buku ini. Semua unit memakai jam masuk perusahaan di atas, dan ketepatan waktu tidak bisa diukur terhadap apa pun yang tertulis.",
+          )}
         </p>
       )}
 
@@ -93,7 +97,7 @@ export function ScheduleEditor({
           <div key={i} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
             <div className="flex flex-wrap items-end gap-2">
               <Text
-                label="Kode" width="w-32" mono
+                label={tr("Code", "Kode")} width="w-32" mono
                 value={sc.code} disabled={disabled}
                 /* Upper-cased as you type rather than on save: the rule refuses
                    lower case, and silently rewriting a key somebody else's data
@@ -101,7 +105,7 @@ export function ScheduleEditor({
                 onChange={(v) => patchRow(i, { code: v.toUpperCase().replace(/\s+/g, "") })}
               />
               <Text
-                label="Nama" width="min-w-[10rem] flex-1"
+                label={tr("Name", "Nama")} width="min-w-[10rem] flex-1"
                 value={sc.name} disabled={disabled}
                 onChange={(v) => patchRow(i, { name: v })}
               />
@@ -109,7 +113,7 @@ export function ScheduleEditor({
                 <button
                   type="button"
                   onClick={() => removeRow(i)}
-                  title="Hapus pola ini"
+                  title={tr("Delete this pattern", "Hapus pola ini")}
                   className="mb-0.5 rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:border-rose-200 hover:text-rose-600"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -118,15 +122,15 @@ export function ScheduleEditor({
             </div>
 
             <div className="mt-2 flex flex-wrap gap-2">
-              <Clock label="Masuk" value={sc.start_minutes} disabled={disabled}
+              <Clock label={tr("Start", "Masuk")} value={sc.start_minutes} disabled={disabled}
                 onChange={(v) => patchRow(i, { start_minutes: v })} />
-              <Clock label="Pulang" value={sc.end_minutes} disabled={disabled}
+              <Clock label={tr("End", "Pulang")} value={sc.end_minutes} disabled={disabled}
                 onChange={(v) => patchRow(i, { end_minutes: v })} />
-              <Minutes label="Istirahat" value={sc.break_minutes} disabled={disabled}
+              <Minutes label={tr("Break", "Istirahat")} value={sc.break_minutes} disabled={disabled}
                 onChange={(v) => patchRow(i, { break_minutes: v })} />
-              <Clock label="Pulang Jumat" value={sc.friday_end_minutes} disabled={disabled}
+              <Clock label={tr("Friday end", "Pulang Jumat")} value={sc.friday_end_minutes} disabled={disabled}
                 onChange={(v) => patchRow(i, { friday_end_minutes: v })} />
-              <Minutes label="Istirahat Jumat" value={sc.friday_break_minutes} disabled={disabled}
+              <Minutes label={tr("Friday break", "Istirahat Jumat")} value={sc.friday_break_minutes} disabled={disabled}
                 onChange={(v) => patchRow(i, { friday_break_minutes: v })} />
             </div>
 
@@ -135,14 +139,14 @@ export function ScheduleEditor({
                 <span className="text-amber-700">{hours.blocked_by}</span>
               ) : (
                 <>
-                  <Figure label="sehari" value={hours.daily_hours} />
+                  <Figure label={tr("per day", "sehari")} value={hours.daily_hours} />
                   <Figure
-                    label="Jumat"
+                    label={tr("Friday", "Jumat")}
                     value={hours.friday_hours}
-                    empty="sama dengan hari lain"
+                    empty={tr("same as other days", "sama dengan hari lain")}
                   />
-                  <Figure label={`seminggu (${daysPerWeek} hari)`} value={hours.weekly_hours} strong />
-                  <Figure label="sebulan" value={hours.monthly_hours} />
+                  <Figure label={tr(`per week (${daysPerWeek} days)`, `seminggu (${daysPerWeek} hari)`)} value={hours.weekly_hours} strong />
+                  <Figure label={tr("per month", "sebulan")} value={hours.monthly_hours} />
                 </>
               )}
             </div>
@@ -151,7 +155,7 @@ export function ScheduleEditor({
               type="text"
               value={sc.note ?? ""}
               disabled={disabled}
-              placeholder="Catatan — yang diketahui tentang pola ini tapi tidak terbaca dari angkanya"
+              placeholder={tr("Note — what is known about this pattern but cannot be read from its figures", "Catatan — yang diketahui tentang pola ini tapi tidak terbaca dari angkanya")}
               /* Empty means no note; a value is kept as typed. Trimming here
                  would eat the first space of a sentence as it is written. */
               onChange={(e) => patchRow(i, { note: e.target.value === "" ? null : e.target.value })}
@@ -167,7 +171,7 @@ export function ScheduleEditor({
           onClick={addRow}
           className="flex items-center gap-1 text-[12px] text-brand-700 underline"
         >
-          <Plus className="h-3.5 w-3.5" /> tambah pola kerja
+          <Plus className="h-3.5 w-3.5" /> {tr("add working pattern", "tambah pola kerja")}
         </button>
       )}
 
@@ -179,10 +183,12 @@ export function ScheduleEditor({
       />
 
       <p className="text-[11px] text-slate-500">
-        Kosongkan sebuah jam untuk mengatakan <strong>belum ditetapkan</strong> — itu bukan pukul 00.00
-        dan bukan nol jam, dan pola yang belum lengkap akan menuliskan alasannya, bukan angka. Jumat
-        yang dikosongkan dua-duanya berarti Jumat sama seperti hari lain; mengisi salah satunya saja
-        pun boleh, yang tidak diisi ikut hari biasa.
+        {tr("Clear a time to say", "Kosongkan sebuah jam untuk mengatakan")}{" "}
+        <strong>{tr("not yet set", "belum ditetapkan")}</strong>{" "}
+        {tr(
+          "— that is not 00.00 and not zero hours, and an incomplete pattern writes its reason, not a figure. Clearing both Friday fields means Friday is like any other day; filling only one is fine too, and the empty one follows a normal day.",
+          "— itu bukan pukul 00.00 dan bukan nol jam, dan pola yang belum lengkap akan menuliskan alasannya, bukan angka. Jumat yang dikosongkan dua-duanya berarti Jumat sama seperti hari lain; mengisi salah satunya saja pun boleh, yang tidak diisi ikut hari biasa.",
+        )}
       </p>
     </div>
   );
@@ -206,6 +212,7 @@ function UnitMap({
      remounts the input and drops the caret. Sorting would move the row as you
      type, which does the same thing for a different reason. Order here is the
      order they were added; `/hrd/jadwal` is where they are read. */
+  const tr = useTr();
   const entries = Object.entries(byUnit);
 
   const rename = (at: number, to: string) => {
@@ -228,11 +235,12 @@ function UnitMap({
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
-      <p className="text-[12px] font-medium text-slate-700">Unit memakai pola</p>
+      <p className="text-[12px] font-medium text-slate-700">{tr("Units use pattern", "Unit memakai pola")}</p>
       <p className="mt-0.5 text-[11px] text-slate-500">
-        Bawaan, bukan keputusan: seseorang yang pindah unit ikut berubah jamnya tanpa ada yang
-        memilihkan. Jadwal yang dipasang HR ke orangnya menang atas daftar ini, dan unit yang tidak
-        ada di sini jatuh ke jam masuk perusahaan.
+        {tr(
+          "A default, not a decision: somebody who moves unit has their hours changed without anyone choosing it. A schedule HR sets on the person wins over this list, and a unit not listed here falls back to the company start time.",
+          "Bawaan, bukan keputusan: seseorang yang pindah unit ikut berubah jamnya tanpa ada yang memilihkan. Jadwal yang dipasang HR ke orangnya menang atas daftar ini, dan unit yang tidak ada di sini jatuh ke jam masuk perusahaan.",
+        )}
       </p>
 
       <ul className="mt-2 space-y-1.5">
@@ -243,7 +251,7 @@ function UnitMap({
               type="text"
               value={unit}
               disabled={disabled}
-              placeholder="nama unit"
+              placeholder={tr("unit name", "nama unit")}
               onChange={(e) => rename(at, e.target.value)}
               className="h-8 w-40 rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none disabled:bg-slate-50"
             />
@@ -258,17 +266,17 @@ function UnitMap({
                   so a dangling map is visible and fixable rather than silently
                   rewritten to the first pattern in the list. */}
               {!schedules.some((s) => s.code === code) && (
-                <option value={code}>{code} — pola ini tidak ada</option>
+                <option value={code}>{code} {tr("— this pattern does not exist", "— pola ini tidak ada")}</option>
               )}
               {schedules.map((s) => (
-                <option key={s.code} value={s.code}>{s.code || "(tanpa kode)"}</option>
+                <option key={s.code} value={s.code}>{s.code || tr("(no code)", "(tanpa kode)")}</option>
               ))}
             </select>
             {!disabled && (
               <button
                 type="button"
                 onClick={() => drop(at)}
-                title="Lepaskan unit ini"
+                title={tr("Remove this unit", "Lepaskan unit ini")}
                 className="rounded-lg border border-slate-200 p-1 text-slate-400 hover:border-rose-200 hover:text-rose-600"
               >
                 <X className="h-3 w-3" />
@@ -278,7 +286,7 @@ function UnitMap({
         ))}
         {entries.length === 0 && (
           <li className="text-[12px] text-slate-500">
-            Belum ada unit yang dipasang — semuanya memakai jam masuk perusahaan.
+            {tr("No unit assigned yet — all use the company start time.", "Belum ada unit yang dipasang — semuanya memakai jam masuk perusahaan.")}
           </li>
         )}
       </ul>
@@ -292,7 +300,7 @@ function UnitMap({
           disabled={Object.prototype.hasOwnProperty.call(byUnit, "")}
           className="mt-2 flex items-center gap-1 text-[12px] text-brand-700 underline disabled:text-slate-300 disabled:no-underline"
         >
-          <Plus className="h-3.5 w-3.5" /> tambah unit
+          <Plus className="h-3.5 w-3.5" /> {tr("add unit", "tambah unit")}
         </button>
       )}
     </div>
@@ -356,6 +364,7 @@ function Minutes({
 }: {
   label: string; value: number | null; onChange: (v: number | null) => void; disabled: boolean;
 }) {
+  const tr = useTr();
   return (
     <label className="block">
       <span className="block text-[11px] text-slate-500">{label}</span>
@@ -370,7 +379,7 @@ function Minutes({
           onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
           className="h-8 w-20 rounded-lg border border-slate-200 px-2 text-[13px] tabular-nums focus:border-brand-400 focus:outline-none disabled:bg-slate-50"
         />
-        <span className="text-[11px] text-slate-400">menit</span>
+        <span className="text-[11px] text-slate-400">{tr("min", "menit")}</span>
       </div>
     </label>
   );
@@ -381,6 +390,7 @@ function Figure({
 }: {
   label: string; value: number | null; strong?: boolean; empty?: string;
 }) {
+  const tr = useTr();
   return (
     <span className="text-slate-500">
       {label}{" "}
@@ -388,7 +398,7 @@ function Figure({
         <span className="text-slate-400">{empty ?? "—"}</span>
       ) : (
         <span className={`tabular-nums ${strong ? "font-semibold text-slate-800" : "text-slate-700"}`}>
-          {formatNumber(value)} jam
+          {formatNumber(value)} {tr("h", "jam")}
         </span>
       )}
     </span>

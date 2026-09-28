@@ -11,21 +11,29 @@ import { cn } from "@/lib/cn";
 import { accounting } from "@/demo/api";
 import type { CashCellState, MonthlyBill } from "@/services/accounting/contracts";
 import { SCHEME_LABEL } from "@/services/hr/contracts";
+import { useTr, type Message, type Tr } from "@/lib/i18n";
 
 const STATE_TONE: Record<CashCellState, "red" | "amber" | "green" | "slate" | "brand"> = {
   OVERDUE: "red", DUE: "amber", PAID: "green", PARTIAL: "amber", PLANNED: "slate", SKIPPED: "slate",
 };
 
-const STATE_LABEL: Record<CashCellState, string> = {
-  OVERDUE: "Lewat tempo", DUE: "Jatuh tempo minggu ini", PAID: "Lunas",
-  PARTIAL: "Sebagian", PLANNED: "Belum jatuh tempo", SKIPPED: "Dilewati",
+const STATE_LABEL: Record<CashCellState, Message> = {
+  OVERDUE: { en: "Overdue", id: "Lewat tempo" },
+  DUE: { en: "Due this week", id: "Jatuh tempo minggu ini" },
+  PAID: { en: "Paid", id: "Lunas" },
+  PARTIAL: { en: "Partial", id: "Sebagian" },
+  PLANNED: { en: "Not yet due", id: "Belum jatuh tempo" },
+  SKIPPED: { en: "Skipped", id: "Dilewati" },
 };
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
 
-function monthLabel(month: string): string {
-  return `${MONTHS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+function monthLabel(month: string, tr: Tr): string {
+  const i = Number(month.slice(5, 7)) - 1;
+  return `${tr(MONTHS_EN[i], MONTHS[i])} ${month.slice(0, 4)}`;
 }
 
 function shift(month: string, by: number): string {
@@ -51,6 +59,7 @@ function shift(month: string, by: number): string {
  *  people learn to scroll past.
  */
 export default function BillsPage() {
+  const tr = useTr();
   const [month, setMonth] = useState(() => officeToday().slice(0, 7));
   const [bills, reload] = useLoad(() => accounting.getMonthlyBills(month), [month]);
   const [audit, reloadAudit] = useLoad(() => accounting.getContributionAudit(month), [month]);
@@ -59,21 +68,21 @@ export default function BillsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accounting"
-        title={isCurrent ? "Tagihan bulan ini" : `Tagihan ${monthLabel(month)}`}
-        description="Yang harus dibayar bulan ini, urut tanggal, beserta yang sudah dibayar. Angkanya sama persis dengan kalender kas — ini bentuk yang berbeda dari perhitungan yang sama, bukan perhitungan kedua."
+        breadcrumb={tr("Accounting", "Akuntansi")}
+        title={isCurrent ? tr("This month's bills", "Tagihan bulan ini") : tr(`Bills for ${monthLabel(month, tr)}`, `Tagihan ${monthLabel(month, tr)}`)}
+        description={tr("What has to be paid this month, by date, with what has already been paid. The figures are exactly those of the cash calendar — a different shape of the same calculation, not a second one.", "Yang harus dibayar bulan ini, urut tanggal, beserta yang sudah dibayar. Angkanya sama persis dengan kalender kas — ini bentuk yang berbeda dari perhitungan yang sama, bukan perhitungan kedua.")}
         actions={
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="outline" icon={ChevronLeft} onClick={() => setMonth(shift(month, -1))}>
-              Bulan lalu
+              {tr("Last month", "Bulan lalu")}
             </Button>
             {!isCurrent && (
               <Button size="sm" variant="ghost" onClick={() => setMonth(officeToday().slice(0, 7))}>
-                Bulan ini
+                {tr("This month", "Bulan ini")}
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={() => setMonth(shift(month, 1))}>
-              Bulan depan <ChevronRight className="ml-1 h-3.5 w-3.5" />
+              {tr("Next month", "Bulan depan")} <ChevronRight className="ml-1 h-3.5 w-3.5" />
             </Button>
             <SourceBadge state={bills} />
           </div>
@@ -96,15 +105,15 @@ export default function BillsPage() {
           return (
             <>
               <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Tile label={`Harus keluar ${b.label}`} value={formatIDR(b.total_planned)}
+                <Tile label={tr(`Going out ${b.label}`, `Harus keluar ${b.label}`)} value={formatIDR(b.total_planned)}
                   note={b.last_month_total != null
-                    ? `bulan lalu ${formatIDR(b.last_month_total)}`
-                    : "tidak ada pembanding bulan lalu"} />
-                <Tile label="Sudah dibayar" value={formatIDR(b.total_paid)} tone="green" />
-                <Tile label="Masih harus dibayar" value={formatIDR(b.total_outstanding)}
-                  note={`${open.length + overdue.length} baris`} />
-                <Tile label="Lewat tempo" value={b.overdue_count === 0 ? "—" : formatIDR(b.overdue_amount)}
-                  note={b.overdue_count === 0 ? "tidak ada" : `${b.overdue_count} baris`}
+                    ? tr(`last month ${formatIDR(b.last_month_total)}`, `bulan lalu ${formatIDR(b.last_month_total)}`)
+                    : tr("no last month to compare", "tidak ada pembanding bulan lalu")} />
+                <Tile label={tr("Already paid", "Sudah dibayar")} value={formatIDR(b.total_paid)} tone="green" />
+                <Tile label={tr("Still to pay", "Masih harus dibayar")} value={formatIDR(b.total_outstanding)}
+                  note={tr(`${open.length + overdue.length} row(s)`, `${open.length + overdue.length} baris`)} />
+                <Tile label={tr("Overdue", "Lewat tempo")} value={b.overdue_count === 0 ? "—" : formatIDR(b.overdue_amount)}
+                  note={b.overdue_count === 0 ? tr("none", "tidak ada") : tr(`${b.overdue_count} row(s)`, `${b.overdue_count} baris`)}
                   tone={b.overdue_count > 0 ? "red" : "slate"} />
               </div>
 
@@ -112,10 +121,11 @@ export default function BillsPage() {
                 <p className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-[13px] text-amber-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    <strong>{b.unusual_count} tagihan berbeda jauh dari bulan lalu.</strong> Ditandai, bukan
-                    ditolak — kenaikan bisa saja benar. Perbandingannya <strong>total bulanan lawan total
-                    bulanan</strong>, bukan baris lawan baris, dan yang bulan lalu belum ada tidak pernah
-                    ditandai: kemunculan pertama bukan kenaikan.
+                    <strong>{tr(`${b.unusual_count} bill(s) differ sharply from last month.`, `${b.unusual_count} tagihan berbeda jauh dari bulan lalu.`)}</strong>{" "}
+                    {tr("Flagged, not refused — a rise can be right. The comparison is", "Ditandai, bukan ditolak — kenaikan bisa saja benar. Perbandingannya")}{" "}
+                    <strong>{tr("monthly total against monthly total", "total bulanan lawan total bulanan")}</strong>
+                    {tr(", not row against row, and a line that did not exist last month is never flagged: a first occurrence is not an increase.",
+                      ", bukan baris lawan baris, dan yang bulan lalu belum ada tidak pernah ditandai: kemunculan pertama bukan kenaikan.")}
                   </span>
                 </p>
               )}
@@ -131,12 +141,12 @@ export default function BillsPage() {
                   return (
                     <Card className="mb-4">
                       <CardHeader
-                        title="Iuran wajib — tagihan vs daftar nama"
-                        subtitle="Yang seharusnya dihitung dari karyawan yang terdaftar × tarifnya, bukan dari angka bulan lalu. Angka “dibayar” berasal dari baris kalender kas yang sama dengan daftar di bawah."
+                        title={tr("Mandatory contributions — bill vs list of names", "Iuran wajib — tagihan vs daftar nama")}
+                        subtitle={tr("What it should be, computed from the enrolled employees × their rate, not from last month's figure. The “paid” figure comes from the same cash calendar lines as the list below.", "Yang seharusnya dihitung dari karyawan yang terdaftar × tarifnya, bukan dari angka bulan lalu. Angka “dibayar” berasal dari baris kalender kas yang sama dengan daftar di bawah.")}
                         icon={ShieldCheck}
                         action={flagged.length > 0
-                          ? <Badge tone="red">{flagged.length} perlu dikejar</Badge>
-                          : <Badge tone="green">cocok</Badge>}
+                          ? <Badge tone="red">{tr(`${flagged.length} to chase`, `${flagged.length} perlu dikejar`)}</Badge>
+                          : <Badge tone="green">{tr("matches", "cocok")}</Badge>}
                       />
                       <ul className="divide-y divide-slate-100">
                         {live.map((r) => (
@@ -156,13 +166,13 @@ export default function BillsPage() {
                                 )}
                               </span>
                               <span className="whitespace-nowrap text-[12px] text-slate-500">
-                                {r.headcount} orang
+                                {tr(`${r.headcount} people`, `${r.headcount} orang`)}
                               </span>
                               <span className="whitespace-nowrap tabular-nums text-slate-700">
-                                seharusnya {r.expected == null ? "—" : formatIDR(r.expected)}
+                                {tr("expected", "seharusnya")} {r.expected == null ? "—" : formatIDR(r.expected)}
                               </span>
                               <span className="whitespace-nowrap tabular-nums text-slate-700">
-                                dibayar {formatIDR(r.paid)}
+                                {tr("paid", "dibayar")} {formatIDR(r.paid)}
                               </span>
                               {r.difference != null && r.difference !== 0 && (
                                 <Badge tone={r.unusual ? "red" : "slate"}>
@@ -178,11 +188,11 @@ export default function BillsPage() {
                         ))}
                       </ul>
                       <p className="border-t border-slate-100 px-5 py-2 text-[11px] text-slate-500">
-                        Daftar namanya ada di{" "}
+                        {tr("The list of names is in", "Daftar namanya ada di")}{" "}
                         <Link href="/hrd/iuran" className="font-medium text-brand-700 hover:underline">
-                          HRD · iuran wajib
+                          {tr("HRD · mandatory contributions", "HRD · iuran wajib")}
                         </Link>
-                        . PPh 21 tidak ada di sini: ia tercatat sebagai pendaftaran dan tidak pernah dihitung.
+                        {tr(". PPh 21 is not here: it is recorded as an enrolment and never computed.", ". PPh 21 tidak ada di sini: ia tercatat sebagai pendaftaran dan tidak pernah dihitung.")}
                       </p>
                     </Card>
                   );
@@ -190,26 +200,26 @@ export default function BillsPage() {
               </Loaded>
 
               {overdue.length > 0 && (
-                <Section title={`${overdue.length} lewat tempo`} icon={AlertTriangle} rows={overdue} tone="red" />
+                <Section title={tr(`${overdue.length} overdue`, `${overdue.length} lewat tempo`)} icon={AlertTriangle} rows={overdue} tone="red" />
               )}
-              <Section title={`${open.length} belum dibayar`} icon={Receipt} rows={open} />
+              <Section title={tr(`${open.length} not yet paid`, `${open.length} belum dibayar`)} icon={Receipt} rows={open} />
               {done.length > 0 && (
-                <Section title={`${done.length} sudah dibayar`} icon={Receipt} rows={done} muted />
+                <Section title={tr(`${done.length} already paid`, `${done.length} sudah dibayar`)} icon={Receipt} rows={done} muted />
               )}
               {incoming.length > 0 && (
                 <Section
-                  title={`${incoming.length} uang masuk yang direncanakan`}
-                  subtitle="Ditampilkan supaya bulannya utuh, dan tidak ikut ke total di atas — pertanyaan *apa yang harus saya bayar* tidak dijawab oleh uang yang datang."
+                  title={tr(`${incoming.length} planned money in`, `${incoming.length} uang masuk yang direncanakan`)}
+                  subtitle={tr("Shown so the month is whole, and not counted in the totals above — the question *what do I have to pay* is not answered by money coming in.", "Ditampilkan supaya bulannya utuh, dan tidak ikut ke total di atas — pertanyaan *apa yang harus saya bayar* tidak dijawab oleh uang yang datang.")}
                   icon={TrendingUp} rows={incoming} muted
                 />
               )}
 
               <p className="px-1 pb-2 text-[12px] text-slate-500">
-                Angkanya dari komponen kas yang sama dengan{" "}
+                {tr("The figures come from the same cash components as the", "Angkanya dari komponen kas yang sama dengan")}{" "}
                 <Link href="/accounting/calendar" className="font-medium text-brand-700 hover:underline">
-                  kalender kas
+                  {tr("cash calendar", "kalender kas")}
                 </Link>{" "}
-                — layar ini bentuk lain dari perhitungan yang sama, bukan perhitungan kedua.
+                {tr("— this screen is another shape of the same calculation, not a second one.", "— layar ini bentuk lain dari perhitungan yang sama, bukan perhitungan kedua.")}
               </p>
             </>
           );
@@ -238,11 +248,12 @@ function Section({ title, subtitle, icon, rows, tone, muted }: {
   title: string; subtitle?: string; icon: typeof Receipt;
   rows: MonthlyBill[]; tone?: "red"; muted?: boolean;
 }) {
+  const tr = useTr();
   if (rows.length === 0) {
     return (
       <Card className="mb-4">
         <CardHeader title={title} subtitle={subtitle} icon={icon} />
-        <p className="px-5 py-6 text-[13px] text-slate-500">Tidak ada.</p>
+        <p className="px-5 py-6 text-[13px] text-slate-500">{tr("None.", "Tidak ada.")}</p>
       </Card>
     );
   }
@@ -253,12 +264,12 @@ function Section({ title, subtitle, icon, rows, tone, muted }: {
         <table className="w-full min-w-[820px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-2 text-left">Tanggal</th>
-              <th className="px-4 py-2 text-left">Tagihan</th>
-              <th className="px-4 py-2 text-right">Rencana</th>
-              <th className="px-4 py-2 text-right">Dibayar</th>
-              <th className="px-4 py-2 text-right">Baris ini · bulan lalu</th>
-              <th className="px-4 py-2 text-left">Status</th>
+              <th className="px-4 py-2 text-left">{tr("Date", "Tanggal")}</th>
+              <th className="px-4 py-2 text-left">{tr("Bill", "Tagihan")}</th>
+              <th className="px-4 py-2 text-right">{tr("Planned", "Rencana")}</th>
+              <th className="px-4 py-2 text-right">{tr("Paid", "Dibayar")}</th>
+              <th className="px-4 py-2 text-right">{tr("This line · last month", "Baris ini · bulan lalu")}</th>
+              <th className="px-4 py-2 text-left">{tr("Status", "Status")}</th>
             </tr>
           </thead>
           <tbody className={cn(muted && "opacity-80")}>
@@ -267,7 +278,7 @@ function Section({ title, subtitle, icon, rows, tone, muted }: {
                 <td className="px-4 py-2 font-mono text-[11px] text-slate-500">
                   {r.date.slice(8)}/{r.date.slice(5, 7)}
                   {r.days_away < 0 && r.state === "OVERDUE" && (
-                    <span className="block text-[10px] text-rose-600">lewat {-r.days_away} hari</span>
+                    <span className="block text-[10px] text-rose-600">{tr(`${-r.days_away} day(s) late`, `lewat ${-r.days_away} hari`)}</span>
                   )}
                 </td>
                 <td className="px-4 py-2">
@@ -276,15 +287,15 @@ function Section({ title, subtitle, icon, rows, tone, muted }: {
                     {[
                       r.vendor_name,
                       r.account_code,
-                      r.matched_by === "category" ? "dicocokkan lewat kategori, bukan ditautkan orang" : null,
+                      r.matched_by === "category" ? tr("matched by category, not linked by a person", "dicocokkan lewat kategori, bukan ditautkan orang") : null,
                     ].filter(Boolean).join(" · ")}
                   </span>
                   {r.reason && <span className="block text-[11px] text-slate-500">{r.reason}</span>}
                 </td>
                 <td className="px-4 py-2 text-right tabular-nums text-slate-700">
-                  {r.amount_kind === "estimate" && <span className="text-slate-400" title="Estimasi — nominal pasti baru diketahui saat tagihan datang">≈ </span>}
+                  {r.amount_kind === "estimate" && <span className="text-slate-400" title={tr("Estimate — the exact amount is known only when the bill arrives", "Estimasi — nominal pasti baru diketahui saat tagihan datang")}>≈ </span>}
                   {formatIDR(r.planned)}
-                  {r.amount_kind === "estimate" && <span className="block text-[10px] text-slate-400">estimasi</span>}
+                  {r.amount_kind === "estimate" && <span className="block text-[10px] text-slate-400">{tr("estimate", "estimasi")}</span>}
                 </td>
                 <td className="px-4 py-2 text-right tabular-nums">
                   {r.actual === 0 ? <span className="text-slate-300">—</span> : (
@@ -300,12 +311,12 @@ function Section({ title, subtitle, icon, rows, tone, muted }: {
                   {/* A paid estimate is settled; what it differs by is the news (`0114`). */}
                   {r.variance != null && r.variance !== 0 && (
                     <span className={cn("block text-[10px]", r.variance > 0 ? "text-amber-700" : "text-emerald-700")}>
-                      {r.variance > 0 ? "+" : "−"}{formatIDR(Math.abs(r.variance))} dari estimasi
+                      {r.variance > 0 ? "+" : "−"}{formatIDR(Math.abs(r.variance))} {tr("against the estimate", "dari estimasi")}
                     </span>
                   )}
                   {r.outstanding > 0 && r.actual > 0 && (
                     <span className="block text-[10px] text-amber-700">
-                      sisa {formatIDR(r.outstanding)}
+                      {tr("remaining", "sisa")} {formatIDR(r.outstanding)}
                     </span>
                   )}
                 </td>
@@ -315,7 +326,7 @@ function Section({ title, subtitle, icon, rows, tone, muted }: {
                     otherwise be read as that payday's own history. */}
                 <td className="px-4 py-2 text-right tabular-nums">
                   {r.last_month == null ? (
-                    <span className="text-slate-300" title="Bulan lalu baris ini belum ada">—</span>
+                    <span className="text-slate-300" title={tr("This line did not exist last month", "Bulan lalu baris ini belum ada")}>—</span>
                   ) : (
                     <>
                       <span className="text-slate-500">{formatIDR(r.last_month)}</span>
@@ -330,16 +341,16 @@ function Section({ title, subtitle, icon, rows, tone, muted }: {
                       {r.occurrences > 1 && (
                         <span
                           className="block text-[10px] text-slate-400"
-                          title={`${r.occurrences}× sebulan — dibandingkan sebagai total bulanan, bukan per baris`}
+                          title={tr(`${r.occurrences}× a month — compared as a monthly total, not per row`, `${r.occurrences}× sebulan — dibandingkan sebagai total bulanan, bukan per baris`)}
                         >
-                          total bulan: {formatIDR(r.month_total)}
+                          {tr("month total:", "total bulan:")} {formatIDR(r.month_total)}
                         </span>
                       )}
                     </>
                   )}
                 </td>
                 <td className="px-4 py-2">
-                  <Badge tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Badge>
+                  <Badge tone={STATE_TONE[r.state]}>{tr(STATE_LABEL[r.state].en, STATE_LABEL[r.state].id)}</Badge>
                 </td>
               </tr>
             ))}

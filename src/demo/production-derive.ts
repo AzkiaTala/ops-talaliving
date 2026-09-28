@@ -6,6 +6,7 @@
  *  stored, because a stored "current stage" is a field somebody forgets to
  *  move, and the piece then sits in a column it left three days ago.
  */
+import { trNow } from "@/lib/i18n";
 import { officeDay } from "@/lib/office";
 import type { DemoState } from "./state";
 import {
@@ -137,10 +138,10 @@ export function vendorRecords(state: DemoState, today: string, minLegs = 3): Ven
       overdue_now: open.filter((l) => l.expected_back !== null && l.expected_back < today).length,
       rated,
       basis: rated
-        ? `${on_time} dari ${promised.length} pengiriman yang ada janji tanggalnya kembali tepat waktu`
+        ? trNow(`${on_time} of ${promised.length} trips with a promised date came back on time`, `${on_time} dari ${promised.length} pengiriman yang ada janji tanggalnya kembali tepat waktu`)
         : promised.length === 0
-          ? `${legs.length} pengiriman, tidak ada yang punya janji tanggal — tepat waktu tidak bisa diukur tanpa tanggal yang disepakati`
-          : `baru ${promised.length} pengiriman berjanji tanggal, di bawah ambang ${minLegs} — satu keterlambatan itu minggu yang buruk, bukan rekam jejak`,
+          ? trNow(`${legs.length} trip(s), none with a promised date — on time cannot be measured without an agreed date`, `${legs.length} pengiriman, tidak ada yang punya janji tanggal — tepat waktu tidak bisa diukur tanpa tanggal yang disepakati`)
+          : trNow(`only ${promised.length} trip(s) promised a date, below the threshold of ${minLegs} — one late return is a bad week, not a track record`, `baru ${promised.length} pengiriman berjanji tanggal, di bawah ambang ${minLegs} — satu keterlambatan itu minggu yang buruk, bukan rekam jejak`),
     };
   }).sort((a, b) => b.overdue_now - a.overdue_now || b.out_now - a.out_now);
 }
@@ -438,16 +439,16 @@ export function productView(state: DemoState, product: Product, rev?: number | n
 
   const warnings: string[] = [];
   if (components.length === 0) {
-    warnings.push("Belum ada bill of material — biaya produksinya belum bisa dihitung.");
+    warnings.push(trNow("No bill of material yet — the production cost cannot be worked out yet.", "Belum ada bill of material — biaya produksinya belum bisa dihitung."));
   }
   if (broken_refs > 0) {
-    warnings.push(`${broken_refs} komponen menunjuk kode yang tidak ada di katalog.`);
+    warnings.push(trNow(`${broken_refs} component(s) point at a code that is not in the catalogue.`, `${broken_refs} komponen menunjuk kode yang tidak ada di katalog.`));
   }
   if (unpriced > broken_refs) {
-    warnings.push(`${unpriced - broken_refs} komponen belum punya rate — biaya produksi belum lengkap.`);
+    warnings.push(trNow(`${unpriced - broken_refs} component(s) have no rate yet — the production cost is incomplete.`, `${unpriced - broken_refs} komponen belum punya rate — biaya produksi belum lengkap.`));
   }
   if (components.length > 0 && cost.labour_lines === 0) {
-    warnings.push("Belum ada baris tenaga kerja — biaya produksi baru berisi bahan.");
+    warnings.push(trNow("No labour lines yet — the production cost holds materials only.", "Belum ada baris tenaga kerja — biaya produksi baru berisi bahan."));
   }
 
   const gambar_kerja = drawingOf(state, product.product_code, "Gambar Kerja");
@@ -1020,11 +1021,11 @@ export function materialPlan(state: DemoState, wo: WorkOrder): MaterialPlan {
     : null;
 
   let no_plan_reason: string | null = null;
-  if (!product) no_plan_reason = "Produk pesanan ini tidak ada di katalog.";
+  if (!product) no_plan_reason = trNow("This order's product is not in the catalogue.", "Produk pesanan ini tidak ada di katalog.");
   else if (!explosion || explosion.lines.length === 0) {
-    no_plan_reason = "Produk ini belum punya bill of material, jadi tidak ada daftar bahan yang bisa dibandingkan.";
+    no_plan_reason = trNow("This product has no bill of material yet, so there is no list of materials to compare against.", "Produk ini belum punya bill of material, jadi tidak ada daftar bahan yang bisa dibandingkan.");
   } else if (explosion.cycle) {
-    no_plan_reason = `BOM produk ini berputar (${explosion.cycle.join(" → ")}), jadi kebutuhannya belum bisa dihitung.`;
+    no_plan_reason = trNow(`This product's BOM loops (${explosion.cycle.join(" → ")}), so what it needs cannot be worked out yet.`, `BOM produk ini berputar (${explosion.cycle.join(" → ")}), jadi kebutuhannya belum bisa dihitung.`);
   }
 
   const expected = new Map<string, { qty: number; uom: string }>();

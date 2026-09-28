@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/primitives";
 import { MoneyInput } from "@/components/ui/money-input";
 import { NumberInput } from "@/components/ui/number-input";
 import { formatIDR, formatNumber } from "@/lib/format";
+import { useTr } from "@/lib/i18n";
 import { procurement } from "@/demo/api";
 import type { PoLineJourney } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
@@ -26,6 +27,7 @@ export function AmendLine({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [qty, setQty] = useState(line.qty);
   const [price, setPrice] = useState(line.unit_price);
@@ -42,10 +44,10 @@ export function AmendLine({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not amended", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not amended", "Tidak diubah"), res.error.message);
       return;
     }
-    toast("success", `${poNo} line ${line.line_no} amended`, `${formatIDR(line.line_total)} → ${formatIDR(total)}`);
+    toast("success", tr(`${poNo} line ${line.line_no} amended`, `${poNo} baris ${line.line_no} diubah`), `${formatIDR(line.line_total)} → ${formatIDR(total)}`);
     onSaved();
   }
 
@@ -53,35 +55,35 @@ export function AmendLine({
     <Modal
       open
       onClose={onClose}
-      title={`Amend line ${line.line_no}`}
+      title={tr(`Amend line ${line.line_no}`, `Ubah baris ${line.line_no}`)}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
           <Button icon={PenLine} onClick={save} disabled={busy || !reason.trim() || qty <= 0 || price <= 0}>
-            {busy ? "Amending…" : "Amend it"}
+            {busy ? tr("Amending…", "Mengubah…") : tr("Amend it", "Ubah")}
           </Button>
         </div>
       }
     >
       <div className="space-y-3">
         <p className="text-[13px] text-slate-600">
-          {line.description} — agreed at{" "}
+          {line.description} — {tr("agreed at", "disepakati")}{" "}
           <strong className="tabular-nums">{formatNumber(line.qty)} {line.uom} × {formatIDR(line.unit_price)}</strong>.
         </p>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="am-qty" className="block text-xs text-slate-500">Quantity</label>
+            <label htmlFor="am-qty" className="block text-xs text-slate-500">{tr("Quantity", "Kuantitas")}</label>
             <NumberInput id="am-qty" value={qty} min={0} onChange={setQty} className="mt-1" />
           </div>
           <div>
-            <label htmlFor="am-price" className="block text-xs text-slate-500">Unit price</label>
+            <label htmlFor="am-price" className="block text-xs text-slate-500">{tr("Unit price", "Harga satuan")}</label>
             <MoneyInput id="am-price" value={price} onChange={setPrice} className="mt-1" />
           </div>
         </div>
 
         <p className="text-[13px] text-slate-700">
-          Contract on this line: <strong className="tabular-nums">{formatIDR(total)}</strong>
+          {tr("Contract on this line:", "Kontrak di baris ini:")} <strong className="tabular-nums">{formatIDR(total)}</strong>
           {delta !== 0 && (
             <span className={delta > 0 ? "text-amber-700" : "text-brand-700"}>
               {" "}({delta > 0 ? "+" : "−"}{formatIDR(Math.abs(delta))})
@@ -93,23 +95,24 @@ export function AmendLine({
           /* Allowed, and stated. Refusing it would leave the order disagreeing
              with the warehouse, which helps nobody (D98). */
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-            {formatNumber(line.received)} {line.uom} have already arrived — more than this
-            amendment leaves ordered. The difference becomes a credit with the vendor rather
-            than something we owe for.
+            {tr(
+              `${formatNumber(line.received)} ${line.uom} have already arrived — more than this amendment leaves ordered. The difference becomes a credit with the vendor rather than something we owe for.`,
+              `${formatNumber(line.received)} ${line.uom} sudah tiba — lebih banyak dari yang tersisa dipesan setelah perubahan ini. Selisihnya menjadi kredit di vendor, bukan sesuatu yang kita utangkan.`,
+            )}
           </p>
         )}
 
         <div>
-          <label htmlFor="am-reason" className="block text-xs text-slate-500">Why it changed</label>
+          <label htmlFor="am-reason" className="block text-xs text-slate-500">{tr("Why it changed", "Mengapa berubah")}</label>
           <input
             id="am-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. vendor raised the price after the quote expired"
+            placeholder={tr("e.g. vendor raised the price after the quote expired", "mis. vendor menaikkan harga setelah penawaran kedaluwarsa")}
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
           <p className="mt-1 text-[11px] text-slate-500">
-            Required. The numbers say what changed; only this says why.
+            {tr("Required. The numbers say what changed; only this says why.", "Wajib. Angka menunjukkan apa yang berubah; hanya ini yang menjelaskan alasannya.")}
           </p>
         </div>
       </div>

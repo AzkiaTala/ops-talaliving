@@ -14,6 +14,7 @@ import {
 } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useT, useTr, type Message, type Tr } from "@/lib/i18n";
 
 /** Wajib Lapor Ketenagakerjaan — the six answers the form needs, and the tables
  *  it is transcribed from (D304).
@@ -44,15 +45,24 @@ import { useToast } from "@/store/toast";
  *  somebody else's form.
  */
 
-const DIMENSIONS: { key: keyof WlkpRecapBy; title: string; note?: string }[] = [
-  { key: "jenis_kelamin", title: "Jenis kelamin" },
-  { key: "kelompok_umur", title: "Kelompok umur", note: "Dihitung pada tanggal laporan, bukan hari ini." },
-  { key: "pendidikan", title: "Pendidikan terakhir" },
-  { key: "status_hubungan_kerja", title: "Status hubungan kerja", note: "Dari kontrak yang aktif pada tanggal itu. Draft tidak dihitung." },
-  { key: "kewarganegaraan", title: "Kewarganegaraan" },
-  { key: "disabilitas", title: "Penyandang disabilitas" },
-  { key: "status_kawin", title: "Status perkawinan" },
-  { key: "jabatan", title: "Jabatan" },
+const DIMENSIONS: { key: keyof WlkpRecapBy; title: Message; note?: Message }[] = [
+  { key: "jenis_kelamin", title: { en: "Sex", id: "Jenis kelamin" } },
+  {
+    key: "kelompok_umur", title: { en: "Age group", id: "Kelompok umur" },
+    note: { en: "Counted on the report date, not today.", id: "Dihitung pada tanggal laporan, bukan hari ini." },
+  },
+  { key: "pendidikan", title: { en: "Highest education", id: "Pendidikan terakhir" } },
+  {
+    key: "status_hubungan_kerja", title: { en: "Employment relationship", id: "Status hubungan kerja" },
+    note: {
+      en: "From the contract active on that date. Drafts are not counted.",
+      id: "Dari kontrak yang aktif pada tanggal itu. Draft tidak dihitung.",
+    },
+  },
+  { key: "kewarganegaraan", title: { en: "Citizenship", id: "Kewarganegaraan" } },
+  { key: "disabilitas", title: { en: "Persons with disabilities", id: "Penyandang disabilitas" } },
+  { key: "status_kawin", title: { en: "Marital status", id: "Status perkawinan" } },
+  { key: "jabatan", title: { en: "Position", id: "Jabatan" } },
 ];
 
 type WlkpRecapBy = {
@@ -65,20 +75,22 @@ type WlkpRecapBy = {
 /** One place that turns a stored key into a word, so a key nobody has a word
  *  for shows as itself rather than as a blank cell. A job title is free text
  *  and has no map at all — printing it back is right. */
-function labelFor(dim: string, key: string): string {
-  if (key === "tidak_diketahui") return "Belum diisi";
+function labelFor(dim: string, key: string, tr: Tr): string {
+  if (key === "tidak_diketahui") return tr("Not filled in", "Belum diisi");
   if (dim === "jenis_kelamin") return SEX_LABEL[key as Sex] ?? key;
   if (dim === "kelompok_umur") return AGE_BAND_LABEL[key] ?? key;
   if (dim === "pendidikan") return EDUCATION_LABEL[key as Education] ?? key;
   if (dim === "status_kawin") return MARITAL_LABEL[key as MaritalStatus] ?? key;
-  if (dim === "disabilitas") return key === "ya" ? "Ya" : key === "tidak" ? "Tidak" : key;
-  if (dim === "status_hubungan_kerja") return key === "tanpa_kontrak" ? "Belum ada kontrak" : key;
+  if (dim === "disabilitas") return key === "ya" ? tr("Yes", "Ya") : key === "tidak" ? tr("No", "Tidak") : key;
+  if (dim === "status_hubungan_kerja") return key === "tanpa_kontrak" ? tr("No contract yet", "Belum ada kontrak") : key;
   return key;
 }
 
 export default function WlkpPage() {
   const { can } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
+  const t = useT();
   const [asof, setAsof] = useState("");
   const date = asof || officeToday();
 
@@ -92,18 +104,21 @@ export default function WlkpPage() {
     <div>
       <PageHeader
         breadcrumb="HRD"
-        title="Wajib Lapor Ketenagakerjaan"
-        description="Rincian jumlah karyawan yang diminta formulir WLKP, dihitung dari data yang benar-benar ada. Yang belum diisi punya barisnya sendiri dan tidak pernah dilipat ke kelompok terbesar — laporan yang tampak lengkap padahal tidak adalah yang paling mahal untuk dibetulkan."
+        title={tr("Mandatory Employment Report (WLKP)", "Wajib Lapor Ketenagakerjaan")}
+        description={tr(
+          "The headcount breakdown the WLKP form asks for, computed from the data that actually exists. What is not filled in has its own row and is never folded into the biggest group — a report that looks complete and is not is the most expensive one to fix.",
+          "Rincian jumlah karyawan yang diminta formulir WLKP, dihitung dari data yang benar-benar ada. Yang belum diisi punya barisnya sendiri dan tidak pernah dilipat ke kelompok terbesar — laporan yang tampak lengkap padahal tidak adalah yang paling mahal untuk dibetulkan.",
+        )}
         actions={
           <div className="flex flex-wrap items-center gap-1.5 print:hidden">
-            <label className="text-[12px] text-slate-500">Per tanggal</label>
+            <label className="text-[12px] text-slate-500">{tr("As of", "Per tanggal")}</label>
             <input
               type="date" value={date} onChange={(e) => setAsof(e.target.value)}
-              aria-label="Tanggal laporan"
+              aria-label={tr("Report date", "Tanggal laporan")}
               className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
             <Button size="sm" variant="ghost" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Cetak
+              <Printer className="h-4 w-4" /> {tr("Print", "Cetak")}
             </Button>
             <SourceBadge state={recap} />
           </div>
@@ -115,7 +130,7 @@ export default function WlkpPage() {
           if (!r) {
             return (
               <Card><p className="px-5 py-8 text-center text-sm text-slate-500">
-                Rekap ini butuh akses HRD atau payroll.
+                {tr("This recap needs HRD or payroll access.", "Rekap ini butuh akses HRD atau payroll.")}
               </p></Card>
             );
           }
@@ -135,17 +150,23 @@ export default function WlkpPage() {
                   <>
                     <p>
                       <TriangleAlert className="mr-1.5 inline h-4 w-4" />
-                      <strong>{r.complete} dari {r.headcount} orang datanya lengkap.</strong>{" "}
-                      Rincian di bawah sudah benar untuk yang ada, tapi {r.incomplete} orang
-                      masih punya kolom kosong — dan di setiap tabel mereka muncul sebagai
-                      <em> belum diisi</em>, bukan ikut terhitung ke kelompok mana pun.
+                      <strong>{tr(
+                        `${r.complete} of ${r.headcount} people have complete data.`,
+                        `${r.complete} dari ${r.headcount} orang datanya lengkap.`,
+                      )}</strong>{" "}
+                      {tr(
+                        `The breakdown below is right for what exists, but ${r.incomplete} people still have empty fields — and in every table they appear as`,
+                        `Rincian di bawah sudah benar untuk yang ada, tapi ${r.incomplete} orang masih punya kolom kosong — dan di setiap tabel mereka muncul sebagai`,
+                      )}
+                      <em>{tr(" not filled in", " belum diisi")}</em>
+                      {tr(", not counted into any group.", ", bukan ikut terhitung ke kelompok mana pun.")}
                     </p>
                     {gaps.length > 0 && (
                       <p className="mt-1.5">
-                        Yang masih ditunggu:{" "}
+                        {tr("Still waiting on:", "Yang masih ditunggu:")}{" "}
                         {gaps
                           .sort((a, b) => b[1] - a[1])
-                          .map(([f, n]) => `${IDENTITY_FIELD_LABEL[f] ?? f} (${n} orang)`)
+                          .map(([f, n]) => tr(`${IDENTITY_FIELD_LABEL[f] ?? f} (${n} people)`, `${IDENTITY_FIELD_LABEL[f] ?? f} (${n} orang)`))
                           .join(", ")}.
                       </p>
                     )}
@@ -153,18 +174,25 @@ export default function WlkpPage() {
                 ) : (
                   <p>
                     <Check className="mr-1.5 inline h-4 w-4" />
-                    <strong>Semua {r.headcount} orang datanya lengkap</strong> per{" "}
-                    <span className="font-mono">{r.asof}</span>. Angka di bawah bisa disalin
-                    ke formulir apa adanya.
+                    <strong>{tr(
+                      `All ${r.headcount} people have complete data`,
+                      `Semua ${r.headcount} orang datanya lengkap`,
+                    )}</strong> {tr("as of", "per")}{" "}
+                    <span className="font-mono">{r.asof}</span>.{" "}
+                    {tr(
+                      "The figures below can be copied into the form as they are.",
+                      "Angka di bawah bisa disalin ke formulir apa adanya.",
+                    )}
                   </p>
                 )}
               </div>
 
               <p className="mb-3 text-[12px] text-slate-500">
-                Per <strong className="font-mono">{r.asof}</strong> · {r.headcount} orang
-                bekerja pada tanggal itu. Yang keluar sebelum tanggal ini tidak dihitung, dan
-                yang masuk sesudahnya juga tidak — jadi laporan tahun lalu tetap benar meski
-                orangnya sudah berganti.
+                {tr("As of", "Per")} <strong className="font-mono">{r.asof}</strong> ·{" "}
+                {tr(
+                  `${r.headcount} people employed on that date. Those who left before this date are not counted, and neither are those who joined after — so last year's report stays right even though the people have changed.`,
+                  `${r.headcount} orang bekerja pada tanggal itu. Yang keluar sebelum tanggal ini tidak dihitung, dan yang masuk sesudahnya juga tidak — jadi laporan tahun lalu tetap benar meski orangnya sudah berganti.`,
+                )}
               </p>
 
               <div className="mb-4 grid gap-3 md:grid-cols-2">
@@ -172,13 +200,13 @@ export default function WlkpPage() {
                   const rows = r.by[d.key] ?? [];
                   return (
                     <Card key={d.key}>
-                      <CardHeader title={d.title} subtitle={d.note} icon={ClipboardList} />
+                      <CardHeader title={t(d.title)} subtitle={d.note ? t(d.note) : undefined} icon={ClipboardList} />
                       <table className="w-full text-[13px]">
                         <tbody className="divide-y divide-slate-100">
                           {rows.map((b) => (
                             <tr key={b.key} className={cn(b.key === "tidak_diketahui" && "bg-amber-50/50")}>
                               <td className="px-5 py-1.5 text-slate-700">
-                                {labelFor(d.key, b.key)}
+                                {labelFor(d.key, b.key, tr)}
                               </td>
                               <td className="w-16 px-5 py-1.5 text-right font-semibold tabular-nums text-slate-800">
                                 {b.count}
@@ -186,7 +214,7 @@ export default function WlkpPage() {
                             </tr>
                           ))}
                           <tr className="border-t-2 border-slate-200 bg-slate-50/60">
-                            <td className="px-5 py-1.5 text-[12px] font-medium text-slate-500">Jumlah</td>
+                            <td className="px-5 py-1.5 text-[12px] font-medium text-slate-500">{tr("Total", "Jumlah")}</td>
                             <td className="px-5 py-1.5 text-right font-bold tabular-nums text-slate-800">
                               {rows.reduce((a, b) => a + b.count, 0)}
                             </td>
@@ -201,8 +229,8 @@ export default function WlkpPage() {
               {r.nationalities.length > 0 && (
                 <Card className="mb-4">
                   <CardHeader
-                    title="Tenaga kerja asing, per negara"
-                    subtitle="WLKP menghitung WNA per negara, bukan sebagai satu angka."
+                    title={tr("Foreign workers, by country", "Tenaga kerja asing, per negara")}
+                    subtitle={tr("WLKP counts WNA by country, not as a single figure.", "WLKP menghitung WNA per negara, bukan sebagai satu angka.")}
                     icon={ClipboardList}
                   />
                   <ul className="divide-y divide-slate-100 text-[13px]">
@@ -222,12 +250,12 @@ export default function WlkpPage() {
 
       {/* ── who still owes an answer ──────────────────────────────────────── */}
       <div className="print:hidden">
-        <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-700">Data diri per orang</h2>
+        <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-700">{tr("Personal data per person", "Data diri per orang")}</h2>
         <p className="mb-3 text-[12px] text-slate-500">
-          Enam jawaban per orang, dan hanya itu — data ini punya tabelnya sendiri yang
-          tidak bisa dibaca oleh akun payroll, tidak seperti data karyawan yang lain.
-          Rekap di atas boleh dilihat siapa pun yang sudah bisa melihat daftar karyawan,
-          karena isinya angka; daftar di bawah ini tidak, karena isinya orang.
+          {tr(
+            "Six answers per person, and only those — this data has its own table that payroll accounts cannot read, unlike the rest of the employee data. The recap above may be seen by anyone who can already see the employee list, because it holds numbers; the list below may not, because it holds people.",
+            "Enam jawaban per orang, dan hanya itu — data ini punya tabelnya sendiri yang tidak bisa dibaca oleh akun payroll, tidak seperti data karyawan yang lain. Rekap di atas boleh dilihat siapa pun yang sudah bisa melihat daftar karyawan, karena isinya angka; daftar di bawah ini tidak, karena isinya orang.",
+          )}
         </p>
         <Loaded state={people} onRetry={reloadPeople}>
           {(rows) => (
@@ -239,12 +267,12 @@ export default function WlkpPage() {
                       <div className="min-w-[200px] flex-1">
                         <p className="text-sm font-medium text-slate-800">
                           {p.full_name}
-                          {!p.active && <span className="ml-2 text-[11px] text-slate-400">sudah keluar</span>}
+                          {!p.active && <span className="ml-2 text-[11px] text-slate-400">{tr("has left", "sudah keluar")}</span>}
                         </p>
                         <p className="text-[12px] text-slate-500">
                           <span className="font-mono text-[11px]">{p.employee_no}</span>
                           {p.position && <> · {p.position}</>}
-                          {p.age !== null && <> · {p.age} tahun</>}
+                          {p.age !== null && <> · {tr(`${p.age} years`, `${p.age} tahun`)}</>}
                           {p.sex && <> · {SEX_LABEL[p.sex]}</>}
                           {p.education && <> · {EDUCATION_LABEL[p.education]}</>}
                           {p.citizenship === "WNA" && <> · WNA {p.nationality}</>}
@@ -255,7 +283,7 @@ export default function WlkpPage() {
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-1">
                         {p.missing.length === 0 ? (
-                          <Badge tone="green">lengkap</Badge>
+                          <Badge tone="green">{tr("complete", "lengkap")}</Badge>
                         ) : (
                           p.missing.map((f) => (
                             <Badge key={f} tone="amber">{IDENTITY_FIELD_LABEL[f] ?? f}</Badge>
@@ -266,7 +294,7 @@ export default function WlkpPage() {
                             size="sm" variant="ghost"
                             onClick={() => setEditing(editing === p.employee_no ? null : p.employee_no)}
                           >
-                            <UserPen className="h-4 w-4" /> Isi
+                            <UserPen className="h-4 w-4" /> {tr("Fill in", "Isi")}
                           </Button>
                         )}
                       </div>
@@ -284,14 +312,16 @@ export default function WlkpPage() {
                           setBusy(false);
                           if (res.error) {
                             toast(res.error.status === 403 ? "critical" : "warning",
-                              "Tidak tersimpan", res.error.message);
+                              tr("Not saved", "Tidak tersimpan"), res.error.message);
                             return;
                           }
                           toast("success", p.full_name,
                             res.data.missing.length === 0
-                              ? "Data diri lengkap"
-                              : `Masih kurang: ${res.data.missing
-                                  .map((f) => IDENTITY_FIELD_LABEL[f] ?? f).join(", ")}`);
+                              ? tr("Personal data complete", "Data diri lengkap")
+                              : tr(
+                                `Still missing: ${res.data.missing.map((f) => IDENTITY_FIELD_LABEL[f] ?? f).join(", ")}`,
+                                `Masih kurang: ${res.data.missing.map((f) => IDENTITY_FIELD_LABEL[f] ?? f).join(", ")}`,
+                              ));
                           setEditing(null);
                           reloadPeople(); reloadRecap();
                         }}
@@ -306,9 +336,10 @@ export default function WlkpPage() {
       </div>
 
       <p className="mt-4 text-[11px] leading-relaxed text-slate-400 print:hidden">
-        Halaman ini tidak mengirim apa pun ke mana pun. Ia mencetak angka yang diketik
-        orang ke portal WLKP — batas yang jujur, karena kami bisa memastikan angka kami
-        sendiri dan tidak bisa memastikan formulir orang lain.
+        {tr(
+          "This page sends nothing anywhere. It prints the figures a person types into the WLKP portal — an honest boundary, because we can be sure of our own figures and cannot be sure of somebody else's form.",
+          "Halaman ini tidak mengirim apa pun ke mana pun. Ia mencetak angka yang diketik orang ke portal WLKP — batas yang jujur, karena kami bisa memastikan angka kami sendiri dan tidak bisa memastikan formulir orang lain.",
+        )}
       </p>
     </div>
   );
@@ -335,6 +366,7 @@ function IdentityForm({
   }) => void;
   onCancel: () => void;
 }) {
+  const tr = useTr();
   const [born, setBorn] = useState(person.born_on ?? "");
   const [sex, setSex] = useState<string>(person.sex ?? "");
   const [edu, setEdu] = useState<string>(person.education ?? "");
@@ -354,41 +386,41 @@ function IdentityForm({
     <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-[12px] text-slate-600">
-          Tanggal lahir
+          {tr("Date of birth", "Tanggal lahir")}
           <input type="date" value={born} onChange={(e) => setBorn(e.target.value)} className={field} />
         </label>
         <label className="text-[12px] text-slate-600">
-          Jenis kelamin
+          {tr("Sex", "Jenis kelamin")}
           <select value={sex} onChange={(e) => setSex(e.target.value)} className={field}>
-            <option value="">— belum diisi —</option>
+            <option value="">{tr("— not filled in —", "— belum diisi —")}</option>
             {(Object.keys(SEX_LABEL) as Sex[]).map((k) => (
               <option key={k} value={k}>{SEX_LABEL[k]}</option>
             ))}
           </select>
         </label>
         <label className="text-[12px] text-slate-600">
-          Pendidikan terakhir
+          {tr("Highest education", "Pendidikan terakhir")}
           <select value={edu} onChange={(e) => setEdu(e.target.value)} className={field}>
-            <option value="">— belum diisi —</option>
+            <option value="">{tr("— not filled in —", "— belum diisi —")}</option>
             {(Object.keys(EDUCATION_LABEL) as Education[]).map((k) => (
               <option key={k} value={k}>{EDUCATION_LABEL[k]}</option>
             ))}
           </select>
         </label>
         <label className="text-[12px] text-slate-600">
-          Kewarganegaraan
+          {tr("Citizenship", "Kewarganegaraan")}
           <select
             value={cit}
             onChange={(e) => { setCit(e.target.value); if (e.target.value !== "WNA") setNat(""); }}
             className={field}
           >
-            <option value="">— belum diisi —</option>
+            <option value="">{tr("— not filled in —", "— belum diisi —")}</option>
             <option value="WNI">WNI</option>
             <option value="WNA">WNA</option>
           </select>
         </label>
         <label className="text-[12px] text-slate-600">
-          Negara (khusus WNA)
+          {tr("Country (WNA only)", "Negara (khusus WNA)")}
           <input
             value={nat} onChange={(e) => setNat(e.target.value)}
             disabled={cit !== "WNA"} placeholder={cit === "WNA" ? "Timor-Leste" : "—"}
@@ -396,41 +428,41 @@ function IdentityForm({
           />
         </label>
         <label className="text-[12px] text-slate-600">
-          Status perkawinan
+          {tr("Marital status", "Status perkawinan")}
           <select value={mar} onChange={(e) => setMar(e.target.value)} className={field}>
-            <option value="">— belum diisi —</option>
+            <option value="">{tr("— not filled in —", "— belum diisi —")}</option>
             {(Object.keys(MARITAL_LABEL) as MaritalStatus[]).map((k) => (
               <option key={k} value={k}>{MARITAL_LABEL[k]}</option>
             ))}
           </select>
         </label>
         <label className="text-[12px] text-slate-600">
-          Penyandang disabilitas
+          {tr("Person with a disability", "Penyandang disabilitas")}
           <select
             value={dis}
             onChange={(e) => { setDis(e.target.value); if (e.target.value !== "true") setNote(""); }}
             className={field}
           >
-            <option value="">— belum ditanyakan —</option>
-            <option value="false">Tidak</option>
-            <option value="true">Ya</option>
+            <option value="">{tr("— not yet asked —", "— belum ditanyakan —")}</option>
+            <option value="false">{tr("No", "Tidak")}</option>
+            <option value="true">{tr("Yes", "Ya")}</option>
           </select>
           <span className="mt-0.5 block text-[11px] text-slate-400">
-            <em>Belum ditanyakan</em> bukan <em>tidak</em>. Yang pertama masih jadi
-            pekerjaan; yang kedua sudah jadi jawaban.
+            <em>{tr("Not yet asked", "Belum ditanyakan")}</em> {tr("is not", "bukan")} <em>{tr("no", "tidak")}</em>.{" "}
+            {tr("The first is still work to do; the second is already an answer.", "Yang pertama masih jadi pekerjaan; yang kedua sudah jadi jawaban.")}
           </span>
         </label>
         <label className="text-[12px] text-slate-600 sm:col-span-2">
-          Keterangan
+          {tr("Details", "Keterangan")}
           <input
             value={note} onChange={(e) => setNote(e.target.value)}
-            disabled={dis !== "true"} placeholder={dis === "true" ? "Jenis dan penyesuaian yang sudah dilakukan" : "—"}
+            disabled={dis !== "true"} placeholder={dis === "true" ? tr("Kind, and the adjustments already made", "Jenis dan penyesuaian yang sudah dilakukan") : "—"}
             className={cn(field, dis !== "true" && "bg-slate-100 text-slate-400")}
           />
         </label>
       </div>
       <div className="mt-3 flex justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={onCancel}>Batal</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>{tr("Cancel", "Batal")}</Button>
         <Button
           size="sm" disabled={busy}
           onClick={() => onSave({
@@ -444,7 +476,7 @@ function IdentityForm({
             marital_status: (mar || null) as MaritalStatus | null,
           })}
         >
-          Simpan
+          {tr("Save", "Simpan")}
         </Button>
       </div>
     </div>

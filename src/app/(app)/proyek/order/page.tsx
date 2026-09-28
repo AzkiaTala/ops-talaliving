@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { procurement } from "@/demo/api";
 import { PROJECT_STATUSES, type ProjectStatus } from "@/services/procurement/contracts";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 import { ProjectDrawer } from "./ProjectDrawer";
 
 /** The customer's orders (0111).
@@ -25,6 +26,7 @@ import { ProjectDrawer } from "./ProjectDrawer";
  *  work orders and ledger rows, all of which reference it as text at the seam.
  */
 export default function ProjectsPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [projects, reload] = useLoad(() => procurement.listProjectViews(), []);
   const [open, setOpen] = useState<string | null>(null);
@@ -41,11 +43,11 @@ export default function ProjectsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Projects"
-        title="Proyek & pesanan"
-        description="Siapa kliennya, di mana statusnya, apa saja yang dipesan dan kapan dikirim. Tiap item pesanan bisa dijadikan item code untuk disusun BOM-nya."
+        breadcrumb={tr("Projects", "Proyek")}
+        title={tr("Projects & orders", "Proyek & pesanan")}
+        description={tr("Who the client is, where it stands, what was ordered and when it ships. Each order line can become an item code for its BOM.", "Siapa kliennya, di mana statusnya, apa saja yang dipesan dan kapan dikirim. Tiap item pesanan bisa dijadikan item code untuk disusun BOM-nya.")}
         actions={can("project.create") ? (
-          <Button icon={Plus} onClick={() => { setCreating(true); setOpen(null); }}>Proyek baru</Button>
+          <Button icon={Plus} onClick={() => { setCreating(true); setOpen(null); }}>{tr("New project", "Proyek baru")}</Button>
         ) : undefined}
       />
 
@@ -63,16 +65,16 @@ export default function ProjectsPage() {
           return (
             <Card>
               <CardHeader
-                title={`${rows.length} proyek`}
-                subtitle="Klik untuk membuka pesanan, mengubah status, dan menambah item."
+                title={tr(`${rows.length} projects`, `${rows.length} proyek`)}
+                subtitle={tr("Click to open the order, change its status and add items.", "Klik untuk membuka pesanan, mengubah status, dan menambah item.")}
                 icon={FolderKanban}
                 action={<SourceBadge state={projects} />}
               />
               <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2">
                 {([
-                  ["OPEN", "Berjalan", all.filter((p) => !["DONE", "CANCELLED"].includes(statusOf(p))).length],
+                  ["OPEN", tr("Ongoing", "Berjalan"), all.filter((p) => !["DONE", "CANCELLED"].includes(statusOf(p))).length],
                   ...PROJECT_STATUSES.map((s) => [s.code, s.label, count(s.code)] as const),
-                  ["ALL", "Semua", all.length],
+                  ["ALL", tr("All", "Semua"), all.length],
                 ] as [ProjectStatus | "OPEN" | "ALL", string, number][]).map(([k, label, n]) => (
                   <button
                     key={k} onClick={() => setStatus(k)}
@@ -87,23 +89,23 @@ export default function ProjectsPage() {
                 <label className="ml-auto flex min-w-[220px] items-center gap-2 rounded-lg border border-slate-200 px-2">
                   <Search className="h-4 w-4 text-slate-400" />
                   <input
-                    value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari kode, nama, klien…"
-                    aria-label="Cari proyek" className="h-8 w-full text-sm focus:outline-none"
+                    value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("Search code, name, client…", "Cari kode, nama, klien…")}
+                    aria-label={tr("Search projects", "Cari proyek")} className="h-8 w-full text-sm focus:outline-none"
                   />
                 </label>
               </div>
-              <Paged rows={rows} pageSize={20} unit="proyek">
+              <Paged rows={rows} pageSize={20} unit={tr("projects", "proyek")}>
                 {(shown) => (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[900px] border-collapse text-[13px]">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                          <th className="px-4 py-2 text-left">Proyek</th>
-                          <th className="px-4 py-2 text-left">Klien</th>
-                          <th className="px-4 py-2 text-left">Status</th>
-                          <th className="px-4 py-2 text-right">Item</th>
-                          <th className="px-4 py-2 text-left">Kirim</th>
-                          <th className="px-4 py-2 text-right">Nilai</th>
+                          <th className="px-4 py-2 text-left">{tr("Project", "Proyek")}</th>
+                          <th className="px-4 py-2 text-left">{tr("Client", "Klien")}</th>
+                          <th className="px-4 py-2 text-left">{tr("Status", "Status")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Items", "Item")}</th>
+                          <th className="px-4 py-2 text-left">{tr("Delivery", "Kirim")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Value", "Nilai")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -126,27 +128,27 @@ export default function ProjectsPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-2 text-slate-600">
-                                {p.client_display ?? <span className="text-slate-400">internal</span>}
+                                {p.client_display ?? <span className="text-slate-400">{tr("internal", "internal")}</span>}
                               </td>
                               <td className="px-4 py-2"><Badge tone={st.tone}>{st.label}</Badge></td>
                               <td className="px-4 py-2 text-right tabular-nums text-slate-700">
                                 {p.line_count || <span className="text-slate-300">—</span>}
                                 {p.lines_without_item_code > 0 && (
-                                  <span className="block text-[11px] text-amber-700">{p.lines_without_item_code} tanpa item code</span>
+                                  <span className="block text-[11px] text-amber-700">{tr(`${p.lines_without_item_code} without item code`, `${p.lines_without_item_code} tanpa item code`)}</span>
                                 )}
                               </td>
                               <td className="px-4 py-2 text-slate-600">{p.next_delivery ?? p.target_date ?? "—"}</td>
                               <td className="px-4 py-2 text-right tabular-nums text-slate-800">
                                 {value == null ? <span className="text-slate-300">—</span> : formatIDR(value)}
                                 {p.order_value == null && p.contract_value != null && (
-                                  <span className="block text-[11px] text-slate-400">nilai kontrak</span>
+                                  <span className="block text-[11px] text-slate-400">{tr("contract value", "nilai kontrak")}</span>
                                 )}
                               </td>
                             </tr>
                           );
                         })}
                         {rows.length === 0 && (
-                          <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Tidak ada proyek di sini.</td></tr>
+                          <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">{tr("No projects here.", "Tidak ada proyek di sini.")}</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -154,8 +156,10 @@ export default function ProjectsPage() {
                 )}
               </Paged>
               <p className="border-t border-slate-100 px-4 py-2.5 text-[11px] text-slate-500">
-                Nilai = jumlah item × harga jual per unit; bila item belum berharga, nilai kontrak yang
-                disepakati. Bukan faktur. Belanja terhadap proyek dibaca dari ledger, di halaman likuidasi.
+                {tr(
+                  "Value = item quantity × unit selling price; where items have no price yet, the agreed contract value. Not an invoice. Spending against the project is read from the ledger, on the liquidation page.",
+                  "Nilai = jumlah item × harga jual per unit; bila item belum berharga, nilai kontrak yang disepakati. Bukan faktur. Belanja terhadap proyek dibaca dari ledger, di halaman likuidasi.",
+                )}
               </p>
             </Card>
           );

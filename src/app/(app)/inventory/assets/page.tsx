@@ -19,6 +19,7 @@ import { ServiceLog } from "./ServiceLog";
 import type { AuditRow } from "@/demo/state";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr, type Message } from "@/lib/i18n";
 
 /** The non-production asset register (`0107`): what the company owns and
  *  uses rather than sells or builds from — CCTV, PCs, vehicles, tools.
@@ -43,10 +44,10 @@ const STATUS_TONE: Record<AssetStatus, Tone> = {
 
 const OWNERSHIP_TONE: Record<AssetOwnership, Tone> = { owned: "slate", rented: "brand", leased: "violet", borrowed: "amber" };
 
-const SLOTS: EvidenceSlot[] = [
-  { kind: "Foto", label: "Photo" },
-  { kind: "Receipt / Invoice / Nota", label: "Purchase nota / invoice", optional: true },
-  { kind: "Sertifikat", label: "Warranty card", optional: true },
+const SLOTS: (Omit<EvidenceSlot, "label"> & { label: Message })[] = [
+  { kind: "Foto", label: { en: "Photo", id: "Foto" } },
+  { kind: "Receipt / Invoice / Nota", label: { en: "Purchase nota / invoice", id: "Nota pembelian / invoice" }, optional: true },
+  { kind: "Sertifikat", label: { en: "Warranty card", id: "Kartu garansi" }, optional: true },
 ];
 
 type Form = {
@@ -66,6 +67,7 @@ const emptyForm: Form = {
 };
 
 export default function AssetsPage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const mayCreate = can("inventory.create");
@@ -154,10 +156,10 @@ export default function AssetsPage() {
       : await inventory.updateAsset(form.asset_no, input);
     setSaving(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not saved", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
       return;
     }
-    toast("success", form.mode === "create" ? "Asset registered" : "Asset saved", `${res.data.asset_no} — ${res.data.name}`);
+    toast("success", form.mode === "create" ? tr("Asset registered", "Aset terdaftar") : tr("Asset saved", "Aset tersimpan"), `${res.data.asset_no} — ${res.data.name}`);
     setForm(null);
     if (form.mode === "edit") void refreshSelected(res.data.asset_no); else reload();
   }
@@ -167,8 +169,8 @@ export default function AssetsPage() {
     setSaving(true);
     const res = await inventory.setAssetStatus(selected.asset_no, statusForm.status, statusForm.note || undefined);
     setSaving(false);
-    if (res.error) { toast("warning", "Not changed", res.error.message); return; }
-    toast("success", "Status changed", `${res.data.asset_no} is now ${ASSET_STATUS_LABEL[res.data.status].toLowerCase()}.`);
+    if (res.error) { toast("warning", tr("Not changed", "Tidak berubah"), res.error.message); return; }
+    toast("success", tr("Status changed", "Status diubah"), tr(`${res.data.asset_no} is now ${ASSET_STATUS_LABEL[res.data.status].toLowerCase()}.`, `${res.data.asset_no} sekarang ${ASSET_STATUS_LABEL[res.data.status].toLowerCase()}.`));
     setStatusForm(null);
     void refreshSelected(res.data.asset_no);
   }
@@ -178,8 +180,8 @@ export default function AssetsPage() {
     setSaving(true);
     const res = await inventory.deleteAsset(selected.asset_no);
     setSaving(false);
-    if (res.error) { toast("warning", "Not deleted", res.error.message); return; }
-    toast("success", "Deleted", `${selected.asset_no} was removed as a mistaken entry.`);
+    if (res.error) { toast("warning", tr("Not deleted", "Tidak terhapus"), res.error.message); return; }
+    toast("success", tr("Deleted", "Terhapus"), tr(`${selected.asset_no} was removed as a mistaken entry.`, `${selected.asset_no} dihapus sebagai entri yang keliru.`));
     setForm(null);
     setSelected(null);
     reload();
@@ -188,7 +190,7 @@ export default function AssetsPage() {
   const columns: Column<AssetView>[] = [
     {
       key: "tag",
-      header: "Asset",
+      header: tr("Asset", "Aset"),
       render: (a) => (
         <div>
           <p className="font-medium text-slate-800">
@@ -203,10 +205,10 @@ export default function AssetsPage() {
         </div>
       ),
     },
-    { key: "cat", header: "Category", render: (a) => <span className="text-slate-600">{a.category_name}</span> },
+    { key: "cat", header: tr("Category", "Kategori"), render: (a) => <span className="text-slate-600">{a.category_name}</span> },
     {
       key: "where",
-      header: "Location / holder",
+      header: tr("Location / holder", "Lokasi / pemegang"),
       render: (a) => (
         <div className="text-[13px]">
           <p className="text-slate-700">{a.location ?? "—"}</p>
@@ -216,20 +218,20 @@ export default function AssetsPage() {
     },
     {
       key: "status",
-      header: "Status",
+      header: tr("Status", "Status"),
       render: (a) => (
         <span className="flex flex-wrap items-center gap-1">
           <Badge tone={STATUS_TONE[a.status]} dot>{ASSET_STATUS_LABEL[a.status]}</Badge>
-          {a.warranty_expired && <Badge tone="amber">warranty expired</Badge>}
-          {a.contract_ending && <Badge tone="amber">contract ends {a.contract_end}</Badge>}
-          {a.contract_expired && <Badge tone="red">contract ended {a.contract_end}</Badge>}
-          {a.service_due && <Badge tone="amber">service due {a.next_service_due}</Badge>}
+          {a.warranty_expired && <Badge tone="amber">{tr("warranty expired", "garansi habis")}</Badge>}
+          {a.contract_ending && <Badge tone="amber">{tr("contract ends", "kontrak berakhir")} {a.contract_end}</Badge>}
+          {a.contract_expired && <Badge tone="red">{tr("contract ended", "kontrak sudah berakhir")} {a.contract_end}</Badge>}
+          {a.service_due && <Badge tone="amber">{tr("service due", "jatuh tempo servis")} {a.next_service_due}</Badge>}
         </span>
       ),
     },
     {
       key: "cost",
-      header: "Cost / rent",
+      header: tr("Cost / rent", "Biaya / sewa"),
       align: "right",
       render: (a) => a.purchase_cost != null
         ? <span className="tabular-nums text-slate-700">{formatIDR(a.purchase_cost)}</span>
@@ -247,12 +249,12 @@ export default function AssetsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
-        title="Assets"
-        description="What the company owns and uses rather than sells: CCTV, PCs, vehicles, tools. Each has a tag for a sticker on the thing itself."
+        breadcrumb={tr("Inventory", "Persediaan")}
+        title={tr("Assets", "Aset")}
+        description={tr("What the company owns and uses rather than sells: CCTV, PCs, vehicles, tools. Each has a tag for a sticker on the thing itself.", "Apa yang dimiliki dan dipakai perusahaan, bukan dijual: CCTV, PC, kendaraan, perkakas. Masing-masing punya tag untuk stiker di barangnya sendiri.")}
         actions={mayCreate && (
           <Button icon={Plus} onClick={() => setForm({ ...emptyForm, category_code: catList.find((c) => c.is_active)?.code ?? "" })}>
-            Register asset
+            {tr("Register asset", "Daftarkan aset")}
           </Button>
         )}
       />
@@ -268,47 +270,49 @@ export default function AssetsPage() {
           return (
             <>
               <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <StatCard label="Assets shown" value={rows.length} icon={Package} hint={`${inUse} in use`} />
-                <StatCard label="Under repair" value={repair} icon={Wrench} tone="amber" hint="Out of action right now" />
-                <StatCard label="Warranty expired" value={expired} icon={ShieldAlert} tone="violet" hint="Still in service" />
-                <StatCard label="Rented, leased, borrowed" value={notOwned.length} icon={FileClock} tone="brand"
-                  hint={contractFlags > 0 ? `${contractFlags} contract${contractFlags === 1 ? "" : "s"} ending or ended` : "No contract running out"} />
-                <StatCard label="Recorded cost" value={formatIDR(cost)} icon={MonitorSmartphone} hint="Owned assets shown" />
+                <StatCard label={tr("Assets shown", "Aset ditampilkan")} value={rows.length} icon={Package} hint={tr(`${inUse} in use`, `${inUse} dipakai`)} />
+                <StatCard label={tr("Under repair", "Sedang diperbaiki")} value={repair} icon={Wrench} tone="amber" hint={tr("Out of action right now", "Tidak bisa dipakai saat ini")} />
+                <StatCard label={tr("Warranty expired", "Garansi habis")} value={expired} icon={ShieldAlert} tone="violet" hint={tr("Still in service", "Masih dipakai")} />
+                <StatCard label={tr("Rented, leased, borrowed", "Disewa, leasing, dipinjam")} value={notOwned.length} icon={FileClock} tone="brand"
+                  hint={contractFlags > 0
+                    ? tr(`${contractFlags} contract${contractFlags === 1 ? "" : "s"} ending or ended`, `${contractFlags} kontrak akan atau sudah berakhir`)
+                    : tr("No contract running out", "Tidak ada kontrak yang akan habis")} />
+                <StatCard label={tr("Recorded cost", "Biaya tercatat")} value={formatIDR(cost)} icon={MonitorSmartphone} hint={tr("Owned assets shown", "Aset milik yang ditampilkan")} />
               </div>
 
               <Card>
                 <CardHeader
-                  title="Register"
-                  subtitle="Click an asset for its documents, status and history."
+                  title={tr("Register", "Daftar")}
+                  subtitle={tr("Click an asset for its documents, status and history.", "Klik satu aset untuk dokumen, status, dan riwayatnya.")}
                   icon={MonitorSmartphone}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
                       <SourceBadge state={state} />
                       <select
-                        id="asset-cat" aria-label="Category" value={category}
+                        id="asset-cat" aria-label={tr("Category", "Kategori")} value={category}
                         onChange={(e) => setCategory(e.target.value)}
                         className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">All categories</option>
+                        <option value="">{tr("All categories", "Semua kategori")}</option>
                         {catList.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
                       </select>
                       <select
-                        id="asset-status" aria-label="Status" value={status}
+                        id="asset-status" aria-label={tr("Status", "Status")} value={status}
                         onChange={(e) => setStatus(e.target.value as "" | AssetStatus)}
                         className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Any status</option>
+                        <option value="">{tr("Any status", "Semua status")}</option>
                         {(Object.keys(ASSET_STATUS_LABEL) as AssetStatus[]).map((s) => (
                           <option key={s} value={s}>{ASSET_STATUS_LABEL[s]}</option>
                         ))}
                       </select>
                       <label className="flex items-center gap-1.5 text-[13px] text-slate-600">
                         <input id="asset-gone" type="checkbox" checked={showGone} onChange={(e) => setShowGone(e.target.checked)} />
-                        Show disposed, lost &amp; returned
+                        {tr("Show disposed, lost & returned", "Tampilkan yang dilepas, hilang & dikembalikan")}
                       </label>
                       <input
                         id="asset-search" value={q} onChange={(e) => setQ(e.target.value)}
-                        placeholder="Tag, name, serial, plate…"
+                        placeholder={tr("Tag, name, serial, plate…", "Tag, nama, serial, pelat…")}
                         className="h-9 w-48 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
                       />
                     </div>
@@ -316,7 +320,7 @@ export default function AssetsPage() {
                 />
                 <DataTable
                   columns={columns} rows={rows} rowKey={(a) => a.id} onRowClick={setSelected} dense
-                  empty={q || category || status ? "Nothing matches those filters." : "No assets registered yet."}
+                  empty={q || category || status ? tr("Nothing matches those filters.", "Tidak ada yang cocok dengan filter itu.") : tr("No assets registered yet.", "Belum ada aset terdaftar.")}
                 />
               </Card>
             </>
@@ -333,19 +337,19 @@ export default function AssetsPage() {
         footer={selected && mayEdit ? (
           <div className="flex flex-wrap justify-end gap-2">
             <select
-              id="asset-new-status" aria-label="Change status"
+              id="asset-new-status" aria-label={tr("Change status", "Ubah status")}
               value=""
               onChange={(e) => e.target.value && setStatusForm({ status: e.target.value as AssetStatus, note: "" })}
               className="mr-auto h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none"
             >
-              <option value="">Change status…</option>
+              <option value="">{tr("Change status…", "Ubah status…")}</option>
               {(Object.keys(ASSET_STATUS_LABEL) as AssetStatus[])
                 .filter((s) => s !== selected.status && (s !== "returned" || selected.ownership !== "owned"))
                 .map((s) => (
                 <option key={s} value={s}>{ASSET_STATUS_LABEL[s]}</option>
               ))}
             </select>
-            <Button size="sm" variant="outline" icon={Pencil} onClick={() => openEdit(selected)}>Edit</Button>
+            <Button size="sm" variant="outline" icon={Pencil} onClick={() => openEdit(selected)}>{tr("Edit", "Ubah")}</Button>
           </div>
         ) : null}
       >
@@ -356,35 +360,35 @@ export default function AssetsPage() {
               {selected.ownership !== "owned" && (
                 <Badge tone={OWNERSHIP_TONE[selected.ownership]}>{ASSET_OWNERSHIP_LABEL[selected.ownership]}</Badge>
               )}
-              {selected.warranty_expired && <Badge tone="amber">warranty expired</Badge>}
-              {selected.contract_ending && <Badge tone="amber">contract ends {selected.contract_end}</Badge>}
-              {selected.contract_expired && <Badge tone="red">contract ended {selected.contract_end} — still here</Badge>}
-              {selected.ended_on && <Badge tone="slate">since {selected.ended_on}</Badge>}
+              {selected.warranty_expired && <Badge tone="amber">{tr("warranty expired", "garansi habis")}</Badge>}
+              {selected.contract_ending && <Badge tone="amber">{tr("contract ends", "kontrak berakhir")} {selected.contract_end}</Badge>}
+              {selected.contract_expired && <Badge tone="red">{tr(`contract ended ${selected.contract_end} — still here`, `kontrak sudah berakhir ${selected.contract_end} — masih di sini`)}</Badge>}
+              {selected.ended_on && <Badge tone="slate">{tr("since", "sejak")} {selected.ended_on}</Badge>}
             </div>
 
             {statusForm && (
               <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
                 <p className="text-[13px] font-medium text-slate-800">
-                  Mark as {ASSET_STATUS_LABEL[statusForm.status].toLowerCase()}
+                  {tr("Mark as", "Tandai sebagai")} {ASSET_STATUS_LABEL[statusForm.status].toLowerCase()}
                 </p>
                 <label htmlFor="asset-status-note" className="block text-xs text-slate-600">
-                  Note {statusForm.status === "disposed" || statusForm.status === "lost"
-                    ? <span className="text-rose-700">— required: how it left</span> : "(optional)"}
+                  {tr("Note", "Catatan")} {statusForm.status === "disposed" || statusForm.status === "lost"
+                    ? <span className="text-rose-700">{tr("— required: how it left", "— wajib: bagaimana barangnya keluar")}</span> : tr("(optional)", "(opsional)")}
                 </label>
                 <input
                   id="asset-status-note" value={statusForm.note}
                   onChange={(e) => setStatusForm({ ...statusForm, note: e.target.value })}
-                  placeholder={statusForm.status === "under_repair" ? "e.g. sent to the service centre"
-                    : statusForm.status === "returned" ? "e.g. picked up by the lessor" : "e.g. sold to staff, scrapped, stolen"}
+                  placeholder={statusForm.status === "under_repair" ? tr("e.g. sent to the service centre", "mis. dikirim ke service centre")
+                    : statusForm.status === "returned" ? tr("e.g. picked up by the lessor", "mis. diambil oleh pihak yang menyewakan") : tr("e.g. sold to staff, scrapped, stolen", "mis. dijual ke staf, dibuang, dicuri")}
                   className={inputClass}
                 />
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setStatusForm(null)}>Cancel</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setStatusForm(null)}>{tr("Cancel", "Batal")}</Button>
                   <Button
                     size="sm" onClick={changeStatus}
                     disabled={saving || ((statusForm.status === "disposed" || statusForm.status === "lost") && !statusForm.note.trim())}
                   >
-                    Save status
+                    {tr("Save status", "Simpan status")}
                   </Button>
                 </div>
               </div>
@@ -392,30 +396,30 @@ export default function AssetsPage() {
 
             <dl className="space-y-2.5">
               {([
-                ["Brand / model", [selected.brand, selected.model].filter(Boolean).join(" ") || "—"],
-                ["Serial / plate", selected.identifier ?? "—"],
-                ["Location", selected.location ?? "—"],
-                ["Held by", selected.holder ?? "—"],
+                [tr("Brand / model", "Merek / model"), [selected.brand, selected.model].filter(Boolean).join(" ") || "—"],
+                [tr("Serial / plate", "Serial / pelat"), selected.identifier ?? "—"],
+                [tr("Location", "Lokasi"), selected.location ?? "—"],
+                [tr("Held by", "Dipegang oleh"), selected.holder ?? "—"],
                 ...(selected.ownership === "owned" ? [
-                  ["Acquired", selected.acquired_on ?? "—"],
-                  ["Cost", selected.purchase_cost != null ? formatIDR(selected.purchase_cost) : "—"],
-                  ["Supplier", selected.vendor_name ?? selected.vendor_code ?? "—"],
+                  [tr("Acquired", "Diperoleh"), selected.acquired_on ?? "—"],
+                  [tr("Cost", "Biaya"), selected.purchase_cost != null ? formatIDR(selected.purchase_cost) : "—"],
+                  [tr("Supplier", "Pemasok"), selected.vendor_name ?? selected.vendor_code ?? "—"],
                 ] : [
-                  ["Ownership", ASSET_OWNERSHIP_LABEL[selected.ownership]],
-                  [selected.ownership === "borrowed" ? "Lent by" : "Lessor", selected.vendor_name ?? selected.vendor_code ?? "—"],
-                  ["Rent", selected.rent_amount != null && selected.rent_period
-                    ? `${formatIDR(selected.rent_amount)} ${RENT_PERIOD_LABEL[selected.rent_period]}${selected.rent_period === "monthly" && selected.rent_due_day ? `, day ${selected.rent_due_day}` : ""}`
+                  [tr("Ownership", "Kepemilikan"), ASSET_OWNERSHIP_LABEL[selected.ownership]],
+                  [selected.ownership === "borrowed" ? tr("Lent by", "Dipinjamkan oleh") : tr("Lessor", "Pihak yang menyewakan"), selected.vendor_name ?? selected.vendor_code ?? "—"],
+                  [tr("Rent", "Sewa"), selected.rent_amount != null && selected.rent_period
+                    ? `${formatIDR(selected.rent_amount)} ${RENT_PERIOD_LABEL[selected.rent_period]}${selected.rent_period === "monthly" && selected.rent_due_day ? tr(`, day ${selected.rent_due_day}`, `, tanggal ${selected.rent_due_day}`) : ""}`
                     : "—"],
-                  ["Contract", selected.contract_start || selected.contract_end
-                    ? `${selected.contract_start ?? "?"} → ${selected.contract_end ?? "open-ended"}` : "—"],
+                  [tr("Contract", "Kontrak"), selected.contract_start || selected.contract_end
+                    ? `${selected.contract_start ?? "?"} → ${selected.contract_end ?? tr("open-ended", "tanpa batas")}` : "—"],
                 ]),
-                ["Ledger row", selected.trx_no ?? "—"],
-                ["Warranty until", selected.warranty_until ?? "—"],
+                [tr("Ledger row", "Baris buku besar"), selected.trx_no ?? "—"],
+                [tr("Warranty until", "Garansi sampai"), selected.warranty_until ?? "—"],
               ] as [string, string][]).map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-slate-100 pb-2">
                   <dt className="text-slate-500">{k}</dt>
                   <dd className="text-right font-medium text-slate-800">
-                    {k === "Ledger row" && selected.trx_no ? (
+                    {k === tr("Ledger row", "Baris buku besar") && selected.trx_no ? (
                       <a href={`/accounting/ledger?trx=${encodeURIComponent(selected.trx_no)}`} className="font-mono text-brand-700 hover:underline">{v}</a>
                     ) : v}
                   </dd>
@@ -437,17 +441,17 @@ export default function AssetsPage() {
               entityNo={selected.asset_no}
               canEdit={mayEdit}
               defaultKind="Foto"
-              slots={SLOTS}
+              slots={SLOTS.map((s) => ({ ...s, label: tr(s.label.en, s.label.id) }))}
               onChanged={() => void refreshSelected(selected.asset_no)}
-              note="Attached to this asset — a photo of the thing, its purchase nota, its warranty card."
+              note={tr("Attached to this asset — a photo of the thing, its purchase nota, its warranty card.", "Terlampir pada aset ini — foto barangnya, nota pembeliannya, kartu garansinya.")}
             />
 
             <section>
               <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <History className="h-3.5 w-3.5" /> History
+                <History className="h-3.5 w-3.5" /> {tr("History", "Riwayat")}
               </p>
               {history.length === 0 ? (
-                <p className="text-[13px] text-slate-500">Nothing recorded yet.</p>
+                <p className="text-[13px] text-slate-500">{tr("Nothing recorded yet.", "Belum ada yang tercatat.")}</p>
               ) : (
                 <ol className="space-y-2">
                   {history.map((h) => (
@@ -478,27 +482,27 @@ export default function AssetsPage() {
         )}
       </Drawer>
 
-      <Modal open={!!form} onClose={() => setForm(null)} title={form?.mode === "create" ? "Register asset" : `Edit ${form?.asset_no ?? ""}`}>
+      <Modal open={!!form} onClose={() => setForm(null)} title={form?.mode === "create" ? tr("Register asset", "Daftarkan aset") : tr(`Edit ${form?.asset_no ?? ""}`, `Ubah ${form?.asset_no ?? ""}`)}>
         {form && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label htmlFor="as-name" className="block text-sm text-slate-600">Name</label>
+                <label htmlFor="as-name" className="block text-sm text-slate-600">{tr("Name", "Nama")}</label>
                 <input id="as-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Camera — workshop gate" className={inputClass} />
+                  placeholder={tr("e.g. Camera — workshop gate", "mis. Kamera — gerbang workshop")} className={inputClass} />
               </div>
               <div>
-                <label htmlFor="as-cat" className="block text-sm text-slate-600">Category</label>
+                <label htmlFor="as-cat" className="block text-sm text-slate-600">{tr("Category", "Kategori")}</label>
                 <select id="as-cat" value={form.category_code} onChange={(e) => setForm({ ...form, category_code: e.target.value })}
                   className={inputClass + " bg-white"}>
-                  <option value="">Pick…</option>
+                  <option value="">{tr("Pick…", "Pilih…")}</option>
                   {catList.filter((c) => c.is_active || c.code === form.category_code).map((c) => (
                     <option key={c.code} value={c.code}>{c.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="as-own" className="block text-sm text-slate-600">Ownership</label>
+                <label htmlFor="as-own" className="block text-sm text-slate-600">{tr("Ownership", "Kepemilikan")}</label>
                 <select id="as-own" value={form.ownership}
                   onChange={(e) => setForm({ ...form, ownership: e.target.value as AssetOwnership })}
                   className={inputClass + " bg-white"}>
@@ -508,27 +512,27 @@ export default function AssetsPage() {
                 </select>
               </div>
               <div>
-                <label htmlFor="as-ident" className="block text-sm text-slate-600">Serial no. / plate</label>
+                <label htmlFor="as-ident" className="block text-sm text-slate-600">{tr("Serial no. / plate", "No. serial / pelat")}</label>
                 <input id="as-ident" value={form.identifier} onChange={(e) => setForm({ ...form, identifier: e.target.value })}
-                  placeholder="e.g. DK 8123 ZA" className={inputClass} />
+                  placeholder={tr("e.g. DK 8123 ZA", "mis. DK 8123 ZA")} className={inputClass} />
               </div>
               <div>
-                <label htmlFor="as-brand" className="block text-sm text-slate-600">Brand</label>
+                <label htmlFor="as-brand" className="block text-sm text-slate-600">{tr("Brand", "Merek")}</label>
                 <input id="as-brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} className={inputClass} />
               </div>
               <div>
-                <label htmlFor="as-model" className="block text-sm text-slate-600">Model</label>
+                <label htmlFor="as-model" className="block text-sm text-slate-600">{tr("Model", "Model")}</label>
                 <input id="as-model" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className={inputClass} />
               </div>
               <div>
-                <label htmlFor="as-loc" className="block text-sm text-slate-600">Location</label>
+                <label htmlFor="as-loc" className="block text-sm text-slate-600">{tr("Location", "Lokasi")}</label>
                 <input id="as-loc" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  placeholder="e.g. Office, accounting" className={inputClass} />
+                  placeholder={tr("e.g. Office, accounting", "mis. Kantor, accounting")} className={inputClass} />
               </div>
               <div>
-                <label htmlFor="as-holder" className="block text-sm text-slate-600">Held by</label>
+                <label htmlFor="as-holder" className="block text-sm text-slate-600">{tr("Held by", "Dipegang oleh")}</label>
                 <input id="as-holder" value={form.holder} onChange={(e) => setForm({ ...form, holder: e.target.value })}
-                  list="asset-holders" placeholder="e.g. Made (driver)" className={inputClass} />
+                  list="asset-holders" placeholder={tr("e.g. Made (driver)", "mis. Made (sopir)")} className={inputClass} />
                 {/* Suggestions from HR's list; the field stays free text,
                     because the driver of a rented pickup may not be on it. */}
                 <datalist id="asset-holders">
@@ -537,15 +541,15 @@ export default function AssetsPage() {
               </div>
               {form.ownership !== "owned" && (
                 <fieldset className="col-span-2 grid grid-cols-2 gap-3 rounded-lg border border-sky-100 bg-sky-50/40 px-3 py-3">
-                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-sky-800">Rent &amp; contract</legend>
+                  <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-sky-800">{tr("Rent & contract", "Sewa & kontrak")}</legend>
                   <div>
                     <label htmlFor="as-rent" className="block text-sm text-slate-600">
-                      Rent {form.ownership === "borrowed" && <span className="text-slate-400">(if any)</span>}
+                      {tr("Rent", "Sewa")} {form.ownership === "borrowed" && <span className="text-slate-400">{tr("(if any)", "(jika ada)")}</span>}
                     </label>
                     <MoneyInput id="as-rent" value={form.rent_amount} onChange={(v) => setForm({ ...form, rent_amount: v })} className="mt-1" />
                   </div>
                   <div>
-                    <label htmlFor="as-period" className="block text-sm text-slate-600">Paid</label>
+                    <label htmlFor="as-period" className="block text-sm text-slate-600">{tr("Paid", "Dibayar")}</label>
                     <select id="as-period" value={form.rent_period}
                       onChange={(e) => setForm({ ...form, rent_period: e.target.value as "" | RentPeriod })}
                       className={inputClass + " bg-white"}>
@@ -556,75 +560,75 @@ export default function AssetsPage() {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="as-cstart" className="block text-sm text-slate-600">Contract start</label>
+                    <label htmlFor="as-cstart" className="block text-sm text-slate-600">{tr("Contract start", "Awal kontrak")}</label>
                     <input id="as-cstart" type="date" value={form.contract_start}
                       onChange={(e) => setForm({ ...form, contract_start: e.target.value })} className={inputClass} />
                   </div>
                   <div>
-                    <label htmlFor="as-cend" className="block text-sm text-slate-600">Contract end</label>
+                    <label htmlFor="as-cend" className="block text-sm text-slate-600">{tr("Contract end", "Akhir kontrak")}</label>
                     <input id="as-cend" type="date" value={form.contract_end}
                       onChange={(e) => setForm({ ...form, contract_end: e.target.value })} className={inputClass} />
                   </div>
                   {form.rent_period === "monthly" && (
                     <div>
-                      <label htmlFor="as-dueday" className="block text-sm text-slate-600">Due on day</label>
+                      <label htmlFor="as-dueday" className="block text-sm text-slate-600">{tr("Due on day", "Jatuh tempo tanggal")}</label>
                       <input id="as-dueday" type="number" min={1} max={31} value={form.rent_due_day}
                         onChange={(e) => setForm({ ...form, rent_due_day: e.target.value })}
-                        placeholder="contract start day" className={inputClass} />
+                        placeholder={tr("contract start day", "tanggal awal kontrak")} className={inputClass} />
                     </div>
                   )}
                   <p className="col-span-2 text-[11px] text-slate-500">
-                    The supplier code below is the lessor. Accounting puts the rent on the payment calendar from the asset.
+                    {tr("The supplier code below is the lessor. Accounting puts the rent on the payment calendar from the asset.", "Kode pemasok di bawah adalah pihak yang menyewakan. Accounting memasukkan sewanya ke kalender pembayaran dari aset ini.")}
                   </p>
                 </fieldset>
               )}
               <div>
                 <label htmlFor="as-acq" className="block text-sm text-slate-600">
-                  {form.ownership === "owned" ? "Acquired on" : "Arrived on"}
+                  {form.ownership === "owned" ? tr("Acquired on", "Diperoleh pada") : tr("Arrived on", "Tiba pada")}
                 </label>
                 <input id="as-acq" type="date" value={form.acquired_on} onChange={(e) => setForm({ ...form, acquired_on: e.target.value })} className={inputClass} />
               </div>
               {form.ownership === "owned" && (
                 <div>
-                  <label htmlFor="as-cost" className="block text-sm text-slate-600">Purchase cost</label>
+                  <label htmlFor="as-cost" className="block text-sm text-slate-600">{tr("Purchase cost", "Harga beli")}</label>
                   <MoneyInput id="as-cost" value={form.purchase_cost} onChange={(v) => setForm({ ...form, purchase_cost: v })} className="mt-1" />
                 </div>
               )}
               <div>
                 <label htmlFor="as-vendor" className="block text-sm text-slate-600">
-                  {form.ownership === "owned" ? "Supplier code" : form.ownership === "borrowed" ? "Lent by (supplier code)" : "Lessor (supplier code)"}
+                  {form.ownership === "owned" ? tr("Supplier code", "Kode pemasok") : form.ownership === "borrowed" ? tr("Lent by (supplier code)", "Dipinjamkan oleh (kode pemasok)") : tr("Lessor (supplier code)", "Pihak yang menyewakan (kode pemasok)")}
                 </label>
                 <input id="as-vendor" value={form.vendor_code} onChange={(e) => setForm({ ...form, vendor_code: e.target.value })}
-                  placeholder="optional" className={inputClass + " font-mono"} />
+                  placeholder={tr("optional", "opsional")} className={inputClass + " font-mono"} />
               </div>
               <div>
-                <label htmlFor="as-trx" className="block text-sm text-slate-600">Ledger row</label>
+                <label htmlFor="as-trx" className="block text-sm text-slate-600">{tr("Ledger row", "Baris buku besar")}</label>
                 <input id="as-trx" value={form.trx_no} onChange={(e) => setForm({ ...form, trx_no: e.target.value })}
-                  placeholder="trx-… (optional)" className={inputClass + " font-mono"} />
+                  placeholder={tr("trx-… (optional)", "trx-… (opsional)")} className={inputClass + " font-mono"} />
               </div>
               <div>
-                <label htmlFor="as-warranty" className="block text-sm text-slate-600">Warranty until</label>
+                <label htmlFor="as-warranty" className="block text-sm text-slate-600">{tr("Warranty until", "Garansi sampai")}</label>
                 <input id="as-warranty" type="date" value={form.warranty_until} onChange={(e) => setForm({ ...form, warranty_until: e.target.value })} className={inputClass} />
               </div>
               <div className="col-span-2">
-                <label htmlFor="as-notes" className="block text-sm text-slate-600">Notes</label>
+                <label htmlFor="as-notes" className="block text-sm text-slate-600">{tr("Notes", "Catatan")}</label>
                 <textarea id="as-notes" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inputClass} />
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
               {form.mode === "edit" && mayEdit && (
                 <Button variant="ghost" icon={Trash2} className="mr-auto text-rose-700" disabled={saving} onClick={remove}>
-                  Delete
+                  {tr("Delete", "Hapus")}
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setForm(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setForm(null)}>{tr("Cancel", "Batal")}</Button>
               <Button onClick={save} disabled={saving || !form.name.trim() || !form.category_code}>
-                {saving ? "Saving…" : "Save"}
+                {saving ? tr("Saving…", "Menyimpan…") : tr("Save", "Simpan")}
               </Button>
             </div>
             {form.mode === "edit" && (
               <p className="text-[11px] text-slate-500">
-                Delete is only for an entry made by mistake. An asset that left is marked disposed, lost or returned, so its record stays.
+                {tr("Delete is only for an entry made by mistake. An asset that left is marked disposed, lost or returned, so its record stays.", "Hapus hanya untuk entri yang dibuat keliru. Aset yang sudah keluar ditandai dilepas, hilang, atau dikembalikan, supaya catatannya tetap ada.")}
               </p>
             )}
           </div>

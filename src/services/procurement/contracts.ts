@@ -4,6 +4,8 @@
  *  are data, not prose: do not translate them, do not tidy the spelling.
  */
 
+import { bilingual, trNow, type Message } from "@/lib/i18n";
+
 /* ------------------------------------------------------------------ */
 /* Vocabulary                                                          */
 /* ------------------------------------------------------------------ */
@@ -229,13 +231,13 @@ export type ProjectStatus =
   | "INQUIRY" | "QUOTATION_SENT" | "DEAL" | "IN_PRODUCTION" | "SHIPPED" | "DONE" | "CANCELLED";
 
 export const PROJECT_STATUSES: { code: ProjectStatus; label: string; tone: "slate" | "brand" | "violet" | "amber" | "green" | "red" }[] = [
-  { code: "INQUIRY", label: "Inquiry", tone: "slate" },
-  { code: "QUOTATION_SENT", label: "Quotation terkirim", tone: "brand" },
-  { code: "DEAL", label: "Deal / diproses", tone: "violet" },
-  { code: "IN_PRODUCTION", label: "Produksi", tone: "amber" },
-  { code: "SHIPPED", label: "Dikirim", tone: "brand" },
-  { code: "DONE", label: "Selesai", tone: "green" },
-  { code: "CANCELLED", label: "Batal", tone: "red" },
+  { code: "INQUIRY", get label() { return trNow("Inquiry", "Inquiry"); }, tone: "slate" },
+  { code: "QUOTATION_SENT", get label() { return trNow("Quotation sent", "Quotation terkirim"); }, tone: "brand" },
+  { code: "DEAL", get label() { return trNow("Deal / in progress", "Deal / diproses"); }, tone: "violet" },
+  { code: "IN_PRODUCTION", get label() { return trNow("In production", "Produksi"); }, tone: "amber" },
+  { code: "SHIPPED", get label() { return trNow("Shipped", "Dikirim"); }, tone: "brand" },
+  { code: "DONE", get label() { return trNow("Done", "Selesai"); }, tone: "green" },
+  { code: "CANCELLED", get label() { return trNow("Cancelled", "Batal"); }, tone: "red" },
 ];
 
 export const PROJECT_STATUS_LABEL = (s: ProjectStatus | null | undefined): string =>
@@ -879,15 +881,16 @@ export type MeetingState =
   | "paid_unapproved"  // money moved, nobody said yes
   | "neither";         // still just a request
 
-export const MEETING_STATE_LABEL: Record<MeetingState, string> = {
+export const MEETING_STATE_LABELS: Record<MeetingState, Message> = {
   /* "Approved and paid", not "Settled": the quadrant answers two questions and
      neither of them is whether the line is finished. A line can be approved
      and paid and still be Rp 580.000 short. */
-  settled: "Approved and paid",
-  approved_unpaid: "Approved, not paid",
-  paid_unapproved: "Paid, not approved",
-  neither: "Waiting for approval",
+  settled: { en: "Approved and paid", id: "Disetujui dan dibayar" },
+  approved_unpaid: { en: "Approved, not paid", id: "Disetujui, belum dibayar" },
+  paid_unapproved: { en: "Paid, not approved", id: "Dibayar, belum disetujui" },
+  neither: { en: "Waiting for approval", id: "Menunggu persetujuan" },
 };
+export const MEETING_STATE_LABEL = bilingual(MEETING_STATE_LABELS);
 
 /** Why the money that moved is not the money that was approved.
  *
@@ -909,15 +912,16 @@ export const VARIANCE_REASONS = [
 ] as const;
 export type VarianceReason = (typeof VARIANCE_REASONS)[number];
 
-export const VARIANCE_REASON_LABEL: Record<VarianceReason, string> = {
-  price_changed: "Vendor price differed from the quote",
-  quantity_changed: "A different quantity was taken",
-  rounding: "Transfer was rounded",
-  input_error: "An amount was entered wrongly",
-  partial_payment: "Paid in parts — more to come",
-  overpaid: "Overpaid — the vendor owes us",
-  other: "Something else",
+export const VARIANCE_REASON_LABELS: Record<VarianceReason, Message> = {
+  price_changed: { en: "Vendor price differed from the quote", id: "Harga vendor berbeda dari penawaran" },
+  quantity_changed: { en: "A different quantity was taken", id: "Jumlah yang diambil berbeda" },
+  rounding: { en: "Transfer was rounded", id: "Transfer dibulatkan" },
+  input_error: { en: "An amount was entered wrongly", id: "Jumlah salah dimasukkan" },
+  partial_payment: { en: "Paid in parts — more to come", id: "Dibayar bertahap — masih ada sisanya" },
+  overpaid: { en: "Overpaid — the vendor owes us", id: "Kelebihan bayar — vendor berutang ke kita" },
+  other: { en: "Something else", id: "Lainnya" },
 };
+export const VARIANCE_REASON_LABEL = bilingual(VARIANCE_REASON_LABELS);
 
 /** Append-only. An explanation is a statement somebody made on a date, and
  *  correcting it means making a new one, not editing the old. */

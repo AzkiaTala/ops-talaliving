@@ -7,9 +7,10 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { QrCode } from "@/components/ui/qr";
 import { delivery } from "@/demo/api";
-import type { BoxStatus, BoxView } from "@/services/delivery/contracts";
+import { BOX_STATUS_LABEL, type BoxStatus, type BoxView } from "@/services/delivery/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 const TONE: Record<BoxStatus, "slate" | "amber" | "green" | "red" | "violet"> = {
   PACKED: "slate", IN_TRANSIT: "amber", ON_SITE: "violet", INSTALLED: "green", PROBLEM: "red",
@@ -34,6 +35,7 @@ export default function BoxScanPage({ params }: { params: Promise<{ box: string 
      rendering before the segment is resolved. `use` unwraps it here — the
      rest of the component reads the same plain string it always did. */
   const { box } = use(params);
+  const tr = useTr();
   const boxNo = decodeURIComponent(box);
   const { can } = useSession();
   const [state, reload] = useLoad(() => delivery.getBox(boxNo), [boxNo]);
@@ -42,9 +44,9 @@ export default function BoxScanPage({ params }: { params: Promise<{ box: string 
   return (
     <div className="mx-auto max-w-xl">
       <PageHeader
-        breadcrumb="Peti & label"
+        breadcrumb={tr("Boxes & labels", "Peti & label")}
         title={boxNo}
-        description="Dibuka dari QR di peti."
+        description={tr("Opened from the QR on the box.", "Dibuka dari QR di peti.")}
       />
 
       <Loaded state={state} onRetry={reload}>
@@ -52,13 +54,14 @@ export default function BoxScanPage({ params }: { params: Promise<{ box: string 
       </Loaded>
 
       <Link href="/proyek/peti" className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-700">
-        <ArrowLeft className="h-3.5 w-3.5" /> Semua peti
+        <ArrowLeft className="h-3.5 w-3.5" /> {tr("All boxes", "Semua peti")}
       </Link>
     </div>
   );
 }
 
 function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onDone: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState(false);
@@ -69,11 +72,11 @@ function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onD
     const res = await fn();
     setBusy(null);
     if (res.error) {
-      toast(res.error.status === 409 ? "critical" : "warning", "Tidak dicatat", res.error.message);
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not recorded", "Tidak dicatat"), res.error.message);
       return false;
     }
     if (res.meta.outcome === "noop") {
-      toast("info", "Sudah tercatat", "Tidak ada yang berubah.");
+      toast("info", tr("Already recorded", "Sudah tercatat"), tr("Nothing changed.", "Tidak ada yang berubah."));
     } else {
       toast("success", label, box.box_no);
     }
@@ -86,24 +89,24 @@ function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onD
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-wide text-slate-400">Tujuan</p>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Destination", "Tujuan")}</p>
             <p className="flex items-start gap-1.5 text-xl font-semibold leading-tight text-slate-900">
               <MapPin className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
               {box.destination}
             </p>
             <p className="mt-1 text-[13px] text-slate-500">
               {box.project_code} · {box.project_name}
-              {box.position && <> · peti {box.position}</>}
+              {box.position && <> · {tr("box", "peti")} {box.position}</>}
             </p>
           </div>
           <QrCode path={`/box/${encodeURIComponent(box.box_no)}`} title={box.box_no} size={72} className="shrink-0 rounded ring-1 ring-slate-200" />
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Badge tone={TONE[box.status]} dot>{box.status_label}</Badge>
+          <Badge tone={TONE[box.status]} dot>{BOX_STATUS_LABEL[box.status]}</Badge>
           {box.scanned_at && (
             <span className="text-[12px] text-slate-500">
-              Di-scan {box.scanned_at.slice(0, 16).replace("T", " ")} oleh {box.scanned_by_name}
+              {tr("Scanned", "Di-scan")} {box.scanned_at.slice(0, 16).replace("T", " ")} {tr("by", "oleh")} {box.scanned_by_name}
             </span>
           )}
           {box.delivery_no && <span className="font-mono text-[12px] text-slate-400">{box.delivery_no}</span>}
@@ -122,7 +125,7 @@ function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onD
         ))}
 
         <div className="mt-4 border-t border-slate-100 pt-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">Isi</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Contents", "Isi")}</p>
           <ul className="mt-1 space-y-0.5 text-[14px] text-slate-800">
             {box.lines.map((l) => (
               <li key={l.id}>{l.qty} {l.uom} · {l.description}</li>
@@ -130,7 +133,7 @@ function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onD
           </ul>
           {box.note && <p className="mt-2 text-[13px] italic text-slate-500">{box.note}</p>}
           <p className="mt-2 text-[11px] text-slate-400">
-            Dikemas {box.packed_at.slice(0, 10)} oleh {box.packed_by_name}
+            {tr("Packed", "Dikemas")} {box.packed_at.slice(0, 10)} {tr("by", "oleh")} {box.packed_by_name}
           </p>
         </div>
       </Card>
@@ -140,23 +143,23 @@ function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onD
           <Button
             size="lg" variant="secondary" icon={PackageCheck}
             disabled={busy !== null || box.scanned_at !== null}
-            onClick={() => run("Sampai di site", () => delivery.scanBox({ box_no: box.box_no }))}
+            onClick={() => run(tr("Arrived on site", "Sampai di site"), () => delivery.scanBox({ box_no: box.box_no }))}
           >
-            {box.scanned_at ? "Sudah di-scan" : "Sampai di site"}
+            {box.scanned_at ? tr("Already scanned", "Sudah di-scan") : tr("Arrived on site", "Sampai di site")}
           </Button>
           <Button
             size="lg" icon={Wrench}
             disabled={busy !== null || box.status === "INSTALLED"}
-            onClick={() => run("Terpasang", () => delivery.markBoxInstalled({ box_no: box.box_no }))}
+            onClick={() => run(tr("Installed", "Terpasang"), () => delivery.markBoxInstalled({ box_no: box.box_no }))}
           >
-            Terpasang
+            {tr("Installed", "Terpasang")}
           </Button>
           <Button
             size="lg" variant="outline" icon={AlertTriangle}
             disabled={busy !== null}
             onClick={() => setProblem((v) => !v)}
           >
-            Ada masalah
+            {tr("There is a problem", "Ada masalah")}
           </Button>
         </div>
       )}
@@ -164,31 +167,33 @@ function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onD
       {problem && (
         <Card className="mt-3 p-4">
           <label className="block">
-            <span className="mb-1 block text-[12px] font-medium text-slate-600">Apa yang salah?</span>
+            <span className="mb-1 block text-[12px] font-medium text-slate-600">{tr("What is wrong?", "Apa yang salah?")}</span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
-              placeholder="Handle kuningan cuma 6 dari 8."
+              placeholder={tr("Only 6 of 8 brass handles.", "Handle kuningan cuma 6 dari 8.")}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
           </label>
           <p className="mt-1 text-[11px] text-slate-500">
-            Wajib diisi. Tanda merah tanpa kalimat tidak bisa ditindaklanjuti siapa pun di workshop —
-            dan hanya Anda yang melihat isinya.
+            {tr(
+              "Required. A red flag without a sentence cannot be acted on by anyone in the workshop — and only you have seen what is inside.",
+              "Wajib diisi. Tanda merah tanpa kalimat tidak bisa ditindaklanjuti siapa pun di workshop — dan hanya Anda yang melihat isinya.",
+            )}
           </p>
           <div className="mt-3 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setProblem(false)}>Batal</Button>
+            <Button variant="ghost" onClick={() => setProblem(false)}>{tr("Cancel", "Batal")}</Button>
             <Button
               variant="danger"
               disabled={busy !== null}
               onClick={async () => {
-                const done = await run("Ditandai bermasalah", () =>
+                const done = await run(tr("Flagged as a problem", "Ditandai bermasalah"), () =>
                   delivery.flagBoxProblem({ box_no: box.box_no, problem_note: note }));
                 if (done) { setProblem(false); setNote(""); }
               }}
             >
-              Simpan masalah
+              {tr("Save problem", "Simpan masalah")}
             </Button>
           </div>
         </Card>

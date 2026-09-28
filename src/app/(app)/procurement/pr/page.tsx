@@ -12,6 +12,7 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { StatusPill } from "@/components/ui/status-pill";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 import { procurement } from "@/demo/api";
 import {
   MEETING_STATE_LABEL, VARIANCE_REASON_LABEL,
@@ -47,6 +48,7 @@ const STATE_ORDER: MeetingState[] = ["neither", "approved_unpaid", "paid_unappro
 
 
 export default function RequestsBoardPage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [q, setQ] = useState("");
@@ -84,8 +86,8 @@ export default function RequestsBoardPage() {
 
   async function removeLine(l: PrLineView) {
     const res = await procurement.removeLine({ line_no: l.line_no_full });
-    if (res.error) { toast("warning", "Not removed", res.error.message); return; }
-    toast("success", "Removed", `${l.line_no_full} is no longer needed.`);
+    if (res.error) { toast("warning", tr("Not removed", "Tidak dihapus"), res.error.message); return; }
+    toast("success", tr("Removed", "Dihapus"), tr(`${l.line_no_full} is no longer needed.`, `${l.line_no_full} tidak diperlukan lagi.`));
     setSelected(null);
     refresh();
   }
@@ -93,7 +95,7 @@ export default function RequestsBoardPage() {
   const columns: Column<PrLineView>[] = [
     {
       key: "item",
-      header: "Item",
+      header: tr("Item", "Barang"),
       className: "whitespace-normal",
       render: (l) => {
         const meta = [l.line_no_full, l.requested_by_name, l.project_code]
@@ -137,32 +139,32 @@ export default function RequestsBoardPage() {
       className: "whitespace-normal",
       render: (l) => (
         <div className="max-w-[150px] whitespace-normal break-words text-[12px] text-slate-600">
-          {l.vendor_name ?? <span className="text-slate-300">not decided</span>}
+          {l.vendor_name ?? <span className="text-slate-300">{tr("not decided", "belum ditentukan")}</span>}
         </div>
       ),
     },
     {
       key: "qty",
-      header: "Qty",
+      header: tr("Qty", "Jml"),
       align: "right",
       render: (l) => (
         <div className="whitespace-nowrap text-[12px] text-slate-600">
           {l.qty != null ? `${formatNumber(l.qty)} ${l.uom ?? ""}` : "—"}
           {l.approval?.approved && l.approval.approved_qty != null && l.approval.approved_qty !== l.qty && (
-            <span className="block text-[11px] text-brand-700">approved {formatNumber(l.approval.approved_qty)}</span>
+            <span className="block text-[11px] text-brand-700">{tr("approved", "disetujui")} {formatNumber(l.approval.approved_qty)}</span>
           )}
         </div>
       ),
     },
     {
       key: "amount",
-      header: "Amount",
+      header: tr("Amount", "Jumlah"),
       align: "right",
       render: (l) => (
         <div className="whitespace-nowrap">
           <p className="tabular-nums font-medium text-slate-800">{formatIDR(l.item_total)}</p>
           {l.approval?.approved && l.approval.approved_amount !== l.item_total && (
-            <p className="text-[11px] text-brand-700">approved {formatIDR(l.approval.approved_amount ?? 0)}</p>
+            <p className="text-[11px] text-brand-700">{tr("approved", "disetujui")} {formatIDR(l.approval.approved_amount ?? 0)}</p>
           )}
           {/* Not what we asked — what actually left the bank. */}
           {l.variance.material && (
@@ -170,9 +172,9 @@ export default function RequestsBoardPage() {
               "text-[11px] font-medium",
               l.variance.kind === "over" ? "text-rose-600" : "text-amber-700",
             )}>
-              paid {formatIDR(l.variance.paid)} · {l.variance.kind === "over" ? "+" : "−"}
+              {tr("paid", "dibayar")} {formatIDR(l.variance.paid)} · {l.variance.kind === "over" ? "+" : "−"}
               {formatIDR(Math.abs(l.variance.delta))}
-              {!l.variance.explanation && " · unexplained"}
+              {!l.variance.explanation && tr(" · unexplained", " · belum dijelaskan")}
             </p>
           )}
         </div>
@@ -186,16 +188,19 @@ export default function RequestsBoardPage() {
         <div className="space-y-0.5">
           <StatusPill kind="line" status={l.status} />
           {l.coverage.covered > 0 && !l.coverage.settled && (
-            <p className="text-[11px] text-slate-500">{formatIDR(l.coverage.remaining)} still owed</p>
+            <p className="text-[11px] text-slate-500">{tr(`${formatIDR(l.coverage.remaining)} still owed`, `${formatIDR(l.coverage.remaining)} masih terutang`)}</p>
           )}
           {l.variance.material && !l.variance.explanation && (
-            <p className="text-[11px] font-medium text-rose-600">needs an explanation</p>
+            <p className="text-[11px] font-medium text-rose-600">{tr("needs an explanation", "perlu penjelasan")}</p>
           )}
           {/* Waiting on a named person is a different kind of waiting from
               "nobody has looked at it yet", so the row says which. */}
           {l.pending_request && !l.approval?.approved && (
             <p className="text-[11px] text-slate-500">
-              asked {l.pending_request.sent_to_email.split("@")[0]} on chat
+              {tr(
+                `asked ${l.pending_request.sent_to_email.split("@")[0]} on chat`,
+                `ditanyakan ke ${l.pending_request.sent_to_email.split("@")[0]} lewat chat`,
+              )}
             </p>
           )}
         </div>
@@ -206,20 +211,23 @@ export default function RequestsBoardPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Procurement"
-        title="Requests"
-        description="Everything anyone has asked to buy that is not finished yet — asked for, corrected, documented and paid from here. An item stays on this board until it is settled or no longer needed."
+        breadcrumb={tr("Procurement", "Pengadaan")}
+        title={tr("Requests", "Permintaan")}
+        description={tr(
+          "Everything anyone has asked to buy that is not finished yet — asked for, corrected, documented and paid from here. An item stays on this board until it is settled or no longer needed.",
+          "Semua yang diminta untuk dibeli dan belum selesai — diminta, dikoreksi, didokumentasikan, dan dibayar dari sini. Barang tetap di papan ini sampai lunas atau tidak diperlukan lagi.",
+        )}
         actions={
           <>
             <Link href="/procurement/meeting">
-              <Button variant="outline" icon={Users}>Meeting board</Button>
+              <Button variant="outline" icon={Users}>{tr("Meeting board", "Papan rapat")}</Button>
             </Link>
             <Link href="/procurement/pr/documents">
-              <Button variant="outline" icon={FileText}>Submissions</Button>
+              <Button variant="outline" icon={FileText}>{tr("Submissions", "Pengajuan")}</Button>
             </Link>
             {mayEdit && (
               <Link href="/procurement/pr/new">
-                <Button icon={Plus}>New request</Button>
+                <Button icon={Plus}>{tr("New request", "Permintaan baru")}</Button>
               </Link>
             )}
           </>
@@ -282,10 +290,12 @@ export default function RequestsBoardPage() {
                 <p className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                   <span>
-                    <strong>Money moved before anyone approved it</strong> on {paidUnapproved} item(s).
-                    They are still in the list below, still waiting for a yes — paying something
-                    is not deciding it. The decision itself is taken on the{" "}
-                    <Link href="/procurement/meeting" className="font-medium underline">meeting board</Link>.
+                    <strong>{tr("Money moved before anyone approved it", "Uang keluar sebelum ada yang menyetujui")}</strong>{" "}
+                    {tr(
+                      `on ${paidUnapproved} item(s). They are still in the list below, still waiting for a yes — paying something is not deciding it. The decision itself is taken on the`,
+                      `pada ${paidUnapproved} barang. Barang itu masih ada di daftar di bawah, masih menunggu persetujuan — membayar bukan berarti memutuskan. Keputusannya sendiri diambil di`,
+                    )}{" "}
+                    <Link href="/procurement/meeting" className="font-medium underline">{tr("meeting board", "papan rapat")}</Link>.
                   </span>
                 </p>
               )}
@@ -301,13 +311,13 @@ export default function RequestsBoardPage() {
                     onChange={(e) => setShowSettled(e.target.checked)}
                     className="h-3.5 w-3.5 rounded border-slate-300"
                   />
-                  Include finished
+                  {tr("Include finished", "Termasuk yang selesai")}
                 </label>
                 <input
                   id="line-search"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Item, purpose, vendor…"
+                  placeholder={tr("Item, purpose, vendor…", "Barang, keperluan, vendor…")}
                   className="ml-auto h-9 w-52 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
                 />
               </div>
@@ -315,10 +325,14 @@ export default function RequestsBoardPage() {
               <Card>
                 <CardHeader
                   title={
-                    varianceOnly ? "Paid ≠ approved"
-                      : stateFilter ? MEETING_STATE_LABEL[stateFilter] : "All open items"
+                    varianceOnly ? tr("Paid ≠ approved", "Dibayar ≠ disetujui")
+                      : stateFilter ? MEETING_STATE_LABEL[stateFilter]
+                        : tr("All open items", "Semua barang terbuka")
                   }
-                  subtitle="One row per item, not per document — across every submission and every supplier. Open one to edit it, attach a document, or record the payment."
+                  subtitle={tr(
+                    "One row per item, not per document — across every submission and every supplier. Open one to edit it, attach a document, or record the payment.",
+                    "Satu baris per barang, bukan per dokumen — di semua pengajuan dan semua pemasok. Buka salah satu untuk mengubahnya, melampirkan dokumen, atau mencatat pembayaran.",
+                  )}
                   icon={ClipboardList}
                 />
                 <DataTable
@@ -327,7 +341,9 @@ export default function RequestsBoardPage() {
                   rows={rows}
                   rowKey={(l) => l.id}
                   onRowClick={setSelected}
-                  empty={q || stateFilter || varianceOnly ? "Nothing matches those filters." : "Nothing outstanding."}
+                  empty={q || stateFilter || varianceOnly
+                    ? tr("Nothing matches those filters.", "Tidak ada yang cocok dengan filter itu.")
+                    : tr("Nothing outstanding.", "Tidak ada yang tertunda.")}
                 />
               </Card>
             </>
@@ -360,6 +376,7 @@ function VarianceChip({
   active: boolean;
   onToggle: () => void;
 }) {
+  const tr = useTr();
   if (rows.length === 0) return null;
   const unexplained = rows.filter((l) => !l.variance.explanation);
   const total = rows.reduce((s, l) => s + Math.abs(l.variance.delta), 0);
@@ -378,7 +395,7 @@ function VarianceChip({
     <button
       data-on={active}
       onClick={onToggle}
-      title={kinds || "None explained yet"}
+      title={kinds || tr("None explained yet", "Belum ada yang dijelaskan")}
       className={cn(
         "flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[13px] shadow-card transition-colors hover:border-slate-300",
         "data-[on=true]:border-amber-300 data-[on=true]:bg-amber-50",
@@ -386,11 +403,11 @@ function VarianceChip({
     >
       <Scale className="h-3.5 w-3.5 text-slate-500" />
       <span className="font-semibold text-slate-800">{rows.length}</span>
-      <span className="text-slate-600">paid ≠ approved</span>
+      <span className="text-slate-600">{tr("paid ≠ approved", "dibayar ≠ disetujui")}</span>
       <span className="tabular-nums text-[11px] text-slate-400">{formatIDR(total)}</span>
       {unexplained.length > 0 && (
         <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-medium text-rose-700">
-          {unexplained.length} unexplained
+          {tr(`${unexplained.length} unexplained`, `${unexplained.length} belum dijelaskan`)}
         </span>
       )}
     </button>

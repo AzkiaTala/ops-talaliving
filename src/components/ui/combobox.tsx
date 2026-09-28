@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, ChevronDown, Check, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 
 export interface ComboboxOption {
   value: string;
@@ -19,10 +20,10 @@ export function Combobox({
   value,
   onChange,
   options,
-  placeholder = "Search…",
+  placeholder,
   emptyOptionLabel,
   onCreate,
-  createLabel = (q) => `Add “${q}”`,
+  createLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -37,6 +38,7 @@ export function Combobox({
   onCreate?: (name: string) => void | Promise<void>;
   createLabel?: (query: string) => string;
 }) {
+  const tr = useTr();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
@@ -108,7 +110,7 @@ export function Combobox({
             setQuery("");
           }}
           onKeyDown={handleKeyDown}
-          placeholder={selected ? selected.label : placeholder}
+          placeholder={selected ? selected.label : (placeholder ?? tr("Search…", "Cari…"))}
           className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-7 text-sm focus:border-brand-400 focus:outline-none"
         />
         <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -126,7 +128,7 @@ export function Combobox({
             </button>
           )}
           {filtered.length === 0 && !(onCreate && query.trim()) && (
-            <p className="px-3 py-2 text-sm text-slate-400">No match.</p>
+            <p className="px-3 py-2 text-sm text-slate-400">{tr("No match.", "Tidak ada yang cocok.")}</p>
           )}
           {onCreate && query.trim().length > 0 &&
             !filtered.some((o) => o.label.toLowerCase() === query.trim().toLowerCase()) && (
@@ -141,7 +143,7 @@ export function Combobox({
               className="flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2 text-left text-sm text-brand-700 hover:bg-brand-50"
             >
               <Plus className="h-3.5 w-3.5 shrink-0" />
-              <span className="min-w-0 truncate">{createLabel(query.trim())}</span>
+              <span className="min-w-0 truncate">{createLabel ? createLabel(query.trim()) : tr(`Add “${query.trim()}”`, `Tambah “${query.trim()}”`)}</span>
             </button>
           )}
           {filtered.map((o, i) => (
@@ -164,7 +166,7 @@ export function Combobox({
             </button>
           ))}
           {options.length > MAX_VISIBLE && filtered.length === MAX_VISIBLE && (
-            <p className="px-3 py-1.5 text-[11px] text-slate-400">Showing the first {MAX_VISIBLE} — type to narrow.</p>
+            <p className="px-3 py-1.5 text-[11px] text-slate-400">{tr(`Showing the first ${MAX_VISIBLE} — type to narrow.`, `Menampilkan ${MAX_VISIBLE} pertama — ketik untuk mempersempit.`)}</p>
           )}
         </div>
       )}

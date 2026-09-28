@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 
 /* Panels open on top of panels: the ledger's transaction opens the request
    line it paid, without leaving the page. Escape and the scroll lock have to
@@ -29,6 +30,7 @@ export function Drawer({
 }) {
   /* Read through a ref so a parent re-rendering with a new closure does not
      re-run the effect — which would move this panel to the top of the stack. */
+  const tr = useTr();
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
@@ -62,7 +64,7 @@ export function Drawer({
           <button
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
+            aria-label={tr("Close", "Tutup")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -89,6 +91,7 @@ export function Modal({
   footer?: React.ReactNode;
   width?: string;
 }) {
+  const tr = useTr();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -107,7 +110,7 @@ export function Modal({
           <button
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
-            aria-label="Close"
+            aria-label={tr("Close", "Tutup")}
           >
             <X className="h-5 w-5" />
           </button>

@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { accounting } from "@/demo/api";
 import type { FundingView } from "@/services/accounting/contracts";
 import { FundingDrawer } from "./FundingDrawer";
+import { useTr } from "@/lib/i18n";
 
 /** *"Saya sudah transfer sekian, kok sudah habis?"*
  *
@@ -25,13 +26,14 @@ import { FundingDrawer } from "./FundingDrawer";
  *  there, which is both true and the thing people actually want to know.
  */
 export default function LiquidationPage() {
+  const tr = useTr();
   const [rows, reload] = useLoad(() => accounting.listFundings(), []);
   const [open, setOpen] = useState<string | null>(null);
 
   const columns: Column<FundingView>[] = [
     {
       key: "when",
-      header: "Transferred",
+      header: tr("Transferred", "Ditransfer"),
       render: (f) => (
         <div className="whitespace-nowrap">
           <p className="text-[13px] font-medium text-slate-800">{f.trx_date}</p>
@@ -41,25 +43,25 @@ export default function LiquidationPage() {
     },
     {
       key: "where",
-      header: "Into",
+      header: tr("Into", "Ke"),
       render: (f) => (
         <div className="whitespace-nowrap">
           <p className="text-[13px] text-slate-700">{f.account_code}</p>
           {f.from_account_code && (
-            <p className="text-[11px] text-slate-400">from {f.from_account_code}</p>
+            <p className="text-[11px] text-slate-400">{tr("from", "dari")} {f.from_account_code}</p>
           )}
         </div>
       ),
     },
     {
       key: "amount",
-      header: "Amount",
+      header: tr("Amount", "Jumlah"),
       align: "right",
       render: (f) => <span className="tabular-nums font-semibold text-slate-800">{formatIDR(f.amount)}</span>,
     },
     {
       key: "spent",
-      header: "Spent before the next transfer",
+      header: tr("Spent before the next transfer", "Terpakai sebelum transfer berikutnya"),
       align: "right",
       render: (f) => (
         <span className={cn("tabular-nums", f.beyond > 0 ? "text-rose-700" : "text-slate-700")}>
@@ -69,17 +71,17 @@ export default function LiquidationPage() {
     },
     {
       key: "life",
-      header: "How long it lasted",
+      header: tr("How long it lasted", "Berapa lama bertahan"),
       className: "whitespace-normal",
       render: (f) => (
         <div className="max-w-[280px]">
           {f.days_lasted !== null ? (
             <Badge tone={f.days_lasted <= 7 ? "red" : "amber"}>
-              {f.days_lasted === 0 ? "gone the same day" : `${f.days_lasted} day(s)`}
+              {f.days_lasted === 0 ? tr("gone the same day", "habis di hari yang sama") : tr(`${f.days_lasted} day(s)`, `${f.days_lasted} hari`)}
             </Badge>
           ) : (
             <Badge tone={f.is_open ? "brand" : "green"}>
-              {f.is_open ? "still running" : "not spent through"}
+              {f.is_open ? tr("still running", "masih berjalan") : tr("not spent through", "tidak habis terpakai")}
             </Badge>
           )}
           <p className="mt-1 text-[11px] text-slate-500">{f.headline}</p>
@@ -88,7 +90,7 @@ export default function LiquidationPage() {
     },
     {
       key: "decided",
-      header: "Not tied to a decision",
+      header: tr("Not tied to a decision", "Tanpa keputusan"),
       align: "right",
       render: (f) => (
         <span className={cn("tabular-nums", f.undecided > 0 ? "text-amber-700" : "text-slate-400")}>
@@ -101,9 +103,9 @@ export default function LiquidationPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accounting"
-        title="Liquidation"
-        description="Every transfer of operating money, and where it went before the next one arrived."
+        breadcrumb={tr("Accounting", "Akuntansi")}
+        title={tr("Liquidation", "Likuidasi")}
+        description={tr("Every transfer of operating money, and where it went before the next one arrived.", "Setiap transfer dana operasional, dan ke mana perginya sebelum transfer berikutnya datang.")}
       />
 
       <Loaded state={rows} onRetry={reload}>
@@ -121,20 +123,20 @@ export default function LiquidationPage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["Transferred in", formatIDR(transferred), `${all.length} transfer(s) into operating accounts`],
-                    ["Spent in those windows", formatIDR(spent), "money out before the next transfer landed"],
-                    ["Typical life of a transfer", typical === null ? "—" : `${typical} day(s)`,
-                      `${lived.length} of ${all.length} were spent through`],
-                    ["Not tied to a decision", formatIDR(undecided), "purchases with no approved line or order behind them"],
-                  ] as [string, string, string][]).map(([k, v, note]) => (
+                    [tr("Transferred in", "Transfer masuk"), formatIDR(transferred), tr(`${all.length} transfer(s) into operating accounts`, `${all.length} transfer ke rekening operasional`)],
+                    [tr("Spent in those windows", "Terpakai dalam rentang itu"), formatIDR(spent), tr("money out before the next transfer landed", "uang keluar sebelum transfer berikutnya masuk")],
+                    [tr("Typical life of a transfer", "Umur khas sebuah transfer"), typical === null ? "—" : tr(`${typical} day(s)`, `${typical} hari`),
+                      tr(`${lived.length} of ${all.length} were spent through`, `${lived.length} dari ${all.length} habis terpakai`)],
+                    [tr("Not tied to a decision", "Tanpa keputusan"), formatIDR(undecided), tr("purchases with no approved line or order behind them", "pembelian tanpa baris atau pesanan yang disetujui di baliknya")],
+                  ] as [string, string, string][]).map(([k, v, note], i) => (
                     <div key={k} className="px-4 py-3.5">
                       <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-400">
-                        {k === "Typical life of a transfer" && <Timer className="h-3 w-3" />}
+                        {i === 2 && <Timer className="h-3 w-3" />}
                         {k}
                       </dt>
                       <dd className={cn(
                         "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                        k === "Not tied to a decision" && undecided > 0 ? "text-amber-700" : "text-slate-800",
+                        i === 3 && undecided > 0 ? "text-amber-700" : "text-slate-800",
                       )}>
                         {v}
                       </dd>
@@ -143,16 +145,15 @@ export default function LiquidationPage() {
                   ))}
                 </dl>
                 <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">
-                  Spending is measured against the transfer, not traced rupiah by
-                  rupiah. Where more went out than came in, the rest came from the
-                  balance that was already in the account — the detail says how much.
+                  {tr("Spending is measured against the transfer, not traced rupiah by rupiah. Where more went out than came in, the rest came from the balance that was already in the account — the detail says how much.",
+                    "Pengeluaran diukur terhadap transfer, bukan dilacak rupiah demi rupiah. Bila yang keluar lebih banyak daripada yang masuk, sisanya berasal dari saldo yang sudah ada di rekening — rinciannya menyebutkan berapa.")}
                 </p>
               </div>
 
               <Card>
                 <CardHeader
-                  title="Every transfer in"
-                  subtitle="Newest first. Open one to see every rupiah that left before the next transfer arrived."
+                  title={tr("Every transfer in", "Semua transfer masuk")}
+                  subtitle={tr("Newest first. Open one to see every rupiah that left before the next transfer arrived.", "Terbaru di atas. Buka salah satu untuk melihat setiap rupiah yang keluar sebelum transfer berikutnya datang.")}
                   icon={ArrowDownToLine}
                   action={<SourceBadge state={rows} />}
                 />
@@ -162,7 +163,7 @@ export default function LiquidationPage() {
                   rows={all}
                   rowKey={(f) => f.trx_no}
                   onRowClick={(f) => setOpen(f.trx_no)}
-                  empty="Nobody has transferred operating money in yet."
+                  empty={tr("Nobody has transferred operating money in yet.", "Belum ada yang mentransfer dana operasional.")}
                 />
               </Card>
             </>

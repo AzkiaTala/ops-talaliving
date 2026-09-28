@@ -7,6 +7,7 @@ import { ActivityRow } from "@/components/crm/activity-log";
 import { crm } from "@/demo/api";
 import type { ClientActivityView, FollowUpState } from "@/services/crm/contracts";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** Who to contact, and when (0134).
  *
@@ -15,21 +16,22 @@ import { useSession } from "@/store/session";
  *  somebody opens in the morning.
  */
 export default function FollowUpPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [rows, reload] = useLoad(() => crm.listActivities({ open_follow_ups: true }), []);
 
   const groups: { state: FollowUpState; title: string; empty: string }[] = [
-    { state: "overdue", title: "Terlambat", empty: "Tidak ada yang terlambat." },
-    { state: "today", title: "Hari ini", empty: "Tidak ada untuk hari ini." },
-    { state: "upcoming", title: "Berikutnya", empty: "Belum ada yang terjadwal." },
+    { state: "overdue", title: tr("Overdue", "Terlambat"), empty: tr("Nothing overdue.", "Tidak ada yang terlambat.") },
+    { state: "today", title: tr("Today", "Hari ini"), empty: tr("Nothing for today.", "Tidak ada untuk hari ini.") },
+    { state: "upcoming", title: tr("Upcoming", "Berikutnya"), empty: tr("Nothing scheduled yet.", "Belum ada yang terjadwal.") },
   ];
 
   return (
     <div>
       <PageHeader
-        breadcrumb="Projects"
-        title="Follow-up klien"
-        description="Siapa yang harus dihubungi dan kapan. Catat follow-up dari halaman klien atau dari quotation; tutup di sini dengan hasilnya."
+        breadcrumb={tr("Projects", "Proyek")}
+        title={tr("Client follow-ups", "Follow-up klien")}
+        description={tr("Who to contact and when. Log a follow-up from the client page or from a quotation; close it here with the outcome.", "Siapa yang harus dihubungi dan kapan. Catat follow-up dari halaman klien atau dari quotation; tutup di sini dengan hasilnya.")}
         actions={<SourceBadge state={rows} />}
       />
       <Loaded state={rows} onRetry={reload}>

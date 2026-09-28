@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { Button, Card } from "@/components/ui/primitives";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** No access.
  *
@@ -16,6 +17,7 @@ import { useSession } from "@/store/session";
 export default function NoAccessPage() {
   const { session, setModules } = useSession();
   const router = useRouter();
+  const tr = useTr();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
@@ -23,11 +25,11 @@ export default function NoAccessPage() {
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
           <Lock className="h-6 w-6" />
         </span>
-        <h1 className="mt-5 text-lg font-semibold text-slate-800">No modules granted</h1>
+        <h1 className="mt-5 text-lg font-semibold text-slate-800">{tr("No modules granted", "Belum ada modul yang diberikan")}</h1>
         <p className="mt-2 text-sm text-slate-500">
           {session
-            ? <>The account <span className="font-medium text-slate-700">{session.user.email}</span> has no module access, so there is nothing to show. Someone with IT access can grant it.</>
-            : <>This account has no module access, so there is nothing to show.</>}
+            ? <>{tr("The account", "Akun")} <span className="font-medium text-slate-700">{session.user.email}</span> {tr("has no module access, so there is nothing to show. Someone with IT access can grant it.", "belum punya akses modul, jadi tidak ada yang bisa ditampilkan. Orang dengan akses IT dapat memberikannya.")}</>
+            : <>{tr("This account has no module access, so there is nothing to show.", "Akun ini belum punya akses modul, jadi tidak ada yang bisa ditampilkan.")}</>}
         </p>
 
         <div className="mt-6 flex flex-col gap-2">
@@ -43,10 +45,10 @@ export default function NoAccessPage() {
               router.push("/dashboard");
             }}
           >
-            Grant myself read access (demo)
+            {tr("Grant myself read access (demo)", "Beri saya akses baca (demo)")}
           </Button>
           <Link href="/signin">
-            <Button variant="outline" className="w-full">Sign in as someone else</Button>
+            <Button variant="outline" className="w-full">{tr("Sign in as someone else", "Masuk sebagai orang lain")}</Button>
           </Link>
         </div>
       </Card>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, X, Footprints } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
 import { TOURS, tourHref } from "@/lib/tour";
+import { useTr } from "@/lib/i18n";
 
 /** The walk, as a bar along the bottom.
  *
@@ -16,6 +17,7 @@ import { TOURS, tourHref } from "@/lib/tour";
  */
 export function TourBar() {
   const router = useRouter();
+  const tr = useTr();
   const params = useSearchParams();
   /* On a phone the full paragraph eats half the screen, and the screen is the
      thing being demonstrated. Two lines, tap for the rest. */
@@ -51,23 +53,23 @@ export function TourBar() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] uppercase tracking-wide text-slate-400">
-              {tour.name} · step {index + 1} of {tour.steps.length}
+              {tr(tour.name.en, tour.name.id)} · {tr(`step ${index + 1} of ${tour.steps.length}`, `langkah ${index + 1} dari ${tour.steps.length}`)}
             </p>
-            <p className="text-[14px] font-semibold">{step.title}</p>
+            <p className="text-[14px] font-semibold">{tr(step.title.en, step.title.id)}</p>
             <button
               onClick={() => setExpanded((v) => !v)}
               className="mt-0.5 block w-full text-left text-[13px] leading-snug text-slate-300 sm:cursor-default"
               aria-expanded={expanded}
             >
-              <span className={expanded ? "" : "line-clamp-2 sm:line-clamp-none"}>{step.body}</span>
-              {!expanded && <span className="text-slate-500 sm:hidden"> — tap for the rest</span>}
+              <span className={expanded ? "" : "line-clamp-2 sm:line-clamp-none"}>{tr(step.body.en, step.body.id)}</span>
+              {!expanded && <span className="text-slate-500 sm:hidden">{tr(" — tap for the rest", " — ketuk untuk selengkapnya")}</span>}
             </button>
           </div>
           <button
             onClick={() => router.push(step.href)}
             className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"
-            aria-label="Leave the tour"
-            title="Leave the tour"
+            aria-label={tr("Leave the tour", "Keluar dari tur")}
+            title={tr("Leave the tour", "Keluar dari tur")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -89,13 +91,13 @@ export function TourBar() {
             disabled={first}
             onClick={() => router.push(tourHref(tour, index - 1))}
           >
-            Previous step
+            {tr("Previous step", "Langkah sebelumnya")}
           </Button>
           {last ? (
-            <Button size="sm" className="whitespace-nowrap" onClick={() => router.push(step.href)}>Finish the walk</Button>
+            <Button size="sm" className="whitespace-nowrap" onClick={() => router.push(step.href)}>{tr("Finish the walk", "Selesaikan tur")}</Button>
           ) : (
             <Button size="sm" icon={ChevronRight} className="whitespace-nowrap" onClick={() => router.push(tourHref(tour, index + 1))}>
-              Next step
+              {tr("Next step", "Langkah berikutnya")}
             </Button>
           )}
         </div>

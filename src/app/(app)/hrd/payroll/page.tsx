@@ -11,6 +11,7 @@ import { hr } from "@/demo/api";
 import type { PayrollRun } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Payroll runs, and the one thing this screen refuses to pretend.
  *
@@ -23,6 +24,7 @@ import { useToast } from "@/store/toast";
 export default function PayrollPage() {
   const { can } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
   const [runs, reload] = useLoad(() => hr.listPayrollRuns(), []);
   const [from, setFrom] = useState("2026-09-07");
   const [to, setTo] = useState("2026-09-11");
@@ -36,16 +38,20 @@ export default function PayrollPage() {
     const res = await hr.openPayroll({ period_start: from, period_end: to });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Not opened", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not opened", "Tidak dibuka"), res.error.message);
       return;
     }
-    toast("success", `${res.data.run_no} opened`, `${res.data.lines.length} people · ${formatIDR(res.data.gross_total)} gross`);
+    toast(
+      "success",
+      tr(`${res.data.run_no} opened`, `${res.data.run_no} dibuka`),
+      tr(`${res.data.lines.length} people · ${formatIDR(res.data.gross_total)} gross`, `${res.data.lines.length} orang · ${formatIDR(res.data.gross_total)} bruto`),
+    );
     reload();
   }
 
   const columns: Column<PayrollRun>[] = [
     {
-      key: "run", header: "Run",
+      key: "run", header: tr("Run", "Periode gaji"),
       render: (r) => (
         <div className="whitespace-nowrap">
           <p className="font-mono text-[13px] font-medium text-slate-800">{r.run_no}</p>
@@ -54,7 +60,7 @@ export default function PayrollPage() {
       ),
     },
     {
-      key: "status", header: "Status",
+      key: "status", header: tr("Status", "Status"),
       render: (r) => (
         <Badge tone={r.status === "PAID" ? "green" : r.status === "APPROVED" ? "brand" : "slate"}>
           {r.status}
@@ -62,10 +68,10 @@ export default function PayrollPage() {
       ),
     },
     {
-      key: "note", header: "Note", className: "whitespace-normal",
+      key: "note", header: tr("Note", "Catatan"), className: "whitespace-normal",
       render: (r) => (
         <span className="block max-w-[320px] whitespace-normal break-words text-[12px] text-slate-500">
-          {r.note ?? (r.paid_trx_no ? `paid · ${r.paid_trx_no}` : "—")}
+          {r.note ?? (r.paid_trx_no ? tr(`paid · ${r.paid_trx_no}`, `dibayar · ${r.paid_trx_no}`) : "—")}
         </span>
       ),
     },
@@ -75,44 +81,52 @@ export default function PayrollPage() {
     <div>
       <PageHeader
         breadcrumb="HRD"
-        title="Payroll"
-        description="Computed from attendance and approved overtime, every time it is read. Gross only — deductions are not modelled until somebody tells us which apply."
+        title={tr("Payroll", "Penggajian")}
+        description={tr(
+          "Computed from attendance and approved overtime, every time it is read. Gross only — deductions are not modelled until somebody tells us which apply.",
+          "Dihitung dari absensi dan lembur yang disetujui, setiap kali dibaca. Hanya bruto — potongan belum dimodelkan sampai ada yang memberi tahu mana yang berlaku.",
+        )}
       />
 
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
         <div>
-          <label htmlFor="p-from" className="block text-xs text-slate-500">Period from</label>
+          <label htmlFor="p-from" className="block text-xs text-slate-500">{tr("Period from", "Periode dari")}</label>
           <input
             id="p-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
             className="mt-1 h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
         </div>
         <div>
-          <label htmlFor="p-to" className="block text-xs text-slate-500">to</label>
+          <label htmlFor="p-to" className="block text-xs text-slate-500">{tr("to", "sampai")}</label>
           <input
             id="p-to" type="date" value={to} onChange={(e) => setTo(e.target.value)}
             className="mt-1 h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
         </div>
         <Button icon={Plus} disabled={busy || !mayRun} onClick={open}>
-          {busy ? "Opening…" : "Open a run"}
+          {busy ? tr("Opening…", "Membuka…") : tr("Open a run", "Buka periode gaji")}
         </Button>
         <p className="text-[12px] text-slate-500">
-          Weekly for the workshop, monthly for staff — the period is on the run, not assumed.
+          {tr(
+            "Weekly for the workshop, monthly for staff — the period is on the run, not assumed.",
+            "Mingguan untuk workshop, bulanan untuk staff — periodenya tercatat di run, bukan diasumsikan.",
+          )}
         </p>
         {/* The workshop's week is looked at far more often than the list of
             runs is, and it can be walked without opening anything (D158). */}
         <Link href="/hrd/payroll/minggu" className="ml-auto">
-          <Button variant="outline" icon={CalendarRange}>Gajian mingguan</Button>
+          <Button variant="outline" icon={CalendarRange}>{tr("Weekly payroll", "Gajian mingguan")}</Button>
         </Link>
       </div>
 
       <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-[13px] text-amber-900">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         <span>
-          <strong>Gross only.</strong> BPJS Kesehatan, BPJS Ketenagakerjaan and PPh 21 are not
-          computed — nobody has told us which apply here, at what rate, or who pays which half.
-          Inventing them would produce a payslip that looks right and is wrong.
+          <strong>{tr("Gross only.", "Hanya bruto.")}</strong>{" "}
+          {tr(
+            "BPJS Kesehatan, BPJS Ketenagakerjaan and PPh 21 are not computed — nobody has told us which apply here, at what rate, or who pays which half. Inventing them would produce a payslip that looks right and is wrong.",
+            "BPJS Kesehatan, BPJS Ketenagakerjaan dan PPh 21 tidak dihitung — belum ada yang memberi tahu mana yang berlaku di sini, berapa tarifnya, atau siapa menanggung bagian mana. Mengarangnya akan menghasilkan payslip yang terlihat benar tapi salah.",
+          )}
         </span>
       </div>
 
@@ -120,24 +134,24 @@ export default function PayrollPage() {
         {(all) => (
           <Card>
             <CardHeader
-              title={`${all.length} run(s)`}
-              subtitle="Open one to see every line, the days behind it, and what is still unresolved."
+              title={tr(`${all.length} run(s)`, `${all.length} periode gaji`)}
+              subtitle={tr("Open one to see every line, the days behind it, and what is still unresolved.", "Buka salah satu untuk melihat setiap baris, hari-hari di baliknya, dan apa yang masih belum selesai.")}
               icon={Wallet}
               action={<SourceBadge state={runs} />}
             />
             <DataTable
               dense columns={columns} rows={all} rowKey={(r) => r.run_no}
               onRowClick={(r) => { window.location.href = `/hrd/payroll/${r.run_no}`; }}
-              empty="No payroll has been run yet."
+              empty={tr("No payroll has been run yet.", "Belum ada penggajian yang dijalankan.")}
             />
           </Card>
         )}
       </Loaded>
 
       <p className="mt-4 text-[12px] text-slate-400">
-        Days the machine could not describe are read on the{" "}
-        <Link href="/hrd/absensi" className="underline">timesheet</Link> — a run cannot be
-        approved while any are still unread.
+        {tr("Days the machine could not describe are read on the", "Hari yang tidak bisa dijelaskan mesin dibaca di")}{" "}
+        <Link href="/hrd/absensi" className="underline">{tr("timesheet", "timesheet")}</Link>{" "}
+        {tr("— a run cannot be approved while any are still unread.", "— periode gaji tidak bisa disetujui selama masih ada yang belum dibaca.")}
       </p>
     </div>
   );

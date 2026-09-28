@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { useLoad } from "@/components/ui/loaded";
 import { accounting } from "@/demo/api";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** Where the money is, before anything else on the page.
  *
@@ -20,6 +21,7 @@ export function CashPosition({ onPick, active }: {
   onPick: (accountId: string) => void;
   active: string;
 }) {
+  const tr = useTr();
   const { hasAuthority } = useSession();
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
   const mayReadLeadership = hasAuthority("approve_funds");
@@ -62,15 +64,16 @@ export function CashPosition({ onPick, active }: {
                 {locked ? "—" : formatIDR(a.balance)}
               </p>
               <p className="truncate text-[11px] text-slate-500">
-                {locked ? "leadership only" : a.name}
+                {locked ? tr("leadership only", "khusus pimpinan") : a.name}
               </p>
             </button>
           );
         })}
       </div>
       <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">
-        <span className="font-medium text-slate-700">{formatIDR(total)}</span> across the
-        accounts that pay suppliers. Click one to filter the ledger to it.
+        <span className="font-medium text-slate-700">{formatIDR(total)}</span>{" "}
+        {tr("across the accounts that pay suppliers. Click one to filter the ledger to it.",
+          "di rekening-rekening yang membayar pemasok. Klik salah satu untuk menyaring buku besar ke rekening itu.")}
       </p>
     </div>
   );

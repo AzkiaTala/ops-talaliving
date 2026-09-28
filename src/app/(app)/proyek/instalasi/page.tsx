@@ -15,6 +15,7 @@ import { FileEvidence } from "@/components/ui/file-evidence";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { officeToday } from "@/lib/office";
+import { useTr } from "@/lib/i18n";
 
 /** Fitting on site, and what fitting it found.
  *
@@ -27,6 +28,7 @@ import { officeToday } from "@/lib/office";
  *  a record saying they fitted it costs the handover.
  */
 export default function InstallationPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [ful, reloadFul] = useLoad(() => delivery.listFulfilment(), []);
   const [visits, reloadVisits] = useLoad(() => delivery.listInstallations(), []);
@@ -39,9 +41,9 @@ export default function InstallationPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Projects"
-        title="Instalasi"
-        description="Yang sudah sampai di lokasi tapi belum terpasang, kunjungan yang sudah dikerjakan, dan temuan yang masih terbuka. Memasang lebih banyak dari yang terkirim ditolak."
+        breadcrumb={tr("Projects", "Proyek")}
+        title={tr("Installation", "Instalasi")}
+        description={tr("What has arrived on site but is not installed yet, visits already done, and snags still open. Installing more than was delivered is refused.", "Yang sudah sampai di lokasi tapi belum terpasang, kunjungan yang sudah dikerjakan, dan temuan yang masih terbuka. Memasang lebih banyak dari yang terkirim ditolak.")}
       />
 
       <Loaded state={ful} onRetry={reloadFul}>
@@ -51,8 +53,8 @@ export default function InstallationPage() {
           return (
             <Card className="mb-4">
               <CardHeader
-                title="Di lokasi, belum terpasang"
-                subtitle="Barang yang sudah diterima di site dan masih berdiri di sana. Ini angka yang biasanya cuma ada di kepala mandor."
+                title={tr("On site, not installed", "Di lokasi, belum terpasang")}
+                subtitle={tr("Goods received on site and still standing there. This is a number that usually lives only in the foreman's head.", "Barang yang sudah diterima di site dan masih berdiri di sana. Ini angka yang biasanya cuma ada di kepala mandor.")}
                 icon={ClipboardList}
                 action={<SourceBadge state={ful} />}
               />
@@ -61,7 +63,7 @@ export default function InstallationPage() {
                   <li key={f.project_code} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
                     <span className="min-w-[180px] flex-1">
                       <span className="block text-[13px] font-medium text-slate-800">{f.project_name}</span>
-                      <span className="block text-[11px] text-slate-400">{f.location ?? "lokasi belum dicatat"}</span>
+                      <span className="block text-[11px] text-slate-400">{f.location ?? tr("location not recorded yet", "lokasi belum dicatat")}</span>
                     </span>
                     <span className="text-[12px] text-slate-600">
                       {f.lines.filter((l) => l.on_site > 0).map((l) => (
@@ -72,7 +74,7 @@ export default function InstallationPage() {
                     </span>
                     {mayEdit && (
                       <Button size="sm" variant="outline" icon={Wrench} onClick={() => setOpen(f)}>
-                        Catat pemasangan
+                        {tr("Record installation", "Catat pemasangan")}
                       </Button>
                     )}
                   </li>
@@ -88,12 +90,12 @@ export default function InstallationPage() {
           {(all) => (
             <Card>
               <CardHeader
-                title={`${all.length} kunjungan`}
-                subtitle="Satu hari, satu tim, dan apa yang terpasang hari itu."
+                title={tr(`${all.length} visits`, `${all.length} kunjungan`)}
+                subtitle={tr("One day, one crew, and what was installed that day.", "Satu hari, satu tim, dan apa yang terpasang hari itu.")}
                 icon={Wrench}
                 action={<SourceBadge state={visits} />}
               />
-              <Paged rows={all} pageSize={10} unit="kunjungan">
+              <Paged rows={all} pageSize={10} unit={tr("visits", "kunjungan")}>
                 {(page) => (
                   <ul className="divide-y divide-slate-100">
                     {page.map((v) => (
@@ -114,7 +116,7 @@ export default function InstallationPage() {
                             </li>
                           ))}
                           {v.lines.length === 0 && (
-                            <li className="text-[12px] text-slate-400">Belum ada barang tercatat terpasang.</li>
+                            <li className="text-[12px] text-slate-400">{tr("No goods recorded as installed yet.", "Belum ada barang tercatat terpasang.")}</li>
                           )}
                         </ul>
                         {v.note && <p className="mt-0.5 text-[11px] text-slate-500">{v.note}</p>}
@@ -134,33 +136,33 @@ export default function InstallationPage() {
             return (
               <Card>
                 <CardHeader
-                  title={`${open_.length} temuan terbuka`}
+                  title={tr(`${open_.length} open snags`, `${open_.length} temuan terbuka`)}
                   subtitle={major.length > 0
-                    ? `${major.length} di antaranya berat — itu yang menahan serah terima.`
-                    : "Temuan hidup lebih lama dari kunjungan yang menemukannya; umurnya dihitung di sini."}
+                    ? tr(`${major.length} of them major — those hold up the handover.`, `${major.length} di antaranya berat — itu yang menahan serah terima.`)
+                    : tr("A snag outlives the visit that found it; its age is counted here.", "Temuan hidup lebih lama dari kunjungan yang menemukannya; umurnya dihitung di sini.")}
                   icon={AlertTriangle}
                   action={<SourceBadge state={snags} />}
                 />
-                <Paged rows={all} pageSize={12} unit="temuan">
+                <Paged rows={all} pageSize={12} unit={tr("snags", "temuan")}>
                   {(page) => (
                     <ul className="divide-y divide-slate-100">
                       {page.map((s) => (
                         <li key={s.id} className="px-5 py-2.5">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <Badge tone={s.status === "FIXED" ? "green" : s.severity === "major" ? "red" : "amber"}>
-                              {s.status === "FIXED" ? "Selesai" : SNAG_SEVERITY_LABEL[s.severity]}
+                              {s.status === "FIXED" ? tr("Fixed", "Selesai") : SNAG_SEVERITY_LABEL[s.severity]}
                             </Badge>
                             <span className="font-mono text-[10px] text-slate-400">{s.snag_no}</span>
                             <span className="text-[11px] text-slate-500">{s.project_name}</span>
                             <span className="ml-auto text-[11px] text-slate-400">
                               {s.status === "FIXED"
-                                ? `ditutup dalam ${s.age_days} hari`
-                                : `terbuka ${s.age_days} hari`}
+                                ? tr(`closed in ${s.age_days} days`, `ditutup dalam ${s.age_days} hari`)
+                                : tr(`open ${s.age_days} days`, `terbuka ${s.age_days} hari`)}
                             </span>
                           </div>
                           <p className="text-[12px] text-slate-700">{s.description}</p>
                           <p className="text-[11px] text-slate-400">
-                            dilaporkan {s.raised_by}, {s.raised_on}
+                            {tr("reported by", "dilaporkan")} {s.raised_by}, {s.raised_on}
                             {s.line_description && ` · ${s.line_description}`}
                           </p>
                           {s.fix_note && <p className="text-[11px] text-emerald-700">{s.fix_note}</p>}
@@ -184,6 +186,7 @@ export default function InstallationPage() {
 }
 
 function CloseSnag({ snagNo, onDone }: { snagNo: string; onDone: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [on, setOn] = useState(false);
   const [note, setNote] = useState("");
@@ -193,21 +196,21 @@ function CloseSnag({ snagNo, onDone }: { snagNo: string; onDone: () => void }) {
     setBusy(true);
     const res = await delivery.closeSnag({ snag_no: snagNo, fixed_by: "", fix_note: note });
     setBusy(false);
-    if (res.error) { toast("warning", "Belum ditutup", res.error.message); return; }
-    toast("success", "Temuan ditutup", snagNo);
+    if (res.error) { toast("warning", tr("Not closed", "Belum ditutup"), res.error.message); return; }
+    toast("success", tr("Snag closed", "Temuan ditutup"), snagNo);
     setOn(false); onDone();
   }
 
-  if (!on) return <Button size="sm" variant="ghost" icon={Check} onClick={() => setOn(true)}>Tutup</Button>;
+  if (!on) return <Button size="sm" variant="ghost" icon={Check} onClick={() => setOn(true)}>{tr("Close", "Tutup")}</Button>;
   return (
     <span className="mt-1 flex items-center gap-1.5">
       <input
         value={note} onChange={(e) => setNote(e.target.value)}
-        placeholder="Apa yang dikerjakan?" aria-label="Keterangan perbaikan"
+        placeholder={tr("What was done?", "Apa yang dikerjakan?")} aria-label={tr("Fix details", "Keterangan perbaikan")}
         className="h-8 flex-1 rounded-lg border border-slate-200 px-2 text-[12px] focus:border-brand-400 focus:outline-none"
       />
-      <Button size="sm" disabled={busy || !note.trim()} onClick={submit}>Simpan</Button>
-      <Button size="sm" variant="ghost" onClick={() => setOn(false)}>Batal</Button>
+      <Button size="sm" disabled={busy || !note.trim()} onClick={submit}>{tr("Save", "Simpan")}</Button>
+      <Button size="sm" variant="ghost" onClick={() => setOn(false)}>{tr("Cancel", "Batal")}</Button>
     </span>
   );
 }
@@ -215,6 +218,7 @@ function CloseSnag({ snagNo, onDone }: { snagNo: string; onDone: () => void }) {
 function VisitDrawer({ project, onClose, onDone }: {
   project: FulfilmentView; onClose: () => void; onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [qty, setQty] = useState<Record<string, number>>({});
   const [crew, setCrew] = useState("");
@@ -236,7 +240,7 @@ function VisitDrawer({ project, onClose, onDone }: {
     });
     if (res.error) {
       setBusy(false);
-      toast(res.error.status === 409 ? "critical" : "warning", "Tidak dicatat", res.error.message);
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not recorded", "Tidak dicatat"), res.error.message);
       return;
     }
     if (snagText.trim()) {
@@ -248,7 +252,7 @@ function VisitDrawer({ project, onClose, onDone }: {
       });
     }
     setBusy(false);
-    toast("success", `Kunjungan ${res.data.install_no}`, `${res.data.total_qty} unit terpasang`);
+    toast("success", tr(`Visit ${res.data.install_no}`, `Kunjungan ${res.data.install_no}`), tr(`${res.data.total_qty} units installed`, `${res.data.total_qty} unit terpasang`));
     onDone();
   }
 
@@ -258,15 +262,15 @@ function VisitDrawer({ project, onClose, onDone }: {
     <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/20" onClick={onClose}>
       <div className="h-full w-full max-w-lg overflow-y-auto bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-[15px] font-semibold text-slate-900">{project.project_name}</h2>
-        <p className="mb-4 text-[12px] text-slate-500">{project.location ?? "lokasi belum dicatat"}</p>
+        <p className="mb-4 text-[12px] text-slate-500">{project.location ?? tr("location not recorded yet", "lokasi belum dicatat")}</p>
 
         <ul className="mb-4 space-y-2">
           {fittable.map((l) => (
             <li key={l.project_line_id} className="rounded-lg border border-slate-200 px-3 py-2">
               <p className="text-[13px] text-slate-800">{l.description}</p>
               <p className="text-[11px] text-slate-500">
-                berangkat {l.delivered} · sampai {l.arrived} · terpasang {l.installed} ·{" "}
-                <strong className="text-slate-700">di lokasi {l.on_site}</strong>
+                {tr("dispatched", "berangkat")} {l.delivered} · {tr("arrived", "sampai")} {l.arrived} · {tr("installed", "terpasang")} {l.installed} ·{" "}
+                <strong className="text-slate-700">{tr("on site", "di lokasi")} {l.on_site}</strong>
               </p>
               <div className="mt-1 w-28">
                 <NumberInput
@@ -278,21 +282,21 @@ function VisitDrawer({ project, onClose, onDone }: {
             </li>
           ))}
           {fittable.length === 0 && (
-            <li className="text-[13px] text-slate-500">Tidak ada barang di lokasi yang menunggu dipasang.</li>
+            <li className="text-[13px] text-slate-500">{tr("No goods on site waiting to be installed.", "Tidak ada barang di lokasi yang menunggu dipasang.")}</li>
           )}
         </ul>
 
         <label className="block text-[11px] text-slate-500">
-          Tim yang datang
+          {tr("Crew on site", "Tim yang datang")}
           <input value={crew} onChange={(e) => setCrew(e.target.value)}
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
         </label>
 
         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
-          <p className="text-[12px] font-medium text-slate-700">Ada temuan? (boleh dikosongkan)</p>
+          <p className="text-[12px] font-medium text-slate-700">{tr("Any snags? (may be left empty)", "Ada temuan? (boleh dikosongkan)")}</p>
           <input
             value={snagText} onChange={(e) => setSnagText(e.target.value)}
-            placeholder="Apa yang salah, sedetail yang bisa diperbaiki orang lain"
+            placeholder={tr("What is wrong, in enough detail for someone else to fix it", "Apa yang salah, sedetail yang bisa diperbaiki orang lain")}
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
           <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -303,22 +307,24 @@ function VisitDrawer({ project, onClose, onDone }: {
             ))}
             <input
               value={raisedBy} onChange={(e) => setRaisedBy(e.target.value)}
-              placeholder="Ditemukan siapa"
+              placeholder={tr("Found by", "Ditemukan siapa")}
               className="h-8 flex-1 rounded-lg border border-slate-200 px-2 text-[12px] focus:border-brand-400 focus:outline-none"
             />
-            <FileEvidence kind="Foto Lokasi" label="Foto temuan" value={photo} onChange={setPhoto} accept="image/*" />
+            <FileEvidence kind="Foto Lokasi" label={tr("Snag photo", "Foto temuan")} value={photo} onChange={setPhoto} accept="image/*" />
           </div>
           <p className="mt-1 text-[11px] text-slate-500">
-            Temuan tercatat terpisah dari kunjungannya: ia ditutup di hari yang lain, dan jarak
-            antara dua tanggal itu yang diingat klien.
+            {tr(
+              "A snag is recorded apart from its visit: it is closed on another day, and the gap between those two dates is what the client remembers.",
+              "Temuan tercatat terpisah dari kunjungannya: ia ditutup di hari yang lain, dan jarak antara dua tanggal itu yang diingat klien.",
+            )}
           </p>
         </div>
 
         <div className="mt-4 flex gap-2">
           <Button disabled={busy || total === 0} onClick={submit}>
-            {busy ? "Menyimpan…" : `Catat ${total} unit terpasang`}
+            {busy ? tr("Saving…", "Menyimpan…") : tr(`Record ${total} units installed`, `Catat ${total} unit terpasang`)}
           </Button>
-          <Button variant="ghost" onClick={onClose}>Batal</Button>
+          <Button variant="ghost" onClick={onClose}>{tr("Cancel", "Batal")}</Button>
         </div>
       </div>
     </div>

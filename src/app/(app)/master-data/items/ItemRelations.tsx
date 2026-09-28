@@ -9,6 +9,7 @@ import { formatIDR, formatNumber } from "@/lib/format";
 import { inventory, procurement } from "@/demo/api";
 import type { ItemPurchase, PrLineView } from "@/services/procurement/contracts";
 import type { StockItemDetail } from "@/services/inventory/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** Everything else the catalogue knows about one item (Master Data phase 5):
  *  what it has cost over time, who asked for it, how much of it is on the
@@ -19,6 +20,7 @@ import type { StockItemDetail } from "@/services/inventory/contracts";
 const sectionTitle = "mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500";
 
 export function PriceTrend({ purchases }: { purchases: ItemPurchase[] }) {
+  const tr = useTr();
   const points = useMemo(
     () => purchases
       .filter((p) => p.unit_price != null && p.unit_price > 0)
@@ -53,11 +55,11 @@ export function PriceTrend({ purchases }: { purchases: ItemPurchase[] }) {
 
   return (
     <section data-testid="item-price-trend">
-      <p className={sectionTitle}><LineChart className="h-3.5 w-3.5" /> Unit price over time</p>
+      <p className={sectionTitle}><LineChart className="h-3.5 w-3.5" /> {tr("Unit price over time", "Harga satuan dari waktu ke waktu")}</p>
       <div className="relative rounded-lg border border-slate-200 px-2 pt-2">
         <svg
           viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full text-brand-600" role="img"
-          aria-label={`Unit price from ${formatIDR(first)} on ${points[0].date} to ${formatIDR(last)} on ${points[points.length - 1].date}`}
+          aria-label={tr(`Unit price from ${formatIDR(first)} on ${points[0].date} to ${formatIDR(last)} on ${points[points.length - 1].date}`, `Harga satuan dari ${formatIDR(first)} pada ${points[0].date} hingga ${formatIDR(last)} pada ${points[points.length - 1].date}`)}
           onMouseLeave={() => setHover(null)}
         >
           {[min, max].map((v) => (
@@ -91,14 +93,15 @@ export function PriceTrend({ purchases }: { purchases: ItemPurchase[] }) {
         )}
       </div>
       <p className="mt-1.5 text-[12px] text-slate-500">
-        Lowest {formatIDR(min)} · highest {formatIDR(max)} · last {formatIDR(last)}
-        {change !== 0 && <> · {change > 0 ? "+" : ""}{change}% since the first purchase</>}
+        {tr(`Lowest ${formatIDR(min)} · highest ${formatIDR(max)} · last ${formatIDR(last)}`, `Terendah ${formatIDR(min)} · tertinggi ${formatIDR(max)} · terakhir ${formatIDR(last)}`)}
+        {change !== 0 && <> · {change > 0 ? "+" : ""}{change}% {tr("since the first purchase", "sejak pembelian pertama")}</>}
       </p>
     </section>
   );
 }
 
 export function ItemRelations({ itemId, itemCode }: { itemId: string; itemCode: string }) {
+  const tr = useTr();
   const [lines, setLines] = useState<PrLineView[] | null>(null);
   const [stock, setStock] = useState<StockItemDetail | null | undefined>(undefined);
   const [usedIn, setUsedIn] = useState<StockItemDetail["used_in"] | null>(null);
@@ -117,12 +120,12 @@ export function ItemRelations({ itemId, itemCode }: { itemId: string; itemCode: 
   return (
     <>
       <section data-testid="item-requests">
-        <p className={sectionTitle}><ClipboardList className="h-3.5 w-3.5" /> Requests for it</p>
+        <p className={sectionTitle}><ClipboardList className="h-3.5 w-3.5" /> {tr("Requests for it", "Permintaan untuk barang ini")}</p>
         {lines === null ? (
-          <p className="text-[13px] text-slate-400">Loading…</p>
+          <p className="text-[13px] text-slate-400">{tr("Loading…", "Memuat…")}</p>
         ) : lines.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-3 text-slate-500">
-            Nobody has asked for this item on a request yet.
+            {tr("Nobody has asked for this item on a request yet.", "Belum ada yang meminta barang ini di PR.")}
           </p>
         ) : (
           <ul className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
@@ -149,13 +152,13 @@ export function ItemRelations({ itemId, itemCode }: { itemId: string; itemCode: 
 
       {stock && (
         <section data-testid="item-stock">
-          <p className={sectionTitle}><Warehouse className="h-3.5 w-3.5" /> On the rack</p>
+          <p className={sectionTitle}><Warehouse className="h-3.5 w-3.5" /> {tr("On the rack", "Di rak")}</p>
           <div className="rounded-lg border border-slate-200 px-3 py-2.5 text-[13px]">
             <p className="flex flex-wrap items-center gap-2">
               <span className="text-base font-semibold tabular-nums text-slate-800">{formatNumber(stock.on_hand)} {stock.uom}</span>
-              {stock.below_min && <Badge tone="amber">below minimum{stock.min_qty != null ? ` (${formatNumber(stock.min_qty)})` : ""}</Badge>}
+              {stock.below_min && <Badge tone="amber">{tr("below minimum", "di bawah minimum")}{stock.min_qty != null ? ` (${formatNumber(stock.min_qty)})` : ""}</Badge>}
               {stock.on_order.length > 0 && (
-                <Badge tone="brand">{formatNumber(stock.on_order.reduce((s, o) => s + o.qty, 0))} on order</Badge>
+                <Badge tone="brand">{formatNumber(stock.on_order.reduce((s, o) => s + o.qty, 0))} {tr("on order", "dalam pesanan")}</Badge>
               )}
             </p>
             {stock.by_location.length > 0 && (
@@ -179,19 +182,19 @@ export function ItemRelations({ itemId, itemCode }: { itemId: string; itemCode: 
               </ul>
             )}
             <Link href="/inventory/material" className="mt-2 inline-block text-[12px] text-brand-700 hover:underline">
-              Open in Materials &amp; hardware
+              {tr("Open in Materials & hardware", "Buka di Material & hardware")}
             </Link>
           </div>
         </section>
       )}
 
       <section data-testid="item-used-in">
-        <p className={sectionTitle}><Factory className="h-3.5 w-3.5" /> Used in products</p>
+        <p className={sectionTitle}><Factory className="h-3.5 w-3.5" /> {tr("Used in products", "Dipakai di produk")}</p>
         {usedIn === null ? (
-          <p className="text-[13px] text-slate-400">Loading…</p>
+          <p className="text-[13px] text-slate-400">{tr("Loading…", "Memuat…")}</p>
         ) : usedIn.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-3 text-slate-500">
-            No product&apos;s current BOM calls for this item.
+            {tr("No product’s current BOM calls for this item.", "Tidak ada BOM produk saat ini yang memakai barang ini.")}
           </p>
         ) : (
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
@@ -200,7 +203,7 @@ export function ItemRelations({ itemId, itemCode }: { itemId: string; itemCode: 
                 <span className="min-w-0 truncate text-slate-700">
                   {u.product_name} <span className="font-mono text-[10px] text-slate-400">{u.product_code}</span>
                 </span>
-                <span className="shrink-0 tabular-nums text-slate-600">{formatNumber(u.qty_per_unit)} per unit</span>
+                <span className="shrink-0 tabular-nums text-slate-600">{formatNumber(u.qty_per_unit)} {tr("per unit", "per unit")}</span>
               </li>
             ))}
           </ul>

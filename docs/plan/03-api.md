@@ -609,13 +609,85 @@ be granted**: it acts with the grants of the person typing (D219).
 | GET | `/assistant/tools` | the whole catalogue, **including the closed entries**, each with its reason in full. The boundary is a page anybody can read, because a boundary nobody can check is not one (D218) |
 | GET | `/assistant/turns` | your own conversation only. Somebody else's questions are a record about them |
 | POST | `/assistant/ask` | `{prompt}`. Three gates in order: **is the tool reachable from a prompt at all** (blocked ones refuse here, before permissions, so the refusal reads the same for the CEO as for a new hire); **does this person hold the grant**; **is it a write** (then it is a draft). The reply separates `text` from `facts`, and every fact carries the tool that produced it and the screen showing the same number (D217) |
-| POST | `/assistant/drafts/{turn_id}/confirm` | `{fields}` — the payload **as shown and edited**, not as originally parsed. The grant is re-checked here: a draft is not a licence. Idempotent on the draft's key |
+| POST | `/assistant/drafts/{turn_id}/confirm` | `{fields}` — the payload **as shown and edited**, not as originally parsed. The grant is re-checked here (`may_run` again): a draft is not a licence. Idempotent on the draft's key. A declared tool's seam answer is returned **as the seam gave it** — 403/422/409/404 are read out on the card, not flattened into *failed* (D317) |
 | POST | `/assistant/drafts/{turn_id}/abandon` | nothing was written, and the turn says so |
 
 **Closed at every grant level** (D218): `hr.employee_files`, `hr.payroll`,
 `hr.attendance`, `it.audit`, `it.settings_write`. The first and the fourth are
 the owner's answer; the middle three are a default taken and marked as such in
 the catalogue, so reversing one is a single line.
+
+### Declared writes — the confirm card for an interaction with no screen (D317, 0176)
+
+A write tool no longer needs code. It **declares** its seam in
+`ops_asst.tool_seams` and its card in `ops_asst.tool_fields`, and one dispatcher
+(`src/lib/john-lau-seams.ts`, used by both layers) does the rest:
+
+1. **Draft.** The sentence's arguments (router or model) fill the fields whose
+   `arg` names them — and those are the only argument keys a model may send
+   (D300); `today` and fixed-text defaults fill the rest; everything else stays
+   *— belum diisi —*. The values are resolved once and stored as the draft's
+   `args`, keyed by field.
+2. **Card.** Every field, editable, labelled in the language in force, required
+   ones marked `*`, plus the tool's standing note. Nothing is written.
+3. **Confirm.** `may_run` is asked again (a grant can go between the draft and
+   the yes, D219). The fields *as the person left them* become the seam's
+   parameters — a blank required field or a number that does not read as one
+   is refused with the field named, never filled in (D217). Then the seam is
+   called **as the person**: `rpc` → PostgREST, in the schema the row names,
+   with the draft's idempotency key in `key_param`; `api` → the function of
+   that name in the layer's own `src/lib/api` / `src/demo/api` module, with the
+   key as its second argument. The seam decides.
+4. **Answer.** `ok` settles the draft with `result_ref` of the answer as
+   `produced_ref`. Anything else — **refused, invalid, conflict, not found** —
+   comes back as the seam's own envelope and is read out on the card with its
+   code, the field it names outlined; the draft stays open. **Cancel** is
+   `abandon`: nothing was written.
+
+Declared today: `procurement.draft_pr_line` (api `procurement.quickAddLine`,
+moved from its hand-written branch as the proof) and `marketing.draft_market`
+(rpc `ops_mkt.create_market` — the market form D316 left without a screen).
+`procurement.draft_po` and `hr.draft_leave` stay hand-coded: each looks things
+up before it drafts (the approved line, the employee by name) and that
+lookup is not yet something a row can say.
+
+#### Recipe: a seam in a day, for IT
+
+John Lau never writes schema and never sends SQL. When the owner asks for an
+interaction that has no seam yet, IT (with Claude Code, through a normal PR)
+adds it:
+
+1. **The seam** — one migration, `supabase/migrations/NNNN_<schema>_<what>.sql`:
+   a `security definer` function in the module's own schema (never `ops_core`
+   or `ops_asst` — the catalogue refuses those), `set search_path`, that
+   **decides inside**: `ops_core.has_permission('<module>.<action>')` first,
+   then its own validation, answering only through
+   `ops_core.ok/refused/invalid/conflict/not_found` with `detail.field` naming
+   the bad parameter's field key. Take a `p_key text default null` and wrap the
+   write in `ops_core.idem_replay` / `idem_remember`. Then
+   `grant execute on function … to authenticated` (and nothing to `public` —
+   `check_execute_grants.sh`).
+2. **The catalogue row**, in the same migration: an `ops_asst.tools` row
+   (`effect 'write'`, `level 'write'`, the module whose grant it needs,
+   `instead_at` = the nearest screen), an `ops_asst.tool_seams` row
+   (`kind 'rpc'`, `seam '<schema>.<function>'`, `key_param 'p_key'`,
+   `result_ref`, headline and note in both languages) and one
+   `ops_asst.tool_fields` row per parameter (key, `param`, type, required,
+   both labels, `arg` if a sentence may fill it, default). Optionally an
+   `ops_asst.rules` row so the keyword router finds it without a model.
+3. **The sandbox copy**: the same tool in `TOOLS` and the same seam row in
+   `SEAMS` (`src/demo/assistant/catalogue.ts`), and a stand-in for the
+   function in `DEMO_RPC` (`src/demo/assistant/seams.ts`) that answers the
+   same refusals. For an `api` seam there is no stand-in — the function must
+   already exist in both `src/lib/api/<svc>.ts` and `src/demo/api/<svc>.ts`.
+4. **The smoke**: `supabase/local/smoke/NNNN_<what>.sql` — as a writer the
+   seam writes once with a replayed key; as a reader it is refused; the row
+   counts say so (F163). `ops_asst.seam_problems()` must stay empty.
+5. **Verify**: `npm run verify`, `npm run verify:db` (its
+   `check-john-lau.mjs` compares the database's declared seams with the
+   sandbox's, field by field, and refuses an rpc seam with no stand-in or an
+   api seam one layer lacks), then walk the card in the dock (F164). No
+   screen and no dispatcher branch changes.
 
 **A read through the prompt is a read.** It writes an `activity_events` row
 exactly as opening the screen would (D188). A *refused* ask writes an audit row

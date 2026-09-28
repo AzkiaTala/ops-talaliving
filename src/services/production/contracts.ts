@@ -13,6 +13,8 @@
  *  seam, never by reaching into another service's tables (ADR-004).
  */
 
+import { bilingual, trNow, type Message } from "@/lib/i18n";
+
 /** The stages a piece goes through, in order.
  *
  *  Seeded rather than typed by somebody, so that "which stage is it in" has
@@ -60,10 +62,10 @@ export interface ProcessStage {
  *  step they always immediately preceded.
  */
 export const PROCESS_STAGES: ProcessStage[] = [
-  { code: "AMPLAS", name: "Sanding / amplas", seq: 1, covers: "menghaluskan barang mentah dari vendor" },
-  { code: "FINISHING", name: "Finishing", seq: 2, covers: "cat · coating · politur" },
-  { code: "MACHINERY", name: "Machinery / instalasi", seq: 3, covers: "lampu, kabel, rel, mekanisme" },
-  { code: "PACKING", name: "Packing", seq: 4, covers: "bungkus, siap kirim" },
+  { code: "AMPLAS", get name() { return trNow("Sanding", "Amplas"); }, seq: 1, get covers() { return trNow("smoothing the rough goods from the vendor", "menghaluskan barang mentah dari vendor"); } },
+  { code: "FINISHING", get name() { return trNow("Finishing", "Finishing"); }, seq: 2, get covers() { return trNow("paint · coating · polish", "cat · coating · politur"); } },
+  { code: "MACHINERY", get name() { return trNow("Machinery / installation", "Machinery / instalasi"); }, seq: 3, get covers() { return trNow("lamps, cables, rails, mechanisms", "lampu, kabel, rel, mekanisme"); } },
+  { code: "PACKING", get name() { return trNow("Packing", "Packing"); }, seq: 4, get covers() { return trNow("wrapping, ready to ship", "bungkus, siap kirim"); } },
 ];
 
 /** Every stage code that counts towards each of the four, old and new.
@@ -92,9 +94,9 @@ export const STAGE_SOURCES: Record<string, { code: string; name: string }[]> = {
   /* Amplas is a stage of its own now (D275), so it is no longer a source of
      Finishing — and every historical entry that reads `AMPLAS` lands here,
      which is where its work always actually was. */
-  AMPLAS: [{ code: "AMPLAS", name: "Amplas" }],
+  AMPLAS: [{ code: "AMPLAS", get name() { return trNow("Sanding", "Amplas"); } }],
   FINISHING: [{ code: "FINISHING", name: "Finishing" }],
-  MACHINERY: [{ code: "MACHINERY", name: "Machinery / instalasi" }],
+  MACHINERY: [{ code: "MACHINERY", get name() { return trNow("Machinery / installation", "Machinery / instalasi"); } }],
   /* `QC` is not one of the owner's four, and its old entries must not vanish
      — a stage disappearing from the list is not the same as the work never
      having happened (A5). They roll into Packing, the step they always came
@@ -113,10 +115,10 @@ export const STAGE_SOURCES: Record<string, { code: string; name: string }[]> = {
  *  a work order from August still reads correctly, and they sit **outside**
  *  the four rather than inside one of them (D275). */
 export const RETIRED_STAGES: { code: string; name: string }[] = [
-  { code: "POTONG", name: "Potong" },
-  { code: "SERUT", name: "Serut / bentuk" },
-  { code: "RAKIT", name: "Rakit" },
-  { code: "PEMBUATAN", name: "Pembuatan" },
+  { code: "POTONG", get name() { return trNow("Cutting", "Potong"); } },
+  { code: "SERUT", get name() { return trNow("Planing / shaping", "Serut / bentuk"); } },
+  { code: "RAKIT", get name() { return trNow("Assembly", "Rakit"); } },
+  { code: "PEMBUATAN", get name() { return trNow("Making", "Pembuatan"); } },
 ];
 
 const ALL_SOURCES = [...Object.values(STAGE_SOURCES).flat(), ...RETIRED_STAGES];
@@ -147,8 +149,13 @@ export interface ProductionRoute {
 export const ROUTES: ProductionRoute[] = [
   {
     code: "IN_HOUSE",
-    name: "Dikerjakan sendiri",
-    description: "Barang mentah dihaluskan, difinishing, dipasangi kelengkapannya, lalu dibungkus di bengkel sendiri.",
+    get name() { return trNow("Made in-house", "Dikerjakan sendiri"); },
+    get description() {
+      return trNow(
+        "The rough goods are sanded, finished, fitted out and packed in our own workshop.",
+        "Barang mentah dihaluskan, difinishing, dipasangi kelengkapannya, lalu dibungkus di bengkel sendiri.",
+      );
+    },
     stages: ["AMPLAS", "FINISHING", "MACHINERY", "PACKING"],
   },
   {
@@ -159,8 +166,13 @@ export const ROUTES: ProductionRoute[] = [
        order is **who held the piece and when**, not which steps it goes
        through. The vendor leg on the work order is what carries that, and W6
        is the record that will carry it properly. */
-    name: "Dilempar ke vendor",
-    description: "Ada proses yang dikerjakan vendor. Yang membedakan bukan tahapannya, melainkan siapa yang memegang barangnya dan kapan.",
+    get name() { return trNow("Sent out to a vendor", "Dilempar ke vendor"); },
+    get description() {
+      return trNow(
+        "A vendor does part of the work. What differs is not the stages but who holds the goods, and when.",
+        "Ada proses yang dikerjakan vendor. Yang membedakan bukan tahapannya, melainkan siapa yang memegang barangnya dan kapan.",
+      );
+    },
     stages: ["AMPLAS", "FINISHING", "MACHINERY", "PACKING"],
   },
 ];
@@ -259,11 +271,23 @@ export interface WorkOrder {
  *  are related and they are not the same thing.
  */
 export const VENDOR_PROCESSES = [
-  { code: "BARANG_MENTAH", name: "Barang mentah", note: "Dibuat kasar oleh vendor, masuk bengkel untuk diamplas." },
-  { code: "JOK", name: "Jok", note: "Bukan salah satu dari empat tahap — pekerjaan sendiri." },
-  { code: "AMPLAS", name: "Amplas", note: "Tahap yang sama dengan di bengkel, dikerjakan di luar." },
-  { code: "FINISHING", name: "Finishing", note: null },
-  { code: "PACKING", name: "Packing", note: null },
+  {
+    code: "BARANG_MENTAH",
+    get name() { return trNow("Rough goods", "Barang mentah"); },
+    get note() { return trNow("Roughly made by the vendor, comes into the workshop to be sanded.", "Dibuat kasar oleh vendor, masuk bengkel untuk diamplas."); },
+  },
+  {
+    code: "JOK",
+    get name() { return trNow("Upholstery", "Jok"); },
+    get note() { return trNow("Not one of the four stages — a job of its own.", "Bukan salah satu dari empat tahap — pekerjaan sendiri."); },
+  },
+  {
+    code: "AMPLAS",
+    get name() { return trNow("Sanding", "Amplas"); },
+    get note() { return trNow("The same stage as in the workshop, done outside.", "Tahap yang sama dengan di bengkel, dikerjakan di luar."); },
+  },
+  { code: "FINISHING", get name() { return trNow("Finishing", "Finishing"); }, note: null },
+  { code: "PACKING", get name() { return trNow("Packing", "Packing"); }, note: null },
 ] as const;
 
 export type VendorProcessCode = (typeof VENDOR_PROCESSES)[number]["code"];
@@ -428,11 +452,12 @@ export function attributionOf(
   return row.worked_by_not_a_person ? "not_a_person" : "unknown";
 }
 
-export const ATTRIBUTION_LABEL: Record<WorkAttribution, string> = {
-  employee: "Tertaut ke karyawan",
-  not_a_person: "Bukan satu orang",
-  unknown: "Belum ditautkan",
+export const ATTRIBUTION_LABELS: Record<WorkAttribution, Message> = {
+  employee: { en: "Linked to an employee", id: "Tertaut ke karyawan" },
+  not_a_person: { en: "Not one person", id: "Bukan satu orang" },
+  unknown: { en: "Not linked yet", id: "Belum ditautkan" },
 };
+export const ATTRIBUTION_LABEL = bilingual(ATTRIBUTION_LABELS);
 
 export interface StageProgress {
   stage: string;
@@ -823,12 +848,13 @@ export type MaterialStatus =
   /** Every BOM line has been issued to the floor. */
   | "issued";
 
-export const MATERIAL_STATUS_LABEL: Record<MaterialStatus, string> = {
-  no_plan: "Belum ada BOM",
-  waiting: "Menunggu bahan",
-  ready: "Material ready",
-  issued: "Bahan sudah keluar",
+export const MATERIAL_STATUS_LABELS: Record<MaterialStatus, Message> = {
+  no_plan: { en: "No BOM yet", id: "Belum ada BOM" },
+  waiting: { en: "Waiting for material", id: "Menunggu bahan" },
+  ready: { en: "Material ready", id: "Material ready" },
+  issued: { en: "Material issued", id: "Bahan sudah keluar" },
 };
+export const MATERIAL_STATUS_LABEL = bilingual(MATERIAL_STATUS_LABELS);
 
 /** The rule, once, for both layers. */
 export function materialStatus(noPlanReason: string | null, lines: MaterialLine[]): MaterialStatus {
@@ -854,22 +880,23 @@ export type TrailStage =
   | "job_order" | "purchase_request" | "purchase_order" | "receipt" | "stock_in"
   | "issue" | "return" | "stock_move" | "progress" | "finished" | "delivery" | "handover";
 
-export const TRAIL_STAGE_LABEL: Record<TrailStage, string> = {
-  catalogued: "Masuk katalog",
-  bom: "Dipakai di BOM",
-  stock_move: "Gerak stok lain",
-  job_order: "Job Order dibuat",
-  purchase_request: "Purchase Request",
-  purchase_order: "Purchase Order",
-  receipt: "Receiving report",
-  stock_in: "Stok masuk",
-  issue: "Bahan keluar ke JO",
-  return: "Bahan kembali",
-  progress: "Progres produksi",
-  finished: "Barang jadi",
-  delivery: "Surat jalan",
-  handover: "BAST",
+export const TRAIL_STAGE_LABELS: Record<TrailStage, Message> = {
+  catalogued: { en: "Catalogued", id: "Masuk katalog" },
+  bom: { en: "Used in a BOM", id: "Dipakai di BOM" },
+  stock_move: { en: "Other stock move", id: "Gerak stok lain" },
+  job_order: { en: "Job Order created", id: "Job Order dibuat" },
+  purchase_request: { en: "Purchase Request", id: "Purchase Request" },
+  purchase_order: { en: "Purchase Order", id: "Purchase Order" },
+  receipt: { en: "Receiving report", id: "Receiving report" },
+  stock_in: { en: "Stock in", id: "Stok masuk" },
+  issue: { en: "Material issued to JO", id: "Bahan keluar ke JO" },
+  return: { en: "Material returned", id: "Bahan kembali" },
+  progress: { en: "Production progress", id: "Progres produksi" },
+  finished: { en: "Finished goods", id: "Barang jadi" },
+  delivery: { en: "Surat jalan", id: "Surat jalan" },
+  handover: { en: "BAST", id: "BAST" },
 };
+export const TRAIL_STAGE_LABEL = bilingual(TRAIL_STAGE_LABELS);
 
 export interface TrailEvent {
   at: string;
@@ -1056,10 +1083,11 @@ export interface ProductView extends Product {
  */
 export type DesignKind = "gambar_kerja" | "gambar_jadi";
 
-export const DESIGN_KIND_LABEL: Record<DesignKind, string> = {
-  gambar_kerja: "Gambar kerja",
-  gambar_jadi: "Gambar jadi",
+export const DESIGN_KIND_LABELS: Record<DesignKind, Message> = {
+  gambar_kerja: { en: "Working drawing", id: "Gambar kerja" },
+  gambar_jadi: { en: "Finished drawing", id: "Gambar jadi" },
 };
+export const DESIGN_KIND_LABEL = bilingual(DESIGN_KIND_LABELS);
 
 /** Where a drawing has got to. Deliberately four, because a fifth would be a
  *  state nobody could tell apart from its neighbour at a glance. */
@@ -1073,12 +1101,13 @@ export type DesignStatus =
   /** Released — the workshop may cut from it. */
   | "RILIS";
 
-export const DESIGN_STATUS_LABEL: Record<DesignStatus, string> = {
-  BELUM: "Belum digambar",
-  DIGAMBAR: "Sedang digambar",
-  TANYA: "Menunggu jawaban",
-  RILIS: "Sudah rilis",
+export const DESIGN_STATUS_LABELS: Record<DesignStatus, Message> = {
+  BELUM: { en: "Not drawn yet", id: "Belum digambar" },
+  DIGAMBAR: { en: "Being drawn", id: "Sedang digambar" },
+  TANYA: { en: "Waiting for an answer", id: "Menunggu jawaban" },
+  RILIS: { en: "Released", id: "Sudah rilis" },
 };
+export const DESIGN_STATUS_LABEL = bilingual(DESIGN_STATUS_LABELS);
 
 export interface DesignTask {
   id: string;

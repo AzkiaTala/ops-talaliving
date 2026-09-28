@@ -15,6 +15,7 @@ import { hr } from "@/demo/api";
 import type { PayRules, UndertimeMode, OvertimeMode, HourlyBasis, LateMode } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr, type Message } from "@/lib/i18n";
 
 /** The pay rule book — the policy, visible and editable (D168).
  *
@@ -35,31 +36,35 @@ import { useToast } from "@/store/toast";
  *    a multiplier is an abstraction until you see it move one person's wage
  *    (D175).
  */
-const OVERTIME_MODE_LABEL: Record<OvertimeMode, string> = {
-  statutory: "Bertingkat sesuai ketentuan nasional",
-  flat: "Tarif rata",
-  form_only: "Hanya yang tertulis di form",
+const OVERTIME_MODE_LABEL: Record<OvertimeMode, Message> = {
+  statutory: { en: "Tiered, per national regulation", id: "Bertingkat sesuai ketentuan nasional" },
+  flat: { en: "Flat rate", id: "Tarif rata" },
+  form_only: { en: "Only what is written on the form", id: "Hanya yang tertulis di form" },
 };
 
-const HOURLY_BASIS_LABEL: Record<HourlyBasis, string> = {
-  company: "Setahun gaji ÷ hari kerja efektif ÷ jam sehari (hitungan perusahaan)",
-  statutory: "Gaji sebulan ÷ 173 (angka peraturan)",
+const HOURLY_BASIS_LABEL: Record<HourlyBasis, Message> = {
+  company: {
+    en: "A year's pay ÷ effective working days ÷ hours per day (company calculation)",
+    id: "Setahun gaji ÷ hari kerja efektif ÷ jam sehari (hitungan perusahaan)",
+  },
+  statutory: { en: "Monthly pay ÷ 173 (regulation figure)", id: "Gaji sebulan ÷ 173 (angka peraturan)" },
 };
 
-const LATE_MODE_LABEL: Record<LateMode, string> = {
-  manual: "Dicatat saja — rupiahnya diketik orang",
-  pro_rata: "Dipotong per jam terlambat, di luar toleransi",
+const LATE_MODE_LABEL: Record<LateMode, Message> = {
+  manual: { en: "Recorded only — the rupiah amount is typed by a person", id: "Dicatat saja — rupiahnya diketik orang" },
+  pro_rata: { en: "Deducted per hour late, beyond the tolerance", id: "Dipotong per jam terlambat, di luar toleransi" },
 };
 
-const UNDERTIME_MODE_LABEL: Record<UndertimeMode, string> = {
-  off: "Tidak dipotong",
-  pro_rata: "Dipotong per jam kurang",
-  half_day_step: "Kurang lebih dari setengah hari → potong ½ hari",
+const UNDERTIME_MODE_LABEL: Record<UndertimeMode, Message> = {
+  off: { en: "Not deducted", id: "Tidak dipotong" },
+  pro_rata: { en: "Deducted per hour short", id: "Dipotong per jam kurang" },
+  half_day_step: { en: "Short by more than half a day → deduct ½ day", id: "Kurang lebih dari setengah hari → potong ½ hari" },
 };
 
 export default function PayRulesPage() {
   const { can } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
   const [sets, reload] = useLoad(() => hr.listPayRules(), []);
   const [draft, setDraft] = useState<PayRules | null>(null);
   const [effective, setEffective] = useState("2026-10-01");
@@ -78,7 +83,7 @@ export default function PayRulesPage() {
       rules: draft, period_start: "2026-08-31", period_end: "2026-09-06",
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak bisa dihitung", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Cannot be calculated", "Tidak bisa dihitung"), res.error.message); return; }
     setPreview(res.data);
   }
 
@@ -88,10 +93,14 @@ export default function PayRulesPage() {
     const res = await hr.savePayRules({ effective_from: effective, note, rules: draft });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak tersimpan", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
       return;
     }
-    toast("success", `Versi ${res.data.version} tersimpan`, `Berlaku mulai ${res.data.effective_from}`);
+    toast(
+      "success",
+      tr(`Version ${res.data.version} saved`, `Versi ${res.data.version} tersimpan`),
+      tr(`Effective from ${res.data.effective_from}`, `Berlaku mulai ${res.data.effective_from}`),
+    );
     setDraft(null); setPreview(null); setNote("");
     reload();
   }
@@ -99,9 +108,12 @@ export default function PayRulesPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Payroll"
-        title="Aturan penggajian"
-        description="Skema upah, lembur dan undertime — angkanya kebijakan, bukan kode. Mengubahnya menulis versi baru mulai tanggal tertentu; versi lama tetap ada supaya slip lama masih bisa dihitung ulang."
+        breadcrumb={tr("Payroll", "Penggajian")}
+        title={tr("Pay rules", "Aturan penggajian")}
+        description={tr(
+          "Wage, overtime and undertime schemes — the figures are policy, not code. Changing them writes a new version from a given date; old versions stay so old payslips can still be recomputed.",
+          "Skema upah, lembur dan undertime — angkanya kebijakan, bukan kode. Mengubahnya menulis versi baru mulai tanggal tertentu; versi lama tetap ada supaya slip lama masih bisa dihitung ulang.",
+        )}
         actions={<SourceBadge state={sets} />}
       />
 
@@ -115,20 +127,21 @@ export default function PayRulesPage() {
             <>
               {!mayEdit && (
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
-                  <strong className="font-medium">Lihat saja.</strong> Aturan gaji diubah oleh IT, bukan
-                  dari layar ini — bukan karena angkanya tidak Anda kuasai, tapi karena satu aturan di sini
-                  mengubah semua slip sekaligus. Kalau ada yang perlu diganti, sampaikan ke IT: perubahan
-                  ditulis sebagai versi baru dengan alasannya, dan versi lama tetap bisa dihitung ulang.
+                  <strong className="font-medium">{tr("View only.", "Lihat saja.")}</strong>{" "}
+                  {tr(
+                    "Pay rules are changed by IT, not from this screen — not because the figures are beyond you, but because one rule here changes every payslip at once. If something needs changing, tell IT: the change is written as a new version with its reason, and old versions can still be recomputed.",
+                    "Aturan gaji diubah oleh IT, bukan dari layar ini — bukan karena angkanya tidak Anda kuasai, tapi karena satu aturan di sini mengubah semua slip sekaligus. Kalau ada yang perlu diganti, sampaikan ke IT: perubahan ditulis sebagai versi baru dengan alasannya, dan versi lama tetap bisa dihitung ulang.",
+                  )}
                 </div>
               )}
 
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] shadow-card">
                 <Badge tone="brand">v{current.version}</Badge>
                 <span className="text-slate-700">
-                  Berlaku sejak <span className="font-mono">{current.effective_from}</span> — {stripRefs(current.note)}
+                  {tr("In force since", "Berlaku sejak")} <span className="font-mono">{current.effective_from}</span> — {stripRefs(current.note)}
                 </span>
                 <span className="ml-auto text-[11px] text-slate-500">
-                  ditulis {current.created_by_name}, {current.created_at.slice(0, 10)}
+                  {tr("written by", "ditulis")} {current.created_by_name}, {current.created_at.slice(0, 10)}
                 </span>
               </div>
 
@@ -136,13 +149,16 @@ export default function PayRulesPage() {
                 <div className="space-y-4">
                   <Card>
                     <CardHeader
-                      title="Situasi 1 & 2 — komposisi upah dan harga satu jam"
-                      subtitle="Upah dibaca sebagai pokok + tunjangan. Tarifnya ada di data karyawan, satu per orang; yang diatur di sini adalah cara mengubah upah menjadi harga satu jam, karena lembur dan potongan dihitung dari sana."
+                      title={tr("Situations 1 & 2 — wage make-up and the price of an hour", "Situasi 1 & 2 — komposisi upah dan harga satu jam")}
+                      subtitle={tr(
+                        "The wage is read as base + allowance. The rates live in the employee data, one per person; what is set here is how a wage becomes the price of an hour, because overtime and deductions are computed from it.",
+                        "Upah dibaca sebagai pokok + tunjangan. Tarifnya ada di data karyawan, satu per orang; yang diatur di sini adalah cara mengubah upah menjadi harga satu jam, karena lembur dan potongan dihitung dari sana.",
+                      )}
                       icon={Scale}
                     />
                     <div className="space-y-3 px-5 py-3 text-[13px]">
                       <label className="block">
-                        <span className="block text-[12px] text-slate-500">Harga satu jam dihitung dari</span>
+                        <span className="block text-[12px] text-slate-500">{tr("The price of an hour is computed from", "Harga satu jam dihitung dari")}</span>
                         <select
                           value={rules.hourly_basis}
                           onChange={(e) => set({ hourly_basis: e.target.value as HourlyBasis })}
@@ -150,14 +166,17 @@ export default function PayRulesPage() {
                           className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         >
                           {(Object.keys(HOURLY_BASIS_LABEL) as HourlyBasis[]).map((m) => (
-                            <option key={m} value={m}>{HOURLY_BASIS_LABEL[m]}</option>
+                            <option key={m} value={m}>{tr(HOURLY_BASIS_LABEL[m].en, HOURLY_BASIS_LABEL[m].id)}</option>
                           ))}
                         </select>
                       </label>
 
                       <Field
-                        label="Hari kerja efektif setahun"
-                        hint={`Angkanya milik perusahaan, bukan hitungan layar ini — IT yang mengisi, HRD dan payroll membacanya. Yang baru di bawah adalah buktinya: kalender perusahaan sendiri, diuraikan, supaya angka ini diperiksa dan bukan diwarisi. Rata-rata per bulan: ${(rules.effective_days_per_year / 12).toFixed(1)} hari, diturunkan dari angka setahun dan tidak pernah disimpan terpisah.`}
+                        label={tr("Effective working days per year", "Hari kerja efektif setahun")}
+                        hint={tr(
+                          `The figure belongs to the company, not to this screen's arithmetic — IT fills it in, HRD and payroll read it. What is new below is the evidence: the company's own calendar, spelled out, so this figure is checked rather than inherited. Monthly average: ${(rules.effective_days_per_year / 12).toFixed(1)} days, derived from the yearly figure and never stored separately.`,
+                          `Angkanya milik perusahaan, bukan hitungan layar ini — IT yang mengisi, HRD dan payroll membacanya. Yang baru di bawah adalah buktinya: kalender perusahaan sendiri, diuraikan, supaya angka ini diperiksa dan bukan diwarisi. Rata-rata per bulan: ${(rules.effective_days_per_year / 12).toFixed(1)} hari, diturunkan dari angka setahun dan tidak pernah disimpan terpisah.`,
+                        )}
                         value={rules.effective_days_per_year}
                         onChange={(v) => set({ effective_days_per_year: v })}
                         disabled={!mayEdit}
@@ -166,8 +185,11 @@ export default function PayRulesPage() {
                       <EffectiveDaysNote rules={rules} />
 
                       <Field
-                        label="Pembagi gaji bulanan (peraturan)"
-                        hint="173 = 40 jam × 52 minggu ÷ 12. Angka Kepmenaker, dipakai tangga lembur nasional. Tetap disimpan walau bukan dasar yang dipilih, supaya selisihnya kelihatan."
+                        label={tr("Monthly pay divisor (regulation)", "Pembagi gaji bulanan (peraturan)")}
+                        hint={tr(
+                          "173 = 40 hours × 52 weeks ÷ 12. The Kepmenaker figure, used by the national overtime ladder. Kept even when it is not the chosen basis, so the difference stays visible.",
+                          "173 = 40 jam × 52 minggu ÷ 12. Angka Kepmenaker, dipakai tangga lembur nasional. Tetap disimpan walau bukan dasar yang dipilih, supaya selisihnya kelihatan.",
+                        )}
                         value={rules.monthly_divisor}
                         onChange={(v) => set({ monthly_divisor: v })}
                         disabled={!mayEdit}
@@ -183,13 +205,17 @@ export default function PayRulesPage() {
                         />
                         <span>
                           <span className="block font-medium text-slate-700">
-                            Tunjangan ikut dihitung ke harga satu jam
+                            {tr("Allowance counts toward the price of an hour", "Tunjangan ikut dihitung ke harga satu jam")}
                           </span>
-                          Sesuai instruksi pemilik: pokok + tunjangan untuk perhitungan semua.
+                          {tr(
+                            "Per the owner's instruction: base + allowance for every calculation.",
+                            "Sesuai instruksi pemilik: pokok + tunjangan untuk perhitungan semua.",
+                          )}
                           <span className="mt-0.5 block text-[11px] text-slate-400">
-                            Catatan, bukan keputusan: perusahaan mungkin nanti memakai pokok saja untuk
-                            lembur dan perhitungan dasar. Kalau itu terjadi, matikan kotak ini — jangan
-                            ubah tarif orangnya.
+                            {tr(
+                              "A note, not a decision: the company may later use base only for overtime and basic calculations. If that happens, untick this box — do not change people's rates.",
+                              "Catatan, bukan keputusan: perusahaan mungkin nanti memakai pokok saja untuk lembur dan perhitungan dasar. Kalau itu terjadi, matikan kotak ini — jangan ubah tarif orangnya.",
+                            )}
                           </span>
                         </span>
                       </label>
@@ -197,21 +223,23 @@ export default function PayRulesPage() {
                       <HourlyExample rules={rules} />
 
                       <p className="text-[12px] text-slate-500">
-                        Harian: tarif per hari ÷ jam kerja kontrak orang itu. Per jam: tarifnya memang
-                        sudah per jam. Keduanya tidak diatur di sini — itu data orang, bukan kebijakan.
+                        {tr(
+                          "Daily: the day rate ÷ that person's contract hours. Hourly: the rate is already per hour. Neither is set here — that is the person's data, not policy.",
+                          "Harian: tarif per hari ÷ jam kerja kontrak orang itu. Per jam: tarifnya memang sudah per jam. Keduanya tidak diatur di sini — itu data orang, bukan kebijakan.",
+                        )}
                       </p>
                     </div>
                   </Card>
 
                   <Card>
                     <CardHeader
-                      title="Situasi 3 — lembur"
-                      subtitle="Berlaku per malam, bukan per periode: “jam pertama” adalah jam pertama malam itu."
+                      title={tr("Situation 3 — overtime", "Situasi 3 — lembur")}
+                      subtitle={tr("Applies per evening, not per period: “the first hour” is the first hour of that evening.", "Berlaku per malam, bukan per periode: “jam pertama” adalah jam pertama malam itu.")}
                       icon={Clock}
                     />
                     <div className="space-y-3 px-5 py-3 text-[13px]">
                       <label className="block">
-                        <span className="block text-[12px] text-slate-500">Cara menghitung</span>
+                        <span className="block text-[12px] text-slate-500">{tr("Calculation method", "Cara menghitung")}</span>
                         <select
                           value={rules.overtime_mode}
                           onChange={(e) => set({ overtime_mode: e.target.value as OvertimeMode })}
@@ -219,7 +247,7 @@ export default function PayRulesPage() {
                           className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         >
                           {(Object.keys(OVERTIME_MODE_LABEL) as OvertimeMode[]).map((m) => (
-                            <option key={m} value={m}>{OVERTIME_MODE_LABEL[m]}</option>
+                            <option key={m} value={m}>{tr(OVERTIME_MODE_LABEL[m].en, OVERTIME_MODE_LABEL[m].id)}</option>
                           ))}
                         </select>
                       </label>
@@ -227,27 +255,27 @@ export default function PayRulesPage() {
                       {rules.overtime_mode === "statutory" && (
                         <>
                           <Tiers
-                            title="Hari kerja biasa"
+                            title={tr("Normal working day", "Hari kerja biasa")}
                             tiers={rules.workday_tiers}
                             onChange={(workday_tiers) => set({ workday_tiers })}
                             disabled={!mayEdit}
                           />
                           <Tiers
-                            title="Hari libur & tanggal merah"
+                            title={tr("Rest days & public holidays", "Hari libur & tanggal merah")}
                             tiers={rules.restday_tiers}
                             onChange={(restday_tiers) => set({ restday_tiers })}
                             disabled={!mayEdit}
                           />
                           <label className="block">
-                            <span className="block text-[12px] text-slate-500">Hari istirahat mingguan</span>
+                            <span className="block text-[12px] text-slate-500">{tr("Weekly rest days", "Hari istirahat mingguan")}</span>
                             <select
                               value={rules.week_pattern}
                               onChange={(e) => set({ week_pattern: e.target.value as "6day" | "5day" })}
                               disabled={!mayEdit}
                               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                             >
-                              <option value="6day">Enam hari kerja — Minggu saja</option>
-                              <option value="5day">Lima hari kerja — Sabtu & Minggu</option>
+                              <option value="6day">{tr("Six working days — Sunday only", "Enam hari kerja — Minggu saja")}</option>
+                              <option value="5day">{tr("Five working days — Saturday & Sunday", "Lima hari kerja — Sabtu & Minggu")}</option>
                             </select>
                           </label>
                         </>
@@ -255,8 +283,8 @@ export default function PayRulesPage() {
 
                       {rules.overtime_mode === "flat" && (
                         <Field
-                          label="Pengali tetap"
-                          hint="Satu angka untuk semua jam lembur, hari apa pun. 1 berarti dibayar sama dengan jam biasa."
+                          label={tr("Fixed multiplier", "Pengali tetap")}
+                          hint={tr("One figure for every overtime hour, any day. 1 means paid the same as a normal hour.", "Satu angka untuk semua jam lembur, hari apa pun. 1 berarti dibayar sama dengan jam biasa.")}
                           value={rules.flat_multiplier}
                           onChange={(v) => set({ flat_multiplier: v })}
                           disabled={!mayEdit}
@@ -264,17 +292,19 @@ export default function PayRulesPage() {
                       )}
 
                       <Field
-                        label="Pembulatan jam lembur (menit)"
-                        hint="0 = apa adanya dari mesin absensi. 15 atau 30 kalau perusahaan membulatkan."
+                        label={tr("Overtime rounding (minutes)", "Pembulatan jam lembur (menit)")}
+                        hint={tr("0 = as-is from the attendance machine. 15 or 30 if the company rounds.", "0 = apa adanya dari mesin absensi. 15 atau 30 kalau perusahaan membulatkan.")}
                         value={rules.overtime_rounding_minutes}
                         onChange={(v) => set({ overtime_rounding_minutes: v })}
                         disabled={!mayEdit}
                       />
 
                       <p className="rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
-                        <strong className="text-slate-700">Yang selalu menang:</strong> angka GAJI yang
-                        tertulis di form lembur. Kalau kertasnya menyebut nominal, itu yang dibayar —
-                        tangga pengali tidak dipakai untuk baris itu.
+                        <strong className="text-slate-700">{tr("What always wins:", "Yang selalu menang:")}</strong>{" "}
+                        {tr(
+                          "the GAJI figure written on the overtime form. If the paper states an amount, that is what is paid — the multiplier ladder is not used for that row.",
+                          "angka GAJI yang tertulis di form lembur. Kalau kertasnya menyebut nominal, itu yang dibayar — tangga pengali tidak dipakai untuk baris itu.",
+                        )}
                       </p>
                       <Example rules={rules} />
                     </div>
@@ -282,13 +312,16 @@ export default function PayRulesPage() {
 
                   <Card>
                     <CardHeader
-                      title="Situasi 4 — undertime & keterlambatan"
-                      subtitle="Aturan keterlambatan sekarang ada — toleransi 15 menit, potongan per jam — dan tetap mati sampai seseorang menyalakannya setelah melihat dampaknya per orang. Undertime masih belum pernah ditetapkan nilainya."
+                      title={tr("Situation 4 — undertime & lateness", "Situasi 4 — undertime & keterlambatan")}
+                      subtitle={tr(
+                        "A lateness rule now exists — 15 minutes tolerance, deduction per hour — and stays off until someone turns it on after seeing its effect per person. Undertime has still never had its value set.",
+                        "Aturan keterlambatan sekarang ada — toleransi 15 menit, potongan per jam — dan tetap mati sampai seseorang menyalakannya setelah melihat dampaknya per orang. Undertime masih belum pernah ditetapkan nilainya.",
+                      )}
                       icon={AlertTriangle}
                     />
                     <div className="space-y-3 px-5 py-3 text-[13px]">
                       <label className="block">
-                        <span className="block text-[12px] text-slate-500">Kurang jam (undertime) — hanya untuk upah harian</span>
+                        <span className="block text-[12px] text-slate-500">{tr("Hours short (undertime) — daily wages only", "Kurang jam (undertime) — hanya untuk upah harian")}</span>
                         <select
                           value={rules.undertime_mode}
                           onChange={(e) => set({ undertime_mode: e.target.value as UndertimeMode })}
@@ -296,29 +329,32 @@ export default function PayRulesPage() {
                           className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         >
                           {(Object.keys(UNDERTIME_MODE_LABEL) as UndertimeMode[]).map((m) => (
-                            <option key={m} value={m}>{UNDERTIME_MODE_LABEL[m]}</option>
+                            <option key={m} value={m}>{tr(UNDERTIME_MODE_LABEL[m].en, UNDERTIME_MODE_LABEL[m].id)}</option>
                           ))}
                         </select>
                       </label>
                       <Field
-                        label="Toleransi kurang jam (menit)"
-                        hint="Di bawah ini tidak dihitung kurang. Hari yang ditandai — sakit, cuti, tanggal merah — tidak pernah dihitung undertime."
+                        label={tr("Undertime tolerance (minutes)", "Toleransi kurang jam (menit)")}
+                        hint={tr(
+                          "Below this is not counted as short. Marked days — sick, leave, public holidays — are never counted as undertime.",
+                          "Di bawah ini tidak dihitung kurang. Hari yang ditandai — sakit, cuti, tanggal merah — tidak pernah dihitung undertime.",
+                        )}
                         value={rules.undertime_grace_minutes}
                         onChange={(v) => set({ undertime_grace_minutes: v })}
                         disabled={!mayEdit}
                       />
                       <div className="grid gap-3 sm:grid-cols-2">
                         <Field
-                          label="Jam masuk perusahaan (menit dari tengah malam)"
-                          hint="480 = jam 08.00. Dipakai hanya untuk unit yang tidak punya jadwal kerja sendiri di bawah."
+                          label={tr("Company start time (minutes from midnight)", "Jam masuk perusahaan (menit dari tengah malam)")}
+                          hint={tr("480 = 08.00. Used only for units without their own work schedule below.", "480 = jam 08.00. Dipakai hanya untuk unit yang tidak punya jadwal kerja sendiri di bawah.")}
                           value={rules.day_starts_minutes}
                           onChange={(v) => set({ day_starts_minutes: v })}
                           disabled={!mayEdit}
                         />
 
                         <Field
-                          label="Toleransi terlambat (menit)"
-                          hint="Pemilik menetapkan 15. Di bawah ini tidak dihitung terlambat sama sekali."
+                          label={tr("Lateness tolerance (minutes)", "Toleransi terlambat (menit)")}
+                          hint={tr("The owner set 15. Below this is not counted as late at all.", "Pemilik menetapkan 15. Di bawah ini tidak dihitung terlambat sama sekali.")}
                           value={rules.late_grace_minutes}
                           onChange={(v) => set({ late_grace_minutes: v })}
                           disabled={!mayEdit}
@@ -332,22 +368,32 @@ export default function PayRulesPage() {
                           unstated: a number invented here becomes a lateness
                           figure that looks measured. */}
                       <div>
-                        <p className="mb-1 text-[12px] font-medium text-slate-700">Jadwal kerja</p>
+                        <p className="mb-1 text-[12px] font-medium text-slate-700">{tr("Work schedules", "Jadwal kerja")}</p>
                         <ScheduleEditor rules={rules} disabled={!mayEdit} onChange={set} />
                         <p className="mt-1 text-[11px] text-slate-500">
-                          Jadwal yang jam masuknya belum ditetapkan tidak bisa dipakai menilai ketepatan waktu —
-                          orang di jadwal itu terbaca <strong>tidak terukur</strong>, bukan tepat waktu. Istirahat
-                          dibandingkan dengan tap dan dilaporkan kalau lewat, tidak pernah dipotong.
+                          {tr(
+                            "A schedule with no start time set cannot be used to judge punctuality — people on it read as",
+                            "Jadwal yang jam masuknya belum ditetapkan tidak bisa dipakai menilai ketepatan waktu — orang di jadwal itu terbaca",
+                          )}{" "}
+                          <strong>{tr("not measured", "tidak terukur")}</strong>
+                          {tr(
+                            ", not on time. Breaks are compared with taps and reported when exceeded, never deducted.",
+                            ", bukan tepat waktu. Istirahat dibandingkan dengan tap dan dilaporkan kalau lewat, tidak pernah dipotong.",
+                          )}
                         </p>
                       </div>
                       <p className="rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
-                        Dua angka, bukan satu. Sebelumnya keduanya satu kolom bernama
-                        <em> terlambat setelah 480 menit</em>, yang sebenarnya berarti
-                        <em> terlambat setelah jam 08.00</em> — dan toleransi yang pemilik tetapkan tidak
-                        punya tempat untuk ditulis.
+                        {tr("Two figures, not one. Before, both were one column called", "Dua angka, bukan satu. Sebelumnya keduanya satu kolom bernama")}
+                        <em> {tr("late after 480 minutes", "terlambat setelah 480 menit")}</em>
+                        {tr(", which really meant", ", yang sebenarnya berarti")}
+                        <em> {tr("late after 08.00", "terlambat setelah jam 08.00")}</em>{" "}
+                        {tr(
+                          "— and the tolerance the owner set had nowhere to be written.",
+                          "— dan toleransi yang pemilik tetapkan tidak punya tempat untuk ditulis.",
+                        )}
                       </p>
                       <label className="block">
-                        <span className="block text-[12px] text-slate-500">Potongan keterlambatan</span>
+                        <span className="block text-[12px] text-slate-500">{tr("Lateness deduction", "Potongan keterlambatan")}</span>
                         <select
                           value={rules.late_mode}
                           onChange={(e) => set({ late_mode: e.target.value as LateMode })}
@@ -355,7 +401,7 @@ export default function PayRulesPage() {
                           className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         >
                           {(Object.keys(LATE_MODE_LABEL) as LateMode[]).map((m) => (
-                            <option key={m} value={m}>{LATE_MODE_LABEL[m]}</option>
+                            <option key={m} value={m}>{tr(LATE_MODE_LABEL[m].en, LATE_MODE_LABEL[m].id)}</option>
                           ))}
                         </select>
                       </label>
@@ -369,18 +415,31 @@ export default function PayRulesPage() {
                         />
                         <span>
                           <span className="block font-medium text-slate-700">
-                            Terlambat juga menghanguskan tunjangan hari itu
+                            {tr("Lateness also forfeits that day's allowance", "Terlambat juga menghanguskan tunjangan hari itu")}
                           </span>
-                          Mati, dan pemilik yang mematikannya sendiri: <em>potongannya jam saja,
-                          allowance masih diberikan jika hadir</em>. Tunjangan hilang karena keputusan
-                          HRD dengan alasannya sendiri — WFH, setengah hari — bukan sebagai hukuman
-                          kedua atas kejadian yang sama.
+                          {tr("Off, and the owner turned it off personally:", "Mati, dan pemilik yang mematikannya sendiri:")}{" "}
+                          <em>{tr(
+                            "deduct the hours only, the allowance is still given if present",
+                            "potongannya jam saja, allowance masih diberikan jika hadir",
+                          )}</em>.{" "}
+                          {tr(
+                            "An allowance is lost by an HRD decision with its own reason — WFH, half a day — not as a second penalty for the same event.",
+                            "Tunjangan hilang karena keputusan HRD dengan alasannya sendiri — WFH, setengah hari — bukan sebagai hukuman kedua atas kejadian yang sama.",
+                          )}
                         </span>
                       </label>
                       <p className="text-[12px] text-slate-500">
-                        Aturannya sekarang ada; menyalakannya keputusan terpisah. Selama masih
-                        <em> dicatat saja</em>, slip tetap mencetak menitnya <strong>dan</strong> berapa
-                        rupiah yang tidak dipotong — supaya keterlambatan tidak terbaca gratis.
+                        {tr(
+                          "The rule now exists; turning it on is a separate decision. While it is still",
+                          "Aturannya sekarang ada; menyalakannya keputusan terpisah. Selama masih",
+                        )}
+                        <em> {tr("recorded only", "dicatat saja")}</em>
+                        {tr(", the payslip still prints the minutes", ", slip tetap mencetak menitnya")}{" "}
+                        <strong>{tr("and", "dan")}</strong>{" "}
+                        {tr(
+                          "how many rupiah were not deducted — so lateness does not read as free.",
+                          "berapa rupiah yang tidak dipotong — supaya keterlambatan tidak terbaca gratis.",
+                        )}
                       </p>
                     </div>
                   </Card>
@@ -389,10 +448,10 @@ export default function PayRulesPage() {
                 <div className="space-y-4">
                   {mayEdit && draft && (
                     <Card>
-                      <CardHeader title="Simpan sebagai versi baru" subtitle="Versi lama tidak diubah." icon={Play} />
+                      <CardHeader title={tr("Save as a new version", "Simpan sebagai versi baru")} subtitle={tr("Old versions are not changed.", "Versi lama tidak diubah.")} icon={Play} />
                       <div className="space-y-2 px-5 py-3">
                         <label className="block">
-                          <span className="block text-[12px] text-slate-500">Berlaku mulai</span>
+                          <span className="block text-[12px] text-slate-500">{tr("Effective from", "Berlaku mulai")}</span>
                           <input
                             type="date" value={effective} onChange={(e) => setEffective(e.target.value)}
                             className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
@@ -400,23 +459,25 @@ export default function PayRulesPage() {
                         </label>
                         <input
                           value={note} onChange={(e) => setNote(e.target.value)}
-                          placeholder="Alasan perubahan — dibaca saat slip lama ditanyakan"
+                          placeholder={tr("Reason for the change — read when an old payslip is questioned", "Alasan perubahan — dibaca saat slip lama ditanyakan")}
                           className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                         />
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" icon={Play} disabled={busy} onClick={runPreview}>
-                            Lihat dampaknya
+                            {tr("See the effect", "Lihat dampaknya")}
                           </Button>
                           <Button size="sm" disabled={busy || !note.trim() || !preview} onClick={save}>
-                            {busy ? "Menyimpan…" : "Simpan versi"}
+                            {busy ? tr("Saving…", "Menyimpan…") : tr("Save version", "Simpan versi")}
                           </Button>
                         </div>
                         <p className="text-[11px] text-slate-500">
-                          Tombol simpan terbuka setelah dampaknya dihitung. Aturan gaji yang disimpan
-                          tanpa dilihat dampaknya adalah aturan yang dampaknya ditemukan karyawan.
+                          {tr(
+                            "The save button opens once the effect has been computed. A pay rule saved without seeing its effect is a rule whose effect employees discover.",
+                            "Tombol simpan terbuka setelah dampaknya dihitung. Aturan gaji yang disimpan tanpa dilihat dampaknya adalah aturan yang dampaknya ditemukan karyawan.",
+                          )}
                         </p>
                         <Button size="sm" variant="ghost" onClick={() => { setDraft(null); setPreview(null); }}>
-                          Batalkan perubahan
+                          {tr("Discard changes", "Batalkan perubahan")}
                         </Button>
                       </div>
                     </Card>
@@ -425,8 +486,8 @@ export default function PayRulesPage() {
                   {preview && (
                     <Card>
                       <CardHeader
-                        title="Dampak pada periode 31 Agu – 6 Sep"
-                        subtitle={`Bruto ${formatIDR(preview.before_total)} → ${formatIDR(preview.after_total)}`}
+                        title={tr("Effect on the period 31 Aug – 6 Sep", "Dampak pada periode 31 Agu – 6 Sep")}
+                        subtitle={tr(`Gross ${formatIDR(preview.before_total)} → ${formatIDR(preview.after_total)}`, `Bruto ${formatIDR(preview.before_total)} → ${formatIDR(preview.after_total)}`)}
                         icon={Scale}
                       />
                       {/* Said before saving, not as the refusal afterwards:
@@ -435,16 +496,18 @@ export default function PayRulesPage() {
                           either way (D291). */}
                       {preview.schedules_lost && (
                         <p className="border-b border-rose-100 bg-rose-50 px-5 py-2.5 text-[12px] text-rose-900">
-                          <strong className="font-medium">Ada yang kehilangan jadwalnya.</strong>{" "}
-                          Buku ini tidak memuat pola yang masih dipakai: {preview.schedules_lost}. Orangnya
-                          tidak pindah ke jadwal lain — mereka berhenti punya jam sama sekali dan hilang
-                          dari layar jadwal. Pindahkan dulu, lalu terbitkan versinya.
+                          <strong className="font-medium">{tr("Someone loses their schedule.", "Ada yang kehilangan jadwalnya.")}</strong>{" "}
+                          {tr("This book leaves out a pattern still in use:", "Buku ini tidak memuat pola yang masih dipakai:")} {preview.schedules_lost}.{" "}
+                          {tr(
+                            "Those people do not move to another schedule — they stop having hours at all and disappear from the schedule screen. Move them first, then publish the version.",
+                            "Orangnya tidak pindah ke jadwal lain — mereka berhenti punya jam sama sekali dan hilang dari layar jadwal. Pindahkan dulu, lalu terbitkan versinya.",
+                          )}
                         </p>
                       )}
                       <ul className="divide-y divide-slate-100">
                         {preview.lines.length === 0 && (
                           <li className="px-5 py-4 text-[13px] text-slate-500">
-                            Tidak ada yang berubah di periode itu.
+                            {tr("Nothing changes in that period.", "Tidak ada yang berubah di periode itu.")}
                           </li>
                         )}
                         {preview.lines.map((l) => (
@@ -465,8 +528,8 @@ export default function PayRulesPage() {
                   )}
 
                   <Card>
-                    <CardHeader title="Riwayat versi" subtitle="Tidak ada yang dihapus." icon={History} />
-                    <Paged rows={all} pageSize={8} unit="versi">
+                    <CardHeader title={tr("Version history", "Riwayat versi")} subtitle={tr("Nothing is deleted.", "Tidak ada yang dihapus.")} icon={History} />
+                    <Paged rows={all} pageSize={8} unit={tr("versions", "versi")}>
                       {(page) => (
                         <ul className="divide-y divide-slate-100">
                           {page.map((r) => (
@@ -478,8 +541,8 @@ export default function PayRulesPage() {
                               </span>
                               <span className="mt-0.5 block text-slate-600">{stripRefs(r.note)}</span>
                               <span className="mt-0.5 block text-[11px] text-slate-400">
-                                {OVERTIME_MODE_LABEL[r.rules.overtime_mode]} ·{" "}
-                                {UNDERTIME_MODE_LABEL[r.rules.undertime_mode].toLowerCase()}
+                                {tr(OVERTIME_MODE_LABEL[r.rules.overtime_mode].en, OVERTIME_MODE_LABEL[r.rules.overtime_mode].id)} ·{" "}
+                                {tr(UNDERTIME_MODE_LABEL[r.rules.undertime_mode].en, UNDERTIME_MODE_LABEL[r.rules.undertime_mode].id).toLowerCase()}
                               </span>
                             </li>
                           ))}
@@ -523,6 +586,7 @@ function Tiers({
   onChange: (t: { after_hours: number; multiplier: number }[]) => void;
   disabled?: boolean;
 }) {
+  const tr = useTr();
   return (
     <div className="rounded-lg border border-slate-200 px-3 py-2">
       <p className="text-[12px] font-medium text-slate-700">{title}</p>
@@ -530,7 +594,7 @@ function Tiers({
         {tiers.map((t, i) => (
           <li key={i} className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
             <span className="w-[92px]">
-              {i === 0 ? "Jam ke-1" : `Setelah jam ${formatNumber(t.after_hours)}`}
+              {i === 0 ? tr("Hour 1", "Jam ke-1") : tr(`After hour ${formatNumber(t.after_hours)}`, `Setelah jam ${formatNumber(t.after_hours)}`)}
             </span>
             <div className="w-[92px]">
               <NumberInput
@@ -545,7 +609,7 @@ function Tiers({
                 onClick={() => onChange(tiers.filter((_, j) => j !== i))}
                 className="text-[11px] text-slate-400 underline hover:text-rose-600"
               >
-                hapus
+                {tr("remove", "hapus")}
               </button>
             )}
           </li>
@@ -560,7 +624,7 @@ function Tiers({
           }])}
           className="mt-1 text-[11px] text-brand-700 underline"
         >
-          + tingkat
+          {tr("+ tier", "+ tingkat")}
         </button>
       )}
     </div>
@@ -570,37 +634,38 @@ function Tiers({
 /** A worked example with real money, because a multiplier is an abstraction
  *  until it is rupiah. */
 function Example({ rules }: { rules: PayRules }) {
+  const tr = useTr();
   const hourly = 17_500; // upah harian Rp 140.000 ÷ 8 jam
   const rows: { label: string; hours: number; mult: number }[] = [];
   if (rules.overtime_mode === "flat") {
-    rows.push({ label: "3 jam, tarif rata", hours: 3, mult: rules.flat_multiplier });
+    rows.push({ label: tr("3 hours, flat rate", "3 jam, tarif rata"), hours: 3, mult: rules.flat_multiplier });
   } else if (rules.overtime_mode === "statutory") {
     let left = 3;
     const ladder = [...rules.workday_tiers].sort((a, b) => a.after_hours - b.after_hours);
     ladder.forEach((t, i) => {
       const to = i + 1 < ladder.length ? ladder[i + 1].after_hours : Infinity;
       const take = Math.min(left, to - t.after_hours);
-      if (take > 0) { rows.push({ label: `${formatNumber(take)} jam`, hours: take, mult: t.multiplier }); left -= take; }
+      if (take > 0) { rows.push({ label: tr(`${formatNumber(take)} hours`, `${formatNumber(take)} jam`), hours: take, mult: t.multiplier }); left -= take; }
     });
   }
   const total = rows.reduce((s, r) => s + r.hours * r.mult * hourly, 0);
 
   return (
     <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[12px] text-slate-600">
-      <p className="font-medium text-slate-700">Contoh: 3 jam lembur hari kerja, upah harian Rp 140.000 (8 jam)</p>
+      <p className="font-medium text-slate-700">{tr("Example: 3 hours of workday overtime, daily wage Rp 140.000 (8 hours)", "Contoh: 3 jam lembur hari kerja, upah harian Rp 140.000 (8 jam)")}</p>
       {rules.overtime_mode === "form_only" ? (
-        <p className="mt-1">Tidak dibayar kecuali form lembur menuliskan nominalnya.</p>
+        <p className="mt-1">{tr("Not paid unless the overtime form states the amount.", "Tidak dibayar kecuali form lembur menuliskan nominalnya.")}</p>
       ) : (
         <>
           <p className="mt-1">
-            Satu jam biasa = {formatIDR(hourly)}.{" "}
+            {tr("One normal hour", "Satu jam biasa")} = {formatIDR(hourly)}.{" "}
             {rows.map((r, i) => (
               <span key={i}>
                 {i > 0 ? " + " : ""}{r.label} × {formatNumber(r.mult)}
               </span>
             ))}
           </p>
-          <p className="mt-0.5 font-semibold text-slate-800">Dibayar {formatIDR(Math.round(total))}</p>
+          <p className="mt-0.5 font-semibold text-slate-800">{tr("Paid", "Dibayar")} {formatIDR(Math.round(total))}</p>
         </>
       )}
     </div>
@@ -629,30 +694,36 @@ function HourlyExample({ rules }: { rules: PayRules }) {
   const chosen = rules.hourly_basis === "statutory" ? statutory : company;
   const other = rules.hourly_basis === "statutory" ? company : statutory;
   const gap = other === 0 ? 0 : Math.round(((chosen - other) / other) * 100);
+  const tr = useTr();
 
   return (
     <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[12px] text-slate-600">
       <p className="font-medium text-slate-700">
-        Contoh: staf kantor, pokok {formatIDR(pokok)}/bulan + tunjangan {formatIDR(tunjangan)}/hari,
-        {" "}{hoursPerDay} jam sehari
+        {tr(
+          `Example: office staff, base ${formatIDR(pokok)}/month + allowance ${formatIDR(tunjangan)}/day, ${hoursPerDay} hours a day`,
+          `Contoh: staf kantor, pokok ${formatIDR(pokok)}/bulan + tunjangan ${formatIDR(tunjangan)}/hari, ${hoursPerDay} jam sehari`,
+        )}
       </p>
       <p className="mt-1">
-        <strong className="text-slate-700">Hitungan perusahaan:</strong>{" "}
+        <strong className="text-slate-700">{tr("Company calculation:", "Hitungan perusahaan:")}</strong>{" "}
         ({formatIDR(pokok)} × 12{rules.hourly_includes_allowance && <> + {formatIDR(tunjangan)} × {formatNumber(days)}</>})
-        {" "}= {formatIDR(annual)} setahun ÷ {formatNumber(days)} hari ÷ {hoursPerDay} jam ={" "}
+        {" "}= {formatIDR(annual)} {tr("a year", "setahun")} ÷ {formatNumber(days)} {tr("days", "hari")} ÷ {hoursPerDay} {tr("hours", "jam")} ={" "}
         <span className="font-semibold text-slate-800">{formatIDR(company)}</span>
       </p>
       <p className="mt-0.5">
-        <strong className="text-slate-700">Hitungan peraturan:</strong>{" "}
-        {formatIDR(Math.round(monthly))} sebulan ÷ {formatNumber(rules.monthly_divisor)} ={" "}
+        <strong className="text-slate-700">{tr("Regulation calculation:", "Hitungan peraturan:")}</strong>{" "}
+        {formatIDR(Math.round(monthly))} {tr("a month", "sebulan")} ÷ {formatNumber(rules.monthly_divisor)} ={" "}
         <span className="font-semibold text-slate-800">{formatIDR(statutory)}</span>
       </p>
       <p className="mt-1 text-slate-500">
-        Yang dipakai: <strong className="text-slate-700">{formatIDR(chosen)}</strong> per jam
-        {gap !== 0 && <> — {Math.abs(gap)}% {gap > 0 ? "lebih tinggi" : "lebih rendah"} dari yang satunya</>}.
-        Selisihnya bukan pembulatan: 173 mengandaikan minggu 40 jam, dan hari kerja efektif setahun
-        yang dipakai di sini belum tentu sepadan dengan angka itu — kalau keduanya sejalan, kedua
-        hitungan akan bertemu.
+        {tr("In use:", "Yang dipakai:")} <strong className="text-slate-700">{formatIDR(chosen)}</strong> {tr("per hour", "per jam")}
+        {gap !== 0 && <> — {gap > 0
+          ? tr(`${Math.abs(gap)}% higher than the other`, `${Math.abs(gap)}% lebih tinggi dari yang satunya`)
+          : tr(`${Math.abs(gap)}% lower than the other`, `${Math.abs(gap)}% lebih rendah dari yang satunya`)}</>}.{" "}
+        {tr(
+          "The difference is not rounding: 173 assumes a 40-hour week, and the effective working days per year used here do not necessarily match it — if the two agreed, both calculations would meet.",
+          "Selisihnya bukan pembulatan: 173 mengandaikan minggu 40 jam, dan hari kerja efektif setahun yang dipakai di sini belum tentu sepadan dengan angka itu — kalau keduanya sejalan, kedua hitungan akan bertemu.",
+        )}
       </p>
     </div>
   );
@@ -680,6 +751,7 @@ function HourlyExample({ rules }: { rules: PayRules }) {
  */
 function EffectiveDaysNote({ rules }: { rules: PayRules }) {
   const { session } = useSession();
+  const tr = useTr();
   const year = Number(officeToday().slice(0, 4));
   /* The acting user is in the deps, and it has to be: the seam answers **null**
      to somebody without `payroll.read` or `it.update`, so this is a read whose
@@ -701,34 +773,49 @@ function EffectiveDaysNote({ rules }: { rules: PayRules }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-[12px] text-slate-600">
       <p className="font-medium text-slate-700">
-        Kalender {c.year} menghitung {formatNumber(c.working_days)} hari kerja
+        {tr(
+          `The ${c.year} calendar counts ${formatNumber(c.working_days)} working days`,
+          `Kalender ${c.year} menghitung ${formatNumber(c.working_days)} hari kerja`,
+        )}
       </p>
       <p className="mt-1">
-        {formatNumber(c.calendar_days)} hari setahun − {formatNumber(c.weekly_rest_days)} hari
-        istirahat mingguan (pola {c.days_per_week} hari) − {formatNumber(c.holidays_on_workdays)} tanggal
-        merah yang jatuh di hari kerja.
+        {tr(
+          `${formatNumber(c.calendar_days)} days a year − ${formatNumber(c.weekly_rest_days)} weekly rest days (${c.days_per_week}-day pattern) − ${formatNumber(c.holidays_on_workdays)} public holidays falling on working days.`,
+          `${formatNumber(c.calendar_days)} hari setahun − ${formatNumber(c.weekly_rest_days)} hari istirahat mingguan (pola ${c.days_per_week} hari) − ${formatNumber(c.holidays_on_workdays)} tanggal merah yang jatuh di hari kerja.`,
+        )}
       </p>
       {c.holidays_recorded === 0 ? (
         <p className="mt-1 text-amber-700">
-          <strong className="font-medium">Belum ada satu pun tanggal merah {c.year} yang tercatat</strong>,
-          jadi hitungan di atas menganggap semua hari kerja dimasuki. Selisih{" "}
-          {formatNumber(Math.abs(gap))} hari terhadap angka yang diketik kemungkinan besar adalah
-          hari-hari itu — bukan kesalahan hitung, melainkan hari yang belum dimasukkan siapa pun.
+          <strong className="font-medium">{tr(
+            `Not a single ${c.year} public holiday has been recorded yet`,
+            `Belum ada satu pun tanggal merah ${c.year} yang tercatat`,
+          )}</strong>
+          {tr(
+            `, so the count above assumes every working day is worked. The ${formatNumber(Math.abs(gap))}-day difference from the typed figure is most likely those days — not a counting error, but days nobody has entered yet.`,
+            `, jadi hitungan di atas menganggap semua hari kerja dimasuki. Selisih ${formatNumber(Math.abs(gap))} hari terhadap angka yang diketik kemungkinan besar adalah hari-hari itu — bukan kesalahan hitung, melainkan hari yang belum dimasukkan siapa pun.`,
+          )}
         </p>
       ) : (
         <p className="mt-1 text-slate-500">
-          {formatNumber(c.holidays_recorded)} tanggal merah tercatat untuk {c.year}
+          {tr(
+            `${formatNumber(c.holidays_recorded)} public holidays recorded for ${c.year}`,
+            `${formatNumber(c.holidays_recorded)} tanggal merah tercatat untuk ${c.year}`,
+          )}
           {c.holidays_recorded > c.holidays_on_workdays && (
-            <> — {formatNumber(c.holidays_recorded - c.holidays_on_workdays)} di antaranya jatuh di hari
-              yang memang sudah libur dan tidak mengurangi apa pun</>
+            <> — {tr(
+              `${formatNumber(c.holidays_recorded - c.holidays_on_workdays)} of them fall on days that are already off and reduce nothing`,
+              `${formatNumber(c.holidays_recorded - c.holidays_on_workdays)} di antaranya jatuh di hari yang memang sudah libur dan tidak mengurangi apa pun`,
+            )}</>
           )}.
         </p>
       )}
       <p className="mt-1">
-        Yang diketik: <strong className="text-slate-700">{formatNumber(rules.effective_days_per_year)}</strong>{" "}
+        {tr("Typed:", "Yang diketik:")} <strong className="text-slate-700">{formatNumber(rules.effective_days_per_year)}</strong>{" "}
         {gap === 0
-          ? "— sama dengan hitungan kalender."
-          : `— ${formatNumber(Math.abs(gap))} hari ${gap < 0 ? "lebih sedikit" : "lebih banyak"} dari hitungan kalender.`}
+          ? tr("— the same as the calendar count.", "— sama dengan hitungan kalender.")
+          : gap < 0
+            ? tr(`— ${formatNumber(Math.abs(gap))} days fewer than the calendar count.`, `— ${formatNumber(Math.abs(gap))} hari lebih sedikit dari hitungan kalender.`)
+            : tr(`— ${formatNumber(Math.abs(gap))} days more than the calendar count.`, `— ${formatNumber(Math.abs(gap))} hari lebih banyak dari hitungan kalender.`)}
       </p>
     </div>
   );

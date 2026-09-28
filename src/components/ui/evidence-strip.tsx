@@ -10,6 +10,7 @@ import {
   type DocKind, type LinkEntity, type AttachmentView,
 } from "@/services/documents/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Attaching a document, from the record it belongs to.
  *
@@ -61,6 +62,7 @@ export function EvidenceStrip({
   slots?: EvidenceSlot[];
 }) {
   const { toast } = useToast();
+  const tr = useTr();
   /* With a checklist, each expected kind already has its own button, so the
      free picker below offers only what the checklist does not — otherwise a
      nota could be filed from two places on one screen, and the picker even
@@ -111,17 +113,17 @@ export function EvidenceStrip({
     const kind = slotKind.current ?? kindSelected;
     slotKind.current = null;
     const up = await documents.upload({ file, kind, entity });
-    if (up.error) { toast("critical", "Upload failed", up.error.message); return; }
+    if (up.error) { toast("critical", tr("Upload failed", "Upload gagal"), up.error.message); return; }
     const link = await documents.link({
       attachment_id: up.data.id, entity, entity_no: entityNo, kind,
     });
-    if (link.error) { toast("warning", "Not attached", link.error.message); return; }
+    if (link.error) { toast("warning", tr("Not attached", "Tidak terlampir"), link.error.message); return; }
     if (up.data.duplicate_suspect) {
       /* Advisory, never a block: the same receipt really can be photographed
          twice, and refusing the second one hides the first (A6). */
-      toast("warning", "Attached — identical bytes seen before", "Worth a look in case this is a duplicate.");
+      toast("warning", tr("Attached — identical bytes seen before", "Terlampir — isi berkas yang sama pernah terlihat"), tr("Worth a look in case this is a duplicate.", "Layak dicek, siapa tahu ini duplikat."));
     } else {
-      toast("success", "Attached", `${file.name} → ${kind}`);
+      toast("success", tr("Attached", "Terlampir"), `${file.name} → ${kind}`);
     }
     await refresh();
   }
@@ -134,15 +136,15 @@ export function EvidenceStrip({
     if (!url) return;
     setLinking(true);
     const made = await documents.addLink({ url });
-    if (made.error) { setLinking(false); toast("warning", "Not filed", made.error.message); return; }
+    if (made.error) { setLinking(false); toast("warning", tr("Not filed", "Tidak tersimpan"), made.error.message); return; }
     const link = await documents.link({
       attachment_id: made.data.id, entity, entity_no: entityNo,
       /* A shop page never proves a payment, whatever the kind selector says. */
       kind: "Reference Link",
     });
     setLinking(false);
-    if (link.error) { toast("warning", "Not attached", link.error.message); return; }
-    toast("success", "Link filed", made.data.filename);
+    if (link.error) { toast("warning", tr("Not attached", "Tidak terlampir"), link.error.message); return; }
+    toast("success", tr("Link filed", "Link tersimpan"), made.data.filename);
     setLinkUrl("");
     setShowLink(false);
     await refresh();
@@ -154,10 +156,10 @@ export function EvidenceStrip({
       kind: (att.links.find((l) => l.entity === entity && l.entity_no === entityNo)?.kind as DocKind | undefined) ?? kindSelected,
     });
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Not linked", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not linked", "Tidak tertaut"), res.error.message);
       return;
     }
-    toast("success", "Also covers", `${att.filename} → ${target.label}`);
+    toast("success", tr("Also covers", "Juga mencakup"), `${att.filename} → ${target.label}`);
     setSpreading(null);
     await refresh();
   }
@@ -169,8 +171,8 @@ export function EvidenceStrip({
     if (!here) return;
     const res = await documents.unlink(here.id);
     setRemoving(null);
-    if (res.error) { toast("warning", "Not removed", res.error.message); return; }
-    toast("success", "Removed", `${att.filename} is no longer on this record.`);
+    if (res.error) { toast("warning", tr("Not removed", "Tidak dilepas"), res.error.message); return; }
+    toast("success", tr("Removed", "Dilepas"), tr(`${att.filename} is no longer on this record.`, `${att.filename} tidak lagi ada di catatan ini.`));
     await refresh();
   }
 
@@ -187,11 +189,11 @@ export function EvidenceStrip({
   return (
     <section>
       <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        <Paperclip className="h-3.5 w-3.5" /> Documents
+        <Paperclip className="h-3.5 w-3.5" /> {tr("Documents", "Dokumen")}
       </p>
 
       {slots.length > 0 && (
-        <ul className="mb-3 divide-y divide-slate-100 rounded-lg border border-slate-200" aria-label="Expected documents">
+        <ul className="mb-3 divide-y divide-slate-100 rounded-lg border border-slate-200" aria-label={tr("Expected documents", "Dokumen yang diharapkan")}>
           {slots.map((slot) => {
             const n = hereKinds.get(slot.kind) ?? 0;
             return (
@@ -201,24 +203,24 @@ export function EvidenceStrip({
                   : <Circle className="h-4 w-4 shrink-0 text-slate-300" />}
                 <span className="min-w-0 flex-1">
                   <span className={n > 0 ? "text-slate-800" : "text-slate-600"}>{slot.label}</span>
-                  {slot.optional && <span className="ml-1 text-[11px] text-slate-400">(optional)</span>}
+                  {slot.optional && <span className="ml-1 text-[11px] text-slate-400">{tr("(optional)", "(opsional)")}</span>}
                   {n > 1 && <span className="ml-1 text-[11px] text-slate-400">× {n}</span>}
                 </span>
                 {canEdit && (
                   <span className="flex shrink-0 gap-1">
                     <Button
                       variant="ghost" size="sm" icon={Camera}
-                      aria-label={`Photograph ${slot.label}`}
+                      aria-label={tr(`Photograph ${slot.label}`, `Foto ${slot.label}`)}
                       onClick={() => pickFor(slot.kind, true)}
                     >
-                      <span className="sr-only">Photograph</span>
+                      <span className="sr-only">{tr("Photograph", "Foto")}</span>
                     </Button>
                     <Button
                       variant="ghost" size="sm" icon={Upload}
-                      aria-label={`Upload ${slot.label}`}
+                      aria-label={tr(`Upload ${slot.label}`, `Unggah ${slot.label}`)}
                       onClick={() => pickFor(slot.kind, false)}
                     >
-                      {n > 0 ? "Add" : "Upload"}
+                      {n > 0 ? tr("Add", "Tambah") : tr("Upload", "Unggah")}
                     </Button>
                   </span>
                 )}
@@ -257,25 +259,25 @@ export function EvidenceStrip({
                     <span className="block text-[11px] text-slate-400">
                       {kinds.join(", ")}
                       {a.url ? "" : ` · ${(a.bytes / 1024).toFixed(0)} KB`}
-                      {here && ` · filed by ${here.linked_by.replace("usr_", "")}`}
+                      {here && tr(` · filed by ${here.linked_by.replace("usr_", "")}`, ` · dilampirkan oleh ${here.linked_by.replace("usr_", "")}`)}
                     </span>
                   </span>
                   {a.covers_count > 1 && (
-                    <Badge tone="slate">covers {a.covers_count}</Badge>
+                    <Badge tone="slate">{tr(`covers ${a.covers_count}`, `mencakup ${a.covers_count}`)}</Badge>
                   )}
                   {canEdit && here && (
                     removing === a.id ? (
                       <span className="flex shrink-0 items-center gap-1">
-                        <Button variant="danger" size="sm" onClick={() => void remove(a)}>Remove</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setRemoving(null)}>Keep</Button>
+                        <Button variant="danger" size="sm" onClick={() => void remove(a)}>{tr("Remove", "Lepas")}</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setRemoving(null)}>{tr("Keep", "Biarkan")}</Button>
                       </span>
                     ) : (
                       <Button
                         variant="ghost" size="sm" icon={X}
-                        aria-label={`Remove ${a.filename}`}
+                        aria-label={tr(`Remove ${a.filename}`, `Lepas ${a.filename}`)}
                         onClick={() => setRemoving(a.id)}
                       >
-                        <span className="sr-only">Remove</span>
+                        <span className="sr-only">{tr("Remove", "Lepas")}</span>
                       </Button>
                     )
                   )}
@@ -284,7 +286,7 @@ export function EvidenceStrip({
                       variant="ghost" size="sm" icon={Link2}
                       onClick={() => setSpreading(spreading === a.id ? null : a.id)}
                     >
-                      Also covers
+                      {tr("Also covers", "Juga mencakup")}
                     </Button>
                   )}
                 </div>
@@ -309,7 +311,7 @@ export function EvidenceStrip({
                           >
                             <Plus className="h-3 w-3 shrink-0" />
                             <span className="min-w-0 flex-1 truncate">{t.label}</span>
-                            {already && <span className="text-[11px]">already covered</span>}
+                            {already && <span className="text-[11px]">{tr("already covered", "sudah tercakup")}</span>}
                           </button>
                         </li>
                       );
@@ -321,7 +323,7 @@ export function EvidenceStrip({
           })}
         </ul>
       ) : (
-        <p className="mb-3 text-[13px] text-slate-500">Nothing attached yet.</p>
+        <p className="mb-3 text-[13px] text-slate-500">{tr("Nothing attached yet.", "Belum ada lampiran.")}</p>
       )}
 
       {/* Documents that live on another record and are visible from here
@@ -330,7 +332,7 @@ export function EvidenceStrip({
       {reachedFrom.filter((r) => r.attachments.length > 0).map((group) => (
         <div key={group.label} className="mb-3 rounded-lg border border-dashed border-slate-200 px-3 py-2.5">
           <p className="text-[11px] uppercase tracking-wide text-slate-400">
-            Through {group.label}
+            {tr("Through", "Melalui")} {group.label}
           </p>
           <ul className="mt-1 space-y-1">
             {group.attachments.map((a) => (
@@ -375,7 +377,7 @@ export function EvidenceStrip({
 
       {canEdit && slots.length > 0 && !showOther && (
         <Button variant="ghost" size="sm" icon={Plus} onClick={() => setShowOther(true)}>
-          Dokumen lain atau link
+          {tr("Another document or a link", "Dokumen lain atau link")}
         </Button>
       )}
 
@@ -383,13 +385,13 @@ export function EvidenceStrip({
         <div className="rounded-lg border border-dashed border-slate-300 px-3 py-3">
           <div className="flex items-center justify-between">
             <label htmlFor={`ev-kind-${entityNo}`} className="block text-xs text-slate-500">
-              {slots.length > 0 ? "Dokumen lain — di luar daftar di atas" : "Document type"}
+              {slots.length > 0 ? tr("Another document — outside the list above", "Dokumen lain — di luar daftar di atas") : tr("Document type", "Jenis dokumen")}
             </label>
             {slots.length > 0 && (
               <button
                 type="button"
                 onClick={() => { setShowOther(false); setShowLink(false); }}
-                aria-label="Tutup"
+                aria-label={tr("Close", "Tutup")}
                 className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-3.5 w-3.5" />
@@ -404,20 +406,20 @@ export function EvidenceStrip({
           >
             {otherKinds.map((k) => (
               <option key={k} value={k}>
-                {k}{PRIMARY_DOC_KINDS.includes(k) ? "" : " (supporting)"}
+                {k}{PRIMARY_DOC_KINDS.includes(k) ? "" : tr(" (supporting)", " (pendukung)")}
               </option>
             ))}
           </select>
 
           <div className="mt-2 grid grid-cols-3 gap-2">
             <Button variant="outline" size="sm" icon={Camera} onClick={() => cameraRef.current?.click()}>
-              Photograph
+              {tr("Photograph", "Foto")}
             </Button>
             <Button variant="outline" size="sm" icon={Upload} onClick={() => fileRef.current?.click()}>
-              Choose a file
+              {tr("Choose a file", "Pilih berkas")}
             </Button>
             <Button variant="outline" size="sm" icon={Link2} onClick={() => setShowLink((v) => !v)}>
-              Paste a link
+              {tr("Paste a link", "Tempel link")}
             </Button>
           </div>
 
@@ -428,16 +430,19 @@ export function EvidenceStrip({
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void attachLink(); }}
-                placeholder="https://tokopedia.com/… — the page the price came from"
+                placeholder={tr("https://tokopedia.com/… — the page the price came from", "https://tokopedia.com/… — halaman asal harganya")}
                 className="h-8 min-w-[240px] flex-1 rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
               />
               <Button size="sm" disabled={linking || !linkUrl.trim()} onClick={() => void attachLink()}>
-                {linking ? "Filing…" : "File it"}
+                {linking ? tr("Filing…", "Menyimpan…") : tr("File it", "Simpan")}
               </Button>
             </div>
           )}
           <p className="mt-2 text-[11px] text-slate-500">
-            {note ?? "Attached here, to this record — the system already knows what it belongs to, so it only asks what kind of document this is."}
+            {note ?? tr(
+              "Attached here, to this record — the system already knows what it belongs to, so it only asks what kind of document this is.",
+              "Dilampirkan di sini, ke catatan ini — sistem sudah tahu ini milik apa, jadi hanya menanyakan jenis dokumennya.",
+            )}
           </p>
         </div>
       )}

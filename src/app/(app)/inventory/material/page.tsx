@@ -12,6 +12,7 @@ import type { StockItemView } from "@/services/inventory/contracts";
 import { StockDrawer } from "./StockDrawer";
 import { RegisterItem } from "./RegisterItem";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** The rack.
  *
@@ -33,6 +34,7 @@ import { useSession } from "@/store/session";
  *  nobody has said which one this business uses (Q43).
  */
 export default function StockPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [rows, reload] = useLoad(() => inventory.listStock(), []);
   const [q, setQ] = useState("");
@@ -46,13 +48,13 @@ export default function StockPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
-        title="Bahan & hardware"
-        description="Dihitung dari setiap pergerakan barang, bukan dari angka yang disimpan. Barang masuk begitu penerimaan dikonfirmasi; keluar saat dipakai produksi."
+        breadcrumb={tr("Inventory", "Persediaan")}
+        title={tr("Materials & hardware", "Bahan & hardware")}
+        description={tr("Computed from every stock movement, not from a stored figure. Goods come in as soon as receiving is confirmed; they go out when production uses them.", "Dihitung dari setiap pergerakan barang, bukan dari angka yang disimpan. Barang masuk begitu penerimaan dikonfirmasi; keluar saat dipakai produksi.")}
         actions={
           <div className="flex items-center gap-2">
             {mayRegister && !registering && (
-              <Button size="sm" icon={PackagePlus} onClick={() => setRegistering(true)}>Daftarkan barang</Button>
+              <Button size="sm" icon={PackagePlus} onClick={() => setRegistering(true)}>{tr("Register an item", "Daftarkan barang")}</Button>
             )}
             <SourceBadge state={rows} />
           </div>
@@ -89,22 +91,22 @@ export default function StockPage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["Nilai stok", formatIDR(value),
+                    ["value", tr("Stock value", "Nilai stok"), formatIDR(value),
                       unpriced.length > 0
-                        ? `${unpriced.length} barang belum lengkap harganya`
-                        : "seluruh stok punya harga"],
-                    ["Jenis barang", String(all.length),
-                      `${never.length} belum pernah bergerak · ${noPhoto.length} belum ada foto`],
-                    ["Di bawah minimum", String(low.length),
-                      low.length > 0 ? "perlu dibelikan" : "tidak ada yang menipis"],
-                    ["Minimum belum ditetapkan", String(noMin.length),
-                      noMin.length > 0 ? "belum bisa dibilang aman" : "semua punya batas"],
-                  ] as [string, string, string][]).map(([k, v, note]) => (
-                    <div key={k} className="px-4 py-3.5">
+                        ? tr(`${unpriced.length} items with incomplete prices`, `${unpriced.length} barang belum lengkap harganya`)
+                        : tr("all stock has a price", "seluruh stok punya harga")],
+                    ["kinds", tr("Item types", "Jenis barang"), String(all.length),
+                      tr(`${never.length} never moved · ${noPhoto.length} without a photo`, `${never.length} belum pernah bergerak · ${noPhoto.length} belum ada foto`)],
+                    ["low", tr("Below minimum", "Di bawah minimum"), String(low.length),
+                      low.length > 0 ? tr("needs buying", "perlu dibelikan") : tr("nothing running low", "tidak ada yang menipis")],
+                    ["nomin", tr("Minimum not set", "Minimum belum ditetapkan"), String(noMin.length),
+                      noMin.length > 0 ? tr("cannot be called safe yet", "belum bisa dibilang aman") : tr("all have a limit", "semua punya batas")],
+                  ] as [string, string, string, string][]).map(([id, k, v, note]) => (
+                    <div key={id} className="px-4 py-3.5">
                       <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                       <dd className={cn(
                         "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                        k === "Di bawah minimum" && low.length > 0 ? "text-amber-700" : "text-slate-800",
+                        id === "low" && low.length > 0 ? "text-amber-700" : "text-slate-800",
                       )}>
                         {v}
                       </dd>
@@ -114,9 +116,9 @@ export default function StockPage() {
                 </dl>
                 {unpriced.length > 0 && (
                   <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">
-                    <strong className="text-slate-700">Nilainya belum lengkap.</strong>{" "}
+                    <strong className="text-slate-700">{tr("The value is incomplete.", "Nilainya belum lengkap.")}</strong>{" "}
                     {unpriced.map((r) => `${r.item_name} (${formatNumber(r.unpriced_qty)} ${r.uom})`).join(" · ")}{" "}
-                    masuk tanpa harga satuan, jadi tidak ikut dihitung — bukan dihitung nol.
+                    {tr("came in without a unit price, so they are left out — not counted as zero.", "masuk tanpa harga satuan, jadi tidak ikut dihitung — bukan dihitung nol.")}
                   </p>
                 )}
               </div>
@@ -125,15 +127,18 @@ export default function StockPage() {
                 <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-[13px] text-amber-900">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>
-                    {low.map((r) => `${r.item_name} — sisa ${formatNumber(r.on_hand)} ${r.uom} dari minimum ${formatNumber(r.min_qty ?? 0)}`).join(" · ")}
+                    {low.map((r) => tr(
+                      `${r.item_name} — ${formatNumber(r.on_hand)} ${r.uom} left of a minimum of ${formatNumber(r.min_qty ?? 0)}`,
+                      `${r.item_name} — sisa ${formatNumber(r.on_hand)} ${r.uom} dari minimum ${formatNumber(r.min_qty ?? 0)}`,
+                    )).join(" · ")}
                   </span>
                 </div>
               )}
 
               <Card>
                 <CardHeader
-                  title={`${shown.length} dari ${all.length} barang`}
-                  subtitle="Klik satu barang untuk riwayat pergerakannya, dipakai di produk apa saja, dan apa yang sedang dipesan."
+                  title={tr(`${shown.length} of ${all.length} items`, `${shown.length} dari ${all.length} barang`)}
+                  subtitle={tr("Click an item for its movement history, which products use it, and what is on order.", "Klik satu barang untuk riwayat pergerakannya, dipakai di produk apa saja, dan apa yang sedang dipesan.")}
                   icon={Boxes}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
@@ -141,47 +146,47 @@ export default function StockPage() {
                         <Search className="h-3.5 w-3.5 text-slate-400" />
                         <input
                           value={q} onChange={(e) => setQ(e.target.value)}
-                          placeholder="Cari barang…"
-                          aria-label="Cari barang"
+                          placeholder={tr("Search items…", "Cari barang…")}
+                          aria-label={tr("Search items", "Cari barang")}
                           className="h-7 w-36 text-sm focus:outline-none"
                         />
                       </label>
                       <select
                         value={group} onChange={(e) => setGroup(e.target.value)}
-                        aria-label="Kategori"
+                        aria-label={tr("Category", "Kategori")}
                         className="h-8 rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Semua kategori</option>
+                        <option value="">{tr("All categories", "Semua kategori")}</option>
                         {groups.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                       </select>
                       <Button
                         size="sm" variant={lowOnly ? "primary" : "outline"}
                         onClick={() => setLowOnly((v) => !v)}
                       >
-                        Menipis saja
+                        {tr("Low only", "Menipis saja")}
                       </Button>
                     </div>
                   }
                 />
 
-                <Paged rows={shown} pageSize={20} unit="barang">
+                <Paged rows={shown} pageSize={20} unit={tr("items", "barang")}>
                   {(page) => (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[820px] border-collapse text-[13px]">
                         <thead>
                           <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                            <th className="px-4 py-2 text-left">Barang</th>
-                            <th className="px-4 py-2 text-left">Kategori</th>
-                            <th className="px-4 py-2 text-right">Di rak</th>
-                            <th className="px-4 py-2 text-left">Lokasi</th>
-                            <th className="px-4 py-2 text-right">Minimum</th>
-                            <th className="px-4 py-2 text-right">Nilai</th>
+                            <th className="px-4 py-2 text-left">{tr("Item", "Barang")}</th>
+                            <th className="px-4 py-2 text-left">{tr("Category", "Kategori")}</th>
+                            <th className="px-4 py-2 text-right">{tr("On the rack", "Di rak")}</th>
+                            <th className="px-4 py-2 text-left">{tr("Location", "Lokasi")}</th>
+                            <th className="px-4 py-2 text-right">{tr("Minimum", "Minimum")}</th>
+                            <th className="px-4 py-2 text-right">{tr("Value", "Nilai")}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {page.map((r) => <Row key={r.item_code} row={r} onOpen={() => setOpen(r.item_code)} />)}
                           {shown.length === 0 && (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Tidak ada yang cocok.</td></tr>
+                            <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">{tr("Nothing matches.", "Tidak ada yang cocok.")}</td></tr>
                           )}
                         </tbody>
                       </table>
@@ -191,10 +196,14 @@ export default function StockPage() {
 
                 <p className="flex flex-wrap items-start gap-2 border-t border-slate-100 px-4 py-2.5 text-[11px] text-slate-500">
                   <PackageMinus className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                  Barang keluar dicatat dari layar ini atau dari Job Order-nya. Mengeluarkan lebih banyak
-                  dari yang tercatat <strong>tidak ditolak</strong> — kayunya ada atau tidak ada, dan
-                  layar yang menolak mencatat kenyataan hanya mengajari orang berhenti mencatat.
-                  Stok yang jadi minus ditandai supaya dihitung ulang.
+                  <span>
+                    {tr("Goods out are recorded from this screen or from their Job Order. Issuing more than is recorded is", "Barang keluar dicatat dari layar ini atau dari Job Order-nya. Mengeluarkan lebih banyak dari yang tercatat")}{" "}
+                    <strong>{tr("not refused", "tidak ditolak")}</strong>{" "}
+                    {tr(
+                      "— the wood is there or it is not, and a screen that refuses to record reality only teaches people to stop recording. Stock that goes negative is flagged for a recount.",
+                      "— kayunya ada atau tidak ada, dan layar yang menolak mencatat kenyataan hanya mengajari orang berhenti mencatat. Stok yang jadi minus ditandai supaya dihitung ulang.",
+                    )}
+                  </span>
                 </p>
               </Card>
 
@@ -215,15 +224,16 @@ export default function StockPage() {
 }
 
 function Row({ row: r, onOpen }: { row: StockItemView; onOpen: () => void }) {
+  const tr = useTr();
   return (
     <tr onClick={onOpen} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
       <td className="px-4 py-2">
         <span className="block font-medium text-slate-800">{r.item_name}</span>
         {r.item_name_local && <span className="block text-[12px] text-slate-600">{r.item_name_local}</span>}
         <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
-          {r.item_code} · per {r.uom}
+          {r.item_code} · {tr("per", "per")} {r.uom}
           {r.photo_count === 0 ? (
-            <span className="font-sans text-amber-700">· belum ada foto</span>
+            <span className="font-sans text-amber-700">· {tr("no photo yet", "belum ada foto")}</span>
           ) : (
             <span className="flex items-center gap-0.5 font-sans"><Camera className="h-3 w-3" />{r.photo_count}</span>
           )}
@@ -240,8 +250,8 @@ function Row({ row: r, onOpen }: { row: StockItemView; onOpen: () => void }) {
         )}>
           {formatNumber(r.on_hand)}
         </span>
-        {r.on_hand < 0 && <span className="block text-[11px] text-rose-700">minus — perlu dihitung ulang</span>}
-        {r.moves_count === 0 && <span className="block text-[11px] text-slate-400">belum pernah bergerak</span>}
+        {r.on_hand < 0 && <span className="block text-[11px] text-rose-700">{tr("negative — needs a recount", "minus — perlu dihitung ulang")}</span>}
+        {r.moves_count === 0 && <span className="block text-[11px] text-slate-400">{tr("never moved", "belum pernah bergerak")}</span>}
       </td>
       <td className="px-4 py-2 text-[12px] text-slate-600">
         {r.by_location.length === 0
@@ -250,18 +260,18 @@ function Row({ row: r, onOpen }: { row: StockItemView; onOpen: () => void }) {
       </td>
       <td className="px-4 py-2 text-right tabular-nums text-slate-600">
         {r.min_qty == null
-          ? <span className="text-[11px] text-slate-400">belum ditetapkan</span>
+          ? <span className="text-[11px] text-slate-400">{tr("not set", "belum ditetapkan")}</span>
           : formatNumber(r.min_qty)}
       </td>
       <td className="px-4 py-2 text-right">
         {r.value == null ? (
-          <span className="text-[12px] text-amber-700">belum ada harga</span>
+          <span className="text-[12px] text-amber-700">{tr("no price yet", "belum ada harga")}</span>
         ) : (
           <>
             <span className="tabular-nums text-slate-800">{formatIDR(r.value)}</span>
             {r.unpriced_qty > 0 && (
               <span className="block text-[11px] text-amber-700">
-                belum lengkap · {formatNumber(r.unpriced_qty)} {r.uom} tanpa harga
+                {tr("incomplete", "belum lengkap")} · {formatNumber(r.unpriced_qty)} {r.uom} {tr("without a price", "tanpa harga")}
               </span>
             )}
           </>

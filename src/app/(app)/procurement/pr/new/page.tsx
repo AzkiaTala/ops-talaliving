@@ -10,6 +10,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useLoad } from "@/components/ui/loaded";
 import { formatIDR, formatNumber } from "@/lib/format";
+import { useTr } from "@/lib/i18n";
 import { FileEvidence } from "@/components/ui/file-evidence";
 import { documents, procurement, production } from "@/demo/api";
 import {
@@ -88,6 +89,14 @@ const SUPPORT_KINDS = [
 ] as const;
 type SupportKind = (typeof SUPPORT_KINDS)[number];
 
+/* Indonesian display label for each kind; the value stays the stored kind. */
+const SUPPORT_KIND_ID: Record<SupportKind, string> = {
+  "Reference Link": "Tautan referensi",
+  "Receipt / Invoice / Nota": "Kuitansi / Faktur / Nota",
+  "Purchase Order": "Purchase Order",
+  "Others": "Lainnya",
+};
+
 /* The key is per-form state, not module state.
  *
  * A module-level counter looked fine and was not: React may call a `useState`
@@ -111,6 +120,7 @@ const hasSupport = (l: DraftLine) =>
   Boolean(l.support_file || l.support_url.trim() || l.against_po_no);
 
 export default function NewPurchaseRequestPage() {
+  const tr = useTr();
   const router = useRouter();
   const { toast } = useToast();
   const [projectId, setProjectId] = useState("");
@@ -141,7 +151,10 @@ export default function NewPurchaseRequestPage() {
     ? items.data.map((i) => ({
         value: i.id,
         label: i.name,
-        sublabel: `${i.suggested_price != null ? formatIDR(i.suggested_price) : "no price on record"} per ${i.base_uom}`,
+        sublabel: tr(
+          `${i.suggested_price != null ? formatIDR(i.suggested_price) : "no price on record"} per ${i.base_uom}`,
+          `${i.suggested_price != null ? formatIDR(i.suggested_price) : "belum ada harga tercatat"} per ${i.base_uom}`,
+        ),
       }))
     : [];
 
@@ -170,10 +183,17 @@ export default function NewPurchaseRequestPage() {
 
   async function createVendorInline(key: string, name: string) {
     const res = await procurement.createVendor({ name }, `inline-${name}`);
-    if (res.error) { toast("warning", "Not added", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not added", "Tidak ditambahkan"), res.error.message); return; }
     await reloadVendors();
     patch(key, { vendor_id: res.data.id });
-    toast("info", "Vendor added", `"${res.data.name}" is on record as not yet curated. It can be used here straight away.`);
+    toast(
+      "info",
+      tr("Vendor added", "Vendor ditambahkan"),
+      tr(
+        `"${res.data.name}" is on record as not yet curated. It can be used here straight away.`,
+        `"${res.data.name}" tercatat sebagai belum dikurasi. Vendor ini bisa langsung dipakai di sini.`,
+      ),
+    );
   }
 
   const total = lines.reduce((s, l) => s + Math.round(l.qty * l.unit_price), 0);
@@ -201,7 +221,7 @@ export default function NewPurchaseRequestPage() {
         against_po_no: l.against_po_no || null,
       })),
     });
-    if (res.error) { setSaving(false); toast("critical", "Not saved", res.error.message); return; }
+    if (res.error) { setSaving(false); toast("critical", tr("Not saved", "Tidak disimpan"), res.error.message); return; }
 
     /* ── File what stands behind each line, before anybody is asked ────────
      *
@@ -250,9 +270,13 @@ export default function NewPurchaseRequestPage() {
     if (bare.length > 0) {
       toast(
         "warning",
-        `${bare.length} line(s) have nothing behind them`,
-        `${bare.join(", ")} — attach the link or the invoice on the requests board, `
-        + "or leadership will be asked to approve a number with nothing to check it against.",
+        tr(`${bare.length} line(s) have nothing behind them`, `${bare.length} baris tanpa pendukung`),
+        tr(
+          `${bare.join(", ")} — attach the link or the invoice on the requests board, `
+          + "or leadership will be asked to approve a number with nothing to check it against.",
+          `${bare.join(", ")} — lampirkan tautan atau fakturnya di papan permintaan, `
+          + "atau pimpinan akan diminta menyetujui angka tanpa apa pun untuk memeriksanya.",
+        ),
       );
     }
 
@@ -260,13 +284,27 @@ export default function NewPurchaseRequestPage() {
       const sub = await procurement.submitPr(res.data.doc_no, `submit-${res.data.doc_no}`);
       setSaving(false);
       if (sub.error) {
-        toast("warning", "Saved as draft", `${res.data.doc_no} was created but not submitted: ${sub.error.message}`);
+        toast(
+          "warning",
+          tr("Saved as draft", "Disimpan sebagai draf"),
+          tr(
+            `${res.data.doc_no} was created but not submitted: ${sub.error.message}`,
+            `${res.data.doc_no} sudah dibuat tetapi belum diajukan: ${sub.error.message}`,
+          ),
+        );
       } else {
-        toast("success", "Submitted", `${res.data.doc_no} is waiting for approval.`);
+        toast("success", tr("Submitted", "Diajukan"), tr(`${res.data.doc_no} is waiting for approval.`, `${res.data.doc_no} menunggu persetujuan.`));
       }
     } else {
       setSaving(false);
-      toast("success", "Saved as draft", `${res.data.doc_no} is not in anyone's queue until you submit it.`);
+      toast(
+        "success",
+        tr("Saved as draft", "Disimpan sebagai draf"),
+        tr(
+          `${res.data.doc_no} is not in anyone's queue until you submit it.`,
+          `${res.data.doc_no} tidak ada di antrean siapa pun sampai Anda mengajukannya.`,
+        ),
+      );
     }
     router.push("/procurement/pr");
   }
@@ -274,12 +312,15 @@ export default function NewPurchaseRequestPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Procurement · Purchase Requests"
-        title="New request"
-        description="One document, as many lines as arrived together. Each line is approved on its own later, so keep unrelated things apart."
+        breadcrumb={tr("Procurement · Purchase Requests", "Pengadaan · Purchase Request")}
+        title={tr("New request", "Permintaan baru")}
+        description={tr(
+          "One document, as many lines as arrived together. Each line is approved on its own later, so keep unrelated things apart.",
+          "Satu dokumen, sebanyak baris yang datang bersamaan. Setiap baris nanti disetujui sendiri-sendiri, jadi pisahkan hal yang tidak berkaitan.",
+        )}
         actions={
           <Link href="/procurement/pr">
-            <Button variant="ghost" icon={ArrowLeft}>Back</Button>
+            <Button variant="ghost" icon={ArrowLeft}>{tr("Back", "Kembali")}</Button>
           </Link>
         }
       />
@@ -289,47 +330,47 @@ export default function NewPurchaseRequestPage() {
           {lines.map((l, idx) => (
             <Card key={l.key}>
               <CardHeader
-                title={`Line ${idx + 1}`}
-                subtitle={l.description || "Nothing chosen yet"}
+                title={tr(`Line ${idx + 1}`, `Baris ${idx + 1}`)}
+                subtitle={l.description || tr("Nothing chosen yet", "Belum ada yang dipilih")}
                 action={
                   lines.length > 1 && (
                     <button
                       onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
                       className="inline-flex items-center gap-1 text-xs text-slate-400 transition-colors hover:text-rose-600"
                     >
-                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                      <Trash2 className="h-3.5 w-3.5" /> {tr("Remove", "Hapus")}
                     </button>
                   )
                 }
               />
               <div className="space-y-3 px-5 py-4">
                 <div>
-                  <label className="block text-xs text-slate-500" htmlFor={`item-${l.key}`}>Item</label>
+                  <label className="block text-xs text-slate-500" htmlFor={`item-${l.key}`}>{tr("Item", "Barang")}</label>
                   <div className="mt-1">
                     <Combobox
                       value={l.item_id}
                       onChange={(v) => chooseItem(l.key, v)}
                       options={itemOptions}
-                      placeholder="Search the catalogue…"
-                      emptyOptionLabel="— not in the catalogue —"
+                      placeholder={tr("Search the catalogue…", "Cari di katalog…")}
+                      emptyOptionLabel={tr("— not in the catalogue —", "— tidak ada di katalog —")}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs text-slate-500" htmlFor={`desc-${l.key}`}>Description</label>
+                  <label className="block text-xs text-slate-500" htmlFor={`desc-${l.key}`}>{tr("Description", "Deskripsi")}</label>
                   <input
                     id={`desc-${l.key}`}
                     value={l.description}
                     onChange={(e) => patch(l.key, { description: e.target.value })}
-                    placeholder="What is actually being bought"
+                    placeholder={tr("What is actually being bought", "Apa yang sebenarnya dibeli")}
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
-                    <label className="block text-xs text-slate-500" htmlFor={`qty-${l.key}`}>Quantity</label>
+                    <label className="block text-xs text-slate-500" htmlFor={`qty-${l.key}`}>{tr("Quantity", "Kuantitas")}</label>
                     <NumberInput
                       id={`qty-${l.key}`}
                       value={l.qty}
@@ -339,7 +380,7 @@ export default function NewPurchaseRequestPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500" htmlFor={`uom-${l.key}`}>Unit</label>
+                    <label className="block text-xs text-slate-500" htmlFor={`uom-${l.key}`}>{tr("Unit", "Satuan")}</label>
                     <select
                       id={`uom-${l.key}`}
                       value={l.uom}
@@ -350,7 +391,7 @@ export default function NewPurchaseRequestPage() {
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs text-slate-500" htmlFor={`price-${l.key}`}>Unit price</label>
+                    <label className="block text-xs text-slate-500" htmlFor={`price-${l.key}`}>{tr("Unit price", "Harga satuan")}</label>
                     <MoneyInput
                       id={`price-${l.key}`}
                       value={l.unit_price}
@@ -362,19 +403,20 @@ export default function NewPurchaseRequestPage() {
 
                 <div>
                   <label className="block text-xs text-slate-500" htmlFor={`purpose-${l.key}`}>
-                    What is it for
+                    {tr("What is it for", "Untuk apa")}
                   </label>
                   <input
                     id={`purpose-${l.key}`}
                     value={l.purpose}
                     onChange={(e) => patch(l.key, { purpose: e.target.value })}
-                    placeholder="e.g. Table tops, VILLA SEMINYAK — kiln-dried only"
+                    placeholder={tr("e.g. Table tops, VILLA SEMINYAK — kiln-dried only", "mis. Daun meja, VILLA SEMINYAK — hanya kiln-dried")}
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                   <p className="mt-1 text-[11px] text-slate-500">
-                    The one field that turns a price into a decision. Each item can be
-                    for a different job — that is why it lives here and not on the
-                    request as a whole.
+                    {tr(
+                      "The one field that turns a price into a decision. Each item can be for a different job — that is why it lives here and not on the request as a whole.",
+                      "Satu-satunya isian yang mengubah harga menjadi keputusan. Setiap barang bisa untuk pekerjaan berbeda — karena itu isian ini ada di sini, bukan di permintaan secara keseluruhan.",
+                    )}
                   </p>
                 </div>
 
@@ -384,7 +426,7 @@ export default function NewPurchaseRequestPage() {
                     (D152). */}
                 <div>
                   <label className="block text-xs text-slate-500" htmlFor={`wo-${l.key}`}>
-                    For which job in production
+                    {tr("For which job in production", "Untuk pekerjaan produksi yang mana")}
                   </label>
                   <select
                     id={`wo-${l.key}`}
@@ -404,19 +446,20 @@ export default function NewPurchaseRequestPage() {
                     }}
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
                   >
-                    <option value="">— not tied to a job —</option>
+                    <option value="">{tr("— not tied to a job —", "— tidak terkait pekerjaan —")}</option>
                     {wos.status === "ready" && wos.data.map((w) => (
                       <option key={w.wo_no} value={w.wo_no}>
                         {w.item_name} · {w.wo_no}
                         {w.project_code ? ` · ${w.project_code}` : ""}
-                        {` · jatuh tempo ${w.due_date}`}
+                        {tr(` · due ${w.due_date}`, ` · jatuh tempo ${w.due_date}`)}
                       </option>
                     ))}
                   </select>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Only jobs that are open. Naming one is what lets this purchase be
-                    counted against that job&rsquo;s BOM projection at the end — leave it
-                    empty for stock, office and anything not for a specific order.
+                    {tr(
+                      "Only jobs that are open. Naming one is what lets this purchase be counted against that job’s BOM projection at the end — leave it empty for stock, office and anything not for a specific order.",
+                      "Hanya pekerjaan yang masih terbuka. Menyebut salah satunya membuat pembelian ini bisa dihitung terhadap proyeksi BOM pekerjaan itu di akhir — kosongkan untuk stok, kantor, dan apa pun yang bukan untuk pesanan tertentu.",
+                    )}
                   </p>
                 </div>
 
@@ -428,15 +471,15 @@ export default function NewPurchaseRequestPage() {
                         value={l.vendor_id}
                         onChange={(v) => patch(l.key, { vendor_id: v })}
                         options={vendorOptions}
-                        placeholder="Search vendors…"
-                        emptyOptionLabel="— not decided yet —"
+                        placeholder={tr("Search vendors…", "Cari vendor…")}
+                        emptyOptionLabel={tr("— not decided yet —", "— belum ditentukan —")}
                         onCreate={(name) => createVendorInline(l.key, name)}
-                        createLabel={(qq) => `Add “${qq}” as a new vendor`}
+                        createLabel={(qq) => tr(`Add “${qq}” as a new vendor`, `Tambahkan “${qq}” sebagai vendor baru`)}
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500" htmlFor={`cat-${l.key}`}>Category</label>
+                    <label className="block text-xs text-slate-500" htmlFor={`cat-${l.key}`}>{tr("Category", "Kategori")}</label>
                     <select
                       id={`cat-${l.key}`}
                       value={l.category}
@@ -450,7 +493,7 @@ export default function NewPurchaseRequestPage() {
 
                 <div className="flex items-baseline justify-between border-t border-slate-100 pt-3">
                   <label className="text-xs text-slate-500" htmlFor={`need-${l.key}`}>
-                    Needed by
+                    {tr("Needed by", "Dibutuhkan tanggal")}
                     <input
                       id={`need-${l.key}`}
                       type="date"
@@ -470,7 +513,7 @@ export default function NewPurchaseRequestPage() {
                 <div className="mt-3 border-t border-slate-100 pt-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="text-[13px] font-medium text-slate-600" htmlFor={`sup-${l.key}`}>
-                      What stands behind it
+                      {tr("What stands behind it", "Pendukungnya")}
                     </label>
                     <select
                       id={`sup-${l.key}`}
@@ -478,7 +521,7 @@ export default function NewPurchaseRequestPage() {
                       onChange={(e) => patch(l.key, { support_kind: e.target.value as SupportKind })}
                       className="rounded-lg border border-slate-200 px-2 py-1 text-sm focus:border-brand-400 focus:outline-none"
                     >
-                      {SUPPORT_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+                      {SUPPORT_KINDS.map((k) => <option key={k} value={k}>{tr(k, SUPPORT_KIND_ID[k])}</option>)}
                     </select>
                     {l.support_kind === "Purchase Order" ? (
                       /* An order is a record here, not a document. Picked from
@@ -489,7 +532,7 @@ export default function NewPurchaseRequestPage() {
                         onChange={(e) => patch(l.key, { against_po_no: e.target.value })}
                         className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">— which order is this against? —</option>
+                        <option value="">{tr("— which order is this against? —", "— terhadap order yang mana? —")}</option>
                         {openPos.status === "ready" && openPos.data.map((p) => (
                           <option key={p.po_no} value={p.po_no}>
                             {p.po_no} · {p.vendor_name} · {formatIDR(p.status_view.contract_value)}
@@ -500,7 +543,7 @@ export default function NewPurchaseRequestPage() {
                       <input
                         type="url"
                         inputMode="url"
-                        placeholder="Paste the shop link or the quotation address"
+                        placeholder={tr("Paste the shop link or the quotation address", "Tempel tautan toko atau alamat penawaran")}
                         value={l.support_url}
                         disabled={Boolean(l.support_file)}
                         onChange={(e) => patch(l.key, { support_url: e.target.value })}
@@ -509,10 +552,10 @@ export default function NewPurchaseRequestPage() {
                     )}
                     {l.support_kind !== "Purchase Order" && (
                       <>
-                        <span className="text-[12px] text-slate-400">or</span>
+                        <span className="text-[12px] text-slate-400">{tr("or", "atau")}</span>
                         <FileEvidence
                           kind={l.support_kind}
-                          label="Attach the quotation or the nota"
+                          label={tr("Attach the quotation or the nota", "Lampirkan penawaran atau nota")}
                           value={l.support_file}
                           onChange={(v) => patch(l.key, { support_file: v })}
                         />
@@ -521,13 +564,18 @@ export default function NewPurchaseRequestPage() {
                   </div>
                   {!hasSupport(l) && l.description.trim() !== "" && (
                     <p className="mt-1.5 text-[12px] text-amber-700">
-                      Nothing behind this yet — leadership will be asked to approve a number
-                      with nothing to check it against, and the meeting board refuses that.
+                      {tr(
+                        "Nothing behind this yet — leadership will be asked to approve a number with nothing to check it against, and the meeting board refuses that.",
+                        "Belum ada pendukungnya — pimpinan akan diminta menyetujui angka tanpa apa pun untuk memeriksanya, dan papan rapat menolak itu.",
+                      )}
                     </p>
                   )}
                   {l.support_file && l.support_url.trim() !== "" && (
                     <p className="mt-1.5 text-[12px] text-slate-500">
-                      The file is what gets filed; the link is ignored while one is attached.
+                      {tr(
+                        "The file is what gets filed; the link is ignored while one is attached.",
+                        "Berkaslah yang diarsipkan; tautan diabaikan selama ada berkas terlampir.",
+                      )}
                     </p>
                   )}
                 </div>
@@ -540,44 +588,51 @@ export default function NewPurchaseRequestPage() {
             icon={Plus}
             onClick={() => setLines((ls) => [...ls, blankLine(`l${++lineSeq.current}`)])}
           >
-            Add another line
+            {tr("Add another line", "Tambah baris lagi")}
           </Button>
         </div>
 
         <div className="space-y-5">
           <Card>
-            <CardHeader title="This request" icon={Info} />
+            <CardHeader title={tr("This request", "Permintaan ini")} icon={Info} />
             <div className="space-y-3 px-5 py-4">
               <div>
-                <label className="block text-xs text-slate-500" htmlFor="pr-project">Project</label>
+                <label className="block text-xs text-slate-500" htmlFor="pr-project">{tr("Project", "Proyek")}</label>
                 <select
                   id="pr-project"
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
                   className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none"
                 >
-                  <option value="">— no project —</option>
+                  <option value="">{tr("— no project —", "— tanpa proyek —")}</option>
                   {projects.status === "ready" && projects.data.filter((p) => p.is_active).map((p) => (
                     <option key={p.id} value={p.id}>{p.code} {p.name}</option>
                   ))}
                 </select>
               </div>
               <p className="text-[11px] text-slate-500">
-                A request can hold items for several jobs and several suppliers.
-                What each item is for is written on the item.
+                {tr(
+                  "A request can hold items for several jobs and several suppliers. What each item is for is written on the item.",
+                  "Satu permintaan bisa berisi barang untuk beberapa pekerjaan dan beberapa pemasok. Kegunaan tiap barang ditulis di barangnya.",
+                )}
               </p>
             </div>
           </Card>
 
           <Card className="sticky top-20">
-            <CardHeader title="Total requested" subtitle={`${usable.length} of ${lines.length} line(s) usable`} />
+            <CardHeader
+              title={tr("Total requested", "Total diminta")}
+              subtitle={tr(`${usable.length} of ${lines.length} line(s) usable`, `${usable.length} dari ${lines.length} baris dapat dipakai`)}
+            />
             <div className="px-5 py-4">
               <p className="text-2xl font-bold tabular-nums tracking-tight text-slate-800">
                 {formatIDR(total)}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {formatNumber(usable.length)} line(s) will be saved. A line needs a
-                description and a quantity above zero.
+                {tr(
+                  `${formatNumber(usable.length)} line(s) will be saved. A line needs a description and a quantity above zero.`,
+                  `${formatNumber(usable.length)} baris akan disimpan. Satu baris butuh deskripsi dan kuantitas di atas nol.`,
+                )}
               </p>
 
               {/* Said before the press, not after. The meeting board already
@@ -586,24 +641,27 @@ export default function NewPurchaseRequestPage() {
               {bareCount > 0 && (
                 <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
                   <strong className="font-semibold">{formatNumber(bareCount)}</strong>{" "}
-                  of these have nothing behind them. They will be saved, but leadership
-                  cannot decide on a number with nothing to check it against — the meeting
-                  board refuses them until something is attached.
+                  {tr(
+                    "of these have nothing behind them. They will be saved, but leadership cannot decide on a number with nothing to check it against — the meeting board refuses them until something is attached.",
+                    "di antaranya tanpa pendukung. Baris itu tetap disimpan, tetapi pimpinan tidak bisa memutuskan angka tanpa apa pun untuk memeriksanya — papan rapat menolaknya sampai ada lampiran.",
+                  )}
                 </p>
               )}
 
               <div className="mt-4 flex flex-col gap-2">
                 <Button icon={Send} onClick={() => save(true)} disabled={!canSave}>
-                  {saving ? "Saving…" : "Submit for approval"}
+                  {saving ? tr("Saving…", "Menyimpan…") : tr("Submit for approval", "Ajukan untuk persetujuan")}
                 </Button>
                 <Button variant="outline" icon={Save} onClick={() => save(false)} disabled={!canSave}>
-                  Save as draft
+                  {tr("Save as draft", "Simpan sebagai draf")}
                 </Button>
               </div>
 
               <p className="mt-3 text-[11px] text-slate-500">
-                A draft is in nobody&rsquo;s queue. Submitting is what puts these lines
-                in front of the CEO.
+                {tr(
+                  "A draft is in nobody’s queue. Submitting is what puts these lines in front of the CEO.",
+                  "Draf tidak ada di antrean siapa pun. Mengajukan adalah yang membawa baris-baris ini ke hadapan CEO.",
+                )}
               </p>
             </div>
           </Card>

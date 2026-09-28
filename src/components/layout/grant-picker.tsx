@@ -10,6 +10,7 @@ import {
   describeGrant, type ModuleName, type ModuleLevel,
 } from "@/lib/roles";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 
 /** The demo access control.
  *
@@ -24,6 +25,7 @@ import { cn } from "@/lib/cn";
 export function GrantPicker({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { session, actAs, setModules, setAuthorities } = useSession();
   const state = useDemo();
+  const tr = useTr();
   if (!session) return null;
 
   const grants = session.modules;
@@ -45,21 +47,22 @@ export function GrantPicker({ open, onClose }: { open: boolean; onClose: () => v
     <Drawer
       open={open}
       onClose={onClose}
-      title="Demo access"
-      subtitle="Change what this account may see and decide, and watch the app follow."
+      title={tr("Demo access", "Akses demo")}
+      subtitle={tr("Change what this account may see and decide, and watch the app follow.", "Ubah apa yang boleh dilihat dan diputuskan akun ini, dan lihat aplikasinya mengikuti.")}
       width="max-w-md"
       footer={
         <p className="text-xs text-slate-500">
-          Access and authority are separate grants. Turning off a module hides its
-          menu entirely; removing an authority leaves the screens but takes away the
-          decision.
+          {tr(
+            "Access and authority are separate grants. Turning off a module hides its menu entirely; removing an authority leaves the screens but takes away the decision.",
+            "Akses dan wewenang adalah izin yang terpisah. Mematikan modul menyembunyikan seluruh menunya; mencabut wewenang membiarkan layarnya tetap ada tetapi mengambil keputusannya.",
+          )}
         </p>
       }
     >
       <div className="space-y-7">
         <section>
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <UserRound className="h-3.5 w-3.5" /> Acting as
+            <UserRound className="h-3.5 w-3.5" /> {tr("Acting as", "Bertindak sebagai")}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {state.users.map((u) => (
@@ -82,7 +85,7 @@ export function GrantPicker({ open, onClose }: { open: boolean; onClose: () => v
 
         <section>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Modules — what opens
+            {tr("Modules — what opens", "Modul — apa yang terbuka")}
           </p>
           <div className="space-y-1.5">
             {MODULES.map((m) => {
@@ -107,7 +110,7 @@ export function GrantPicker({ open, onClose }: { open: boolean; onClose: () => v
                           level === null ? "bg-slate-200 text-slate-700" : "text-slate-400 hover:bg-slate-100",
                         )}
                       >
-                        Off
+                        {tr("Off", "Mati")}
                       </button>
                       {LEVELS.map((l) => (
                         <button
@@ -134,7 +137,7 @@ export function GrantPicker({ open, onClose }: { open: boolean; onClose: () => v
 
         <section>
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <ShieldCheck className="h-3.5 w-3.5" /> Authorities — what may be decided
+            <ShieldCheck className="h-3.5 w-3.5" /> {tr("Authorities — what may be decided", "Wewenang — apa yang boleh diputuskan")}
           </p>
           <div className="space-y-1.5">
             {AUTHORITIES.map((a) => {
@@ -170,11 +173,11 @@ export function GrantPicker({ open, onClose }: { open: boolean; onClose: () => v
 
         <section className="rounded-lg bg-slate-50 px-3 py-3">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Resolved permissions
+            {tr("Resolved permissions", "Izin yang berlaku")}
           </p>
           <div className="flex flex-wrap gap-1">
             {session.permissions.length === 0 ? (
-              <Badge tone="red">none — this account sees nothing</Badge>
+              <Badge tone="red">{tr("none — this account sees nothing", "tidak ada — akun ini tidak melihat apa pun")}</Badge>
             ) : (
               session.permissions.map((p) => (
                 <span key={p} className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-500 ring-1 ring-slate-200">
@@ -191,10 +194,11 @@ export function GrantPicker({ open, onClose }: { open: boolean; onClose: () => v
 
 export function GrantPickerButton({ onOpen }: { onOpen: () => void }) {
   const { session } = useSession();
+  const tr = useTr();
   return (
     <Button variant="outline" size="sm" icon={ShieldCheck} onClick={onOpen}>
-      <span className="hidden sm:inline">{session?.user.full_name ?? "Demo access"}</span>
-      <span className="sm:hidden">Access</span>
+      <span className="hidden sm:inline">{session?.user.full_name ?? tr("Demo access", "Akses demo")}</span>
+      <span className="sm:hidden">{tr("Access", "Akses")}</span>
     </Button>
   );
 }

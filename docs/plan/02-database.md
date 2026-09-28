@@ -681,10 +681,16 @@ constraints matter, and both are enforced rather than intended:
   that actually happens — and deliberately lets `Berkas 201`, `pr-26-09-11_03`
   and a date through, because refusing those teaches whoever hits it to work
   around the check rather than to use `facts`;
-- the **tool catalogue is code, not rows.** A list of what an assistant may
-  reach is a security boundary, and a boundary stored as data somebody can
-  edit at runtime is a boundary with an UPDATE statement in it (D218). So
-  `tools_used` is free text validated against nothing, and that is the point.
+- the **tool catalogue is not editable at runtime.** A list of what an
+  assistant may reach is a security boundary, and a boundary stored as data
+  somebody can edit at runtime is a boundary with an UPDATE statement in it
+  (D218). This bullet first said *code, not rows*; `0038` moved it into
+  `ops_asst.tools` — rows, but rows **only a migration writes** (no
+  insert/update/delete policy, no grant), because a boundary compiled into the
+  bundle is one the reader owns. `0176` added the declared writes on the same
+  terms: `tool_seams` names the seam a Confirm calls, `tool_fields` the card
+  (D317, F170). `tools_used` on a turn is still free text validated against
+  nothing, and that is the point.
 
 Three more the building added:
 

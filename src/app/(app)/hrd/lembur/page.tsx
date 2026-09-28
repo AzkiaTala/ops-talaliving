@@ -13,6 +13,7 @@ import {
   type OvertimeKind, type OvertimeStage, type OvertimeSheetView,
 } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 import { NewSheet } from "./NewSheet";
 import { SheetDrawer } from "./SheetDrawer";
 
@@ -46,6 +47,7 @@ const STAGE_TONE: Record<OvertimeStage, "amber" | "violet" | "brand" | "green" |
 
 export default function OvertimePage() {
   const { can } = useSession();
+  const tr = useTr();
   const [sheets, reload] = useLoad(() => hr.listOvertimeSheets(), []);
   const [creating, setCreating] = useState<OvertimeKind | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -58,12 +60,15 @@ export default function OvertimePage() {
     <div>
       <PageHeader
         breadcrumb="HRD"
-        title="Lembur"
-        description="Dua jenis lembar. Produksi: satu malam, banyak nama, ditandatangani pimpinan. Staff: satu sesi, satu laporan, HRD yang memutuskan — dan dibayar kecuali dikatakan lain."
+        title={tr("Overtime", "Lembur")}
+        description={tr(
+          "Two kinds of sheet. Production: one night, many names, signed by leadership. Staff: one session, one report, HRD decides — and it is paid unless said otherwise.",
+          "Dua jenis lembar. Produksi: satu malam, banyak nama, ditandatangani pimpinan. Staff: satu sesi, satu laporan, HRD yang memutuskan — dan dibayar kecuali dikatakan lain.",
+        )}
         actions={mayEdit ? (
           <div className="flex flex-wrap gap-2">
-            <Button icon={Factory} onClick={() => setCreating("production")}>Lembar produksi</Button>
-            <Button icon={Laptop} variant="outline" onClick={() => setCreating("staff")}>Sesi staff</Button>
+            <Button icon={Factory} onClick={() => setCreating("production")}>{tr("Production sheet", "Lembar produksi")}</Button>
+            <Button icon={Laptop} variant="outline" onClick={() => setCreating("staff")}>{tr("Staff session", "Sesi staff")}</Button>
           </div>
         ) : undefined}
       />
@@ -80,16 +85,16 @@ export default function OvertimePage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["Menunggu tanda tangan", String(waiting.length), `${formatNumber(hours(waiting))} jam belum masuk payslip`],
-                    ["Dibayar, belum ditinjau", String(unreviewed.length), "sesi staff — default dibayar"],
-                    ["Lembar produksi", String(all.filter((s) => s.kind === "production").length), "satu malam, banyak nama"],
-                    ["Sesi staff", String(all.filter((s) => s.kind === "staff").length), "satu sesi, satu laporan"],
+                    [tr("Waiting for signature", "Menunggu tanda tangan"), String(waiting.length), tr(`${formatNumber(hours(waiting))} hours not yet on a payslip`, `${formatNumber(hours(waiting))} jam belum masuk payslip`)],
+                    [tr("Paid, not yet reviewed", "Dibayar, belum ditinjau"), String(unreviewed.length), tr("staff sessions — paid by default", "sesi staff — default dibayar")],
+                    [tr("Production sheets", "Lembar produksi"), String(all.filter((s) => s.kind === "production").length), tr("one night, many names", "satu malam, banyak nama")],
+                    [tr("Staff sessions", "Sesi staff"), String(all.filter((s) => s.kind === "staff").length), tr("one session, one report", "satu sesi, satu laporan")],
                   ] as [string, string, string][]).map(([k, v, note]) => (
                     <div key={k} className="px-4 py-3.5">
                       <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                       <dd className={cn(
                         "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                        k === "Menunggu tanda tangan" && waiting.length > 0 ? "text-amber-700" : "text-slate-800",
+                        k === tr("Waiting for signature", "Menunggu tanda tangan") && waiting.length > 0 ? "text-amber-700" : "text-slate-800",
                       )}>
                         {v}
                       </dd>
@@ -101,14 +106,14 @@ export default function OvertimePage() {
 
               <Card>
                 <CardHeader
-                  title={`${all.length} lembar`}
-                  subtitle="Klik untuk melihat siapa saja, berapa jam, dan apa yang dikerjakan."
+                  title={tr(`${all.length} sheets`, `${all.length} lembar`)}
+                  subtitle={tr("Click to see who, how many hours, and what was worked on.", "Klik untuk melihat siapa saja, berapa jam, dan apa yang dikerjakan.")}
                   icon={Clock}
                   action={<SourceBadge state={sheets} />}
                 />
                 <ul className="divide-y divide-slate-100">
                   {all.length === 0 && (
-                    <li className="px-5 py-8 text-[13px] text-slate-500">Belum ada lembar lembur.</li>
+                    <li className="px-5 py-8 text-[13px] text-slate-500">{tr("No overtime sheets yet.", "Belum ada lembar lembur.")}</li>
                   )}
                   {rows.map((s) => (
                     <li key={s.id}>
@@ -129,7 +134,7 @@ export default function OvertimePage() {
                           </span>
                         </span>
                         <span className="whitespace-nowrap text-[12px] text-slate-600">
-                          {s.lines.length} orang · {formatNumber(s.total_hours)} jam
+                          {tr(`${s.lines.length} people · ${formatNumber(s.total_hours)} hours`, `${s.lines.length} orang · ${formatNumber(s.total_hours)} jam`)}
                         </span>
                         {s.kind === "production" && s.lines.some((l) => l.wo_no) && (
                           <Badge tone="slate">
@@ -145,7 +150,10 @@ export default function OvertimePage() {
                 {mayEdit && (
                   <p className="flex items-center gap-2 border-t border-slate-100 px-5 py-2.5 text-[11px] text-slate-500">
                     <Plus className="h-3.5 w-3.5" />
-                    Jam lembur hanya masuk payslip setelah lembarnya lengkap — produksi butuh surat dan tanda tangan pimpinan, staff cukup laporan.
+                    {tr(
+                      "Overtime hours reach the payslip only once the sheet is complete — production needs the surat and leadership's signature, staff only a report.",
+                      "Jam lembur hanya masuk payslip setelah lembarnya lengkap — produksi butuh surat dan tanda tangan pimpinan, staff cukup laporan.",
+                    )}
                   </p>
                 )}
               </Card>

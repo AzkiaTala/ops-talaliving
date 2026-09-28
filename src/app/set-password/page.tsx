@@ -8,6 +8,7 @@ import { useBrand } from "@/lib/brand";
 import { identity } from "@/demo/api";
 import { isLiveMode } from "@/lib/live";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useTr } from "@/lib/i18n";
 
 /** Set a password.
  *
@@ -69,13 +70,15 @@ export default function SetPasswordPage() {
 }
 
 function NotInDemo() {
+  const tr = useTr();
   return (
     <Card className="px-5 py-5">
-      <h1 className="text-base font-semibold text-slate-800">Tidak ada kata sandi di sini</h1>
+      <h1 className="text-base font-semibold text-slate-800">{tr("No password here", "Tidak ada kata sandi di sini")}</h1>
       <p className="mt-2 text-sm text-slate-500">
-        Mode demo tidak memeriksa kata sandi — memilih orang di halaman masuk
-        adalah masuknya. Halaman ini hanya berarti pada deployment yang
-        tersambung ke database.
+        {tr(
+          "Demo mode does not check passwords — choosing a person on the sign-in page is the sign-in. This page only means something on a deployment connected to the database.",
+          "Mode demo tidak memeriksa kata sandi — memilih orang di halaman masuk adalah masuknya. Halaman ini hanya berarti pada deployment yang tersambung ke database.",
+        )}
       </p>
     </Card>
   );
@@ -93,6 +96,7 @@ function Form() {
   const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tr = useTr();
 
   useEffect(() => {
     /* Read before touching the client: GoTrue reports a dead link in the
@@ -125,7 +129,7 @@ function Form() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (password !== again) { setError("Dua isian itu tidak sama."); return; }
+    if (password !== again) { setError(tr("The two entries do not match.", "Dua isian itu tidak sama.")); return; }
     setBusy(true);
     setError(null);
 
@@ -143,7 +147,7 @@ function Form() {
     return (
       <Card className="flex items-center gap-3 px-5 py-6 text-sm text-slate-500">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Memeriksa tautan…
+        {tr("Checking the link…", "Memeriksa tautan…")}
       </Card>
     );
   }
@@ -154,11 +158,12 @@ function Form() {
         <div className="flex items-start gap-2 text-[13px] text-rose-900">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="font-medium">Tautan ini tidak bisa dipakai.</p>
+            <p className="font-medium">{tr("This link cannot be used.", "Tautan ini tidak bisa dipakai.")}</p>
             <p className="mt-1 text-slate-600">
-              Tautan pemulihan hanya sekali pakai dan kedaluwarsa setelah satu
-              jam. Minta yang baru dari halaman masuk, lalu buka dari email yang
-              sama di perangkat ini.
+              {tr(
+                "A recovery link works once and expires after one hour. Ask for a new one from the sign-in page, then open it from the same email on this device.",
+                "Tautan pemulihan hanya sekali pakai dan kedaluwarsa setelah satu jam. Minta yang baru dari halaman masuk, lalu buka dari email yang sama di perangkat ini.",
+              )}
             </p>
             {linkError && (
               <p className="mt-2 font-mono text-[11px] text-slate-400">{linkError}</p>
@@ -166,7 +171,7 @@ function Form() {
           </div>
         </div>
         <Button className="mt-4 w-full" onClick={() => router.push("/signin")}>
-          Kembali ke halaman masuk
+          {tr("Back to sign in", "Kembali ke halaman masuk")}
         </Button>
       </Card>
     );
@@ -176,7 +181,7 @@ function Form() {
     return (
       <Card className="flex items-center gap-3 px-5 py-6 text-sm text-slate-700">
         <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-        Kata sandi tersimpan. Mengalihkan…
+        {tr("Password saved. Redirecting…", "Kata sandi tersimpan. Mengalihkan…")}
       </Card>
     );
   }
@@ -184,16 +189,16 @@ function Form() {
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-4">
-        <h1 className="text-base font-semibold text-slate-800">Buat kata sandi</h1>
+        <h1 className="text-base font-semibold text-slate-800">{tr("Create a password", "Buat kata sandi")}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Setelah tersimpan, Anda langsung masuk. Tautan pemulihannya hangus.
+          {tr("Once saved, you are signed in straight away. The recovery link is used up.", "Setelah tersimpan, Anda langsung masuk. Tautan pemulihannya hangus.")}
         </p>
       </div>
 
       <form onSubmit={submit} className="space-y-4 px-5 py-5">
         <div>
           <label htmlFor="pw" className="block text-[13px] font-medium text-slate-700">
-            Kata sandi baru
+            {tr("New password", "Kata sandi baru")}
           </label>
           <input
             id="pw" type="password" value={password} required autoFocus minLength={8}
@@ -201,12 +206,12 @@ function Form() {
             onChange={(e) => setPassword(e.target.value)}
             className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           />
-          <p className="mt-1 text-[11px] text-slate-400">Minimal 8 karakter.</p>
+          <p className="mt-1 text-[11px] text-slate-400">{tr("At least 8 characters.", "Minimal 8 karakter.")}</p>
         </div>
 
         <div>
           <label htmlFor="pw2" className="block text-[13px] font-medium text-slate-700">
-            Ulangi
+            {tr("Repeat", "Ulangi")}
           </label>
           <input
             id="pw2" type="password" value={again} required minLength={8}
@@ -227,7 +232,7 @@ function Form() {
           type="submit" icon={KeyRound} className="w-full"
           disabled={busy || password.length < 8 || again.length < 8}
         >
-          {busy ? "Menyimpan…" : "Simpan kata sandi"}
+          {busy ? tr("Saving…", "Menyimpan…") : tr("Save password", "Simpan kata sandi")}
         </Button>
       </form>
     </Card>

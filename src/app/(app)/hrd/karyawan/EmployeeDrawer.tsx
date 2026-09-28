@@ -11,6 +11,7 @@ import { hr } from "@/demo/api";
 import { useLoad } from "@/components/ui/loaded";
 import type { Employee, PayBasis } from "@/services/hr/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Somebody's name, and what their time costs.
  *
@@ -26,6 +27,7 @@ export function EmployeeDrawer({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [no, setNo] = useState(employee?.employee_no ?? "");
   const [name, setName] = useState(employee?.full_name ?? "");
@@ -68,23 +70,25 @@ export function EmployeeDrawer({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not saved", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
       return;
     }
-    toast("success", employee ? "Updated" : "Added", `${name} · ${formatIDR(rate)} ${basis === "monthly" ? "per month" : basis === "daily" ? "per day" : "per hour"}`);
+    toast("success", employee ? tr("Updated", "Diperbarui") : tr("Added", "Ditambahkan"), `${name} · ${formatIDR(rate)} ${basis === "monthly" ? tr("per month", "per bulan") : basis === "daily" ? tr("per day", "per hari") : tr("per hour", "per jam")}`);
     onSaved();
   }
 
   return (
     <Drawer
       open onClose={onClose} width="max-w-lg"
-      title={employee ? employee.full_name : "New employee"}
-      subtitle={employee ? `${employee.employee_no} · joined ${employee.joined_on}` : "The number has to match the fingerprint machine."}
+      title={employee ? employee.full_name : tr("New employee", "Karyawan baru")}
+      subtitle={employee
+        ? tr(`${employee.employee_no} · joined ${employee.joined_on}`, `${employee.employee_no} · masuk ${employee.joined_on}`)
+        : tr("The number has to match the fingerprint machine.", "Nomornya harus sama dengan mesin sidik jari.")}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
           <Button icon={Save} onClick={save} disabled={busy || !name.trim() || !no.trim() || rate <= 0}>
-            {busy ? "Saving…" : "Save"}
+            {busy ? tr("Saving…", "Menyimpan…") : tr("Save", "Simpan")}
           </Button>
         </div>
       }
@@ -92,32 +96,32 @@ export function EmployeeDrawer({
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="e-no" className="block text-xs text-slate-500">Number on the machine</label>
+            <label htmlFor="e-no" className="block text-xs text-slate-500">{tr("Number on the machine", "Nomor di mesin")}</label>
             <input
               id="e-no" value={no} onChange={(e) => setNo(e.target.value)}
               disabled={!!employee}
               placeholder="T-034"
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
             />
-            {employee && <p className="mt-1 text-[11px] text-slate-500">Fixed — attendance is filed against it.</p>}
+            {employee && <p className="mt-1 text-[11px] text-slate-500">{tr("Fixed — attendance is filed against it.", "Tetap — absensi dicatat atas nomor ini.")}</p>}
           </div>
           <div>
-            <label htmlFor="e-name" className="block text-xs text-slate-500">Full name</label>
+            <label htmlFor="e-name" className="block text-xs text-slate-500">{tr("Full name", "Nama lengkap")}</label>
             <input
               id="e-name" value={name} onChange={(e) => setName(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="e-pos" className="block text-xs text-slate-500">Position</label>
+            <label htmlFor="e-pos" className="block text-xs text-slate-500">{tr("Position", "Jabatan")}</label>
             <input
               id="e-pos" value={position} onChange={(e) => setPosition(e.target.value)}
-              placeholder="Tukang Kayu"
+              placeholder={tr("Carpenter", "Tukang Kayu")}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="e-unit" className="block text-xs text-slate-500">Unit</label>
+            <label htmlFor="e-unit" className="block text-xs text-slate-500">{tr("Unit", "Unit")}</label>
             <input
               id="e-unit" value={unit} onChange={(e) => setUnit(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
@@ -134,34 +138,37 @@ export function EmployeeDrawer({
             the guard on a twelve-hour shift and the house assistant need: a
             fact about them, not about their unit. */}
         <div>
-          <label htmlFor="e-sched" className="block text-xs text-slate-500">Jadwal kerja</label>
+          <label htmlFor="e-sched" className="block text-xs text-slate-500">{tr("Work schedule", "Jadwal kerja")}</label>
           <select
             id="e-sched" value={schedule} onChange={(e) => setSchedule(e.target.value)}
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           >
             <option value="">
-              Ikut bawaan unit{unitDefault ? ` — ${unitDefault.name}` : " (unitnya belum punya bawaan)"}
+              {tr("Follow unit default", "Ikut bawaan unit")}{unitDefault ? ` — ${unitDefault.name}` : tr(" (the unit has no default yet)", " (unitnya belum punya bawaan)")}
             </option>
             {schedules.map((sc) => (
               <option key={sc.code} value={sc.code}>
                 {sc.name}
-                {sc.hours.weekly_hours != null ? ` · ${sc.hours.weekly_hours} jam/minggu` : " · jam belum ditetapkan"}
+                {sc.hours.weekly_hours != null ? tr(` · ${sc.hours.weekly_hours} h/week`, ` · ${sc.hours.weekly_hours} jam/minggu`) : tr(" · hours not set yet", " · jam belum ditetapkan")}
               </option>
             ))}
           </select>
           <p className="mt-1 text-[11px] text-slate-500">
             {schedule
-              ? "Dipasang ke orang ini. Pindah unit tidak mengubahnya."
+              ? tr("Assigned to this person. Moving units does not change it.", "Dipasang ke orang ini. Pindah unit tidak mengubahnya.")
               : unitDefault
-                ? "Mengikuti unitnya. Pindah unit, jamnya ikut pindah."
-                : "Unit ini belum punya jadwal bawaan, jadi tidak ada jam yang bisa dipakai menilai ketepatan waktunya."}
+                ? tr("Follows the unit. Move units and the hours move too.", "Mengikuti unitnya. Pindah unit, jamnya ikut pindah.")
+                : tr(
+                  "This unit has no default schedule yet, so there are no hours to judge punctuality against.",
+                  "Unit ini belum punya jadwal bawaan, jadi tidak ada jam yang bisa dipakai menilai ketepatan waktunya.",
+                )}
           </p>
         </div>
 
         <div>
-          <span className="block text-xs text-slate-500">How they are paid</span>
+          <span className="block text-xs text-slate-500">{tr("How they are paid", "Cara dibayar")}</span>
           <div className="mt-1 flex flex-wrap gap-2">
-            {([["monthly", "Monthly salary"], ["daily", "Per day"], ["hourly", "Per hour"]] as [PayBasis, string][]).map(([b, label]) => (
+            {([["monthly", tr("Monthly salary", "Gaji bulanan")], ["daily", tr("Per day", "Per hari")], ["hourly", tr("Per hour", "Per jam")]] as [PayBasis, string][]).map(([b, label]) => (
               <Button key={b} size="sm" variant={basis === b ? "primary" : "outline"} onClick={() => setBasis(b)}>
                 {label}
               </Button>
@@ -172,12 +179,12 @@ export function EmployeeDrawer({
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="e-rate" className="block text-xs text-slate-500">
-              {basis === "monthly" ? "Salary, per month" : basis === "daily" ? "Rate, per day" : "Rate, per hour"}
+              {basis === "monthly" ? tr("Salary, per month", "Gaji, per bulan") : basis === "daily" ? tr("Rate, per day", "Tarif, per hari") : tr("Rate, per hour", "Tarif, per jam")}
             </label>
             <MoneyInput id="e-rate" value={rate} onChange={setRate} className="mt-1" />
             {changed && (
               <p className="mt-1 text-[11px] text-amber-700">
-                {formatIDR(employee!.base_rate)} → {formatIDR(rate)} · both figures go on the audit row.
+                {formatIDR(employee!.base_rate)} → {formatIDR(rate)} · {tr("both figures go on the audit row.", "kedua angka dicatat di baris audit.")}
               </p>
             )}
           </div>
@@ -185,40 +192,45 @@ export function EmployeeDrawer({
             {/* Per day for everybody, whatever the pokok is quoted in — that is
                 how the owner described it, and how it is paid (D250). */}
             <label htmlFor="e-allowance" className="block text-xs text-slate-500">
-              Tunjangan, per hari hadir
+              {tr("Allowance, per day present", "Tunjangan, per hari hadir")}
             </label>
             <MoneyInput id="e-allowance" value={allowance} onChange={setAllowance} className="mt-1" />
             {allowanceChanged ? (
               <p className="mt-1 text-[11px] text-amber-700">
-                {formatIDR(employee!.allowance_rate)} → {formatIDR(allowance)} · dicatat di baris audit.
+                {formatIDR(employee!.allowance_rate)} → {formatIDR(allowance)} · {tr("recorded on the audit row.", "dicatat di baris audit.")}
               </p>
             ) : (
               <p className="mt-1 text-[11px] text-slate-500">
-                Dibayar per hari orangnya hadir. Nol berarti gajinya memang belum dipisah — dan selama
-                nol, tidak ada angka orang ini yang berubah.
+                {tr(
+                  "Paid per day the person is present. Zero means the pay has not been split yet — and while it is zero, none of this person's figures change.",
+                  "Dibayar per hari orangnya hadir. Nol berarti gajinya memang belum dipisah — dan selama nol, tidak ada angka orang ini yang berubah.",
+                )}
               </p>
             )}
           </div>
           <div>
-            <label htmlFor="e-hours" className="block text-xs text-slate-500">Hours in a standard day</label>
+            <label htmlFor="e-hours" className="block text-xs text-slate-500">{tr("Hours in a standard day", "Jam dalam sehari standar")}</label>
             <NumberInput id="e-hours" value={hours} min={1} max={24} onChange={setHours} className="mt-1" />
-            <p className="mt-1 text-[11px] text-slate-500">Anything past this is overtime — claimed, then approved twice.</p>
+            <p className="mt-1 text-[11px] text-slate-500">{tr("Anything past this is overtime — claimed, then approved twice.", "Lewat dari ini adalah lembur — diajukan, lalu disetujui dua kali.")}</p>
           </div>
           <div>
-            <label htmlFor="e-joined" className="block text-xs text-slate-500">Tanggal masuk</label>
+            <label htmlFor="e-joined" className="block text-xs text-slate-500">{tr("Start date", "Tanggal masuk")}</label>
             <input
               id="e-joined" type="date" value={joined} onChange={(e) => setJoined(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
-            <p className="mt-1 text-[11px] text-slate-500">Hari pertama kerja. Kosong berarti hari ini.</p>
+            <p className="mt-1 text-[11px] text-slate-500">{tr("First working day. Empty means today.", "Hari pertama kerja. Kosong berarti hari ini.")}</p>
           </div>
           <div>
-            <label htmlFor="e-leave" className="block text-xs text-slate-500">Hak cuti berbayar, per tahun</label>
+            <label htmlFor="e-leave" className="block text-xs text-slate-500">{tr("Paid leave entitlement, per year", "Hak cuti berbayar, per tahun")}</label>
             <NumberInput id="e-leave" value={leave} min={0} max={60} onChange={setLeave} className="mt-1" />
             {/* Per person, because the owner said so: length of service and
                 what was agreed at hiring both move it (D144). */}
             <p className="mt-1 text-[11px] text-slate-500">
-              Different for everybody. Cuti inside this number is paid; days past it are recorded and not paid.
+              {tr(
+                "Different for everybody. Leave within this number is paid; days past it are recorded and not paid.",
+                "Berbeda untuk setiap orang. Cuti dalam jumlah ini dibayar; hari yang melebihinya tercatat dan tidak dibayar.",
+              )}
             </p>
           </div>
         </div>

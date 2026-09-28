@@ -13,6 +13,7 @@ import { procurement } from "@/demo/api";
 import { type PrLineView, type UomCode, type Vendor } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
 import { UomOptions } from "@/components/ui/uom-options";
+import { useTr } from "@/lib/i18n";
 
 /** Placing an order from the tracker (D100).
  *
@@ -48,6 +49,7 @@ function orderable(l: PrLineView): boolean {
 }
 
 export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [vendors] = useLoad(() => procurement.listVendors({ curated: true }), []);
   const [openLines] = useLoad(() => procurement.listOpenLines(), []);
@@ -98,7 +100,7 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not created", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not created", "Tidak dibuat"), res.error.message);
       return;
     }
     /* Which road it took is read off the answer, never assumed from the form.
@@ -109,10 +111,18 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
     const value = formatIDR(res.data.lines.reduce((s, l) => s + l.line_total, 0));
     toast(
       "success",
-      res.data.self_confirmed ? `${res.data.po_no} dibuat dan dikonfirmasi` : `${res.data.po_no} drafted`,
       res.data.self_confirmed
-        ? `${res.data.vendor_name} · ${value} — Anda memegang wewenangnya, jadi konfirmasinya tercatat sekaligus. Tinggal dikirim ke pemasok.`
-        : `${res.data.vendor_name} · ${value} — ask leadership to confirm it before it goes to the supplier`,
+        ? tr(`${res.data.po_no} created and confirmed`, `${res.data.po_no} dibuat dan dikonfirmasi`)
+        : tr(`${res.data.po_no} drafted`, `${res.data.po_no} dibuat sebagai draf`),
+      res.data.self_confirmed
+        ? tr(
+          `${res.data.vendor_name} · ${value} — you hold the authority, so the confirmation is recorded at the same time. It only has to be sent to the supplier.`,
+          `${res.data.vendor_name} · ${value} — Anda memegang wewenangnya, jadi konfirmasinya tercatat sekaligus. Tinggal dikirim ke pemasok.`,
+        )
+        : tr(
+          `${res.data.vendor_name} · ${value} — ask leadership to confirm it before it goes to the supplier`,
+          `${res.data.vendor_name} · ${value} — minta pimpinan mengonfirmasinya sebelum dikirim ke pemasok`,
+        ),
     );
     onCreated();
   }
@@ -122,24 +132,24 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
       open
       onClose={onClose}
       width="max-w-2xl"
-      title="New purchase order"
-      subtitle="What we are ordering, from whom, at what price."
+      title={tr("New purchase order", "Purchase order baru")}
+      subtitle={tr("What we are ordering, from whom, at what price.", "Apa yang kita pesan, dari siapa, dengan harga berapa.")}
       footer={
         <div className="flex flex-wrap items-center gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-400">Contract value</p>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Contract value", "Nilai kontrak")}</p>
             <p className="text-lg font-bold tabular-nums text-slate-800">{formatIDR(total)}</p>
           </div>
           {dpPercent > 0 && (
             <p className="text-[12px] text-slate-500">
-              {dpPercent}% deposit — <strong className="text-slate-700">{formatIDR(deposit)}</strong>{" "}
-              payable once the order is issued
+              {dpPercent}% {tr("deposit", "DP")} — <strong className="text-slate-700">{formatIDR(deposit)}</strong>{" "}
+              {tr("payable once the order is issued", "dibayar begitu order diterbitkan")}
             </p>
           )}
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
             <Button icon={FileText} onClick={create} disabled={busy || !ready}>
-              {busy ? "Creating…" : "Create the draft"}
+              {busy ? tr("Creating…", "Membuat…") : tr("Create the draft", "Buat draf")}
             </Button>
           </div>
         </div>
@@ -147,12 +157,12 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
     >
       <div className="space-y-4">
         <div>
-          <label className="block text-xs text-slate-500">Vendor</label>
+          <label className="block text-xs text-slate-500">{tr("Vendor", "Vendor")}</label>
           <div className="mt-1">
             <Combobox
               value={vendorId}
               onChange={setVendorId}
-              placeholder="Search suppliers…"
+              placeholder={tr("Search suppliers…", "Cari pemasok…")}
               options={vendors.status === "ready"
                 ? vendors.data.map((v: Vendor) => ({ value: v.id, label: v.name }))
                 : []}
@@ -160,33 +170,36 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
           </div>
           {!vendorId && (
             <p className="mt-1 text-[11px] text-slate-500">
-              An order is placed with somebody — the tracker files it under this name.
+              {tr(
+                "An order is placed with somebody — the tracker files it under this name.",
+                "Order selalu ditujukan ke seseorang — pelacak menyimpannya di bawah nama ini.",
+              )}
             </p>
           )}
         </div>
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="block text-xs text-slate-500">Items</label>
+            <label className="block text-xs text-slate-500">{tr("Items", "Barang")}</label>
             <Button
               variant="ghost" size="sm" icon={Plus}
               onClick={() => setLines((prev) => [...prev, { ...EMPTY }])}
             >
-              Add a line
+              {tr("Add a line", "Tambah baris")}
             </Button>
           </div>
           <div className="mt-1 space-y-2">
             {lines.map((l, i) => (
               <div key={i} className="grid gap-2 rounded-lg border border-slate-200 px-3 py-2.5 sm:grid-cols-12">
                 <div className="sm:col-span-12">
-                  <label htmlFor={`po-pr-${i}`} className="block text-[11px] text-slate-500">From request line (optional)</label>
+                  <label htmlFor={`po-pr-${i}`} className="block text-[11px] text-slate-500">{tr("From request line (optional)", "Dari baris permintaan (opsional)")}</label>
                   <select
                     id={`po-pr-${i}`}
                     value={l.pr_line_no}
                     onChange={(e) => pickRequestLine(i, e.target.value)}
                     className="mt-1 h-8 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-[13px] focus:border-brand-400 focus:outline-none"
                   >
-                    <option value="">— not from a request —</option>
+                    <option value="">{tr("— not from a request —", "— bukan dari permintaan —")}</option>
                     {candidates.map((c) => (
                       <option key={c.line_no_full} value={c.line_no_full}>
                         {c.line_no_full} · {c.description} · {c.qty} {c.uom}
@@ -195,21 +208,21 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   </select>
                 </div>
                 <div className="sm:col-span-5">
-                  <label htmlFor={`po-desc-${i}`} className="block text-[11px] text-slate-500">Item</label>
+                  <label htmlFor={`po-desc-${i}`} className="block text-[11px] text-slate-500">{tr("Item", "Barang")}</label>
                   <input
                     id={`po-desc-${i}`}
                     value={l.description}
                     onChange={(e) => setLine(i, { description: e.target.value })}
-                    placeholder="e.g. KACA TEMPERED 12MM"
+                    placeholder={tr("e.g. KACA TEMPERED 12MM", "mis. KACA TEMPERED 12MM")}
                     className="mt-1 h-8 w-full rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label htmlFor={`po-qty-${i}`} className="block text-[11px] text-slate-500">Qty</label>
+                  <label htmlFor={`po-qty-${i}`} className="block text-[11px] text-slate-500">{tr("Qty", "Jml")}</label>
                   <NumberInput id={`po-qty-${i}`} size="sm" value={l.qty} min={0} onChange={(qty) => setLine(i, { qty })} className="mt-1" />
                 </div>
                 <div className="sm:col-span-2">
-                  <label htmlFor={`po-uom-${i}`} className="block text-[11px] text-slate-500">Unit</label>
+                  <label htmlFor={`po-uom-${i}`} className="block text-[11px] text-slate-500">{tr("Unit", "Satuan")}</label>
                   <select
                     id={`po-uom-${i}`}
                     value={l.uom}
@@ -220,7 +233,7 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
                   </select>
                 </div>
                 <div className="sm:col-span-3">
-                  <label htmlFor={`po-price-${i}`} className="block text-[11px] text-slate-500">Unit price</label>
+                  <label htmlFor={`po-price-${i}`} className="block text-[11px] text-slate-500">{tr("Unit price", "Harga satuan")}</label>
                   <MoneyInput id={`po-price-${i}`} size="sm" value={l.unit_price} onChange={(unit_price) => setLine(i, { unit_price })} className="mt-1" />
                 </div>
                 <div className="flex items-center justify-between sm:col-span-12">
@@ -232,7 +245,7 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
                       variant="ghost" size="sm" icon={Trash2}
                       onClick={() => setLines((prev) => prev.filter((_, n) => n !== i))}
                     >
-                      Remove
+                      {tr("Remove", "Hapus")}
                     </Button>
                   )}
                 </div>
@@ -243,24 +256,26 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="po-dp" className="block text-xs text-slate-500">Deposit (%)</label>
+            <label htmlFor="po-dp" className="block text-xs text-slate-500">{tr("Deposit (%)", "DP (%)")}</label>
             <NumberInput id="po-dp" value={dpPercent} min={0} max={100} onChange={setDpPercent} className="mt-1" />
             <p className="mt-1 text-[11px] text-slate-500">
-              Leave at 0 when nothing is paid up front. A deposit becomes payable
-              when the order is issued, not when it is typed.
+              {tr(
+                "Leave at 0 when nothing is paid up front. A deposit becomes payable when the order is issued, not when it is typed.",
+                "Biarkan 0 jika tidak ada pembayaran di muka. DP jatuh tempo saat order diterbitkan, bukan saat diketik.",
+              )}
             </p>
           </div>
           <div>
-            <label htmlFor="po-note" className="block text-xs text-slate-500">Note (optional)</label>
+            <label htmlFor="po-note" className="block text-xs text-slate-500">{tr("Note (optional)", "Catatan (opsional)")}</label>
             <input
               id="po-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. delivery to HOTEL UBUD, week 3"
+              placeholder={tr("e.g. delivery to HOTEL UBUD, week 3", "mis. kirim ke HOTEL UBUD, minggu ke-3")}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
             <label htmlFor="po-expected" className="mt-3 block text-xs text-slate-500">
-              Expected delivery
+              {tr("Expected delivery", "Perkiraan pengiriman")}
             </label>
             <input
               id="po-expected"
@@ -270,8 +285,10 @@ export function NewPo({ onClose, onCreated }: { onClose: () => void; onCreated: 
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
             <p className="mt-1 text-[11px] text-slate-500">
-              What the vendor says. It is the only thing that makes a delivery late
-              rather than merely absent.
+              {tr(
+                "What the vendor says. It is the only thing that makes a delivery late rather than merely absent.",
+                "Sesuai kata vendor. Hanya ini yang membuat kiriman bisa disebut terlambat, bukan sekadar belum ada.",
+              )}
             </p>
           </div>
         </div>

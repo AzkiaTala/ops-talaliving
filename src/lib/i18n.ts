@@ -16,9 +16,10 @@
  *  the whole app is navigated by — and **all of John Lau**, including his
  *  guidance, his refusals and the reasons behind them.
  *
- *  **Not translated**: the bodies of the screens. Forty-five screens of prose
- *  is a different order of work, and half of it would still be Indonesian on
- *  the day it shipped.
+ *  **Translated since D318**: the bodies of the screens too — every heading,
+ *  label, button, help line, empty state and toast, through `useTr()`.
+ *  Content that comes out of the database (names, remarks, a vendor's own
+ *  words, setting labels) is shown as stored.
  *
  *  **Never translated**: the business's own vocabulary. `MSG SENT`, `SP NORTH`,
  *  `PKWT`, `kubikasi`, account codes, status strings. Those are not English or
@@ -30,7 +31,7 @@
  *  change the language is the same shape of lie as a figure that looks
  *  computed and was typed.
  */
-import { useDemo } from "@/demo/provider";
+import { useSyncExternalStore } from "react";
 
 export type Lang = "en" | "id";
 
@@ -50,33 +51,90 @@ export function pick(m: Message, lang: Lang): string {
   return m[lang];
 }
 
+/** The language is a **viewer's** choice, not the company's (D318).
+ *
+ *  It used to be one row in `app_settings`, which made the language of every
+ *  screen a company-wide setting: one person switching to Indonesian switched
+ *  it for everybody. What language somebody reads in is about the reader, so
+ *  it lives in this browser — the toggle in the topbar — and the setting row is
+ *  only the default for a browser that has never chosen.
+ *
+ *  The server render always sees the default; the client swaps in the stored
+ *  choice after hydration (`useSyncExternalStore` with a server snapshot), so
+ *  the markup never mismatches.
+ */
+const STORAGE_KEY = "ops.lang";
+let settingLang: Lang = DEFAULT_LANG;
+let chosenLang: Lang | null = null;
+let loaded = false;
+/* Until the first client render has committed, everything answers with the
+   default — the language the server rendered. A label map or `trNow` read
+   during hydration would otherwise answer the stored choice while the markup
+   says English, and React throws the tree away (seen on /signin). */
+let hydrated = false;
+const listeners = new Set<() => void>();
+
+function readChoice(): Lang | null {
+  if (!loaded && typeof window !== "undefined") {
+    loaded = true;
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      chosenLang = raw === "id" || raw === "en" ? raw : null;
+    } catch {
+      chosenLang = null;
+    }
+  }
+  return chosenLang;
+}
+
 /** The language in force, for code that is not a component.
  *
- *  `useLang` is a hook and a hook needs a render. The service clients answer
- *  into a panel — a refusal, a guide, a sentence about what was understood —
- *  and D224 puts that resolution at the service edge rather than in the
- *  screen, so they need the answer without one.
- *
- *  Pushed in rather than read out, the same shape as `setActiveLocale` in
- *  `format.ts` and for the same reason: the setting stays the only source, and
- *  a reader here would mean this file knowing where settings live. One
- *  direction (D216).
+ *  The service clients answer into a panel — a refusal, a guide, a sentence
+ *  about what was understood — and D224 puts that resolution at the service
+ *  edge rather than in the screen, so they need the answer without a render.
  */
-let activeLang: Lang = DEFAULT_LANG;
-
-export function setActiveLang(lang: string | undefined) {
-  activeLang = lang === "id" ? "id" : "en";
-}
-
 export function getActiveLang(): Lang {
-  return activeLang;
+  return (hydrated ? readChoice() : null) ?? settingLang;
 }
 
-/** The language in force, from the setting (D216). */
+/** Called once from `<LangHydrated />` in the root layout, after hydration:
+ *  from here on the viewer's stored choice is in force. */
+export function markLangHydrated() {
+  if (hydrated) return;
+  hydrated = true;
+  if (readChoice() !== null) for (const l of listeners) l();
+}
+
+/** The setting's default, pushed in by the store (D216). A viewer's own choice
+ *  wins over it. */
+export function setActiveLang(lang: string | undefined) {
+  const next: Lang = lang === "id" ? "id" : "en";
+  if (next === settingLang) return;
+  settingLang = next;
+  for (const l of listeners) l();
+}
+
+/** The topbar toggle. Remembered in this browser only. */
+export function setLang(lang: Lang) {
+  chosenLang = lang;
+  loaded = true;
+  hydrated = true;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, lang);
+  } catch {
+    /* private window: the choice holds until the tab closes */
+  }
+  for (const l of listeners) l();
+}
+
+function subscribeLang(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** The language in force, for a component. Re-renders when it changes. */
 export function useLang(): Lang {
-  const state = useDemo();
-  const raw = state.app_settings?.find((s) => s.key === "format.language")?.value;
-  return raw === "id" ? "id" : "en";
+  return useSyncExternalStore(subscribeLang, getActiveLang, () => DEFAULT_LANG);
 }
 
 /** `t(MESSAGES.nav.dashboard)` — a lookup that cannot miss, because the
@@ -84,4 +142,44 @@ export function useLang(): Lang {
 export function useT(): (m: Message) => string {
   const lang = useLang();
   return (m: Message) => m[lang];
+}
+
+/** `tr("Saved", "Tersimpan")` — both languages at the place the words are
+ *  used. This is what the screen bodies use: a screen's copy belongs to that
+ *  screen, and a shared catalogue of four thousand one-off sentences would be
+ *  a file nobody can read. Always both — English first, Indonesian second. */
+export type Tr = (en: string, id: string) => string;
+
+export function useTr(): Tr {
+  const lang = useLang();
+  return lang === "id" ? (_en, id) => id : (en) => en;
+}
+
+/** `tr` for code outside a render — a toast raised in a callback that was
+ *  built before the language changed, a label map at module level. Prefer
+ *  `useTr` inside components so the screen re-renders on a switch. */
+export const trNow: Tr = (en, id) => (getActiveLang() === "id" ? id : en);
+
+/** A label map that answers in the language in force.
+ *
+ *  The service contracts hold the display names of stored codes
+ *  (`MOVE_LABEL.issue`, `LEAVE_KIND_LABEL.sick`, …) and every screen reads them
+ *  as a plain `Record<K, string>`. This keeps that shape — each value is a
+ *  getter that reads the active language — so no screen has to change how it
+ *  looks a label up, and a screen re-renders on a switch because it already
+ *  calls `useTr()`. The **key** is the stored code and never changes; only
+ *  the word shown for it does.
+ *
+ *  Not for anything that is written anywhere: a label read here is a display
+ *  string, and saving one would store whichever language the writer had on.
+ */
+export function bilingual<K extends string>(map: Record<K, Message>): Record<K, string> {
+  const out = {} as Record<K, string>;
+  for (const k of Object.keys(map) as K[]) {
+    Object.defineProperty(out, k, {
+      enumerable: true,
+      get: () => map[k][getActiveLang()],
+    });
+  }
+  return out;
 }

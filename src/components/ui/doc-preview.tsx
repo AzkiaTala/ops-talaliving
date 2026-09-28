@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ExternalLink, FileText, Link2, ImageOff } from "lucide-react";
+import { useTr } from "@/lib/i18n";
 
 /** The picture of the document, wherever a document is being decided about.
  *
@@ -23,6 +24,8 @@ export interface PreviewDoc {
   mime: string;
   bytes: number;
   url: string | null;
+  /** An uploaded file's Google Drive link (`web_view_link`, 0175). */
+  drive_link?: string | null;
   uploaded_at: string;
   uploaded_by_name?: string;
   kind?: string | null;
@@ -53,10 +56,17 @@ function driveThumbnailUrl(url: string): string | null {
 }
 
 export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height?: number }) {
+  const tr = useTr();
   const isLink = doc.mime === "text/uri-list" || (doc.url != null && !doc.mime.startsWith("image/"));
   const isImage = doc.mime.startsWith("image/");
   const [imgFailed, setImgFailed] = useState(false);
-  const imgSrc = doc.url ? (driveThumbnailUrl(doc.url) ?? doc.url) : null;
+  /* An uploaded file has no `url` — it is not an address — but it has the
+     Drive link recorded beside it (0175), which the same thumbnail trick
+     reads. Where to go for full size is whichever of the two there is. */
+  const openAt = doc.url ?? doc.drive_link ?? null;
+  const imgSrc = doc.url
+    ? (driveThumbnailUrl(doc.url) ?? doc.url)
+    : doc.drive_link ? driveThumbnailUrl(doc.drive_link) : null;
 
   if (isLink) {
     return (
@@ -65,18 +75,21 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
         style={{ height }}
       >
         <Link2 className="h-6 w-6 text-slate-400" />
-        <p className="text-[13px] font-medium text-slate-700">Ini alamat, bukan berkas</p>
+        <p className="text-[13px] font-medium text-slate-700">{tr("This is an address, not a file", "Ini alamat, bukan berkas")}</p>
         <p className="max-w-xs break-all font-mono text-[11px] text-slate-500">{doc.url}</p>
         {doc.url && (
           <a
             href={doc.url} target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-700 hover:underline"
           >
-            Buka di tab baru <ExternalLink className="h-3 w-3" />
+            {tr("Open in a new tab", "Buka di tab baru")} <ExternalLink className="h-3 w-3" />
           </a>
         )}
         <p className="max-w-xs text-[11px] text-slate-400">
-          Halaman toko bisa berubah atau hilang. Ia bukti pendukung, tidak pernah bukti utama.
+          {tr(
+            "A shop page can change or disappear. It is supporting evidence, never the main evidence.",
+            "Halaman toko bisa berubah atau hilang. Ia bukti pendukung, tidak pernah bukti utama.",
+          )}
         </p>
       </div>
     );
@@ -99,8 +112,8 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
         style={{ height }}
       />
     );
-    return doc.url ? (
-      <a href={doc.url} target="_blank" rel="noreferrer" title="Buka ukuran penuh di Google Drive">
+    return openAt ? (
+      <a href={openAt} target="_blank" rel="noreferrer" title={tr("Open full size in Google Drive", "Buka ukuran penuh di Google Drive")}>
         {img}
       </a>
     ) : img;
@@ -117,10 +130,10 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
         <div className="flex items-start justify-between border-b border-dashed border-slate-200 pb-2">
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold text-slate-800">
-              {read.vendor_name ?? "Vendor tidak terbaca"}
+              {read.vendor_name ?? tr("Vendor not readable", "Vendor tidak terbaca")}
             </p>
             <p className="text-[11px] text-slate-500">
-              {read.doc_type ?? doc.kind ?? "Dokumen"}
+              {read.doc_type ?? doc.kind ?? tr("Document", "Dokumen")}
               {read.document_date && ` · ${read.document_date}`}
             </p>
           </div>
@@ -130,27 +143,35 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
         <div className="flex flex-1 flex-col justify-center">
           {read.amount_idr != null ? (
             <>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Nilai terbaca</p>
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Amount read", "Nilai terbaca")}</p>
               <p className="text-2xl font-bold tabular-nums text-slate-900">{idr(read.amount_idr)}</p>
             </>
           ) : (
             <p className="flex items-center gap-1.5 text-[13px] text-amber-700">
-              <ImageOff className="h-4 w-4" /> Nilainya tidak terbaca — harus dibaca dari kertasnya
+              <ImageOff className="h-4 w-4" /> {tr("The amount could not be read — it has to be read off the paper", "Nilainya tidak terbaca — harus dibaca dari kertasnya")}
             </p>
           )}
           {read.confidence != null && (
             <p className="mt-1 text-[11px] text-slate-400">
-              pembacaan mesin {read.confidence}% yakin
-              {read.confidence < 70 && " — perlu dilihat sendiri"}
+              {tr(`machine reading ${read.confidence}% confident`, `pembacaan mesin ${read.confidence}% yakin`)}
+              {read.confidence < 70 && tr(" — check it yourself", " — perlu dilihat sendiri")}
             </p>
           )}
         </div>
 
         <div className="border-t border-dashed border-slate-200 pt-2">
           <p className="truncate font-mono text-[10px] text-slate-500">{doc.filename}</p>
+          {doc.drive_link && (
+            <a
+              href={doc.drive_link} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline"
+            >
+              {tr("Open in Google Drive", "Buka di Google Drive")} <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
           <p className="text-[10px] text-slate-400">
-            {(doc.bytes / 1024).toFixed(0)} KB · diunggah {doc.uploaded_at.slice(0, 10)}
-            {doc.uploaded_by_name && ` oleh ${doc.uploaded_by_name}`}
+            {(doc.bytes / 1024).toFixed(0)} KB · {tr("uploaded", "diunggah")} {doc.uploaded_at.slice(0, 10)}
+            {doc.uploaded_by_name && tr(` by ${doc.uploaded_by_name}`, ` oleh ${doc.uploaded_by_name}`)}
           </p>
         </div>
       </div>
@@ -159,7 +180,7 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
           screenshot of this crops the caption off. */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <span className="-rotate-[18deg] select-none text-[34px] font-black uppercase tracking-widest text-slate-900/[0.055]">
-          {unread ? "belum terbaca" : "contoh — bukan pindaian"}
+          {unread ? tr("not read yet", "belum terbaca") : tr("sample — not a scan", "contoh — bukan pindaian")}
         </span>
       </div>
     </div>

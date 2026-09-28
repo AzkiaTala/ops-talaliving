@@ -8,6 +8,7 @@ import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { production } from "@/demo/api";
 import type { VendorLegView } from "@/services/production/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** Where our things are, vendor by vendor (W6, D280).
  *
@@ -27,6 +28,7 @@ import type { VendorLegView } from "@/services/production/contracts";
  *    question for the vendor that a checkbox would have swallowed.
  */
 export default function VendorTrackingPage() {
+  const tr = useTr();
   const [open, reloadOpen] = useLoad(() => production.listVendorLegs({ open_only: true }), []);
   const [all, reloadAll] = useLoad(() => production.listVendorLegs(), []);
   const [records, reloadRecords] = useLoad(() => production.listVendorRecords(), []);
@@ -34,9 +36,12 @@ export default function VendorTrackingPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Production"
-        title="Barang di vendor"
-        description="Siapa memegang apa, sejak kapan, dan apa yang dijanjikan. Satu baris per pengiriman — satu barang bisa mampir ke tukang jok lalu ke tukang amplas, dan masing-masing punya tanggalnya sendiri."
+        breadcrumb={tr("Production", "Produksi")}
+        title={tr("Goods at vendors", "Barang di vendor")}
+        description={tr(
+          "Who holds what, since when, and what was promised. One row per trip — one piece can visit the upholsterer and then the sander, and each trip has its own dates.",
+          "Siapa memegang apa, sejak kapan, dan apa yang dijanjikan. Satu baris per pengiriman — satu barang bisa mampir ke tukang jok lalu ke tukang amplas, dan masing-masing punya tanggalnya sendiri.",
+        )}
       />
 
       <Loaded state={open} onRetry={reloadOpen}>
@@ -49,18 +54,18 @@ export default function VendorTrackingPage() {
           return (
             <>
               <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard label="Pengiriman terbuka" value={String(rows.length)} icon={Factory} />
+                <StatCard label={tr("Open trips", "Pengiriman terbuka")} value={String(rows.length)} icon={Factory} />
                 <StatCard
-                  label="Unit di luar"
+                  label={tr("Units out", "Unit di luar")}
                   value={formatNumber(rows.reduce((t, l) => t + l.outstanding, 0))}
                   icon={PackageCheck}
                 />
                 <StatCard
-                  label="Lewat janji" value={String(overdue.length)} icon={AlertTriangle}
+                  label={tr("Past the promise", "Lewat janji")} value={String(overdue.length)} icon={AlertTriangle}
                   tone={overdue.length > 0 ? "red" : "slate"}
                 />
                 <StatCard
-                  label="Tanpa janji tanggal" value={String(noPromise.length)} icon={Clock}
+                  label={tr("No promised date", "Tanpa janji tanggal")} value={String(noPromise.length)} icon={Clock}
                   tone={noPromise.length > 0 ? "amber" : "slate"}
                 />
               </div>
@@ -68,15 +73,18 @@ export default function VendorTrackingPage() {
               {rows.length === 0 ? (
                 <EmptyState
                   icon={Factory}
-                  title="Tidak ada barang di vendor"
-                  description="Semua pengiriman sudah tercatat kembali."
+                  title={tr("Nothing at a vendor", "Tidak ada barang di vendor")}
+                  description={tr("Every trip is recorded as back.", "Semua pengiriman sudah tercatat kembali.")}
                 />
               ) : (
                 [...byVendor.entries()].map(([vendor, legs]) => (
                   <Card key={vendor} className="mb-4">
                     <CardHeader
                       title={vendor}
-                      subtitle={`${legs.length} pengiriman · ${formatNumber(legs.reduce((t, l) => t + l.outstanding, 0))} unit masih di sana`}
+                      subtitle={tr(
+                        `${legs.length} trips · ${formatNumber(legs.reduce((t, l) => t + l.outstanding, 0))} units still there`,
+                        `${legs.length} pengiriman · ${formatNumber(legs.reduce((t, l) => t + l.outstanding, 0))} unit masih di sana`,
+                      )}
                       icon={Factory}
                       action={<SourceBadge state={open} />}
                     />
@@ -93,15 +101,15 @@ export default function VendorTrackingPage() {
                             </span>
                           </span>
                           <span className="text-[12px] text-slate-500">
-                            dikirim {l.sent_on} · {l.days_out} hari
+                            {tr(`sent ${l.sent_on} · ${l.days_out} days`, `dikirim ${l.sent_on} · ${l.days_out} hari`)}
                           </span>
                           {/* Late only against a date somebody agreed. */}
                           {l.overdue_days !== null ? (
-                            <Badge tone="red" dot>lewat {l.overdue_days} hari</Badge>
+                            <Badge tone="red" dot>{tr(`${l.overdue_days} days over`, `lewat ${l.overdue_days} hari`)}</Badge>
                           ) : l.expected_back ? (
                             <Badge tone="amber">± {l.expected_back}</Badge>
                           ) : (
-                            <Badge tone="slate">tanpa janji tanggal</Badge>
+                            <Badge tone="slate">{tr("no promised date", "tanpa janji tanggal")}</Badge>
                           )}
                           {l.note && (
                             <span className="w-full text-[11px] text-slate-500">{l.note}</span>
@@ -124,8 +132,11 @@ export default function VendorTrackingPage() {
         {(rows) => rows.length === 0 ? <></> : (
           <Card className="mb-4">
             <CardHeader
-              title="Rekam jejak vendor"
-              subtitle="Tepat waktu dihitung hanya atas pengiriman yang punya janji tanggal — tanpa tanggal yang disepakati, tidak ada yang bisa disebut terlambat."
+              title={tr("Vendor track record", "Rekam jejak vendor")}
+              subtitle={tr(
+                "On time is counted only over trips with a promised date — without an agreed date, nothing can be called late.",
+                "Tepat waktu dihitung hanya atas pengiriman yang punya janji tanggal — tanpa tanggal yang disepakati, tidak ada yang bisa disebut terlambat.",
+              )}
               icon={Clock}
               action={<SourceBadge state={records} />}
             />
@@ -134,11 +145,11 @@ export default function VendorTrackingPage() {
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-[10px] uppercase tracking-wide text-slate-400">
                     <th className="px-5 py-2 font-medium">Vendor</th>
-                    <th className="px-3 py-2 font-medium">Proses</th>
-                    <th className="px-3 py-2 text-right font-medium">Tepat waktu</th>
-                    <th className="px-3 py-2 text-right font-medium">Rata-rata</th>
-                    <th className="px-3 py-2 text-right font-medium">Di luar</th>
-                    <th className="px-5 py-2 text-right font-medium">Tak kembali</th>
+                    <th className="px-3 py-2 font-medium">{tr("Process", "Proses")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{tr("On time", "Tepat waktu")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{tr("Average", "Rata-rata")}</th>
+                    <th className="px-3 py-2 text-right font-medium">{tr("Out", "Di luar")}</th>
+                    <th className="px-5 py-2 text-right font-medium">{tr("Not returned", "Tak kembali")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -152,19 +163,19 @@ export default function VendorTrackingPage() {
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {/* Missing, never a zero: unrated is not badly rated. */}
                         {r.on_time_percent === null
-                          ? <span className="text-[12px] text-slate-400">belum cukup</span>
+                          ? <span className="text-[12px] text-slate-400">{tr("not enough yet", "belum cukup")}</span>
                           : <span className={cn("font-medium",
                               r.on_time_percent >= 80 ? "text-emerald-700" : "text-amber-700")}>
                               {r.on_time_percent}%
                             </span>}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">
-                        {r.avg_days_out === null ? "—" : `${r.avg_days_out} hari`}
+                        {r.avg_days_out === null ? "—" : tr(`${r.avg_days_out} days`, `${r.avg_days_out} hari`)}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
                         {formatNumber(r.out_now)}
                         {r.overdue_now > 0 && (
-                          <span className="block text-[11px] text-rose-700">{r.overdue_now} lewat janji</span>
+                          <span className="block text-[11px] text-rose-700">{tr(`${r.overdue_now} past the promise`, `${r.overdue_now} lewat janji`)}</span>
                         )}
                       </td>
                       <td className="px-5 py-2.5 text-right tabular-nums">
@@ -188,8 +199,11 @@ export default function VendorTrackingPage() {
           return (
             <Card>
               <CardHeader
-                title="Sudah kembali"
-                subtitle="Tetap disimpan: berapa lama vendor memegangnya, dan apakah semuanya kembali, adalah dua hal yang hanya kelihatan kalau riwayatnya ada."
+                title={tr("Back already", "Sudah kembali")}
+                subtitle={tr(
+                  "Kept on purpose: how long a vendor held it, and whether all of it came back, are two things visible only if the history exists.",
+                  "Tetap disimpan: berapa lama vendor memegangnya, dan apakah semuanya kembali, adalah dua hal yang hanya kelihatan kalau riwayatnya ada.",
+                )}
                 icon={PackageCheck}
               />
               <ul className="divide-y divide-slate-100">
@@ -200,16 +214,16 @@ export default function VendorTrackingPage() {
                       <span className="block text-[11px] text-slate-400">{l.wo_no} · {l.product_name}</span>
                     </span>
                     <span className="text-[12px] text-slate-500">
-                      {l.sent_on} → {l.returned_on} · {l.days_out} hari
+                      {l.sent_on} → {l.returned_on} · {tr(`${l.days_out} days`, `${l.days_out} hari`)}
                     </span>
                     <span className={cn("text-[12px] tabular-nums",
                       l.short_by !== null ? "text-amber-800" : "text-slate-600")}>
-                      {formatNumber(l.returned_qty ?? 0)} dari {formatNumber(l.qty)}
+                      {tr(`${formatNumber(l.returned_qty ?? 0)} of ${formatNumber(l.qty)}`, `${formatNumber(l.returned_qty ?? 0)} dari ${formatNumber(l.qty)}`)}
                     </span>
                     {/* A number, not a tick: the two that never came back are
                         a question for the vendor. */}
                     {l.short_by !== null && (
-                      <Badge tone="amber">kurang {formatNumber(l.short_by)}</Badge>
+                      <Badge tone="amber">{tr(`short ${formatNumber(l.short_by)}`, `kurang ${formatNumber(l.short_by)}`)}</Badge>
                     )}
                   </li>
                 ))}

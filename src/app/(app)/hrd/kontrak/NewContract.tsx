@@ -7,6 +7,7 @@ import { Loaded, useLoad } from "@/components/ui/loaded";
 import { hr } from "@/demo/api";
 import type { ContractKind } from "@/services/hr/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 import { officeToday } from "@/lib/office";
 
 /** Mendaftarkan kontrak yang sudah ditandatangani di kertas.
@@ -26,6 +27,7 @@ import { officeToday } from "@/lib/office";
  *  membacanya setahun lagi tidak akan tahu sisi mana yang benar.
  */
 export function NewContract({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [people] = useLoad(() => hr.listEmployees(), []);
   const [employeeNo, setEmployeeNo] = useState("");
@@ -52,23 +54,26 @@ export function NewContract({ onClose, onDone }: { onClose: () => void; onDone: 
       note: note.trim() || null,
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Kontrak tidak dibuat", res.error.message); return; }
-    toast("success", "Kontrak didaftarkan", `${res.data.contract_no} · masih draft`);
+    if (res.error) { toast("warning", tr("Contract not created", "Kontrak tidak dibuat"), res.error.message); return; }
+    toast("success", tr("Contract registered", "Kontrak didaftarkan"), tr(`${res.data.contract_no} · still a draft`, `${res.data.contract_no} · masih draft`));
     onDone();
   }
 
   return (
     <Drawer
       open onClose={onClose} width="max-w-lg"
-      title="Daftarkan kontrak"
-      subtitle="Kertasnya sudah ada dan sudah ditandatangani. Yang dicatat di sini adalah keberadaannya — isinya dijawab poin per poin setelah ini."
+      title={tr("Register contract", "Daftarkan kontrak")}
+      subtitle={tr(
+        "The paper already exists and is signed. What is recorded here is that it exists — its content is answered point by point after this.",
+        "Kertasnya sudah ada dan sudah ditandatangani. Yang dicatat di sini adalah keberadaannya — isinya dijawab poin per poin setelah ini.",
+      )}
       footer={
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-slate-500">Lahir sebagai draft. Tidak berlaku sampai diberlakukan.</p>
+          <p className="text-[11px] text-slate-500">{tr("Starts as a draft. Not in force until it is put into force.", "Lahir sebagai draft. Tidak berlaku sampai diberlakukan.")}</p>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose} disabled={busy}>Batal</Button>
+            <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
             <Button onClick={save} disabled={busy || !ready}>
-              {busy ? "Menyimpan…" : "Daftarkan"}
+              {busy ? tr("Saving…", "Menyimpan…") : tr("Register", "Daftarkan")}
             </Button>
           </div>
         </div>
@@ -78,12 +83,12 @@ export function NewContract({ onClose, onDone }: { onClose: () => void; onDone: 
         <Loaded state={people} skeletonRows={2}>
           {(emps) => (
             <div>
-              <label htmlFor="k-emp" className="block text-xs text-slate-500">Karyawan</label>
+              <label htmlFor="k-emp" className="block text-xs text-slate-500">{tr("Employee", "Karyawan")}</label>
               <select
                 id="k-emp" value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
               >
-                <option value="">Pilih karyawan…</option>
+                <option value="">{tr("Choose employee…", "Pilih karyawan…")}</option>
                 {emps.map((e) => (
                   <option key={e.employee_no} value={e.employee_no}>
                     {e.full_name} · {e.employee_no} · {e.position}
@@ -95,11 +100,11 @@ export function NewContract({ onClose, onDone }: { onClose: () => void; onDone: 
         </Loaded>
 
         <div>
-          <span className="block text-xs text-slate-500">Jenis</span>
+          <span className="block text-xs text-slate-500">{tr("Kind", "Jenis")}</span>
           <div className="mt-1 grid gap-2 sm:grid-cols-2">
             {([
-              ["PKWT", "Waktu tertentu", "Ada tanggal berakhirnya."],
-              ["PKWTT", "Waktu tidak tertentu", "Tetap, tanpa tanggal berakhir."],
+              ["PKWT", tr("Fixed term", "Waktu tertentu"), tr("Has an end date.", "Ada tanggal berakhirnya.")],
+              ["PKWTT", tr("Open-ended", "Waktu tidak tertentu"), tr("Permanent, no end date.", "Tetap, tanpa tanggal berakhir.")],
             ] as [ContractKind, string, string][]).map(([k, label, note2]) => (
               <button
                 key={k} type="button"
@@ -118,7 +123,7 @@ export function NewContract({ onClose, onDone }: { onClose: () => void; onDone: 
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="k-from" className="block text-xs text-slate-500">Mulai berlaku</label>
+            <label htmlFor="k-from" className="block text-xs text-slate-500">{tr("Effective from", "Mulai berlaku")}</label>
             <input
               id="k-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
@@ -126,7 +131,7 @@ export function NewContract({ onClose, onDone }: { onClose: () => void; onDone: 
           </div>
           <div>
             <label htmlFor="k-to" className="block text-xs text-slate-500">
-              Berakhir {needsEnd ? "" : "— tidak berlaku untuk PKWTT"}
+              {tr("Ends", "Berakhir")} {needsEnd ? "" : tr("— does not apply to PKWTT", "— tidak berlaku untuk PKWTT")}
             </label>
             <input
               id="k-to" type="date" value={endsOn} disabled={!needsEnd}
@@ -134,16 +139,19 @@ export function NewContract({ onClose, onDone }: { onClose: () => void; onDone: 
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
             />
             {backwards && (
-              <p className="mt-1 text-[11px] text-rose-700">Berakhir sebelum mulai berlaku.</p>
+              <p className="mt-1 text-[11px] text-rose-700">{tr("Ends before it takes effect.", "Berakhir sebelum mulai berlaku.")}</p>
             )}
           </div>
         </div>
 
         <div>
-          <label htmlFor="k-note" className="block text-xs text-slate-500">Catatan</label>
+          <label htmlFor="k-note" className="block text-xs text-slate-500">{tr("Note", "Catatan")}</label>
           <textarea
             id="k-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-            placeholder="Tautan berkas di Drive, nomor surat, atau apa yang membedakan kontrak ini dari yang sebelumnya."
+            placeholder={tr(
+              "Link to the file on Drive, the letter number, or what sets this contract apart from the previous one.",
+              "Tautan berkas di Drive, nomor surat, atau apa yang membedakan kontrak ini dari yang sebelumnya.",
+            )}
             className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm focus:border-brand-400 focus:outline-none"
           />
         </div>

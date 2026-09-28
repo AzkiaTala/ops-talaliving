@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { documents, identity, procurement } from "@/demo/api";
 import { RECEIPT_CONDITIONS, type ReceiptCondition, type PoLineJourney } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Recording what actually arrived — with everything a delivery is made of.
  *
@@ -36,6 +37,7 @@ export function ReceiveForm({
   line: PoLineJourney;
   onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [people] = useLoad(() => identity.listUsers(), []);
   const remaining = Math.max(line.qty - line.received, 0);
@@ -55,7 +57,7 @@ export function ReceiveForm({
      are two different documents and the picker knows which is which. */
   async function upload(f: File, set: (s: Slot) => void, kind: DocKind) {
     const up = await documents.upload({ file: f, kind });
-    if (up.error) { toast("critical", "Upload failed", up.error.message); return; }
+    if (up.error) { toast("critical", tr("Upload failed", "Unggahan gagal"), up.error.message); return; }
     set({ id: up.data.id, name: f.name });
   }
 
@@ -74,20 +76,26 @@ export function ReceiveForm({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 422 ? "warning" : "critical", "Not recorded", res.error.message);
+      toast(res.error.status === 422 ? "warning" : "critical", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
     const reported = res.data.receipt.status === "REPORTED";
     toast(
       res.data.notified ? "warning" : reported ? "info" : "success",
       reported
-        ? `Reported ${formatNumber(qty)} ${line.uom}`
-        : `Received ${formatNumber(qty)} ${line.uom}`,
+        ? tr(`Reported ${formatNumber(qty)} ${line.uom}`, `${formatNumber(qty)} ${line.uom} dilaporkan`)
+        : tr(`Received ${formatNumber(qty)} ${line.uom}`, `${formatNumber(qty)} ${line.uom} diterima`),
       res.data.notified
-        ? "Condition needs attention — the line stays open."
+        ? tr("Condition needs attention — the line stays open.", "Kondisinya perlu diperhatikan — baris tetap terbuka.")
         : reported
-          ? `${res.data.receipt.receipt_no} · waiting for the tanda terima, so it counts for nothing yet`
-          : `${res.data.receipt.receipt_no} · photo and tanda terima on file`,
+          ? tr(
+            `${res.data.receipt.receipt_no} · waiting for the tanda terima, so it counts for nothing yet`,
+            `${res.data.receipt.receipt_no} · menunggu tanda terima, jadi belum terhitung`,
+          )
+          : tr(
+            `${res.data.receipt.receipt_no} · photo and tanda terima on file`,
+            `${res.data.receipt.receipt_no} · foto dan tanda terima tersimpan`,
+          ),
     );
     onDone();
   }
@@ -98,17 +106,20 @@ export function ReceiveForm({
         <PackageCheck className="h-4 w-4 text-slate-400" />
         {line.description}
         <span className="text-[12px] font-normal text-slate-400">
-          {formatNumber(line.received)} of {formatNumber(line.qty)} {line.uom} so far
+          {tr(
+            `${formatNumber(line.received)} of ${formatNumber(line.qty)} ${line.uom} so far`,
+            `${formatNumber(line.received)} dari ${formatNumber(line.qty)} ${line.uom} sejauh ini`,
+          )}
         </span>
       </p>
 
       <div className="grid gap-3 sm:grid-cols-4">
         <div>
-          <label htmlFor="rc-qty" className="block text-xs text-slate-500">How many arrived</label>
+          <label htmlFor="rc-qty" className="block text-xs text-slate-500">{tr("How many arrived", "Jumlah yang datang")}</label>
           <NumberInput id="rc-qty" value={qty} min={0} onChange={setQty} className="mt-1" />
         </div>
         <div>
-          <label htmlFor="rc-cond" className="block text-xs text-slate-500">Condition</label>
+          <label htmlFor="rc-cond" className="block text-xs text-slate-500">{tr("Condition", "Kondisi")}</label>
           <select
             id="rc-cond" value={condition}
             onChange={(e) => setCondition(e.target.value as ReceiptCondition)}
@@ -118,24 +129,24 @@ export function ReceiveForm({
           </select>
         </div>
         <div>
-          <label htmlFor="rc-qc" className="block text-xs text-slate-500">Checked by (QC)</label>
+          <label htmlFor="rc-qc" className="block text-xs text-slate-500">{tr("Checked by (QC)", "Diperiksa oleh (QC)")}</label>
           <select
             id="rc-qc" value={qcBy}
             onChange={(e) => setQcBy(e.target.value)}
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none"
           >
-            <option value="">me — I checked it myself</option>
+            <option value="">{tr("me — I checked it myself", "saya — saya memeriksanya sendiri")}</option>
             {people.status === "ready" && people.data.map((s) => (
               <option key={s.user.id} value={s.user.id}>{s.user.full_name}</option>
             ))}
           </select>
         </div>
         <div>
-          <label htmlFor="rc-note" className="block text-xs text-slate-500">Note (optional)</label>
+          <label htmlFor="rc-note" className="block text-xs text-slate-500">{tr("Note (optional)", "Catatan (opsional)")}</label>
           <input
             ref={noteRef}
             id="rc-note" value={note} onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. two sheets more than ordered"
+            placeholder={tr("e.g. two sheets more than ordered", "mis. dua lembar lebih dari pesanan")}
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
         </div>
@@ -144,8 +155,8 @@ export function ReceiveForm({
       {/* Two documents, two questions. */}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <DocSlot
-          label="Photo of the goods"
-          hint="what actually arrived"
+          label={tr("Photo of the goods", "Foto barang")}
+          hint={tr("what actually arrived", "yang benar-benar datang")}
           value={photo}
           icon={Camera}
           onPick={(f) => upload(f, setPhoto, "Receiving Item")}
@@ -153,8 +164,8 @@ export function ReceiveForm({
           capture
         />
         <DocSlot
-          label="Tanda terima"
-          hint="signed — that we acknowledged it"
+          label={tr("Tanda terima", "Tanda terima")}
+          hint={tr("signed — that we acknowledged it", "ditandatangani — bukti kita mengakuinya")}
           value={tandaTerima}
           icon={FileSignature}
           onPick={(f) => upload(f, setTandaTerima, "Delivery Note")}
@@ -165,25 +176,37 @@ export function ReceiveForm({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className={cn("text-[12px]", photo && tandaTerima ? "text-slate-500" : photo ? "text-amber-700" : "text-slate-500")}>
           {photo && tandaTerima
-            ? "Both on file — this counts as received."
+            ? tr("Both on file — this counts as received.", "Keduanya tersimpan — ini terhitung diterima.")
             : photo
-              ? "No tanda terima yet: this is recorded as reported. It shows on the order and counts for nothing until procurement completes it."
-              : "The photograph is required — it is what says anything arrived at all."}
+              ? tr(
+                "No tanda terima yet: this is recorded as reported. It shows on the order and counts for nothing until procurement completes it.",
+                "Belum ada tanda terima: ini dicatat sebagai dilaporkan. Muncul di order tetapi belum terhitung sampai procurement melengkapinya.",
+              )
+              : tr(
+                "The photograph is required — it is what says anything arrived at all.",
+                "Foto wajib — foto itulah bukti bahwa ada barang yang datang.",
+              )}
         </span>
         <Button
           size="sm" className="ml-auto"
           disabled={busy || qty <= 0 || !photo}
           onClick={submit}
         >
-          {busy ? "Recording…" : tandaTerima ? "Record what arrived" : "Report it — tanda terima follows"}
+          {busy
+            ? tr("Recording…", "Mencatat…")
+            : tandaTerima
+              ? tr("Record what arrived", "Catat yang datang")
+              : tr("Report it — tanda terima follows", "Laporkan — tanda terima menyusul")}
         </Button>
       </div>
 
       {qty > remaining && remaining > 0 && (
         <p className="mt-2 text-[12px] text-amber-700">
-          {formatNumber(qty - remaining)} {line.uom} more than what is still outstanding.
-          Recorded as it is — over-delivery is a credit with the vendor, not a
-          rounding error.
+          {formatNumber(qty - remaining)} {line.uom}{" "}
+          {tr(
+            "more than what is still outstanding. Recorded as it is — over-delivery is a credit with the vendor, not a rounding error.",
+            "lebih dari sisa yang belum datang. Dicatat apa adanya — kelebihan kiriman adalah kredit di vendor, bukan selisih pembulatan.",
+          )}
         </p>
       )}
     </div>
@@ -204,6 +227,7 @@ function DocSlot({
   inputRef: React.RefObject<HTMLInputElement | null>;
   capture?: boolean;
 }) {
+  const tr = useTr();
   return (
     <div className={cn(
       "rounded-lg border px-3 py-2.5",
@@ -224,7 +248,7 @@ function DocSlot({
         className="mt-2 w-full"
         onClick={() => inputRef.current?.click()}
       >
-        <span className="max-w-[180px] truncate">{value ? value.name : capture ? "Photograph" : "Choose a file"}</span>
+        <span className="max-w-[180px] truncate">{value ? value.name : capture ? tr("Photograph", "Foto") : tr("Choose a file", "Pilih file")}</span>
       </Button>
     </div>
   );

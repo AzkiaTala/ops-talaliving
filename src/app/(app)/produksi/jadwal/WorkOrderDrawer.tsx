@@ -16,6 +16,7 @@ import { useUnits } from "@/components/ui/uom-options";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { officeToday } from "@/lib/office";
+import { useTr } from "@/lib/i18n";
 
 /** One work order: every stage, every entry behind it, and the deadline.
  *
@@ -35,6 +36,7 @@ export function WorkOrderDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [wo, reload] = useLoad(() => production.getWorkOrder(woNo), [woNo]);
@@ -90,10 +92,10 @@ export function WorkOrderDrawer({
     const res = await production.repinBom({ wo_no: w.wo_no, reason: repinReason });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak dipindahkan", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not moved", "Tidak dipindahkan"), res.error.message);
       return;
     }
-    toast("success", `Dipindahkan ke rev ${res.data.bom_rev}`, "Proyeksinya dihitung ulang dari daftar itu.");
+    toast("success", tr(`Moved to rev ${res.data.bom_rev}`, `Dipindahkan ke rev ${res.data.bom_rev}`), tr("The projection is recalculated from that list.", "Proyeksinya dihitung ulang dari daftar itu."));
     setRepinReason("");
     reload(); onChanged();
   }
@@ -107,10 +109,10 @@ export function WorkOrderDrawer({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak tercatat", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", "Dikirim ke vendor",
+    toast("success", tr("Sent to the vendor", "Dikirim ke vendor"),
       `${vendors.find((v) => v.id === vendorId)?.name ?? ""} · ${VENDOR_PROCESS_NAME(process)}`);
     setSubNote(""); setProcess(""); setVendorId("");
     reload(); onChanged();
@@ -125,10 +127,10 @@ export function WorkOrderDrawer({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak tercatat", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", "Barang kembali", `${formatNumber(qtyBack)} dicatat kembali dari vendor.`);
+    toast("success", tr("Goods returned", "Barang kembali"), tr(`${formatNumber(qtyBack)} recorded as back from the vendor.`, `${formatNumber(qtyBack)} dicatat kembali dari vendor.`));
     setSubNote("");
     reload(); onChanged();
   }
@@ -143,10 +145,10 @@ export function WorkOrderDrawer({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak tercatat", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", "Tercatat", `${formatNumber(qty)} unit · ${STAGE_NAME(stage)}`);
+    toast("success", tr("Recorded", "Tercatat"), `${formatNumber(qty)} unit · ${STAGE_NAME(stage)}`);
     setQty(1); setNote("");
     reload(); reloadEntries(); onChanged();
   }
@@ -198,13 +200,16 @@ export function WorkOrderDrawer({
     });
     setPrBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "PR tidak dibuat", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("PR not created", "PR tidak dibuat"), res.error.message);
       return;
     }
     toast(
       "success",
-      `PR ${res.data.doc_no} dibuat sebagai draft`,
-      `${res.data.lines.length} baris dari BOM · masih harus dibaca dan diajukan orang.`,
+      tr(`PR ${res.data.doc_no} created as a draft`, `PR ${res.data.doc_no} dibuat sebagai draft`),
+      tr(
+        `${res.data.lines.length} lines from the BOM · still has to be read and submitted by a person.`,
+        `${res.data.lines.length} baris dari BOM · masih harus dibaca dan diajukan orang.`,
+      ),
     );
     reloadPr();
   }
@@ -213,8 +218,8 @@ export function WorkOrderDrawer({
     setBusy(true);
     const res = await production.closeWorkOrder({ wo_no: woNo, reason: closeReason || null });
     setBusy(false);
-    if (res.error) { toast("warning", "Belum ditutup", res.error.message); return; }
-    toast("success", "Job Order ditutup", woNo);
+    if (res.error) { toast("warning", tr("Not closed yet", "Belum ditutup"), res.error.message); return; }
+    toast("success", tr("Job Order closed", "Job Order ditutup"), woNo);
     setClosing(false);
     reload(); onChanged();
   }
@@ -224,7 +229,10 @@ export function WorkOrderDrawer({
       open onClose={onClose} width="max-w-2xl"
       title={wo.status === "ready" ? wo.data.item_name : woNo}
       subtitle={wo.status === "ready"
-        ? `${woNo}${wo.data.project_code ? ` · ${wo.data.project_code}` : ""} · jatuh tempo ${wo.data.due_date}`
+        ? tr(
+          `${woNo}${wo.data.project_code ? ` · ${wo.data.project_code}` : ""} · due ${wo.data.due_date}`,
+          `${woNo}${wo.data.project_code ? ` · ${wo.data.project_code}` : ""} · jatuh tempo ${wo.data.due_date}`,
+        )
         : undefined}
     >
       <Loaded state={wo} onRetry={reload}>
@@ -232,15 +240,18 @@ export function WorkOrderDrawer({
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               {w.status === "DONE"
-                ? <Badge tone="slate" dot>selesai</Badge>
+                ? <Badge tone="slate" dot>{tr("done", "selesai")}</Badge>
                 : w.subcon_overdue
-                  ? <Badge tone="red" dot>vendor telat</Badge>
+                  ? <Badge tone="red" dot>{tr("vendor late", "vendor telat")}</Badge>
                   : w.late
-                    ? <Badge tone="red" dot>terlambat {Math.abs(w.days_left)} hari</Badge>
-                    : <Badge tone={w.days_left <= 3 ? "amber" : "green"} dot>{w.days_left} hari lagi</Badge>}
+                    ? <Badge tone="red" dot>{tr(`${Math.abs(w.days_left)} days late`, `terlambat ${Math.abs(w.days_left)} hari`)}</Badge>
+                    : <Badge tone={w.days_left <= 3 ? "amber" : "green"} dot>{tr(`${w.days_left} days left`, `${w.days_left} hari lagi`)}</Badge>}
               <Badge tone={w.route === "SUBCON" ? "violet" : "slate"}>{w.route_name}</Badge>
               <span className="text-[12px] text-slate-600">
-                {formatNumber(w.completed)}/{formatNumber(w.qty)} {w.uom} selesai · {w.percent}% keseluruhan · sekarang di {w.current_stage_name}
+                {tr(
+                  `${formatNumber(w.completed)}/${formatNumber(w.qty)} ${w.uom} done · ${w.percent}% overall · now at ${w.current_stage_name}`,
+                  `${formatNumber(w.completed)}/${formatNumber(w.qty)} ${w.uom} selesai · ${w.percent}% keseluruhan · sekarang di ${w.current_stage_name}`,
+                )}
               </span>
             </div>
             {w.description && <p className="text-[13px] text-slate-600">{w.description}</p>}
@@ -248,7 +259,7 @@ export function WorkOrderDrawer({
             {w.warnings.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-900">
-                  <AlertTriangle className="h-4 w-4" /> Perlu diperiksa
+                  <AlertTriangle className="h-4 w-4" /> {tr("Needs checking", "Perlu diperiksa")}
                 </p>
                 <ul className="mt-1 space-y-0.5 text-[12px] text-amber-900">
                   {w.warnings.map((x) => <li key={x}>· {x}</li>)}
@@ -269,7 +280,7 @@ export function WorkOrderDrawer({
                     {s.parts.length > 0 ? (
                       <span className="block text-[11px] text-slate-400">
                         {s.parts.map((x) => `${x.name} ${formatNumber(x.done)}`).join(" · ")}
-                        {" → yang selesai sepenuhnya "}{formatNumber(s.done)}
+                        {tr(" → fully finished ", " → yang selesai sepenuhnya ")}{formatNumber(s.done)}
                       </span>
                     ) : (
                       <span className="block text-[11px] text-slate-400">{s.covers}</span>
@@ -297,15 +308,15 @@ export function WorkOrderDrawer({
             {(w.legs.length > 0 || w.route === "SUBCON") && (
               <div className="rounded-xl border border-violet-200 bg-violet-50/40 px-4 py-3">
                 <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-slate-800">
-                  <Factory className="h-4 w-4 text-violet-500" /> Dikerjakan vendor
+                  <Factory className="h-4 w-4 text-violet-500" /> {tr("Done by a vendor", "Dikerjakan vendor")}
                   {w.at_vendor_qty > 0 && (
-                    <Badge tone="violet">{formatNumber(w.at_vendor_qty)} {w.uom} di luar</Badge>
+                    <Badge tone="violet">{tr(`${formatNumber(w.at_vendor_qty)} ${w.uom} out`, `${formatNumber(w.at_vendor_qty)} ${w.uom} di luar`)}</Badge>
                   )}
                 </p>
 
                 {w.legs.length === 0 ? (
                   <p className="mt-1 text-[12px] text-slate-600">
-                    Belum ada yang dikirim ke vendor untuk Job Order ini.
+                    {tr("Nothing has been sent to a vendor for this Job Order yet.", "Belum ada yang dikirim ke vendor untuk Job Order ini.")}
                   </p>
                 ) : (
                   <ul className="mt-2 space-y-1.5">
@@ -323,37 +334,37 @@ export function WorkOrderDrawer({
                           <span className="font-mono text-[10px] text-slate-400">{l.leg_no}</span>
                         </div>
                         <div className="text-slate-600">
-                          dikirim {l.sent_on}
+                          {tr("sent", "dikirim")} {l.sent_on}
                           {/* A promise, marked as one wherever it is printed (D234). */}
                           {l.expected_back
-                            ? <> · dijanjikan kembali <span className="text-amber-700">± {l.expected_back}</span></>
-                            : <> · <span className="text-slate-400">tanpa janji tanggal kembali</span></>}
+                            ? <> · {tr("promised back", "dijanjikan kembali")} <span className="text-amber-700">± {l.expected_back}</span></>
+                            : <> · <span className="text-slate-400">{tr("no promised return date", "tanpa janji tanggal kembali")}</span></>}
                           {l.returned_on
-                            ? <> · <span className="text-emerald-700">kembali {l.returned_on}, {formatNumber(l.returned_qty ?? 0)} {w.uom}</span></>
-                            : <> · sudah {l.days_out} hari di sana</>}
+                            ? <> · <span className="text-emerald-700">{tr(`back ${l.returned_on}, ${formatNumber(l.returned_qty ?? 0)} ${w.uom}`, `kembali ${l.returned_on}, ${formatNumber(l.returned_qty ?? 0)} ${w.uom}`)}</span></>
+                            : <> · {tr(`${l.days_out} days there so far`, `sudah ${l.days_out} hari di sana`)}</>}
                         </div>
                         {l.overdue_days !== null && (
-                          <p className="text-rose-800">Lewat janji {l.overdue_days} hari.</p>
+                          <p className="text-rose-800">{tr(`${l.overdue_days} days past the promise.`, `Lewat janji ${l.overdue_days} hari.`)}</p>
                         )}
                         {/* Fewer came back than went. A question for the vendor,
                             and a tick-box would have lost it. */}
                         {l.short_by !== null && (
                           <p className="text-amber-800">
-                            Kurang {formatNumber(l.short_by)} {w.uom} dari yang dikirim.
+                            {tr(`${formatNumber(l.short_by)} ${w.uom} short of what was sent.`, `Kurang ${formatNumber(l.short_by)} ${w.uom} dari yang dikirim.`)}
                           </p>
                         )}
                         {l.note && <p className="text-slate-500">{l.note}</p>}
                         {mayEdit && w.status === "OPEN" && l.returned_on === null && (
                           <div className="mt-1.5 flex flex-wrap items-end gap-2">
                             <label className="text-[11px] text-slate-500">
-                              Kembali
+                              {tr("Back on", "Kembali")}
                               <input
                                 type="date" value={backOn} onChange={(e) => setBackOn(e.target.value)}
                                 className="mt-0.5 block h-8 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                               />
                             </label>
                             <label className="text-[11px] text-slate-500">
-                              Jumlah
+                              {tr("Quantity", "Jumlah")}
                               <NumberInput
                                 value={backQty[l.leg_no] ?? l.qty} min={0} max={l.qty}
                                 onChange={(n) => setBackQty((q) => ({ ...q, [l.leg_no]: n }))}
@@ -363,7 +374,7 @@ export function WorkOrderDrawer({
                               size="sm" icon={PackageCheck} disabled={busy}
                               onClick={() => receiveLeg(l.leg_no, backQty[l.leg_no] ?? l.qty)}
                             >
-                              Catat kembali
+                              {tr("Record return", "Catat kembali")}
                             </Button>
                           </div>
                         )}
@@ -374,20 +385,22 @@ export function WorkOrderDrawer({
 
                 {w.at_vendor_qty >= w.qty && (
                   <p className="mt-1.5 text-[12px] text-violet-900">
-                    Semuanya sedang di vendor, jadi tidak ada tahap yang bisa dilaporkan sampai ada
-                    yang kembali.
+                    {tr(
+                      "Everything is at the vendor, so no stage can be reported until something comes back.",
+                      "Semuanya sedang di vendor, jadi tidak ada tahap yang bisa dilaporkan sampai ada yang kembali.",
+                    )}
                   </p>
                 )}
 
                 {mayEdit && w.status === "OPEN" && (
                   <div className="mt-2 flex flex-wrap items-end gap-2 border-t border-violet-200/70 pt-2">
                     <label className="text-[11px] text-slate-500">
-                      Proses
+                      {tr("Process", "Proses")}
                       <select
                         value={process} onChange={(e) => setProcess(e.target.value)}
                         className="mt-0.5 block h-9 min-w-[150px] rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Pilih…</option>
+                        <option value="">{tr("Choose…", "Pilih…")}</option>
                         {VENDOR_PROCESSES.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
                       </select>
                     </label>
@@ -397,23 +410,23 @@ export function WorkOrderDrawer({
                         value={vendorId} onChange={(e) => setVendorId(e.target.value)}
                         className="mt-0.5 block h-9 min-w-[180px] rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Pilih vendor…</option>
+                        <option value="">{tr("Choose vendor…", "Pilih vendor…")}</option>
                         {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                       </select>
                     </label>
                     <label className="text-[11px] text-slate-500">
-                      Jumlah
+                      {tr("Quantity", "Jumlah")}
                       <NumberInput value={sendQty} min={1} max={w.qty} onChange={setSendQty} />
                     </label>
                     <label className="text-[11px] text-slate-500">
-                      Dijanjikan kembali
+                      {tr("Promised back", "Dijanjikan kembali")}
                       <input
                         type="date" value={expectBack} onChange={(e) => setExpectBack(e.target.value)}
                         className="mt-0.5 block h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       />
                     </label>
                     <Button size="sm" icon={Factory} disabled={busy || !vendorId || !process} onClick={sendOut}>
-                      Catat dikirim
+                      {tr("Record sent", "Catat dikirim")}
                     </Button>
                   </div>
                 )}
@@ -425,15 +438,15 @@ export function WorkOrderDrawer({
             {mayEdit && w.status === "OPEN" && w.goods_on_site && (
               <div className="rounded-xl border border-slate-200 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
-                  <Hammer className="h-4 w-4 text-slate-400" /> Catat hasil kerja
+                  <Hammer className="h-4 w-4 text-slate-400" /> {tr("Record work done", "Catat hasil kerja")}
                 </p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_90px_140px]">
                   <select
                     value={stage} onChange={(e) => setStage(e.target.value)}
-                    aria-label="Tahap"
+                    aria-label={tr("Stage", "Tahap")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   >
-                    <option value="">Tahap…</option>
+                    <option value="">{tr("Stage…", "Tahap…")}</option>
                     {/* Only what this order's route contains. Offering a stage
                         the API will refuse is a trap, not a choice (D254). */}
                     {w.stages.map((s) => (
@@ -443,7 +456,7 @@ export function WorkOrderDrawer({
                   <NumberInput value={qty} min={-999} max={9999} onChange={setQty} />
                   <input
                     type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                    aria-label="Tanggal"
+                    aria-label={tr("Date", "Tanggal")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                 </div>
@@ -462,7 +475,7 @@ export function WorkOrderDrawer({
                       setWho(emp ? { id: emp.id, name: emp.full_name } : { id: null, name: "" });
                     }}
                     onCreate={(name) => setWho({ id: null, name })}
-                    createLabel={(q) => `Pakai nama “${q}” — bukan karyawan`}
+                    createLabel={(q) => tr(`Use the name “${q}” — not an employee`, `Pakai nama “${q}” — bukan karyawan`)}
                     options={[
                       ...(people.status === "ready" ? people.data : []).map((e) => ({
                         value: e.id,
@@ -470,27 +483,30 @@ export function WorkOrderDrawer({
                         sublabel: `${e.employee_no} · ${e.unit}`,
                       })),
                       ...(who.id === null && who.name
-                        ? [{ value: "free", label: who.name, sublabel: "nama saja — belum tertaut" }]
+                        ? [{ value: "free", label: who.name, sublabel: tr("name only — not linked yet", "nama saja — belum tertaut") }]
                         : []),
                     ]}
-                    placeholder="Siapa yang mengerjakan"
+                    placeholder={tr("Who did the work", "Siapa yang mengerjakan")}
                   />
                   <input
                     value={note} onChange={(e) => setNote(e.target.value)}
-                    placeholder="Catatan — wajib kalau jumlahnya negatif (koreksi)"
+                    placeholder={tr("Note — required if the quantity is negative (a correction)", "Catatan — wajib kalau jumlahnya negatif (koreksi)")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                 </div>
                 <div className="mt-2 flex justify-end gap-2">
                   {w.completed >= w.qty || closing ? null : (
-                    <Button size="sm" variant="ghost" onClick={() => setClosing(true)}>Tutup Job Order</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setClosing(true)}>{tr("Close Job Order", "Tutup Job Order")}</Button>
                   )}
                   <Button size="sm" icon={Plus} onClick={report} disabled={busy || !stage || qty === 0}>
-                    Catat
+                    {tr("Record", "Catat")}
                   </Button>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Koreksi ditulis sebagai angka negatif dengan alasan — catatan lama tidak pernah diubah.
+                  {tr(
+                    "A correction is written as a negative number with a reason — an old entry is never edited.",
+                    "Koreksi ditulis sebagai angka negatif dengan alasan — catatan lama tidak pernah diubah.",
+                  )}
                 </p>
               </div>
             )}
@@ -498,18 +514,21 @@ export function WorkOrderDrawer({
             {mayEdit && w.status === "OPEN" && (closing || w.completed >= w.qty) && (
               <div className="rounded-xl border border-slate-200 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
-                  <CheckCircle2 className="h-4 w-4 text-slate-400" /> Tutup Job Order
+                  <CheckCircle2 className="h-4 w-4 text-slate-400" /> {tr("Close Job Order", "Tutup Job Order")}
                 </p>
                 {w.completed < w.qty && (
                   <input
                     value={closeReason} onChange={(e) => setCloseReason(e.target.value)}
-                    placeholder={`Baru ${formatNumber(w.completed)} dari ${formatNumber(w.qty)} — kenapa ditutup?`}
+                    placeholder={tr(
+                      `Only ${formatNumber(w.completed)} of ${formatNumber(w.qty)} — why close it?`,
+                      `Baru ${formatNumber(w.completed)} dari ${formatNumber(w.qty)} — kenapa ditutup?`,
+                    )}
                     className="mt-2 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                 )}
                 <div className="mt-2 flex justify-end gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setClosing(false)} disabled={busy}>Batal</Button>
-                  <Button size="sm" onClick={close} disabled={busy}>Tutup</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setClosing(false)} disabled={busy}>{tr("Cancel", "Batal")}</Button>
+                  <Button size="sm" onClick={close} disabled={busy}>{tr("Close", "Tutup")}</Button>
                 </div>
               </div>
             )}
@@ -532,7 +551,7 @@ export function WorkOrderDrawer({
                       <div className="rounded-xl border border-slate-200 px-4 py-3">
                         <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
                           <ShoppingCart className="h-4 w-4 text-slate-400" />
-                          Bahan: proyeksi dari BOM vs yang benar-benar dibeli
+                          {tr("Materials: BOM projection vs what was actually bought", "Bahan: proyeksi dari BOM vs yang benar-benar dibeli")}
                         </p>
                         {/* Which list this is measured against, and whether the
                             catalogue has moved on since (D256). */}
@@ -540,18 +559,20 @@ export function WorkOrderDrawer({
                           <p className="mt-0.5 text-[12px] text-slate-500">
                             {w.bom_rev == null ? (
                               <span className="text-amber-700">
-                                Job Order ini dibuat sebelum BOM diberi versi — versi yang benar-benar
-                                dipakai tidak pernah tercatat, jadi tidak ada proyeksi yang jujur
-                                untuk ditampilkan.
+                                {tr(
+                                  "This Job Order was created before BOMs had versions — the version actually used was never recorded, so there is no honest projection to show.",
+                                  "Job Order ini dibuat sebelum BOM diberi versi — versi yang benar-benar dipakai tidak pernah tercatat, jadi tidak ada proyeksi yang jujur untuk ditampilkan.",
+                                )}
                               </span>
                             ) : (
                               <>
-                                Diukur terhadap <strong className="text-slate-700">rev {w.bom_rev}</strong>
+                                {tr("Measured against", "Diukur terhadap")} <strong className="text-slate-700">rev {w.bom_rev}</strong>
                                 {w.bom_drifted && (
                                   <span className="text-amber-700">
-                                    {" "}— katalog sekarang sudah di rev {w.product_current_rev}. Angkanya
-                                    sengaja tetap memakai rev {w.bom_rev}: itu daftar yang dipakai waktu
-                                    Job Order ini ditulis.
+                                    {" "}{tr(
+                                      `— the catalogue is now at rev ${w.product_current_rev}. The figures deliberately stay on rev ${w.bom_rev}: that is the list used when this Job Order was written.`,
+                                      `— katalog sekarang sudah di rev ${w.product_current_rev}. Angkanya sengaja tetap memakai rev ${w.bom_rev}: itu daftar yang dipakai waktu Job Order ini ditulis.`,
+                                    )}
                                   </span>
                                 )}
                               </>
@@ -563,21 +584,26 @@ export function WorkOrderDrawer({
                           <div className="mt-1.5 flex flex-wrap items-center gap-2">
                             <input
                               value={repinReason} onChange={(e) => setRepinReason(e.target.value)}
-                              placeholder={`Kenapa pindah ke rev ${w.product_current_rev}? Angka pembandingnya berubah.`}
+                              placeholder={tr(
+                                `Why move to rev ${w.product_current_rev}? The comparison figures change.`,
+                                `Kenapa pindah ke rev ${w.product_current_rev}? Angka pembandingnya berubah.`,
+                              )}
                               className="h-9 min-w-[220px] flex-1 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                             />
                             <Button
                               size="sm" variant="outline" icon={GitBranch}
                               disabled={busy || !repinReason.trim()} onClick={() => repin(w)}
                             >
-                              Pindahkan ke rev {w.product_current_rev}
+                              {tr(`Move to rev ${w.product_current_rev}`, `Pindahkan ke rev ${w.product_current_rev}`)}
                             </Button>
                           </div>
                         )}
                         {!need ? (
                           <p className="mt-1 text-[12px] text-slate-500">
-                            Job Order ini tidak menunjuk produk di katalog, jadi tidak ada BOM untuk
-                            diproyeksikan.
+                            {tr(
+                              "This Job Order does not point to a catalogue product, so there is no BOM to project.",
+                              "Job Order ini tidak menunjuk produk di katalog, jadi tidak ada BOM untuk diproyeksikan.",
+                            )}
                           </p>
                         ) : (
                           <>
@@ -585,39 +611,46 @@ export function WorkOrderDrawer({
                                 what it could not get into (D257). */}
                             {need.cycle && (
                               <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-900">
-                                <strong>BOM ini memuat dirinya sendiri:</strong>{" "}
-                                {need.cycle.join(" → ")}. Kebutuhan bahannya tidak terhingga, jadi tidak
-                                dihitung — bukan nol. Perbaiki BOM-nya dulu.
+                                <strong>{tr("This BOM contains itself:", "BOM ini memuat dirinya sendiri:")}</strong>{" "}
+                                {need.cycle.join(" → ")}.{" "}
+                                {tr(
+                                  "Its material need is infinite, so it is not calculated — not zero. Fix the BOM first.",
+                                  "Kebutuhan bahannya tidak terhingga, jadi tidak dihitung — bukan nol. Perbaiki BOM-nya dulu.",
+                                )}
                               </p>
                             )}
                             {need.sub_assemblies.length > 0 && (
                               <p className="mt-2 text-[12px] text-slate-600">
-                                Lewat {need.sub_assemblies.length} sub-rakitan:{" "}
+                                {tr(`Through ${need.sub_assemblies.length} sub-assemblies:`, `Lewat ${need.sub_assemblies.length} sub-rakitan:`)}{" "}
                                 {need.sub_assemblies.map((sa) => (
                                   `${formatNumber(sa.qty)}× ${sa.name ?? sa.product_code}`
                                 )).join(" · ")}
-                                {" "}— yang di bawah ini sudah bahan yang benar-benar dibeli, bukan
-                                nama rakitannya.
+                                {" "}{tr(
+                                  "— what is below is already the material actually bought, not the assembly's name.",
+                                  "— yang di bawah ini sudah bahan yang benar-benar dibeli, bukan nama rakitannya.",
+                                )}
                               </p>
                             )}
                             {need.unexploded.length > 0 && (
                               <p className="mt-1 text-[12px] text-amber-800">
-                                {need.unexploded.join(", ")} belum punya BOM yang dirilis, jadi tetap
-                                tercantum sebagai dirinya sendiri — harus diperiksa apakah dibeli atau
-                                dibuat.
+                                {need.unexploded.join(", ")}{" "}
+                                {tr(
+                                  "has no released BOM yet, so it is listed as itself — check whether it is bought or made.",
+                                  "belum punya BOM yang dirilis, jadi tetap tercantum sebagai dirinya sendiri — harus diperiksa apakah dibeli atau dibuat.",
+                                )}
                               </p>
                             )}
                             <dl className="mt-2 grid grid-cols-2 gap-2 text-[12px] sm:grid-cols-3 lg:grid-cols-5">
                               {([
-                                ["Proyeksi bahan", need.total == null ? "—" : formatIDR(need.total),
-                                  `${formatNumber(w.qty)} ${w.uom}${need.unpriced > 0 ? ` · ${need.unpriced} tanpa harga` : ""}`],
-                                ["Tenaga kerja", need.labour_total == null ? "—" : formatIDR(need.labour_total),
+                                [tr("Material projection", "Proyeksi bahan"), need.total == null ? "—" : formatIDR(need.total),
+                                  `${formatNumber(w.qty)} ${w.uom}${need.unpriced > 0 ? tr(` · ${need.unpriced} unpriced`, ` · ${need.unpriced} tanpa harga`) : ""}`],
+                                [tr("Labour", "Tenaga kerja"), need.labour_total == null ? "—" : formatIDR(need.labour_total),
                                   need.labour_total == null
-                                    ? "belum pernah dihitung orang"
-                                    : "diketik, bukan dihitung sistem"],
-                                ["Diminta (PR)", live.length === 0 ? "—" : formatIDR(asked), `${live.length} baris`],
-                                ["Disetujui", live.length === 0 ? "—" : formatIDR(approved), "dari yang diminta"],
-                                ["Terbayar", live.length === 0 ? "—" : formatIDR(paid), "sudah keluar uangnya"],
+                                    ? tr("never worked out by anyone", "belum pernah dihitung orang")
+                                    : tr("typed in, not calculated by the system", "diketik, bukan dihitung sistem")],
+                                [tr("Requested (PR)", "Diminta (PR)"), live.length === 0 ? "—" : formatIDR(asked), tr(`${live.length} lines`, `${live.length} baris`)],
+                                [tr("Approved", "Disetujui"), live.length === 0 ? "—" : formatIDR(approved), tr("of what was requested", "dari yang diminta")],
+                                [tr("Paid", "Terbayar"), live.length === 0 ? "—" : formatIDR(paid), tr("money already out", "sudah keluar uangnya")],
                               ] as [string, string, string][]).map(([k, v, note]) => (
                                 <div key={k}>
                                   <dt className="text-[10px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -638,10 +671,13 @@ export function WorkOrderDrawer({
                                      what happens next: a quantity edited, a
                                      vendor quoting more, a second PR raised
                                      when something ran out (D151). */
-                                  ? "Sama persis dengan proyeksi — harganya memang diambil dari katalog yang sama. Selisih baru muncul saat jumlah diubah, vendor menawar lain, atau ada PR susulan."
+                                  ? tr(
+                                    "Exactly the projection — the prices were taken from the same catalogue. A difference appears only when a quantity is changed, a vendor quotes differently, or a follow-up PR is raised.",
+                                    "Sama persis dengan proyeksi — harganya memang diambil dari katalog yang sama. Selisih baru muncul saat jumlah diubah, vendor menawar lain, atau ada PR susulan.",
+                                  )
                                   : asked > need.total
-                                    ? `Permintaan ${formatIDR(asked - need.total)} di atas proyeksi BOM.`
-                                    : `Permintaan ${formatIDR(need.total - asked)} di bawah proyeksi BOM.`}
+                                    ? tr(`Requested ${formatIDR(asked - need.total)} above the BOM projection.`, `Permintaan ${formatIDR(asked - need.total)} di atas proyeksi BOM.`)
+                                    : tr(`Requested ${formatIDR(need.total - asked)} below the BOM projection.`, `Permintaan ${formatIDR(need.total - asked)} di bawah proyeksi BOM.`)}
                               </p>
                             )}
                             {live.length > 0 && (
@@ -665,13 +701,15 @@ export function WorkOrderDrawer({
                                   disabled={prBusy || need.lines.length === 0}
                                   onClick={() => raisePr(w)}
                                 >
-                                  {live.length > 0 ? "Buat PR lagi dari BOM" : "Buat PR dari BOM"}
+                                  {live.length > 0 ? tr("Create another PR from the BOM", "Buat PR lagi dari BOM") : tr("Create PR from the BOM", "Buat PR dari BOM")}
                                 </Button>
                                 <p className="mt-1 text-[11px] text-slate-500">
-                                  Dibuat sebagai <strong>draft</strong>: daftarnya masih harus dibaca,
-                                  dihargai dan diajukan orang. BOM adalah kebutuhan, bukan keputusan
-                                  membelanjakan uang.
-                                  {live.length > 0 && " Sudah pernah dibuat — periksa dulu supaya tidak dobel."}
+                                  {tr("Created as a", "Dibuat sebagai")} <strong>draft</strong>
+                                  {tr(
+                                    ": the list still has to be read, priced and submitted by a person. A BOM is a need, not a decision to spend money.",
+                                    ": daftarnya masih harus dibaca, dihargai dan diajukan orang. BOM adalah kebutuhan, bukan keputusan membelanjakan uang.",
+                                  )}
+                                  {live.length > 0 && tr(" Already created before — check first so it is not doubled.", " Sudah pernah dibuat — periksa dulu supaya tidak dobel.")}
                                 </p>
                               </>
                             )}
@@ -690,15 +728,16 @@ export function WorkOrderDrawer({
             {w.retired.length > 0 && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3">
                 <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                  Tahap lama, sudah tidak dipakai
+                  {tr("Old stages, no longer used", "Tahap lama, sudah tidak dipakai")}
                 </p>
                 <p className="mt-1 text-[13px] text-slate-700">
                   {w.retired.map((r) => `${r.name} ${formatNumber(r.done)}`).join(" · ")}
                 </p>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Dicatat waktu bengkel masih memotong dan merakit sendiri. Sekarang barang mentahnya
-                  dibeli jadi, jadi langkah-langkah ini tidak ada lagi di papan — angkanya tetap disimpan
-                  dan tidak pernah dihitung sebagai bagian dari empat tahap sekarang.
+                  {tr(
+                    "Recorded when the workshop still cut and assembled in-house. The raw pieces are now bought ready-made, so these steps are no longer on the board — the figures are kept and never counted as part of the current four stages.",
+                    "Dicatat waktu bengkel masih memotong dan merakit sendiri. Sekarang barang mentahnya dibeli jadi, jadi langkah-langkah ini tidak ada lagi di papan — angkanya tetap disimpan dan tidak pernah dihitung sebagai bagian dari empat tahap sekarang.",
+                  )}
                 </p>
               </div>
             )}
@@ -714,11 +753,11 @@ export function WorkOrderDrawer({
               {(rows) => (
                 <div>
                   <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-400">
-                    Riwayat ({rows.length})
+                    {tr(`History (${rows.length})`, `Riwayat (${rows.length})`)}
                   </p>
                   <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                     {rows.length === 0 && (
-                      <li className="px-3 py-3 text-[13px] text-slate-500">Belum ada yang dicatat.</li>
+                      <li className="px-3 py-3 text-[13px] text-slate-500">{tr("Nothing recorded yet.", "Belum ada yang dicatat.")}</li>
                     )}
                     {rows.map((p) => (
                       <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-[12px]">
@@ -740,7 +779,7 @@ export function WorkOrderDrawer({
                           {p.note && <span className="text-slate-400"> · {p.note}</span>}
                         </span>
                         {p.source === "overtime_sheet" && (
-                          <Badge tone="brand">lembur {p.source_ref}</Badge>
+                          <Badge tone="brand">{tr("overtime", "lembur")} {p.source_ref}</Badge>
                         )}
                       </li>
                     ))}
@@ -758,6 +797,7 @@ export function WorkOrderDrawer({
 /* ── Material against the SPK ─────────────────────────────────────────── */
 
 function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => void }) {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const mayIssue = can("inventory.update");
@@ -779,16 +819,16 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "critical" : "warning", "Tidak dikeluarkan", res.error.message);
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not issued", "Tidak dikeluarkan"), res.error.message);
       return;
     }
     if (res.data.negative.length > 0) {
       /* Recorded, and said out loud. The wood is off the rack whatever the
          screen thought; what must not happen is silence (A6). */
-      toast("warning", `${res.data.issued} barang keluar — stok tercatat minus`,
+      toast("warning", tr(`${res.data.issued} items issued — stock recorded negative`, `${res.data.issued} barang keluar — stok tercatat minus`),
         res.data.negative.map((n) => `${n.item_name} ${n.on_hand_after}`).join(" · "));
     } else {
-      toast("success", `${res.data.issued} barang keluar`, `Dicatat atas ${woNo}.`);
+      toast("success", tr(`${res.data.issued} items issued`, `${res.data.issued} barang keluar`), tr(`Recorded against ${woNo}.`, `Dicatat atas ${woNo}.`));
     }
     setQty({}); setNote(""); setOpen(false);
     reloadPlan(); onChanged();
@@ -802,11 +842,11 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
             {/* Not just "Bahan": the drawer already has a *Bahan* figure a few
                 centimetres above it, and that one is the BOM's rupiah. This one
                 is stock that physically left the rack. */}
-            Bahan yang keluar ke bengkel
+            {tr("Material issued to the workshop", "Bahan yang keluar ke bengkel")}
             {p.rev !== null && <Badge tone="slate">BOM rev {p.rev}</Badge>}
             {p.variance_readable
-              ? <Badge tone="green">selesai — selisih bisa dibaca</Badge>
-              : <Badge tone="slate">{p.completed}/{p.ordered} jadi</Badge>}
+              ? <Badge tone="green">{tr("done — variance is readable", "selesai — selisih bisa dibaca")}</Badge>
+              : <Badge tone="slate">{tr(`${p.completed}/${p.ordered} made`, `${p.completed}/${p.ordered} jadi`)}</Badge>}
             {/* Computed from the rack now, never stored — and the rack is
                 shared, so two orders can both read ready (D312). */}
             <Badge tone={p.material_status === "ready" ? "green" : p.material_status === "waiting" ? "amber" : "slate"}>
@@ -814,21 +854,21 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
             </Badge>
             <Link href={`/produksi/jejak?no=${encodeURIComponent(woNo)}`}
               className="normal-case tracking-normal text-brand-700 hover:underline">
-              Jejak lengkap →
+              {tr("Full trail →", "Jejak lengkap →")}
             </Link>
           </p>
 
           {p.no_plan_reason ? (
             <p className="rounded-xl border border-slate-200 px-3 py-2.5 text-[13px] text-slate-500">
               {p.no_plan_reason}
-              {p.lines.length > 0 && " Yang sudah dikeluarkan tetap tercatat di bawah."}
+              {p.lines.length > 0 && tr(" What was already issued is still recorded below.", " Yang sudah dikeluarkan tetap tercatat di bawah.")}
             </p>
           ) : null}
 
           {p.lines.length === 0 ? (
             !p.no_plan_reason && (
               <p className="rounded-xl border border-slate-200 px-3 py-2.5 text-[13px] text-slate-500">
-                Belum ada bahan yang dikeluarkan atas Job Order ini.
+                {tr("No material has been issued against this Job Order yet.", "Belum ada bahan yang dikeluarkan atas Job Order ini.")}
               </p>
             )
           ) : (
@@ -838,7 +878,7 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
                   <span className="min-w-[160px] flex-1">
                     <span className="block text-slate-700">{l.item_name}</span>
                     <span className="block text-[10px] text-slate-400">
-                      {l.item_code} · rak {formatNumber(l.on_hand)} {l.uom}
+                      {l.item_code} · {tr("rack", "rak")} {formatNumber(l.on_hand)} {l.uom}
                     </span>
                   </span>
                   <span className="w-20 text-right tabular-nums text-slate-500">
@@ -852,8 +892,8 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
                       : l.remaining < 0 ? "text-amber-700" : "text-slate-500")}>
                     {l.remaining === null ? "—" : formatNumber(l.remaining)}
                   </span>
-                  {l.off_bom && <Badge tone="amber">di luar BOM</Badge>}
-                  {l.short > 0 && <Badge tone="amber">rak kurang {formatNumber(l.short)}</Badge>}
+                  {l.off_bom && <Badge tone="amber">{tr("off the BOM", "di luar BOM")}</Badge>}
+                  {l.short > 0 && <Badge tone="amber">{tr(`rack short ${formatNumber(l.short)}`, `rak kurang ${formatNumber(l.short)}`)}</Badge>}
                   {mayIssue && open && (
                     <NumberInput
                       value={qty[l.item_code] ?? 0} min={0} max={99_999}
@@ -864,18 +904,19 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
               ))}
               <li className="flex flex-wrap items-center gap-x-3 px-3 py-1.5 text-[10px] uppercase tracking-wide text-slate-400">
                 <span className="min-w-[160px] flex-1" />
-                <span className="w-20 text-right">seharusnya</span>
-                <span className="w-20 text-right">keluar</span>
-                <span className="w-20 text-right">sisa</span>
+                <span className="w-20 text-right">{tr("expected", "seharusnya")}</span>
+                <span className="w-20 text-right">{tr("issued", "keluar")}</span>
+                <span className="w-20 text-right">{tr("remaining", "sisa")}</span>
               </li>
             </ul>
           )}
 
           {!p.variance_readable && p.lines.some((l) => l.remaining !== null) && (
             <p className="mt-1 text-[11px] text-slate-500">
-              Selisihnya belum berarti apa-apa selama Job Order belum selesai — separuh Job Order baru
-              mengambil separuh bahannya, dan menyebut itu penghematan mengajarkan orang mengabaikan
-              angkanya.
+              {tr(
+                "The variance means nothing while the Job Order is unfinished — half a Job Order has only taken half its material, and calling that a saving teaches people to ignore the figure.",
+                "Selisihnya belum berarti apa-apa selama Job Order belum selesai — separuh Job Order baru mengambil separuh bahannya, dan menyebut itu penghematan mengajarkan orang mengabaikan angkanya.",
+              )}
             </p>
           )}
 
@@ -891,24 +932,24 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
                     .filter((l) => (l.remaining ?? 0) > 0)
                     .map((l) => [l.item_code, l.remaining as number])));
                 }}>
-                  Keluarkan bahan
+                  {tr("Issue material", "Keluarkan bahan")}
                 </Button>
               ) : (
                 <div className="rounded-xl border border-slate-200 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <select
                       value={location} onChange={(e) => setLocation(e.target.value)}
-                      aria-label="Lokasi"
+                      aria-label={tr("Location", "Lokasi")}
                       className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     >
-                      <option value="">Dari lokasi…</option>
+                      <option value="">{tr("From location…", "Dari lokasi…")}</option>
                       {locations.status === "ready" && locations.data.filter((l) => l.is_active).map((l) => (
                         <option key={l.code} value={l.code}>{l.name}</option>
                       ))}
                     </select>
                     <input
                       value={note} onChange={(e) => setNote(e.target.value)}
-                      placeholder="Catatan (opsional)"
+                      placeholder={tr("Note (optional)", "Catatan (opsional)")}
                       className="h-9 flex-1 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     />
                   </div>
@@ -922,24 +963,32 @@ function MaterialPanel({ woNo, onChanged }: { woNo: string; onChanged: () => voi
                     if (short.length === 0) return null;
                     return (
                       <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
-                        {short.length} barang akan membuat stok tercatat minus:{" "}
-                        {short.map((l) => `${l.item_name} (rak ${formatNumber(l.on_hand)}, diambil ${formatNumber(qty[l.item_code] ?? 0)})`).join(" · ")}.
-                        Tetap boleh dicatat — kalau memang barangnya dibawa, catatannya yang harus
-                        menyesuaikan, bukan sebaliknya.
+                        {tr(`${short.length} items will send recorded stock negative:`, `${short.length} barang akan membuat stok tercatat minus:`)}{" "}
+                        {short.map((l) => tr(
+                          `${l.item_name} (rack ${formatNumber(l.on_hand)}, taken ${formatNumber(qty[l.item_code] ?? 0)})`,
+                          `${l.item_name} (rak ${formatNumber(l.on_hand)}, diambil ${formatNumber(qty[l.item_code] ?? 0)})`,
+                        )).join(" · ")}.{" "}
+                        {tr(
+                          "It can still be recorded — if the goods really were taken, the records must follow, not the other way round.",
+                          "Tetap boleh dicatat — kalau memang barangnya dibawa, catatannya yang harus menyesuaikan, bukan sebaliknya.",
+                        )}
                       </p>
                     );
                   })()}
                   <p className="mt-2 text-[11px] text-slate-500">
-                    Angkanya sudah diisi dari BOM sebagai <strong>usulan</strong>. Ubah ke jumlah yang
-                    benar-benar dibawa ke bengkel — yang dicatat adalah barang yang keluar, bukan barang
-                    yang seharusnya keluar. Stok tidak pernah berkurang sendiri dari laporan produksi.
+                    {tr("The figures are filled in from the BOM as a", "Angkanya sudah diisi dari BOM sebagai")}{" "}
+                    <strong>{tr("proposal", "usulan")}</strong>.{" "}
+                    {tr(
+                      "Change them to what was actually taken to the workshop — what is recorded is what left, not what should have left. Stock never goes down by itself from a production report.",
+                      "Ubah ke jumlah yang benar-benar dibawa ke bengkel — yang dicatat adalah barang yang keluar, bukan barang yang seharusnya keluar. Stok tidak pernah berkurang sendiri dari laporan produksi.",
+                    )}
                   </p>
                   <div className="mt-2 flex justify-end gap-2">
                     <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setQty({}); }}>
-                      Batal
+                      {tr("Cancel", "Batal")}
                     </Button>
                     <Button size="sm" icon={PackageCheck} onClick={issue} disabled={busy || !location}>
-                      Catat keluar
+                      {tr("Record issue", "Catat keluar")}
                     </Button>
                   </div>
                 </div>

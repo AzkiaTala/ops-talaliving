@@ -7,6 +7,7 @@ import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives"
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { assistant } from "@/demo/api";
 import type { AssistantTool } from "@/services/assistant/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** What John Lau may do, written down where anybody can read it.
  *
@@ -21,33 +22,43 @@ import type { AssistantTool } from "@/services/assistant/contracts";
  */
 export default function JohnLauPage() {
   const [tools, reload] = useLoad(() => assistant.listTools(), []);
+  const tr = useTr();
 
   return (
     <div>
       <PageHeader
         breadcrumb="John Lau"
-        title="Apa yang boleh ditanyakan"
-        description="John Lau menjalankan perintah bernama dan menunjukkan hasilnya. Ia tidak mengarang angka, tidak bekerja dengan hak lebih besar dari Anda, dan tidak menulis apa pun tanpa konfirmasi kedua."
+        title={tr("What you may ask", "Apa yang boleh ditanyakan")}
+        description={tr(
+          "John Lau runs named commands and shows the result. He does not make up figures, does not work with more rights than you have, and writes nothing without a second confirmation.",
+          "John Lau menjalankan perintah bernama dan menunjukkan hasilnya. Ia tidak mengarang angka, tidak bekerja dengan hak lebih besar dari Anda, dan tidak menulis apa pun tanpa konfirmasi kedua.",
+        )}
         actions={<SourceBadge state={tools} />}
       />
 
       <div className="mb-4 space-y-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-700 shadow-card">
         <p>
-          <strong className="font-medium">Setiap angka punya sumbernya.</strong> Jawaban John Lau
-          berisi nama perhitungan yang menghasilkannya dan tautan ke layar yang menampilkan angka
-          yang sama. Kalau tidak ada perhitungan yang menjawab, jawabannya <em>saya tidak tahu</em> —
-          bukan tebakan yang terdengar meyakinkan.
+          <strong className="font-medium">{tr("Every figure has its source.", "Setiap angka punya sumbernya.")}</strong>{" "}
+          {tr(
+            "A John Lau answer names the calculation that produced it and links to the screen that shows the same figure. If no calculation answers, the answer is",
+            "Jawaban John Lau berisi nama perhitungan yang menghasilkannya dan tautan ke layar yang menampilkan angka yang sama. Kalau tidak ada perhitungan yang menjawab, jawabannya",
+          )}{" "}
+          <em>{tr("I don't know", "saya tidak tahu")}</em>{" "}
+          {tr("— not a guess that sounds convincing.", "— bukan tebakan yang terdengar meyakinkan.")}
         </p>
         <p>
-          <strong className="font-medium">Ia bekerja dengan hak Anda.</strong> Tiap perintah lewat
-          pemeriksaan izin yang sama dengan layarnya. Asisten yang bisa membaca lebih banyak
-          daripada orang yang mengetik membuat izin di aplikasi ini tidak berarti apa-apa.
+          <strong className="font-medium">{tr("He works with your rights.", "Ia bekerja dengan hak Anda.")}</strong>{" "}
+          {tr(
+            "Every command passes the same permission check as its screen. An assistant that could read more than the person typing would make the permissions in this app mean nothing.",
+            "Tiap perintah lewat pemeriksaan izin yang sama dengan layarnya. Asisten yang bisa membaca lebih banyak daripada orang yang mengetik membuat izin di aplikasi ini tidak berarti apa-apa.",
+          )}
         </p>
         <p>
-          <strong className="font-medium">Pemahaman kalimatnya belum nyata.</strong> Di tahap ini
-          yang mencocokkan kalimat ke perintah adalah pencocok kata kunci, bukan model bahasa.
-          Yang sudah nyata adalah daftar di bawah, pemeriksaan izinnya, dan langkah konfirmasinya —
-          bagian yang tidak berubah waktu model bahasanya dipasang.
+          <strong className="font-medium">{tr("The sentence understanding is not real yet.", "Pemahaman kalimatnya belum nyata.")}</strong>{" "}
+          {tr(
+            "At this stage, what matches a sentence to a command is a keyword matcher, not a language model. What is already real is the list below, its permission checks and its confirmation step — the parts that do not change when the language model is fitted.",
+            "Di tahap ini yang mencocokkan kalimat ke perintah adalah pencocok kata kunci, bukan model bahasa. Yang sudah nyata adalah daftar di bawah, pemeriksaan izinnya, dan langkah konfirmasinya — bagian yang tidak berubah waktu model bahasanya dipasang.",
+          )}
         </p>
       </div>
 
@@ -62,8 +73,11 @@ export default function JohnLauPage() {
             <div className="space-y-4">
               <Card className="border-rose-200">
                 <CardHeader
-                  title={`${blocked.length} hal yang tidak bisa lewat prompt, pada tingkat akses mana pun`}
-                  subtitle="Ini bukan tingkat izin — tidak ada grant yang membukanya. Daftar ini ada di kode sebagai data yang dibaca penyalur perintah, bukan sebagai kalimat perintah ke sebuah model."
+                  title={tr(`${blocked.length} things that cannot go through a prompt, at any access level`, `${blocked.length} hal yang tidak bisa lewat prompt, pada tingkat akses mana pun`)}
+                  subtitle={tr(
+                    "This is not a permission level — no grant opens it. The list lives in the code as data the command router reads, not as an instruction sentence to a model.",
+                    "Ini bukan tingkat izin — tidak ada grant yang membukanya. Daftar ini ada di kode sebagai data yang dibaca penyalur perintah, bukan sebagai kalimat perintah ke sebuah model.",
+                  )}
                   icon={ShieldAlert}
                 />
                 <ul className="divide-y divide-slate-100">
@@ -72,20 +86,26 @@ export default function JohnLauPage() {
               </Card>
 
               <Card>
-                <CardHeader title={`${reads.length} pertanyaan data`} icon={Wrench} />
+                <CardHeader title={tr(`${reads.length} data questions`, `${reads.length} pertanyaan data`)} icon={Wrench} />
                 <ul className="divide-y divide-slate-100">{reads.map((t) => <Row key={t.name} tool={t} />)}</ul>
               </Card>
 
               <Card>
-                <CardHeader title={`${guides.length} petunjuk cara kerja`}
-                  subtitle="Dijawab sebagai langkah beserta aturan di baliknya, dan layarnya bisa dibuka sambil panduannya tetap terbaca."
+                <CardHeader title={tr(`${guides.length} how-to guides`, `${guides.length} petunjuk cara kerja`)}
+                  subtitle={tr(
+                    "Answered as steps with the rules behind them, and the screen can be opened while the guide stays readable.",
+                    "Dijawab sebagai langkah beserta aturan di baliknya, dan layarnya bisa dibuka sambil panduannya tetap terbaca.",
+                  )}
                   icon={BookOpen} />
                 <ul className="divide-y divide-slate-100">{guides.map((t) => <Row key={t.name} tool={t} />)}</ul>
               </Card>
 
               <Card>
-                <CardHeader title={`${writes.length} hal yang bisa disiapkan untuk ditulis`}
-                  subtitle="Selalu sebagai rancangan. Tiap kolom ditampilkan utuh dan harus dikonfirmasi sekali lagi — konfirmasi atas ringkasan adalah konfirmasi atas ringkasannya."
+                <CardHeader title={tr(`${writes.length} things that can be prepared for writing`, `${writes.length} hal yang bisa disiapkan untuk ditulis`)}
+                  subtitle={tr(
+                    "Always as a draft. Every field is shown in full and must be confirmed once more — confirming a summary is confirming the summary.",
+                    "Selalu sebagai rancangan. Tiap kolom ditampilkan utuh dan harus dikonfirmasi sekali lagi — konfirmasi atas ringkasan adalah konfirmasi atas ringkasannya.",
+                  )}
                   icon={PencilLine} />
                 <ul className="divide-y divide-slate-100">{writes.map((t) => <Row key={t.name} tool={t} />)}</ul>
               </Card>
@@ -98,6 +118,7 @@ export default function JohnLauPage() {
 }
 
 function Row({ tool }: { tool: AssistantTool }) {
+  const tr = useTr();
   return (
     <li className="px-5 py-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -105,7 +126,7 @@ function Row({ tool }: { tool: AssistantTool }) {
         {tool.module && (
           <Badge tone="slate">{tool.module} · {tool.level}</Badge>
         )}
-        {tool.reach === "blocked" && <Badge tone="red">tertutup</Badge>}
+        {tool.reach === "blocked" && <Badge tone="red">{tr("closed", "tertutup")}</Badge>}
         <span className="ml-auto font-mono text-[10px] text-slate-400">{tool.name}</span>
       </div>
       {tool.blocked_reason && (
@@ -114,7 +135,7 @@ function Row({ tool }: { tool: AssistantTool }) {
       {tool.instead_at && (
         <p className="mt-1 text-[11px]">
           <Link href={tool.instead_at} className="text-brand-700 hover:underline">
-            {tool.reach === "blocked" ? "Yang boleh, di layarnya" : "Layarnya"}: {tool.instead_at}
+            {tool.reach === "blocked" ? tr("What is allowed, on its screen", "Yang boleh, di layarnya") : tr("Its screen", "Layarnya")}: {tool.instead_at}
           </Link>
         </p>
       )}

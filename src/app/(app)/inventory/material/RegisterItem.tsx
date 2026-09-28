@@ -9,6 +9,7 @@ import { documents, inventory, procurement } from "@/demo/api";
 import { ITEM_PHOTO_MAX, ITEM_PHOTO_MIN } from "@/services/documents/contracts";
 import { useToast } from "@/store/toast";
 import { shrinkImage } from "../log/notaFile";
+import { useTr } from "@/lib/i18n";
 
 /** Registering an item at the rack (`0168`).
  *
@@ -27,6 +28,7 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
   onCreated: (itemCode: string) => void;
   onCancel: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [categories] = useLoad(() => inventory.listStockedCategories(), []);
@@ -51,25 +53,25 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
     const room = ITEM_PHOTO_MAX - photos.length;
     const picked = Array.from(list).slice(0, room);
     if (list.length > room) {
-      toast("warning", "Paling banyak empat foto", `${list.length - room} foto tidak diambil.`);
+      toast("warning", tr("Four photos at most", "Paling banyak empat foto"), tr(`${list.length - room} photos were not taken.`, `${list.length - room} foto tidak diambil.`));
     }
     setPhotos([...photos, ...picked.map((file) => ({ file, url: URL.createObjectURL(file) }))]);
     if (fileRef.current) fileRef.current.value = "";
   }
 
   async function submit() {
-    setBusy("Mengunggah foto…");
+    setBusy(tr("Uploading photos…", "Mengunggah foto…"));
     const ids: string[] = [];
     for (const [i, p] of photos.entries()) {
       const up = await documents.upload({ file: await shrinkImage(p.file), kind: "Foto", entity: "item" });
       if (up.error) {
         setBusy(null);
-        toast("warning", `Foto ${i + 1} tidak terunggah`, `${up.error.message} Barang belum didaftarkan — coba lagi.`);
+        toast("warning", tr(`Photo ${i + 1} was not uploaded`, `Foto ${i + 1} tidak terunggah`), tr(`${up.error.message} The item has not been registered — try again.`, `${up.error.message} Barang belum didaftarkan — coba lagi.`));
         return;
       }
       ids.push(up.data.id);
     }
-    setBusy("Menyimpan…");
+    setBusy(tr("Saving…", "Menyimpan…"));
     const counted = mayCount && form.counted > 0 ? form.counted : null;
     const res = await inventory.registerItem({
       name: form.name, name_local: form.name_local || null,
@@ -79,11 +81,13 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
     }, key);
     setBusy(null);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Tidak terdaftar", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not registered", "Tidak terdaftar"), res.error.message);
       return;
     }
-    toast("success", `Terdaftar sebagai ${res.data.item_code}`,
-      counted != null ? `Dengan ${photos.length} foto dan hitungan ${counted} ${res.data.uom}.` : `Dengan ${photos.length} foto.`);
+    toast("success", tr(`Registered as ${res.data.item_code}`, `Terdaftar sebagai ${res.data.item_code}`),
+      counted != null
+        ? tr(`With ${photos.length} photos and a count of ${counted} ${res.data.uom}.`, `Dengan ${photos.length} foto dan hitungan ${counted} ${res.data.uom}.`)
+        : tr(`With ${photos.length} photos.`, `Dengan ${photos.length} foto.`));
     onCreated(res.data.item_code);
   }
 
@@ -95,8 +99,8 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
   return (
     <Card className="mb-4">
       <CardHeader
-        title="Daftarkan barang"
-        subtitle="Untuk barang di rak yang belum ada di katalog. Foto wajib — minimal satu, paling banyak empat."
+        title={tr("Register an item", "Daftarkan barang")}
+        subtitle={tr("For an item on the rack that is not in the catalogue yet. Photos are required — at least one, at most four.", "Untuk barang di rak yang belum ada di katalog. Foto wajib — minimal satu, paling banyak empat.")}
         icon={PackagePlus}
       />
       <div className="space-y-3 px-5 py-4">
@@ -109,9 +113,9 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
             {photos.map((p, i) => (
               <div key={p.url} className="relative h-24 w-24 overflow-hidden rounded-lg border border-slate-200">
                 {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview, never optimised */}
-                <img src={p.url} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+                <img src={p.url} alt={tr(`Photo ${i + 1}`, `Foto ${i + 1}`)} className="h-full w-full object-cover" />
                 <button
-                  type="button" aria-label={`Buang foto ${i + 1}`}
+                  type="button" aria-label={tr(`Remove photo ${i + 1}`, `Buang foto ${i + 1}`)}
                   onClick={() => { URL.revokeObjectURL(p.url); setPhotos(photos.filter((x) => x.url !== p.url)); }}
                   className="absolute right-1 top-1 rounded-full bg-white/90 p-0.5 text-slate-600 shadow hover:text-rose-700"
                 >
@@ -125,40 +129,40 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
                 className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-[11px] text-slate-500 hover:bg-slate-50"
               >
                 <Camera className="h-5 w-5" />
-                {photos.length === 0 ? "Foto barang" : "Tambah foto"}
+                {photos.length === 0 ? tr("Item photo", "Foto barang") : tr("Add photo", "Tambah foto")}
               </button>
             )}
           </div>
           <p className={photos.length === 0 ? "mt-1 text-[11px] text-amber-700" : "mt-1 text-[11px] text-slate-500"}>
-            {photos.length} dari {ITEM_PHOTO_MAX} foto{photos.length === 0 ? " — minimal satu" : ""}
+            {tr(`${photos.length} of ${ITEM_PHOTO_MAX} photos`, `${photos.length} dari ${ITEM_PHOTO_MAX} foto`)}{photos.length === 0 ? tr(" — at least one", " — minimal satu") : ""}
           </p>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="text-[11px] text-slate-500">
-            Nama katalog (sistem)
+            {tr("Catalogue name (system)", "Nama katalog (sistem)")}
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Sandpaper 240" className={`mt-1 ${field}`} />
           </label>
           <label className="text-[11px] text-slate-500">
-            Nama lapangan (yang dipakai tim)
+            {tr("Floor name (what the team calls it)", "Nama lapangan (yang dipakai tim)")}
             <input value={form.name_local} onChange={(e) => setForm({ ...form, name_local: e.target.value })}
               placeholder="Amplas 240" className={`mt-1 ${field}`} />
           </label>
           <label className="text-[11px] text-slate-500">
-            Kategori
+            {tr("Category", "Kategori")}
             <Loaded state={categories} skeletonRows={1}>
               {(cats) => (
                 <select value={form.category_code} onChange={(e) => setForm({ ...form, category_code: e.target.value })}
                   className={`mt-1 ${field}`}>
-                  <option value="">— pilih —</option>
+                  <option value="">{tr("— choose —", "— pilih —")}</option>
                   {cats.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
                 </select>
               )}
             </Loaded>
           </label>
           <label className="text-[11px] text-slate-500">
-            Satuan
+            {tr("Unit", "Satuan")}
             <Loaded state={uoms} skeletonRows={1}>
               {(list) => (
                 <select value={form.base_uom} onChange={(e) => setForm({ ...form, base_uom: e.target.value })}
@@ -173,14 +177,14 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
         {mayCount && (
           <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
             <p className="text-[11px] text-slate-500">
-              Sudah dihitung? Isi jumlah dan raknya — tercatat sebagai hasil opname. Kosongkan kalau belum.
+              {tr("Already counted? Enter the quantity and the rack — it is recorded as an opname result. Leave it empty if not.", "Sudah dihitung? Isi jumlah dan raknya — tercatat sebagai hasil opname. Kosongkan kalau belum.")}
             </p>
             <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_140px]">
               <Loaded state={locations} skeletonRows={1}>
                 {(locs) => (
                   <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    aria-label="Lokasi" className={field}>
-                    <option value="">Pilih lokasi…</option>
+                    aria-label={tr("Location", "Lokasi")} className={field}>
+                    <option value="">{tr("Choose a location…", "Pilih lokasi…")}</option>
                     {locs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
                   </select>
                 )}
@@ -188,16 +192,16 @@ export function RegisterItem({ mayCount, onCreated, onCancel }: {
               <NumberInput value={form.counted} onChange={(v) => setForm({ ...form, counted: v })} />
             </div>
             {form.counted > 0 && !form.location && (
-              <p className="mt-1 text-[11px] text-amber-700">Pilih raknya — hitungan selalu milik satu lokasi.</p>
+              <p className="mt-1 text-[11px] text-amber-700">{tr("Choose the rack — a count always belongs to one location.", "Pilih raknya — hitungan selalu milik satu lokasi.")}</p>
             )}
           </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" icon={PackagePlus} disabled={!!busy || !ready} onClick={submit}>
-            {busy ?? "Daftarkan"}
+            {busy ?? tr("Register", "Daftarkan")}
           </Button>
-          <Button size="sm" variant="ghost" disabled={!!busy} onClick={onCancel}>Batal</Button>
+          <Button size="sm" variant="ghost" disabled={!!busy} onClick={onCancel}>{tr("Cancel", "Batal")}</Button>
         </div>
       </div>
     </Card>

@@ -7,6 +7,7 @@ import { Loaded, useLoad } from "@/components/ui/loaded";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { accounting } from "@/demo/api";
+import { useTr } from "@/lib/i18n";
 
 /** One month, opened up.
  *
@@ -28,10 +29,11 @@ import { accounting } from "@/demo/api";
 const money = (n: number) => (n < 0 ? `− ${formatIDR(Math.abs(n))}` : formatIDR(n));
 
 export function MonthDrawer({ month, onClose }: { month: string; onClose: () => void }) {
+  const tr = useTr();
   const [detail, reload] = useLoad(() => accounting.getMonthDetail(month), [month]);
 
   return (
-    <Drawer open onClose={onClose} width="max-w-2xl" title={month} subtitle="Day by day, and the lowest the cash gets">
+    <Drawer open onClose={onClose} width="max-w-2xl" title={month} subtitle={tr("Day by day, and the lowest the cash gets", "Hari demi hari, dan titik kas terendah")}>
       <Loaded state={detail} onRetry={reload}>
         {(d) => (
           <div className="space-y-4">
@@ -41,10 +43,10 @@ export function MonthDrawer({ month, onClose }: { month: string; onClose: () => 
             )}>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <span className="text-[12px] text-slate-500">
-                  Opens at <strong className="tabular-nums text-slate-700">{money(d.opening)}</strong>
+                  {tr("Opens at", "Dibuka di")} <strong className="tabular-nums text-slate-700">{money(d.opening)}</strong>
                 </span>
                 <span className="text-[12px] text-slate-500">
-                  Ends at <strong className={cn("tabular-nums", d.closing < 0 ? "text-rose-700" : "text-slate-700")}>
+                  {tr("Ends at", "Berakhir di")} <strong className={cn("tabular-nums", d.closing < 0 ? "text-rose-700" : "text-slate-700")}>
                     {money(d.closing)}
                   </strong>
                 </span>
@@ -57,25 +59,27 @@ export function MonthDrawer({ month, onClose }: { month: string; onClose: () => 
                 {d.low_date ? (
                   <span>
                     {d.opening < 0 && (
-                      <>The month opens already under, carrying what the month before it left behind. </>
+                      <>{tr("The month opens already under, carrying what the month before it left behind.", "Bulan ini dibuka sudah minus, membawa sisa dari bulan sebelumnya.")} </>
                     )}
                     {d.first_negative_date ? (
                       <>
-                        Runs out on <strong>{d.first_negative_date}</strong> — that is the first
-                        payment that cannot be made, and everything after it follows from that one.
-                        Lowest on <strong>{d.low_date}</strong> at{" "}
+                        {tr("Runs out on", "Habis pada")} <strong>{d.first_negative_date}</strong>{" "}
+                        {tr("— that is the first payment that cannot be made, and everything after it follows from that one.",
+                          "— itulah pembayaran pertama yang tidak bisa dilakukan, dan semua yang sesudahnya mengikuti dari situ.")}{" "}
+                        {tr("Lowest on", "Terendah pada")} <strong>{d.low_date}</strong> {tr("at", "sebesar")}{" "}
                         <strong className="tabular-nums">{money(d.low_point)}</strong>.
                       </>
                     ) : (
                       <>
-                        Lowest on <strong>{d.low_date}</strong> at{" "}
-                        <strong className="tabular-nums">{money(d.low_point)}</strong> — the month
-                        never goes under, but that is how close it comes.
+                        {tr("Lowest on", "Terendah pada")} <strong>{d.low_date}</strong> {tr("at", "sebesar")}{" "}
+                        <strong className="tabular-nums">{money(d.low_point)}</strong>{" "}
+                        {tr("— the month never goes under, but that is how close it comes.",
+                          "— bulan ini tidak pernah minus, tetapi sedekat itulah jaraknya.")}
                       </>
                     )}
                   </span>
                 ) : (
-                  <span>Nothing moves the balance in this month.</span>
+                  <span>{tr("Nothing moves the balance in this month.", "Tidak ada yang menggerakkan saldo di bulan ini.")}</span>
                 )}
               </p>
             </div>
@@ -100,10 +104,10 @@ export function MonthDrawer({ month, onClose }: { month: string; onClose: () => 
                   <span className="min-w-[160px] flex-1 text-[13px] text-slate-800">
                     {r.name}
                     {r.frequency === "once" && (
-                      <span className="ml-1.5 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700">one-off</span>
+                      <span className="ml-1.5 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700">{tr("one-off", "sekali")}</span>
                     )}
                     {r.amount_kind === "estimate" && (
-                      <span className="ml-1.5 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700" title="An estimate — any matched payment settles it">estimate</span>
+                      <span className="ml-1.5 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700" title={tr("An estimate — any matched payment settles it", "Perkiraan — pembayaran apa pun yang cocok melunasinya")}>{tr("estimate", "perkiraan")}</span>
                     )}
                     {r.carries_override && r.reason && (
                       <span className="block text-[11px] text-violet-700">{r.reason}</span>
@@ -111,9 +115,9 @@ export function MonthDrawer({ month, onClose }: { month: string; onClose: () => 
                     {r.actual > 0 && (
                       <span className="block text-[11px] text-slate-500">
                         {r.matched_by === "category" ? "≈ " : <Link2 className="mr-1 inline h-3 w-3" />}
-                        {formatIDR(r.actual)} actually went out · {r.trx_nos.join(", ")}
+                        {formatIDR(r.actual)} {tr("actually went out", "benar-benar keluar")} · {r.trx_nos.join(", ")}
                         {r.amount_kind === "estimate" && r.state === "PAID" && r.actual !== r.planned && (
-                          <> · {r.actual > r.planned ? "+" : "−"}{formatIDR(Math.abs(r.actual - r.planned))} against the estimate</>
+                          <> · {r.actual > r.planned ? "+" : "−"}{formatIDR(Math.abs(r.actual - r.planned))} {tr("against the estimate", "terhadap perkiraan")}</>
                         )}
                       </span>
                     )}
@@ -125,7 +129,7 @@ export function MonthDrawer({ month, onClose }: { month: string; onClose: () => 
                     {r.direction === "IN" ? "+ " : "− "}{formatIDR(r.planned)}
                   </span>
                   {r.is_past ? (
-                    <Badge tone="slate">already gone</Badge>
+                    <Badge tone="slate">{tr("already gone", "sudah keluar")}</Badge>
                   ) : (
                     <span className={cn(
                       "w-[128px] whitespace-nowrap text-right text-[13px] font-medium tabular-nums",
@@ -142,11 +146,9 @@ export function MonthDrawer({ month, onClose }: { month: string; onClose: () => 
               /* The honest footnote. Bigger than most months of planned
                  spending, and no day here can hold it (F30). */
               <p className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 text-[12px] text-amber-900">
-                Plus <strong className="tabular-nums">{formatIDR(d.undated_obligations)}</strong> owed to
-                suppliers on terms that fire on an event — on issue, on delivery — rather than
-                on a date. Any of it could land on any of these days. It is not in the balance
-                above, and spreading it evenly across the month would only make this line look
-                tidier than the truth.
+                {tr("Plus", "Ditambah")} <strong className="tabular-nums">{formatIDR(d.undated_obligations)}</strong>{" "}
+                {tr("owed to suppliers on terms that fire on an event — on issue, on delivery — rather than on a date. Any of it could land on any of these days. It is not in the balance above, and spreading it evenly across the month would only make this line look tidier than the truth.",
+                  "utang ke pemasok dengan termin yang jatuh pada suatu peristiwa — saat terbit, saat pengiriman — bukan pada tanggal. Sebagian mana pun bisa jatuh di hari mana pun di sini. Jumlah ini tidak ada di saldo di atas, dan menyebarkannya rata di sepanjang bulan hanya membuat baris ini tampak lebih rapi daripada kenyataannya.")}
               </p>
             )}
           </div>
