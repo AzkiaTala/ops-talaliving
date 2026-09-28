@@ -7052,3 +7052,44 @@ made to agree without rewriting the table: the columns sit at 18/19 there and
 
 Same lesson as F166, from the other side: the description (a migration's
 recorded SQL, a view's `i.*`) is not the thing. Compare the thing.
+
+## F168 · 2026-09-28 · every check green, and every Marketing call in a live build a 501
+
+**What was done.** Marketing was switched on the way the checks describe: export
+it from `src/lib/api/index.ts`, hand `swap()` its live module in
+`src/demo/api/index.ts`, add it to `LIVE_MODULES`, regenerate `LIVE_ROUTES`.
+`tsc`, lint, `check-live-routes`, API parity (360/360) and API schemas all
+went green.
+
+**What a browser said.** A walk against a live-mode build (the local stack:
+real PostgREST 12.2.3 over the ladder, stubbed auth) opened both screens onto
+*`marketing.getMetrics` belum ada di klien database — 501*. No request reached
+`ops_mkt`.
+
+**Why.** `next.config.mjs` aliases `@/demo/api` to **`src/live/api.ts`**
+whenever the build points at a database, so the demo's fixtures never reach a
+browser. That file wires every service a second time with `liveOnly()`, and
+marketing's line was `liveOnly("marketing", {})`. `check-live-routes`
+checked the demo switchboard, which fixed exactly this class of bug for
+inventory, and never the file a deployment actually ships. The file's own
+guard (`everyService`) checks that a binding **exists**, not that it carries
+anything, so `{}` passes it.
+
+**The fix, and the guard.** Pass `liveMarketing`. `check-live-routes.mjs` now
+reads `src/live/api.ts` too, and fails when a service it counts as implemented
+is handed `{}` or nothing. Tested both ways: without the fix it names
+`marketing` and exits 1; with it, it passes.
+
+**Then the walk, properly.** Empty state first, which is what production
+has. Then a small local market seeded **through the seams**. `import_scrape`
+added two rows and named the third's unknown market instead of inventing it.
+Both screens rendered it, and the property drawer showed three agents and
+local time in Gold Coast. A `marketing.read` user saw no write buttons. The
+admin pressed **Deal** on an onboarded agent: `set_agent_stage` 200, the
+row is `DEAL`, and audit rows were written. The one console 404 comes from
+outside the API (no request to the stack failed) and is on every page.
+
+This is F164's lesson one layer down: a type-check proves the call is
+spelled right, not that the build calls it. The route list, parity and
+schemas were all right about the files they read. The build read a
+different file.

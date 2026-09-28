@@ -70,27 +70,21 @@ export * as quotation from "./quotation";
    quotation. Stamped `procurement`, checked against `project`. */
 export * as crm from "./crm";
 
-/* ## `marketing` is written and is deliberately not exported here yet
+/* ## `marketing` is exported (D316)
  *
- *  `src/lib/api/marketing.ts` exists, type-checks, and matches the demo on all
- *  fifteen functions with nothing on the pending list — `check-api-parity.mjs`
- *  covers it. What is missing is not code.
+ *  The line waited on two things, and both are now true. The Marketing block
+ *  of the ladder, `0080`–`0085`, was applied to the live project on 2026-09-25
+ *  and fingerprinted identical to a local rebuild (D315, F167). `ops_mkt` was
+ *  added to the project's *Exposed schemas* on 2026-09-28. PostgREST's schema
+ *  cache went from 381 to 394 relations, the thirteen `ops_mkt` has.
+ *  Every RPC this client calls matches its function's argument names.
  *
- *  Exporting a service from this file is what makes its routes live:
- *  `check-live-routes.mjs` reads this module to decide. The marketing screens
- *  read `ops_mkt`, and **`ops_mkt` has no tables in the live project**: the
- *  ladder there stops in the 0030s, and 0080–0085 have only ever been applied
- *  to the throwaway cluster. Turning the screens on today would give every one
- *  of them *Could not find the table `ops_mkt.v_market`* — which is the exact
- *  failure this file and `live.ts` exist to make impossible.
- *
- *  So the line that would add it is not here. Adding it is the whole of the
- *  remaining work, and it becomes correct the moment the marketing block of
- *  the ladder is applied to the project — after which
- *  `node scripts/check-live-routes.mjs --write` regenerates `LIVE_ROUTES` and
- *  the eight marketing screens open. Applying migrations to a project another
- *  session is mid-cutover on is not a decision this file gets to make.
+ *  **The tables are empty.** No screen here creates a market
+ *  (`ops_mkt.create_market` exists and nothing calls it), and a scrape import
+ *  counts every row as `unknown_market` until one exists. So the screens open
+ *  onto an honest empty state, not onto fixtures.
  */
+export * as marketing from "./marketing";
 
 /* ## `hr` is exported, and six of its fourteen screens open
  *

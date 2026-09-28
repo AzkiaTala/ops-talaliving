@@ -258,7 +258,39 @@ function switchboardGaps() {
   return LIVE.filter((s) => wired.has(s) && !wired.get(s));
 }
 
+/* ## …and the switchboard the live build actually ships
+ *
+ * `next.config.mjs` aliases `@/demo/api` to `src/live/api.ts` whenever the
+ * build points at a database, so a deployment never runs the file above. It
+ * runs this one, which wires each service again with `liveOnly()`. Checking
+ * only the demo switchboard is how marketing went live on 2026-09-28 with
+ * `liveOnly("marketing", {})`: every check here green, `swap()` correct, and
+ * every call in production a 501. A browser walk against a live-mode build
+ * caught it (F168). The literal `{}`, or no argument at all, for a service
+ * this file lists as implemented is now a failure. */
+const LIVE_BUILD = join(ROOT, "src/live/api.ts");
+
+function liveBuildGaps() {
+  const src = blankNonCode(readFileSync(LIVE_BUILD, "utf8"));
+  const wired = new Map();  // exported binding name -> its live module argument
+  for (const m of src.matchAll(
+    /export const ([a-zA-Z][A-Za-z0-9_]*)\s*=\s*liveOnly(?:<[^>]*>)?\(\s*[^,]+,\s*([^)]*?)\s*\)/g,
+  )) {
+    wired.set(m[1], m[2]);
+  }
+  return LIVE.filter((s) => !wired.has(s) || wired.get(s) === "{}" || wired.get(s) === "");
+}
+
 const gaps = switchboardGaps();
+const buildGaps = liveBuildGaps();
+if (buildGaps.length) {
+  console.error(
+    `src/live/api.ts does not pass the live module to liveOnly() for: ${buildGaps.join(", ")}\n`
+    + "That file is what a live build ships in place of src/demo/api (next.config.mjs), so every "
+    + `call to ${buildGaps.map((s) => `${s}.*`).join(", ")} in production is a 501.`,
+  );
+  process.exit(1);
+}
 if (gaps.length) {
   console.error(
     `src/demo/api/index.ts does not pass the live module to swap() for: ${gaps.join(", ")}\n`
@@ -342,6 +374,8 @@ const MODULE_OF = {
 const LIVE_MODULES = [
   "dashboard", "procurement", "accounting", "it", "settings", "assistant", "inventory", "hrd",
   "master-data", "production", "project",
+  /* `ops_mkt` applied (D315) and exposed (D316), 2026-09-28. */
+  "marketing",
   /* Open exactly when `identity` and `hr` are — both already are — never on
      its own schedule, because there is no separate `profil` schema to wait
      on (0163–0166 add policies and seams to `ops_core`/`ops_hr`, not a new
