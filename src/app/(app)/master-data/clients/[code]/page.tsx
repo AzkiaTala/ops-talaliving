@@ -14,6 +14,7 @@ import { PROJECT_STATUSES, type ClientView } from "@/services/procurement/contra
 import { QUOTATION_STATUSES } from "@/services/quotation/contracts";
 import { useSession } from "@/store/session";
 import { ClientDrawer } from "../ClientDrawer";
+import { useTr } from "@/lib/i18n";
 
 /** One client, whole: who they are, every project and quotation, what was said
  *  to them and what is due next (0134).
@@ -22,6 +23,7 @@ import { ClientDrawer } from "../ClientDrawer";
  *  owns nothing of its own but the log.
  */
 export default function ClientPage({ params }: { params: Promise<{ code: string }> }) {
+  const tr = useTr();
   const { code: raw } = use(params);
   const code = decodeURIComponent(raw);
   const { can } = useSession();
@@ -33,25 +35,25 @@ export default function ClientPage({ params }: { params: Promise<{ code: string 
   return (
     <div>
       <Link href="/master-data/clients" className="mb-3 inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-800">
-        <ArrowLeft className="h-3.5 w-3.5" /> Semua klien
+        <ArrowLeft className="h-3.5 w-3.5" /> {tr("All clients", "Semua klien")}
       </Link>
       <Loaded state={clients} onRetry={reloadClients}>
         {(all) => {
           const c = all.find((x) => x.code === code);
-          if (!c) return <p className="py-10 text-center text-slate-500">Tidak ada klien {code}.</p>;
+          if (!c) return <p className="py-10 text-center text-slate-500">{tr(`No client ${code}.`, `Tidak ada klien ${code}.`)}</p>;
           const mine = projects.status === "ready" ? projects.data.filter((p) => p.client_code === code) : [];
           const offers = quotes.status === "ready" ? quotes.data.filter((q) => q.client_code === code) : [];
           return (
             <>
               <PageHeader
-                breadcrumb={`Klien · ${c.code}`}
+                breadcrumb={tr(`Client · ${c.code}`, `Klien · ${c.code}`)}
                 title={c.name}
-                description={[c.contact_name, c.phone, c.email].filter(Boolean).join(" · ") || "Belum ada kontak."}
+                description={[c.contact_name, c.phone, c.email].filter(Boolean).join(" · ") || tr("No contact yet.", "Belum ada kontak.")}
                 actions={(
                   <div className="flex items-center gap-2">
                     <SourceBadge state={clients} />
-                    {c.archived_at && <Badge tone="slate">Diarsipkan</Badge>}
-                    {can("project.update") && <Button variant="outline" icon={Pencil} onClick={() => setEditing(c)}>Ubah kontak</Button>}
+                    {c.archived_at && <Badge tone="slate">{tr("Archived", "Diarsipkan")}</Badge>}
+                    {can("project.update") && <Button variant="outline" icon={Pencil} onClick={() => setEditing(c)}>{tr("Edit contact", "Ubah kontak")}</Button>}
                   </div>
                 )}
               />
@@ -59,9 +61,9 @@ export default function ClientPage({ params }: { params: Promise<{ code: string 
               {(c.address || c.npwp || c.note) && (
                 <Card className="mb-4">
                   <div className="flex flex-wrap gap-x-8 gap-y-2 px-4 py-3 text-[13px]">
-                    {c.address && <Fact k="Alamat" v={c.address} />}
+                    {c.address && <Fact k={tr("Address", "Alamat")} v={c.address} />}
                     {c.npwp && <Fact k="NPWP" v={c.npwp} />}
-                    {c.note && <Fact k="Catatan" v={c.note} />}
+                    {c.note && <Fact k={tr("Note", "Catatan")} v={c.note} />}
                   </div>
                 </Card>
               )}
@@ -70,8 +72,8 @@ export default function ClientPage({ params }: { params: Promise<{ code: string 
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
-                  <CardHeader title={`${mine.length} proyek`} icon={FolderKanban}
-                    subtitle={`${mine.filter((p) => p.is_active).length} berjalan`} />
+                  <CardHeader title={tr(`${mine.length} projects`, `${mine.length} proyek`)} icon={FolderKanban}
+                    subtitle={tr(`${mine.filter((p) => p.is_active).length} running`, `${mine.filter((p) => p.is_active).length} berjalan`)} />
                   <ul className="divide-y divide-slate-100 text-[13px]">
                     {mine.map((p) => {
                       const st = PROJECT_STATUSES.find((s) => s.code === p.status);
@@ -87,13 +89,13 @@ export default function ClientPage({ params }: { params: Promise<{ code: string 
                         </li>
                       );
                     })}
-                    {mine.length === 0 && <li className="px-4 py-6 text-center text-slate-500">Belum ada proyek.</li>}
+                    {mine.length === 0 && <li className="px-4 py-6 text-center text-slate-500">{tr("No projects yet.", "Belum ada proyek.")}</li>}
                   </ul>
                 </Card>
 
                 <Card>
-                  <CardHeader title={`${offers.length} quotation`} icon={FileSignature}
-                    subtitle="Semua revisi, terbaru di atas" />
+                  <CardHeader title={tr(`${offers.length} quotations`, `${offers.length} quotation`)} icon={FileSignature}
+                    subtitle={tr("All revisions, newest first", "Semua revisi, terbaru di atas")} />
                   <ul className="divide-y divide-slate-100 text-[13px]">
                     {offers.map((q) => {
                       const st = QUOTATION_STATUSES.find((s) => s.code === q.status)!;
@@ -108,7 +110,7 @@ export default function ClientPage({ params }: { params: Promise<{ code: string 
                         </li>
                       );
                     })}
-                    {offers.length === 0 && <li className="px-4 py-6 text-center text-slate-500">Belum ada quotation.</li>}
+                    {offers.length === 0 && <li className="px-4 py-6 text-center text-slate-500">{tr("No quotations yet.", "Belum ada quotation.")}</li>}
                   </ul>
                 </Card>
               </div>

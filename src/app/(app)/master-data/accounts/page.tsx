@@ -12,6 +12,7 @@ import { accounting } from "@/demo/api";
 import type { AccountBalance, AccountCustody } from "@/services/accounting/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** The money accounts — bank accounts and petty cash (`0105`).
  *
@@ -37,6 +38,7 @@ type Form = {
 type Row = AccountBalance & { balance_locked?: boolean };
 
 export default function AccountsPage() {
+  const tr = useTr();
   const { can, hasAuthority } = useSession();
   const { toast } = useToast();
   const [state, reload] = useLoad(() => accounting.listAccounts(), []);
@@ -63,10 +65,10 @@ export default function AccountsPage() {
       });
     setSaving(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not saved", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
       return;
     }
-    toast("success", form.mode === "create" ? "Account added" : "Account saved", `${res.data.code} — ${res.data.name}`);
+    toast("success", form.mode === "create" ? tr("Account added", "Rekening ditambahkan") : tr("Account saved", "Rekening tersimpan"), `${res.data.code} — ${res.data.name}`);
     setForm(null);
     reload();
   }
@@ -77,10 +79,10 @@ export default function AccountsPage() {
     const res = await accounting.deleteAccount(form.code);
     setSaving(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not deleted", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not deleted", "Tidak terhapus"), res.error.message);
       return;
     }
-    toast("success", "Account deleted", `${form.code} is gone. Nothing was booked on it.`);
+    toast("success", tr("Account deleted", "Rekening dihapus"), tr(`${form.code} is gone. Nothing was booked on it.`, `${form.code} sudah dihapus. Tidak ada yang dibukukan di rekening ini.`));
     setForm(null);
     reload();
   }
@@ -96,12 +98,12 @@ export default function AccountsPage() {
   const columns: Column<Row>[] = [
     {
       key: "code",
-      header: "Account",
+      header: tr("Account", "Rekening"),
       render: (a) => (
         <div>
           <p className="font-medium text-slate-800">
             {a.code}
-            {a.is_active === false && <Badge tone="slate" className="ml-2">Inactive</Badge>}
+            {a.is_active === false && <Badge tone="slate" className="ml-2">{tr("Inactive", "Nonaktif")}</Badge>}
           </p>
           <p className="text-[11px] text-slate-500">{a.name}</p>
         </div>
@@ -109,20 +111,20 @@ export default function AccountsPage() {
     },
     {
       key: "custody",
-      header: "Held by",
+      header: tr("Held by", "Dipegang oleh"),
       render: (a) => a.custody === "leadership"
-        ? <Badge tone="violet">Leadership</Badge>
-        : <Badge tone="slate">Accounting</Badge>,
+        ? <Badge tone="violet">{tr("Leadership", "Pimpinan")}</Badge>
+        : <Badge tone="slate">{tr("Accounting", "Accounting")}</Badge>,
     },
     {
       key: "paying",
-      header: "Pays vendors",
-      render: (a) => (a.is_paying ? <Badge tone="green" dot>Yes</Badge> : <span className="text-slate-400">No</span>),
+      header: tr("Pays vendors", "Membayar vendor"),
+      render: (a) => (a.is_paying ? <Badge tone="green" dot>{tr("Yes", "Ya")}</Badge> : <span className="text-slate-400">{tr("No", "Tidak")}</span>),
     },
-    { key: "cur", header: "Currency", render: (a) => <span className="font-mono text-[12px] text-slate-600">{a.currency}</span> },
+    { key: "cur", header: tr("Currency", "Mata uang"), render: (a) => <span className="font-mono text-[12px] text-slate-600">{a.currency}</span> },
     {
       key: "open",
-      header: "Opening balance",
+      header: tr("Opening balance", "Saldo awal"),
       align: "right",
       render: (a) => a.balance_locked
         ? <span className="text-slate-300">&mdash;</span>
@@ -130,18 +132,18 @@ export default function AccountsPage() {
     },
     {
       key: "bal",
-      header: "Balance now",
+      header: tr("Balance now", "Saldo sekarang"),
       align: "right",
       render: (a) => a.balance_locked
-        ? <span className="inline-flex items-center gap-1 text-slate-400"><Lock className="h-3 w-3" /> locked</span>
+        ? <span className="inline-flex items-center gap-1 text-slate-400"><Lock className="h-3 w-3" /> {tr("locked", "terkunci")}</span>
         : <span className="tabular-nums font-medium text-slate-800">{formatIDR(Number(a.balance))}</span>,
     },
     {
       key: "edit",
       header: "",
       render: (a) => mayTouch(a.custody) ? (
-        <Button variant="ghost" size="sm" icon={Pencil} aria-label={`Edit ${a.code}`} onClick={() => openEdit(a)}>
-          <span className="sr-only">Edit</span>
+        <Button variant="ghost" size="sm" icon={Pencil} aria-label={tr(`Edit ${a.code}`, `Ubah ${a.code}`)} onClick={() => openEdit(a)}>
+          <span className="sr-only">{tr("Edit", "Ubah")}</span>
         </Button>
       ) : null,
     },
@@ -152,55 +154,55 @@ export default function AccountsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Master Data"
-        title="Accounts"
-        description="Bank accounts and petty cash. The code is fixed once created; an opening balance change needs a reason."
+        breadcrumb={tr("Master Data", "Data Master")}
+        title={tr("Accounts", "Rekening")}
+        description={tr("Bank accounts and petty cash. The code is fixed once created; an opening balance change needs a reason.", "Rekening bank dan kas kecil. Kode tidak bisa diubah setelah dibuat; perubahan saldo awal memerlukan alasan.")}
         actions={mayEdit && (
           <Button icon={Plus} onClick={() => setForm({
             mode: "create", code: "", name: "", custody: "accounting", is_paying: true, currency: "IDR",
             opening_balance: 0, opened_on: "", is_active: true, original_balance: 0, reason: "",
           })}>
-            Add account
+            {tr("Add account", "Tambah rekening")}
           </Button>
         )}
       />
 
       <Card>
         <CardHeader
-          title="All accounts"
-          subtitle="Leadership accounts never pay a vendor directly and are changed only by someone who approves funds."
+          title={tr("All accounts", "Semua rekening")}
+          subtitle={tr("Leadership accounts never pay a vendor directly and are changed only by someone who approves funds.", "Rekening pimpinan tidak pernah membayar vendor secara langsung dan hanya diubah oleh orang yang menyetujui dana.")}
           icon={Landmark}
           action={<SourceBadge state={state} />}
         />
         <Loaded state={state} onRetry={reload}>
           {(rows) => (
-            <DataTable columns={columns} rows={rows as Row[]} rowKey={(a) => a.account_id} dense empty="No accounts." />
+            <DataTable columns={columns} rows={rows as Row[]} rowKey={(a) => a.account_id} dense empty={tr("No accounts.", "Belum ada rekening.")} />
           )}
         </Loaded>
         {!mayEdit && (
           <p className="border-t border-slate-100 px-4 py-3 text-[12px] text-slate-500">
-            Editing accounts needs accounting write access and the post_ledger authority.
+            {tr("Editing accounts needs accounting write access and the post_ledger authority.", "Mengubah rekening memerlukan akses tulis accounting dan wewenang post_ledger.")}
           </p>
         )}
       </Card>
 
-      <Modal open={!!form} onClose={() => setForm(null)} title={form?.mode === "create" ? "Add account" : `Edit ${form?.code ?? ""}`}>
+      <Modal open={!!form} onClose={() => setForm(null)} title={form?.mode === "create" ? tr("Add account", "Tambah rekening") : tr(`Edit ${form?.code ?? ""}`, `Ubah ${form?.code ?? ""}`)}>
         {form && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="acc-code" className="block text-sm text-slate-600">Code</label>
+                <label htmlFor="acc-code" className="block text-sm text-slate-600">{tr("Code", "Kode")}</label>
                 <input
                   id="acc-code"
                   value={form.code}
                   disabled={form.mode === "edit"}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  placeholder="e.g. MANDIRI 123"
+                  placeholder={tr("e.g. MANDIRI 123", "mis. MANDIRI 123")}
                   className={inputClass + " font-mono disabled:bg-slate-50 disabled:text-slate-500"}
                 />
               </div>
               <div>
-                <label htmlFor="acc-currency" className="block text-sm text-slate-600">Currency</label>
+                <label htmlFor="acc-currency" className="block text-sm text-slate-600">{tr("Currency", "Mata uang")}</label>
                 <input
                   id="acc-currency"
                   value={form.currency}
@@ -211,18 +213,18 @@ export default function AccountsPage() {
               </div>
             </div>
             <div>
-              <label htmlFor="acc-name" className="block text-sm text-slate-600">Name</label>
+              <label htmlFor="acc-name" className="block text-sm text-slate-600">{tr("Name", "Nama")}</label>
               <input
                 id="acc-name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. Mandiri ...123 (operations)"
+                placeholder={tr("e.g. Mandiri ...123 (operations)", "mis. Mandiri ...123 (operasional)")}
                 className={inputClass}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="acc-custody" className="block text-sm text-slate-600">Held by</label>
+                <label htmlFor="acc-custody" className="block text-sm text-slate-600">{tr("Held by", "Dipegang oleh")}</label>
                 <select
                   id="acc-custody"
                   value={form.custody}
@@ -232,8 +234,8 @@ export default function AccountsPage() {
                   }}
                   className={inputClass + " bg-white"}
                 >
-                  <option value="accounting">Accounting</option>
-                  {(mayLeadership || form.custody === "leadership") && <option value="leadership">Leadership</option>}
+                  <option value="accounting">{tr("Accounting", "Accounting")}</option>
+                  {(mayLeadership || form.custody === "leadership") && <option value="leadership">{tr("Leadership", "Pimpinan")}</option>}
                 </select>
               </div>
               <label className="mt-6 flex items-center gap-2 text-sm text-slate-700">
@@ -243,12 +245,12 @@ export default function AccountsPage() {
                   disabled={form.custody === "leadership"}
                   onChange={(e) => setForm({ ...form, is_paying: e.target.checked })}
                 />
-                Pays vendors
+                {tr("Pays vendors", "Membayar vendor")}
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="acc-opening" className="block text-sm text-slate-600">Opening balance</label>
+                <label htmlFor="acc-opening" className="block text-sm text-slate-600">{tr("Opening balance", "Saldo awal")}</label>
                 <MoneyInput
                   id="acc-opening"
                   value={form.opening_balance}
@@ -257,7 +259,7 @@ export default function AccountsPage() {
                 />
               </div>
               <div>
-                <label htmlFor="acc-opened" className="block text-sm text-slate-600">As of</label>
+                <label htmlFor="acc-opened" className="block text-sm text-slate-600">{tr("As of", "Per tanggal")}</label>
                 <input
                   id="acc-opened" type="date"
                   value={form.opened_on}
@@ -269,18 +271,18 @@ export default function AccountsPage() {
             {balanceChanged && (
               <div>
                 <label htmlFor="acc-reason" className="block text-sm text-slate-600">
-                  Why the opening balance changes <span className="text-rose-700">— required</span>
+                  {tr("Why the opening balance changes", "Alasan saldo awal berubah")} <span className="text-rose-700">{tr("— required", "— wajib")}</span>
                 </label>
                 <textarea
                   id="acc-reason"
                   rows={2}
                   value={form.reason}
                   onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                  placeholder="e.g. balance per bank statement on 1 January"
+                  placeholder={tr("e.g. balance per bank statement on 1 January", "mis. saldo sesuai rekening koran per 1 Januari")}
                   className={inputClass}
                 />
                 <p className="mt-1 text-xs text-slate-500">
-                  Every balance after it moves by {formatIDR(form.opening_balance - form.original_balance)}. The old and new figures go to the audit log.
+                  {tr(`Every balance after it moves by ${formatIDR(form.opening_balance - form.original_balance)}. The old and new figures go to the audit log.`, `Setiap saldo sesudahnya bergeser sebesar ${formatIDR(form.opening_balance - form.original_balance)}. Angka lama dan baru dicatat di log audit.`)}
                 </p>
               </div>
             )}
@@ -291,26 +293,26 @@ export default function AccountsPage() {
                   checked={form.is_active}
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                 />
-                Active — shown in the pickers
+                {tr("Active — shown in the pickers", "Aktif — ditampilkan di pilihan")}
               </label>
             )}
             <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
               {form.mode === "edit" && (
                 <Button variant="ghost" icon={Trash2} className="mr-auto text-rose-700" disabled={saving} onClick={remove}>
-                  Delete
+                  {tr("Delete", "Hapus")}
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setForm(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setForm(null)}>{tr("Cancel", "Batal")}</Button>
               <Button
                 onClick={save}
                 disabled={saving || !form.code.trim() || !form.name.trim() || (balanceChanged && !form.reason.trim())}
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? tr("Saving…", "Menyimpan…") : tr("Save", "Simpan")}
               </Button>
             </div>
             {form.mode === "edit" && (
               <p className="text-[11px] text-slate-500">
-                Delete works only for an account nothing is booked on. Otherwise untick Active.
+                {tr("Delete works only for an account nothing is booked on. Otherwise untick Active.", "Hapus hanya berlaku untuk rekening yang belum dibukukan apa pun. Selain itu, hapus centang Aktif.")}
               </p>
             )}
           </div>
