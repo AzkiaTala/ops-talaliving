@@ -6,6 +6,7 @@
  *  needs is passed in: the entries, the legs, and what the catalogue says about
  *  the product **now**. Nothing here knows where those came from.
  */
+import { trNow } from "@/lib/i18n";
 import {
   PROCESS_STAGES, STAGE_SOURCES, RETIRED_STAGES, ROUTE, goodsOnSite, VENDOR_PROCESS_NAME,
   type ProgressEntry, type StageProgress, type VendorLegView, type WorkOrder, type WorkOrderView,
@@ -119,9 +120,14 @@ export function deriveWorkOrderView(wo: WorkOrder, ctx: WorkOrderContext): WorkO
       const after = s.parts[i];
       if (after.done <= before.done) continue;
       warnings.push(
-        `${s.name}: ${after.name} tercatat ${after.done} padahal ${before.name} baru ${before.done} — ${
-          after.done - before.done
-        } ${wo.uom} melewati satu langkah. Yang dihitung selesai ${s.done}, angka yang lebih kecil, sampai ada yang membetulkan salah satunya.`,
+        trNow(
+          `${s.name}: ${after.name} shows ${after.done} while ${before.name} is only at ${before.done} — ${
+            after.done - before.done
+          } ${wo.uom} skipped a step. The stage counts ${s.done} done, the smaller figure, until somebody corrects one of them.`,
+          `${s.name}: ${after.name} tercatat ${after.done} padahal ${before.name} baru ${before.done} — ${
+            after.done - before.done
+          } ${wo.uom} melewati satu langkah. Yang dihitung selesai ${s.done}, angka yang lebih kecil, sampai ada yang membetulkan salah satunya.`,
+        ),
       );
     }
   }
@@ -131,37 +137,45 @@ export function deriveWorkOrderView(wo: WorkOrder, ctx: WorkOrderContext): WorkO
     if (!stages[i - 1].recorded) continue;
     if (stages[i].done > stages[i - 1].done) {
       warnings.push(
-        `${stages[i].name} (${stages[i].done}) melebihi ${stages[i - 1].name} (${stages[i - 1].done}) — salah ketik, atau ada tahap yang dilewati.`,
+        trNow(
+          `${stages[i].name} (${stages[i].done}) is ahead of ${stages[i - 1].name} (${stages[i - 1].done}) — a typo, or a stage was skipped.`,
+          `${stages[i].name} (${stages[i].done}) melebihi ${stages[i - 1].name} (${stages[i - 1].done}) — salah ketik, atau ada tahap yang dilewati.`,
+        ),
       );
     }
   }
   for (const s of stages) {
-    if (s.done > wo.qty) warnings.push(`${s.name} tercatat ${s.done} dari ${wo.qty} yang dipesan.`);
+    if (s.done > wo.qty) warnings.push(trNow(`${s.name} shows ${s.done} of ${wo.qty} ordered.`, `${s.name} tercatat ${s.done} dari ${wo.qty} yang dipesan.`));
   }
   if (wo.status === "OPEN" && completed >= wo.qty) {
-    warnings.push("Semua unit sudah melewati tahap terakhir — Job Order ini bisa ditutup.");
+    warnings.push(trNow("Every unit has passed the last stage — this Job Order can be closed.", "Semua unit sudah melewati tahap terakhir — Job Order ini bisa ditutup."));
   }
   if (wo.status === "OPEN" && days_left < 0 && completed < wo.qty) {
-    warnings.push(`Lewat tenggat ${Math.abs(days_left)} hari, sisa ${wo.qty - completed} ${wo.uom}.`);
+    warnings.push(trNow(`${Math.abs(days_left)} days past the deadline, ${wo.qty - completed} ${wo.uom} left.`, `Lewat tenggat ${Math.abs(days_left)} hari, sisa ${wo.qty - completed} ${wo.uom}.`));
   } else if (wo.status === "OPEN" && days_left >= 0 && days_left <= 3 && percent < 70 && !at_vendor) {
-    warnings.push(`Tinggal ${days_left} hari dan baru ${percent}% selesai.`);
+    warnings.push(trNow(`${days_left} days left and only ${percent}% done.`, `Tinggal ${days_left} hari dan baru ${percent}% selesai.`));
   }
   if (wo.status === "OPEN" && started.length === 0 && !at_vendor) {
     warnings.push(
       wo.route === "SUBCON" && legs.length === 0
-        ? "Belum dikirim ke vendor, dan belum ada tahap yang dikerjakan."
-        : "Belum ada satu tahap pun yang dikerjakan.",
+        ? trNow("Not sent to the vendor yet, and no stage has been worked.", "Belum dikirim ke vendor, dan belum ada tahap yang dikerjakan.")
+        : trNow("No stage has been worked yet.", "Belum ada satu tahap pun yang dikerjakan."),
     );
   }
   for (const l of overdueLegs) {
     warnings.push(
-      `${VENDOR_PROCESS_NAME(l.process)} di ${l.vendor_name}: dijanjikan kembali ${l.expected_back}, sudah lewat ${
-        Math.abs(daysBetween(today, l.expected_back!))
-      } hari. ${l.qty - (l.returned_qty ?? 0)} ${wo.uom} masih di sana.`,
+      trNow(
+        `${VENDOR_PROCESS_NAME(l.process)} at ${l.vendor_name}: promised back ${l.expected_back}, ${
+          Math.abs(daysBetween(today, l.expected_back!))
+        } days overdue. ${l.qty - (l.returned_qty ?? 0)} ${wo.uom} still there.`,
+        `${VENDOR_PROCESS_NAME(l.process)} di ${l.vendor_name}: dijanjikan kembali ${l.expected_back}, sudah lewat ${
+          Math.abs(daysBetween(today, l.expected_back!))
+        } hari. ${l.qty - (l.returned_qty ?? 0)} ${wo.uom} masih di sana.`,
+      ),
     );
   }
   if (wo.status === "OPEN" && wo.route === "SUBCON" && legs.length === 0 && days_left <= 3) {
-    warnings.push("Tenggatnya dekat dan barangnya belum berangkat ke vendor.");
+    warnings.push(trNow("The deadline is close and the goods have not left for the vendor.", "Tenggatnya dekat dan barangnya belum berangkat ke vendor."));
   }
 
   return {
