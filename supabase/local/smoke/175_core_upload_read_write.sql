@@ -96,7 +96,8 @@ set local transaction_read_only = on;
 
 do $$
 begin
-  perform ops_core.drive_folder_for('foto', 'item');
+  -- A refusal writes its audit row (0177 stopped the *answer* writing one).
+  perform ops_core.drive_folder_for('kapal');
   raise exception 'a read-only transaction should refuse the audit write';
 exception when read_only_sql_transaction then null;
 end $$;

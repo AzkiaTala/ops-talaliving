@@ -231,3 +231,63 @@ export interface AttachmentView extends Attachment {
    *  normal case here, not the parked-file problem it is today. */
   covers_count: number;
 }
+
+/* ── IT → Google Drive (F172) ─────────────────────────────────────────── */
+
+/** What is wrong with one shared drive's recorded OPS folder, if anything.
+ *
+ *  - `ready`: uploads can use it as it is.
+ *  - `not_configured`: no folder id is recorded.
+ *  - `not_member_or_wrong_id`: Google cannot find it even for a member, so
+ *    the service account is not in that shared drive, or the id is wrong.
+ *  - `hidden_by_drive_file`: a member can see it, but uploads cannot. The
+ *    folder was made by a person, and `drive.file` only sees what the app made.
+ *  - `read_only_member`: in the drive as Viewer or Commenter.
+ *  - `not_a_folder` / `trashed` / `not_named_ops`: the id points at the wrong
+ *    thing.
+ *  - `check_failed`: the check itself could not run (see `note`).
+ */
+export type DriveVerdict =
+  | "ready" | "not_configured" | "not_member_or_wrong_id" | "hidden_by_drive_file"
+  | "read_only_member" | "not_a_folder" | "trashed" | "not_named_ops" | "check_failed";
+
+export interface DriveCheck {
+  slug: string;
+  label: string;
+  /** The id that was checked: the located OPS folder, else the one IT recorded. */
+  folder_id: string | null;
+  /** What a member of the shared drive sees (read-only look). */
+  member: {
+    ok: boolean; status: number; message: string | null;
+    name: string | null; is_folder: boolean; trashed: boolean;
+    drive_name: string | null; can_add: boolean | null;
+  } | null;
+  /** What uploads see, with the permission they use (`drive.file`). */
+  uploader: { ok: boolean; status: number; message: string | null } | null;
+  verdict: DriveVerdict;
+  note: string | null;
+}
+
+export interface DriveCreateTry {
+  created: boolean;
+  status: number;
+  message: string | null;
+  binned: boolean;
+}
+
+/** One test folder made and binned, twice: as uploads work today, and with
+ *  full Drive access. */
+export interface DriveFolderTest {
+  slug: string;
+  label: string;
+  folder_id: string;
+  as_uploader: DriveCreateTry;
+  with_full_access: DriveCreateTry;
+}
+
+export interface DriveCheckReport {
+  service_account: string;
+  /** The permission uploads use today. */
+  upload_scope: string;
+  drives: DriveCheck[];
+}

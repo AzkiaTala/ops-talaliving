@@ -79,6 +79,7 @@ export const MESSAGES = {
     it: m("IT", "IT"),
     audit: m("Audit log", "Log audit"),
     johnLauTuning: m("John Lau — not understood", "John Lau — tidak dimengerti"),
+    googleDrive: m("Google Drive", "Google Drive"),
     activity: m("Activity log", "Log aktivitas"),
     users: m("Users & access", "Pengguna & akses"),
     roles: m("Roles & permissions", "Peran & izin"),

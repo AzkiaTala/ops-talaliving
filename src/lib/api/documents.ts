@@ -16,6 +16,7 @@
  */
 import type {
   AttachmentView, AttachmentLink, DocKind, LinkEntity,
+  DriveCheckReport, DriveFolderTest,
 } from "@/services/documents/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromSeam, notFound, ok, type Result } from "./_kit";
@@ -346,4 +347,48 @@ export async function unlink(linkId: string): Promise<Result<{ removed: string }
   const res = fromSeam<{ link_id: string }>(SERVICE, data, error);
   if (res.error) return res;
   return ok(SERVICE, { removed: res.data.link_id });
+}
+
+/** A call to one of this module's two server routes, answered in the same
+ *  envelope as everything else. */
+async function viaRoute<T>(url: string, init?: RequestInit): Promise<Result<T>> {
+  try {
+    const res = await fetch(url, { credentials: "same-origin", ...init });
+    const body = await res.json() as { data?: T; error?: Result<never>["error"] };
+    if (!res.ok || body.error) {
+      return {
+        error: body.error ?? {
+          code: "request_failed", message: `Request failed (${res.status}).`,
+          outcome: "refused", status: res.status as never,
+        },
+        meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+      } as Result<never>;
+    }
+    return ok(SERVICE, body.data as T);
+  } catch (e) {
+    return {
+      error: {
+        code: "request_interrupted", message: `The request did not complete. (${String((e as Error).message)})`,
+        outcome: "refused", status: 500,
+      },
+      meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+    };
+  }
+}
+
+/** IT → Google Drive: every shared drive's recorded OPS folder, looked at as
+ *  a member and as uploads look (read-only). `/api/documents/drive-check`,
+ *  because it needs the service account key (F172). */
+export async function checkDrives(): Promise<Result<DriveCheckReport>> {
+  return viaRoute<DriveCheckReport>("/api/documents/drive-check");
+}
+
+/** Try making (and binning) a test folder in one drive's OPS folder, as
+ *  uploads work today and with full Drive access. `it.manage_drives`. */
+export async function testDriveFolder(slug: string): Promise<Result<DriveFolderTest>> {
+  return viaRoute<DriveFolderTest>("/api/documents/drive-check", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ slug }),
+  });
 }

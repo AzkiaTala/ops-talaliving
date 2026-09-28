@@ -4,9 +4,10 @@
  *  to, so the link is declared rather than inferred, and every link carries
  *  who declared it.
  */
-import { ok, invalid, notFound, type Result } from "@/services/_shared/envelope";
+import { ok, invalid, notFound, refused, type Result } from "@/services/_shared/envelope";
 import type {
   Attachment, AttachmentLink, AttachmentView, DocKind, LinkEntity,
+  DriveCheckReport, DriveFolderTest,
 } from "@/services/documents/contracts";
 import { ITEM_PHOTO_MAX, ITEM_PHOTO_MIN } from "@/services/documents/contracts";
 import { getState, apply, newId, writeAudit, writeOutbox } from "../store";
@@ -341,4 +342,19 @@ export async function addLink(
   const result = view(att);
   remember(SERVICE, "addLink", idempotencyKey, result);
   return ok(SERVICE, result);
+}
+
+/** The sandbox has no Google Drive, and a made-up report of which shared
+ *  drives are reachable would be the one thing on that screen nobody should
+ *  believe. So it says so. */
+export async function checkDrives(): Promise<Result<DriveCheckReport>> {
+  await latency();
+  return refused(SERVICE, "drive_not_configured",
+    "The sandbox has no Google Drive. This check runs against the real shared drives only.");
+}
+
+export async function testDriveFolder(_slug: string): Promise<Result<DriveFolderTest>> {
+  await latency();
+  return refused(SERVICE, "drive_not_configured",
+    "The sandbox has no Google Drive. This check runs against the real shared drives only.");
 }
