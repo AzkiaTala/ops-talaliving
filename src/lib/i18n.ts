@@ -67,6 +67,11 @@ const STORAGE_KEY = "ops.lang";
 let settingLang: Lang = DEFAULT_LANG;
 let chosenLang: Lang | null = null;
 let loaded = false;
+/* Until the first client render has committed, everything answers with the
+   default — the language the server rendered. A label map or `trNow` read
+   during hydration would otherwise answer the stored choice while the markup
+   says English, and React throws the tree away (seen on /signin). */
+let hydrated = false;
 const listeners = new Set<() => void>();
 
 function readChoice(): Lang | null {
@@ -89,7 +94,15 @@ function readChoice(): Lang | null {
  *  edge rather than in the screen, so they need the answer without a render.
  */
 export function getActiveLang(): Lang {
-  return readChoice() ?? settingLang;
+  return (hydrated ? readChoice() : null) ?? settingLang;
+}
+
+/** Called once from `<LangHydrated />` in the root layout, after hydration:
+ *  from here on the viewer's stored choice is in force. */
+export function markLangHydrated() {
+  if (hydrated) return;
+  hydrated = true;
+  if (readChoice() !== null) for (const l of listeners) l();
 }
 
 /** The setting's default, pushed in by the store (D216). A viewer's own choice
@@ -105,6 +118,7 @@ export function setActiveLang(lang: string | undefined) {
 export function setLang(lang: Lang) {
   chosenLang = lang;
   loaded = true;
+  hydrated = true;
   try {
     window.localStorage.setItem(STORAGE_KEY, lang);
   } catch {
