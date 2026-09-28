@@ -24,6 +24,7 @@ import * as liveHr from "@/lib/api/hr";
 import * as liveDelivery from "@/lib/api/delivery";
 import * as liveQuotation from "@/lib/api/quotation";
 import * as liveCrm from "@/lib/api/crm";
+import * as liveMarketing from "@/lib/api/marketing";
 
 type Api = typeof import("@/demo/api");
 
@@ -34,7 +35,7 @@ export const documents = liveOnly<Api["documents"]>("documents", liveDocuments);
 export const inventory = liveOnly<Api["inventory"]>("inventory", liveInventory);
 export const production = liveOnly<Api["production"]>("production", liveProduction);
 export const hr = liveOnly<Api["hr"]>("hr", liveHr);
-export const marketing = liveOnly<Api["marketing"]>("marketing", {});
+export const marketing = liveOnly<Api["marketing"]>("marketing", liveMarketing);
 export const delivery = liveOnly<Api["delivery"]>("production", liveDelivery);
 export const quotation = liveOnly<Api["quotation"]>("procurement", liveQuotation);
 export const crm = liveOnly<Api["crm"]>("procurement", liveCrm);

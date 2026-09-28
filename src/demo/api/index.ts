@@ -42,6 +42,7 @@ import * as liveHr from "@/lib/api/hr";
 import * as liveDelivery from "@/lib/api/delivery";
 import * as liveQuotation from "@/lib/api/quotation";
 import * as liveCrm from "@/lib/api/crm";
+import * as liveMarketing from "@/lib/api/marketing";
 
 export const identity = swap("identity", demoIdentity, liveIdentity);
 export const procurement = swap("procurement", demoProcurement, liveProcurement);
@@ -60,24 +61,12 @@ export const production = swap("production", demoProduction, liveProduction);
    dark; the refusal is the second line, for the day somebody adds an import. */
 export const hr = swap("hr", demoHr, liveHr);
 
-/* The three services B1–B3 have not reached. No `src/lib/api` module exists for
-   any of them, so in live mode every one of their functions refuses with the
-   name of the call — which is what `swap` does when handed nothing to swap in.
-   Listing them here rather than exporting the demo directly is the whole point:
-   the alternative is five services quietly serving fixtures to a business
-   booking real money.
-
-   `inventory` used to be one of them — `src/lib/api/inventory.ts` had existed
-   since the material-stock PR — but the line stayed here without ever being
-   moved up to the swapped block above, so every inventory screen was served
-   the 501 stub in live mode regardless of what the database actually held.
-   `check-live-routes.mjs` had no way to catch it: it derives `LIVE_ROUTES`
-   from `src/lib/api/index.ts`'s own exports, which were always correct — this
-   file, the one place `ADR-009` says the swap actually happens, was the part
-   nobody re-checked once inventory's real client existed. It is fixed above,
-   and the same trap is why `hr`'s line moved the moment its client was
-   exported rather than at some later tidy-up. */
-export const marketing = swap("marketing", demoMarketing);
+/* `marketing` was the last service here with no live module handed to `swap`.
+   It moved up with its export, the same day (D316): `inventory` once sat in
+   this spot for weeks after its real client existed, serving every screen the
+   501 stub, because `check-live-routes.mjs` reads `src/lib/api/index.ts` and
+   nothing re-checked this file. That check now reads the switchboard too. */
+export const marketing = swap("marketing", demoMarketing, liveMarketing);
 /* `delivery` and `assistant` are modules, not services: they already stamp
    their own envelopes `production` and `procurement` respectively, so the
    refusal carries the same name their successes would. Inventing two more
