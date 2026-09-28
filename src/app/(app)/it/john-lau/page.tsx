@@ -10,6 +10,7 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { cn } from "@/lib/cn";
 import { assistant } from "@/demo/api";
 import { formatDate } from "@/lib/format";
+import { useTr } from "@/lib/i18n";
 
 /** What people asked John Lau that he did not understand.
  *
@@ -53,6 +54,7 @@ import { formatDate } from "@/lib/format";
  *  and nobody to ask. So this screen reads, and says who can change it (A7).
  */
 export default function JohnLauTuningPage() {
+  const tr = useTr();
   const [q, setQ] = useState("");
   const [health, reloadHealth] = useLoad(() => assistant.routerHealth(), []);
   const [rows, reloadRows] = useLoad(() => assistant.unmatched(), []);
@@ -62,8 +64,11 @@ export default function JohnLauTuningPage() {
     <div>
       <PageHeader
         breadcrumb="IT"
-        title="John Lau — yang tidak dimengerti"
-        description="Kalimat yang orang ketik dan routernya tidak paham, dikelompokkan seperti routernya sendiri membandingkannya. Tanpa nama siapa pun — pertanyaannya adalah apa yang gagal kami mengerti, bukan siapa yang bertanya."
+        title={tr("John Lau — what he did not understand", "John Lau — yang tidak dimengerti")}
+        description={tr(
+          "Sentences people typed that the router did not understand, grouped the way the router itself compares them. No names — the question is what we failed to understand, not who asked.",
+          "Kalimat yang orang ketik dan routernya tidak paham, dikelompokkan seperti routernya sendiri membandingkannya. Tanpa nama siapa pun — pertanyaannya adalah apa yang gagal kami mengerti, bukan siapa yang bertanya.",
+        )}
         actions={<SourceBadge state={rows} />}
       />
 
@@ -73,28 +78,28 @@ export default function JohnLauTuningPage() {
             <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 icon={MessageSquare} tone="brand"
-                label="Pertanyaan masuk"
+                label={tr("Questions received", "Pertanyaan masuk")}
                 value={h.turns}
-                hint={h.since ? `sejak ${formatDate(new Date(h.since))}` : "belum ada yang bertanya"}
+                hint={h.since ? tr(`since ${formatDate(new Date(h.since))}`, `sejak ${formatDate(new Date(h.since))}`) : tr("nobody has asked yet", "belum ada yang bertanya")}
               />
               <StatCard
                 icon={ListChecks} tone="green"
-                label="Terjawab"
+                label={tr("Answered", "Terjawab")}
                 value={h.answered + h.guided + h.drafted}
-                hint={`${h.answered} angka · ${h.guided} panduan · ${h.drafted} rancangan`}
+                hint={tr(`${h.answered} figures · ${h.guided} guides · ${h.drafted} drafts`, `${h.answered} angka · ${h.guided} panduan · ${h.drafted} rancangan`)}
               />
               <StatCard
                 icon={MessageSquareOff}
                 tone={h.turns > 0 && h.unknown > h.turns / 2 ? "red" : "amber"}
-                label="Tidak dimengerti"
+                label={tr("Not understood", "Tidak dimengerti")}
                 value={h.unknown}
-                hint={h.turns > 0 ? `${Math.round((h.unknown / h.turns) * 100)}% dari semua pertanyaan` : "—"}
+                hint={h.turns > 0 ? tr(`${Math.round((h.unknown / h.turns) * 100)}% of all questions`, `${Math.round((h.unknown / h.turns) * 100)}% dari semua pertanyaan`) : "—"}
               />
               <StatCard
                 icon={ShieldCheck} tone="slate"
-                label="Ditolak"
+                label={tr("Refused", "Ditolak")}
                 value={h.refused_closed + h.refused_permission}
-                hint={`${h.refused_closed} di luar jangkauan prompt · ${h.refused_permission} kurang hak akses`}
+                hint={tr(`${h.refused_closed} outside the prompt's reach · ${h.refused_permission} missing access rights`, `${h.refused_closed} di luar jangkauan prompt · ${h.refused_permission} kurang hak akses`)}
               />
             </div>
 
@@ -107,11 +112,17 @@ export default function JohnLauTuningPage() {
               <div className="mb-6 flex flex-wrap items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-[13px] text-amber-900">
                 <KeyRound className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  {h.refused_permission} pertanyaan ditolak karena <strong>hak akses</strong>, bukan
-                  karena di luar jangkauan. Itu bukan pekerjaan router — itu pekerjaan IT: seseorang
-                  butuh modul yang belum diberikan. Yang ditolak apa dan oleh siapa ada di{" "}
-                  <span className="font-medium">Audit log</span>, karena setiap panggilan alat
-                  menulis satu baris di sana.
+                  {tr(`${h.refused_permission} question(s) refused because of`, `${h.refused_permission} pertanyaan ditolak karena`)}{" "}
+                  <strong>{tr("access rights", "hak akses")}</strong>
+                  {tr(
+                    ", not because they were out of reach. That is not the router's job — it is IT's: somebody needs a module they have not been given. What was refused and for whom is in the",
+                    ", bukan karena di luar jangkauan. Itu bukan pekerjaan router — itu pekerjaan IT: seseorang butuh modul yang belum diberikan. Yang ditolak apa dan oleh siapa ada di",
+                  )}{" "}
+                  <span className="font-medium">{tr("Audit log", "Log audit")}</span>
+                  {tr(
+                    ", because every tool call writes one row there.",
+                    ", karena setiap panggilan alat menulis satu baris di sana.",
+                  )}
                 </span>
               </div>
             )}
@@ -123,11 +134,12 @@ export default function JohnLauTuningPage() {
               <div className="mb-6 flex flex-wrap items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] text-slate-700">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  {h.refused_closed} pertanyaan menyentuh sesuatu yang memang{" "}
-                  <strong>tidak bisa lewat prompt oleh siapa pun</strong> — berkas 201, gaji,
-                  absensi per orang, modul IT, pengaturan. Angka ini batas yang bekerja, bukan
-                  masalah yang perlu diperbaiki. Tidak ada hak akses yang mengangkatnya, dan
-                  menaikkan hak akses seseorang tidak akan mengubahnya.
+                  {tr(`${h.refused_closed} question(s) touched something that`, `${h.refused_closed} pertanyaan menyentuh sesuatu yang memang`)}{" "}
+                  <strong>{tr("cannot go through a prompt for anyone", "tidak bisa lewat prompt oleh siapa pun")}</strong>{" "}
+                  {tr(
+                    "— 201 files, salaries, per-person attendance, the IT module, settings. This number is a boundary working, not a problem to fix. No access right lifts it, and raising somebody's access will not change it.",
+                    "— berkas 201, gaji, absensi per orang, modul IT, pengaturan. Angka ini batas yang bekerja, bukan masalah yang perlu diperbaiki. Tidak ada hak akses yang mengangkatnya, dan menaikkan hak akses seseorang tidak akan mengubahnya.",
+                  )}
                 </span>
               </div>
             )}
@@ -137,14 +149,17 @@ export default function JohnLauTuningPage() {
 
       <Card className="mb-6">
         <CardHeader
-          title="Yang tidak dimengerti"
-          subtitle="Paling sering ditanya di atas. Yang diulang-ulang itu yang layak dibuatkan aturan; yang muncul sekali biasanya bukan."
+          title={tr("Not understood", "Yang tidak dimengerti")}
+          subtitle={tr(
+            "Most asked first. What is repeated is worth a rule; what appears once usually is not.",
+            "Paling sering ditanya di atas. Yang diulang-ulang itu yang layak dibuatkan aturan; yang muncul sekali biasanya bukan.",
+          )}
           action={
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={q} onChange={(e) => setQ(e.target.value)}
-                placeholder="Cari kalimat…"
+                placeholder={tr("Search sentences…", "Cari kalimat…")}
                 className="h-9 w-56 rounded-lg border border-slate-200 pl-8 pr-2 text-[13px] focus:border-brand-400 focus:outline-none"
               />
             </div>
@@ -160,11 +175,14 @@ export default function JohnLauTuningPage() {
                 <div className="p-4">
                   <EmptyState
                     icon={HelpCircle}
-                    title={all.length === 0 ? "Semua pertanyaan dimengerti" : "Tidak ada yang cocok"}
+                    title={all.length === 0 ? tr("Every question understood", "Semua pertanyaan dimengerti") : tr("Nothing matches", "Tidak ada yang cocok")}
                     description={
                       all.length === 0
-                        ? "Belum ada kalimat yang gagal dicocokkan. Kalau angkanya tetap nol setelah orang benar-benar memakainya, itu jawaban atas pertanyaan apakah perlu LLM — bukan bukti bahwa layar ini tidak berguna."
-                        : "Coba kata lain."
+                        ? tr(
+                          "No sentence has failed to match yet. If the number stays zero after people really use it, that answers whether an LLM is needed — it is not proof this screen is useless.",
+                          "Belum ada kalimat yang gagal dicocokkan. Kalau angkanya tetap nol setelah orang benar-benar memakainya, itu jawaban atas pertanyaan apakah perlu LLM — bukan bukti bahwa layar ini tidak berguna.",
+                        )
+                        : tr("Try another word.", "Coba kata lain.")
                     }
                   />
                 </div>
@@ -209,8 +227,11 @@ export default function JohnLauTuningPage() {
 
       <Card>
         <CardHeader
-          title="Aturan yang ada sekarang"
-          subtitle="Urutan menentukan: yang pertama cocok menang, dan yang diblokir sengaja di atas. Hanya bisa dibaca — aturannya baris di migrasi, jadi yang mengubahnya adalah perubahan kode yang ditinjau, bukan layar ini."
+          title={tr("Rules in force now", "Aturan yang ada sekarang")}
+          subtitle={tr(
+            "Order decides: the first match wins, and the blocked ones sit on top on purpose. Read only — the rules are rows in a migration, so changing them is a reviewed code change, not this screen.",
+            "Urutan menentukan: yang pertama cocok menang, dan yang diblokir sengaja di atas. Hanya bisa dibaca — aturannya baris di migrasi, jadi yang mengubahnya adalah perubahan kode yang ditinjau, bukan layar ini.",
+          )}
         />
         <Loaded state={rules} onRetry={reloadRules}>
           {(all) => (
@@ -220,7 +241,7 @@ export default function JohnLauTuningPage() {
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="font-mono text-[11px] tabular-nums text-slate-400">{r.seq}</span>
                     <span className="font-mono text-[12px] text-slate-800">{r.tool}</span>
-                    {r.stage === "how" && <Badge tone="violet">cara …</Badge>}
+                    {r.stage === "how" && <Badge tone="violet">{tr("how …", "cara …")}</Badge>}
                     <span className="text-[12px] text-slate-500">{r.understood}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1">

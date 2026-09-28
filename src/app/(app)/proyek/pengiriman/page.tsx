@@ -13,6 +13,7 @@ import { FileEvidence } from "@/components/ui/file-evidence";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { officeToday } from "@/lib/office";
+import { useTr } from "@/lib/i18n";
 
 const TONE: Record<DeliveryStatus, "slate" | "amber" | "green" | "red"> = {
   DRAFT: "slate", IN_TRANSIT: "amber", ARRIVED: "green", CANCELLED: "red",
@@ -31,6 +32,7 @@ const TONE: Record<DeliveryStatus, "slate" | "amber" | "green" | "red"> = {
  *  the argument is settled by whichever one exists.
  */
 export default function DeliveryPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [ful, reloadFul] = useLoad(() => delivery.listFulfilment(), []);
   const [rows, reload] = useLoad(() => delivery.listDeliveries(), []);
@@ -42,9 +44,9 @@ export default function DeliveryPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Projects"
-        title="Pengiriman"
-        description="Yang sudah jadi dan masih di sini, yang sedang di jalan, dan yang sudah ditandatangani di lokasi. Surat jalan untuk barang yang belum jadi ditolak — janji seperti itu ketahuannya di lokasi."
+        breadcrumb={tr("Projects", "Proyek")}
+        title={tr("Delivery", "Pengiriman")}
+        description={tr("What is finished and still here, what is on the road, and what has been signed for on site. A delivery note for goods not yet made is refused — a promise like that is found out on site.", "Yang sudah jadi dan masih di sini, yang sedang di jalan, dan yang sudah ditandatangani di lokasi. Surat jalan untuk barang yang belum jadi ditolak — janji seperti itu ketahuannya di lokasi.")}
       />
 
       <Loaded state={ful} onRetry={reloadFul}>
@@ -54,8 +56,8 @@ export default function DeliveryPage() {
           return (
             <Card className="mb-4">
               <CardHeader
-                title="Siap kirim"
-                subtitle="Sudah lewat gergaji sampai packing, belum naik truk. Angka ini tidak ada di papan produksi karena papan produksi berhenti di 'selesai'."
+                title={tr("Ready to ship", "Siap kirim")}
+                subtitle={tr("Through every stage from sawing to packing, not on a truck yet. This number is not on the production board because the board stops at 'done'.", "Sudah lewat gergaji sampai packing, belum naik truk. Angka ini tidak ada di papan produksi karena papan produksi berhenti di 'selesai'.")}
                 icon={PackageCheck}
                 action={<SourceBadge state={ful} />}
               />
@@ -65,7 +67,7 @@ export default function DeliveryPage() {
                     <span className="min-w-[180px] flex-1">
                       <span className="block text-[13px] font-medium text-slate-800">{f.project_name}</span>
                       <span className="block text-[11px] text-slate-400">
-                        {f.client_name} · {f.location ?? "lokasi belum dicatat"}
+                        {f.client_name} · {f.location ?? tr("location not recorded yet", "lokasi belum dicatat")}
                       </span>
                     </span>
                     <span className="text-[12px] text-slate-600">
@@ -77,7 +79,7 @@ export default function DeliveryPage() {
                     </span>
                     {mayEdit && (
                       <Button size="sm" variant="outline" icon={Truck} onClick={() => setOpen(f)}>
-                        Buat surat jalan
+                        {tr("Create delivery note", "Buat surat jalan")}
                       </Button>
                     )}
                   </li>
@@ -101,8 +103,8 @@ export default function DeliveryPage() {
           return (
             <Card className="mb-4">
               <CardHeader
-                title="Sedang di vendor"
-                subtitle="Bukan di bengkel dan bukan di jalan — di tempat orang lain. Ini yang paling sering jadi jawaban waktu klien bertanya barangnya di mana."
+                title={tr("At a vendor", "Sedang di vendor")}
+                subtitle={tr("Not in the workshop and not on the road — at someone else's place. This is most often the answer when a client asks where their goods are.", "Bukan di bengkel dan bukan di jalan — di tempat orang lain. Ini yang paling sering jadi jawaban waktu klien bertanya barangnya di mana.")}
                 icon={Factory}
               />
               <ul className="divide-y divide-slate-100">
@@ -110,7 +112,7 @@ export default function DeliveryPage() {
                   <li key={f.project_code} className="px-5 py-3">
                     <span className="block text-[13px] font-medium text-slate-800">{f.project_name}</span>
                     <span className="block text-[11px] text-slate-400">
-                      {f.client_name} · {f.location ?? "lokasi belum dicatat"}
+                      {f.client_name} · {f.location ?? tr("location not recorded yet", "lokasi belum dicatat")}
                     </span>
                     <ul className="mt-1 space-y-0.5">
                       {lines.map((l) => (
@@ -147,12 +149,12 @@ export default function DeliveryPage() {
         {(all) => (
           <Card>
             <CardHeader
-              title={`${all.length} pengiriman`}
-              subtitle="Terbaru di atas. Yang berangkat dan tidak pernah dicatat sampai ditandai — bukan karena truknya hilang, tapi karena tidak ada yang menulisnya."
+              title={tr(`${all.length} deliveries`, `${all.length} pengiriman`)}
+              subtitle={tr("Newest first. Deliveries that left and were never recorded as arrived are flagged — not because the truck is lost, but because nobody wrote it down.", "Terbaru di atas. Yang berangkat dan tidak pernah dicatat sampai ditandai — bukan karena truknya hilang, tapi karena tidak ada yang menulisnya.")}
               icon={Truck}
               action={<SourceBadge state={rows} />}
             />
-            <Paged rows={all} pageSize={15} unit="pengiriman">
+            <Paged rows={all} pageSize={15} unit={tr("deliveries", "pengiriman")}>
               {(page) => (
                 <ul className="divide-y divide-slate-100">
                   {page.map((d) => (
@@ -162,18 +164,18 @@ export default function DeliveryPage() {
                         <span className="min-w-[180px] flex-1">
                           <span className="block text-[13px] font-medium text-slate-800">{d.project_name}</span>
                           <span className="block font-mono text-[10px] text-slate-400">
-                            {d.delivery_no} · berangkat {d.dispatched_on}
+                            {d.delivery_no} · {tr("left", "berangkat")} {d.dispatched_on}
                             {d.driver && ` · ${d.driver}`}
                             {d.vehicle && ` · ${d.vehicle}`}
                           </span>
                         </span>
-                        <span className="text-[12px] text-slate-600">{d.lines.length} baris</span>
+                        <span className="text-[12px] text-slate-600">{tr(`${d.lines.length} lines`, `${d.lines.length} baris`)}</span>
                         {d.received_by && (
-                          <span className="text-[12px] text-slate-500">diterima {d.received_by}</span>
+                          <span className="text-[12px] text-slate-500">{tr("received by", "diterima")} {d.received_by}</span>
                         )}
                         {d.surat_jalan_attachment_id && (
                           <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-                            <Paperclip className="h-3 w-3" /> surat jalan
+                            <Paperclip className="h-3 w-3" /> {tr("delivery note", "surat jalan")}
                           </span>
                         )}
                         {mayEdit && d.status === "IN_TRANSIT" && (
@@ -208,6 +210,7 @@ export default function DeliveryPage() {
 }
 
 function ArriveButton({ deliveryNo, onDone }: { deliveryNo: string; onDone: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [receiver, setReceiver] = useState("");
@@ -227,25 +230,25 @@ function ArriveButton({ deliveryNo, onDone }: { deliveryNo: string; onDone: () =
       photo_attachment_id: photo?.id ?? null,
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Belum dicatat", res.error.message); return; }
-    toast("success", "Tercatat sampai", `${deliveryNo} diterima ${receiver}`);
+    if (res.error) { toast("warning", tr("Not recorded", "Belum dicatat"), res.error.message); return; }
+    toast("success", tr("Recorded as arrived", "Tercatat sampai"), tr(`${deliveryNo} received by ${receiver}`, `${deliveryNo} diterima ${receiver}`));
     setOpen(false); onDone();
   }
 
   if (!open) {
-    return <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Catat sampai</Button>;
+    return <Button size="sm" variant="outline" onClick={() => setOpen(true)}>{tr("Record arrival", "Catat sampai")}</Button>;
   }
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       <input
         value={receiver} onChange={(e) => setReceiver(e.target.value)}
-        placeholder="Diterima siapa di lokasi?" aria-label="Penerima"
+        placeholder={tr("Who received it on site?", "Diterima siapa di lokasi?")} aria-label={tr("Receiver", "Penerima")}
         className="h-8 w-56 rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
       />
-      <FileEvidence kind="Surat Jalan Keluar" label="Foto surat jalan bertanda tangan" value={sj} onChange={setSj} />
-      <FileEvidence kind="Foto Lokasi" label="Foto barang (opsional)" value={photo} onChange={setPhoto} accept="image/*" />
-      <Button size="sm" disabled={busy || !receiver.trim() || !sj} onClick={submit}>Simpan</Button>
-      <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Batal</Button>
+      <FileEvidence kind="Surat Jalan Keluar" label={tr("Photo of the signed delivery note", "Foto surat jalan bertanda tangan")} value={sj} onChange={setSj} />
+      <FileEvidence kind="Foto Lokasi" label={tr("Photo of the goods (optional)", "Foto barang (opsional)")} value={photo} onChange={setPhoto} accept="image/*" />
+      <Button size="sm" disabled={busy || !receiver.trim() || !sj} onClick={submit}>{tr("Save", "Simpan")}</Button>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>{tr("Cancel", "Batal")}</Button>
     </span>
   );
 }
@@ -253,6 +256,7 @@ function ArriveButton({ deliveryNo, onDone }: { deliveryNo: string; onDone: () =
 function DispatchDrawer({ project, onClose, onDone }: {
   project: FulfilmentView; onClose: () => void; onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [qty, setQty] = useState<Record<string, number>>({});
   const [driver, setDriver] = useState("");
@@ -276,8 +280,8 @@ function DispatchDrawer({ project, onClose, onDone }: {
       box_nos: boxes,
     }, `dlv:${project.project_code}:${JSON.stringify(lines)}:${boxes.join(",")}`);
     setBusy(false);
-    if (res.error) { toast(res.error.status === 409 ? "critical" : "warning", "Tidak dibuat", res.error.message); return; }
-    toast("success", `Surat jalan ${res.data.delivery_no}`, `${res.data.lines.length} baris berangkat`);
+    if (res.error) { toast(res.error.status === 409 ? "critical" : "warning", tr("Not created", "Tidak dibuat"), res.error.message); return; }
+    toast("success", tr(`Delivery note ${res.data.delivery_no}`, `Surat jalan ${res.data.delivery_no}`), tr(`${res.data.lines.length} lines dispatched`, `${res.data.lines.length} baris berangkat`));
     onDone();
   }
 
@@ -287,16 +291,16 @@ function DispatchDrawer({ project, onClose, onDone }: {
     <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/20" onClick={onClose}>
       <div className="h-full w-full max-w-lg overflow-y-auto bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-[15px] font-semibold text-slate-900">{project.project_name}</h2>
-        <p className="mb-4 text-[12px] text-slate-500">{project.client_name} · {project.location ?? "lokasi belum dicatat"}</p>
+        <p className="mb-4 text-[12px] text-slate-500">{project.client_name} · {project.location ?? tr("location not recorded yet", "lokasi belum dicatat")}</p>
 
         <ul className="mb-4 space-y-2">
           {shippable.map((l) => (
             <li key={l.project_line_id} className="rounded-lg border border-slate-200 px-3 py-2">
               <p className="text-[13px] text-slate-800">{l.description}</p>
               <p className="text-[11px] text-slate-500">
-                dipesan {l.ordered} · {l.made == null
-                  ? <span className="text-amber-700">tidak bisa dicocokkan ke Job Order — jumlah siap kirim tidak diketahui</span>
-                  : <>dibuat {l.made} · terkirim {l.delivered} · <strong className="text-slate-700">siap kirim {l.ready_to_ship}</strong></>}
+                {tr("ordered", "dipesan")} {l.ordered} · {l.made == null
+                  ? <span className="text-amber-700">{tr("cannot be matched to a Job Order — quantity ready to ship is unknown", "tidak bisa dicocokkan ke Job Order — jumlah siap kirim tidak diketahui")}</span>
+                  : <>{tr("made", "dibuat")} {l.made} · {tr("delivered", "terkirim")} {l.delivered} · <strong className="text-slate-700">{tr("ready to ship", "siap kirim")} {l.ready_to_ship}</strong></>}
               </p>
               <div className="mt-1 w-28">
                 <NumberInput
@@ -308,13 +312,13 @@ function DispatchDrawer({ project, onClose, onDone }: {
             </li>
           ))}
           {shippable.length === 0 && (
-            <li className="text-[13px] text-slate-500">Tidak ada yang siap kirim di proyek ini.</li>
+            <li className="text-[13px] text-slate-500">{tr("Nothing ready to ship on this project.", "Tidak ada yang siap kirim di proyek ini.")}</li>
           )}
         </ul>
 
         {crates.status === "ready" && crates.data.filter((b) => !b.delivery_id).length > 0 && (
           <div className="mb-4 rounded-lg border border-slate-200 px-3 py-2">
-            <p className="mb-1 text-[12px] font-medium text-slate-700">Peti yang ikut</p>
+            <p className="mb-1 text-[12px] font-medium text-slate-700">{tr("Boxes going along", "Peti yang ikut")}</p>
             {crates.data.filter((b) => !b.delivery_id).map((b) => (
               <label key={b.box_no} className="flex items-center gap-2 py-0.5 text-[12px] text-slate-700">
                 <input type="checkbox" checked={boxes.includes(b.box_no)}
@@ -328,12 +332,12 @@ function DispatchDrawer({ project, onClose, onDone }: {
 
         <div className={cn("grid gap-2 sm:grid-cols-2")}>
           <label className="text-[11px] text-slate-500">
-            Sopir
+            {tr("Driver", "Sopir")}
             <input value={driver} onChange={(e) => setDriver(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
           </label>
           <label className="text-[11px] text-slate-500">
-            Kendaraan
+            {tr("Vehicle", "Kendaraan")}
             <input value={vehicle} onChange={(e) => setVehicle(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
           </label>
@@ -341,9 +345,9 @@ function DispatchDrawer({ project, onClose, onDone }: {
 
         <div className="mt-4 flex gap-2">
           <Button disabled={busy || total === 0} onClick={submit}>
-            {busy ? "Menyimpan…" : `Berangkatkan ${total}`}
+            {busy ? tr("Saving…", "Menyimpan…") : tr(`Dispatch ${total}`, `Berangkatkan ${total}`)}
           </Button>
-          <Button variant="ghost" onClick={onClose}>Batal</Button>
+          <Button variant="ghost" onClick={onClose}>{tr("Cancel", "Batal")}</Button>
         </div>
       </div>
     </div>

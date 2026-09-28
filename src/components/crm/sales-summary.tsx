@@ -1,6 +1,7 @@
 "use client";
 
 import { formatIDR, formatNumber } from "@/lib/format";
+import { useTr } from "@/lib/i18n";
 import { salesSummary } from "@/services/crm/sales";
 import type { QuotationView } from "@/services/quotation/contracts";
 
@@ -8,13 +9,14 @@ import type { QuotationView } from "@/services/quotation/contracts";
  *  won, what was lost and why. Totals include PPN where a quotation has it —
  *  it is what the client was asked to pay. */
 export function SalesSummaryStrip({ rows }: { rows: QuotationView[] }) {
+  const tr = useTr();
   const s = salesSummary(rows);
   const tiles: [string, string, string?][] = [
-    ["Menunggu jawaban", formatIDR(s.open_value), `${s.open_count} quotation terkirim`],
-    ["Disetujui", formatIDR(s.accepted_value), `${s.accepted_count} quotation`],
-    ["Ditolak", formatIDR(s.rejected_value), `${s.rejected_count} quotation`],
-    ["Rasio menang", s.win_rate == null ? "—" : `${formatNumber(Math.round(s.win_rate * 100))}%`,
-      s.win_rate == null ? "belum ada yang diputuskan" : "disetujui ÷ sudah diputuskan"],
+    [tr("Awaiting reply", "Menunggu jawaban"), formatIDR(s.open_value), tr(`${s.open_count} quotations sent`, `${s.open_count} quotation terkirim`)],
+    [tr("Accepted", "Disetujui"), formatIDR(s.accepted_value), tr(`${s.accepted_count} quotations`, `${s.accepted_count} quotation`)],
+    [tr("Rejected", "Ditolak"), formatIDR(s.rejected_value), tr(`${s.rejected_count} quotations`, `${s.rejected_count} quotation`)],
+    [tr("Win rate", "Rasio menang"), s.win_rate == null ? "—" : `${formatNumber(Math.round(s.win_rate * 100))}%`,
+      s.win_rate == null ? tr("nothing decided yet", "belum ada yang diputuskan") : tr("accepted ÷ decided", "disetujui ÷ sudah diputuskan")],
   ];
   return (
     <div className="mb-4 space-y-2">
@@ -29,7 +31,7 @@ export function SalesSummaryStrip({ rows }: { rows: QuotationView[] }) {
       </div>
       {s.reasons.length > 0 && (
         <p className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] text-slate-600">
-          <span className="text-slate-400">Alasan ditolak: </span>
+          <span className="text-slate-400">{tr("Rejection reasons: ", "Alasan ditolak: ")}</span>
           {s.reasons.slice(0, 5).map((r, i) => (
             <span key={r.reason}>{i > 0 && " · "}{r.reason}{r.count > 1 && <strong className="text-slate-800"> ×{r.count}</strong>}</span>
           ))}

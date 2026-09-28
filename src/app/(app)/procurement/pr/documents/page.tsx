@@ -13,6 +13,7 @@ import { procurement } from "@/demo/api";
 import type { PrDocumentView } from "@/demo/api/procurement";
 import { LINE_STATUSES, type LineStatus } from "@/services/procurement/contracts";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 
@@ -25,6 +26,7 @@ import { useSession } from "@/store/session";
  *  one line paid and one line still waiting has no single honest status.
  */
 export default function PurchaseRequestsPage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [q, setQ] = useState("");
@@ -48,8 +50,8 @@ export default function PurchaseRequestsPage() {
     setBusy(true);
     const res = await procurement.submitPr(d.doc_no, `submit-${d.doc_no}`);
     setBusy(false);
-    if (res.error) { toast(res.error.status === 409 ? "warning" : "critical", "Not submitted", res.error.message); return; }
-    toast("success", "Submitted", `${d.doc_no} is now waiting for approval.`);
+    if (res.error) { toast(res.error.status === 409 ? "warning" : "critical", tr("Not submitted", "Tidak diajukan"), res.error.message); return; }
+    toast("success", tr("Submitted", "Diajukan"), tr(`${d.doc_no} is now waiting for approval.`, `${d.doc_no} sekarang menunggu persetujuan.`));
     setSelected(res.data);
     reload();
   }
@@ -59,10 +61,10 @@ export default function PurchaseRequestsPage() {
     if (res.error) {
       /* 409 here is the guard doing its job, not a failure: money has reached
          the line, and what applies then is a return or a credit. */
-      toast("warning", "Not removed", res.error.message);
+      toast("warning", tr("Not removed", "Tidak dihapus"), res.error.message);
       return;
     }
-    toast("success", "Line removed", `${lineNo} is no longer needed.`);
+    toast("success", tr("Line removed", "Baris dihapus"), tr(`${lineNo} is no longer needed.`, `${lineNo} tidak diperlukan lagi.`));
     const refreshed = await procurement.getPr(selected!.doc_no);
     if (refreshed.data) setSelected(refreshed.data);
     reload();
@@ -71,7 +73,7 @@ export default function PurchaseRequestsPage() {
   const columns: Column<PrDocumentView>[] = [
     {
       key: "doc",
-      header: "Document",
+      header: tr("Document", "Dokumen"),
       render: (d) => (
         <div>
           <p className="font-mono text-[13px] font-semibold text-brand-700">{d.doc_no}</p>
@@ -81,21 +83,21 @@ export default function PurchaseRequestsPage() {
     },
     {
       key: "project",
-      header: "Project",
+      header: tr("Project", "Proyek"),
       render: (d) => d.project_code
         ? <span className="text-slate-700">{d.project_code}</span>
         : <span className="text-slate-300">&mdash;</span>,
     },
-    { key: "lines", header: "Lines", align: "right", render: (d) => formatNumber(d.lines.length) },
+    { key: "lines", header: tr("Lines", "Baris"), align: "right", render: (d) => formatNumber(d.lines.length) },
     {
       key: "requested",
-      header: "Requested",
+      header: tr("Requested", "Diminta"),
       align: "right",
       render: (d) => <span className="tabular-nums">{formatIDR(d.requested_total)}</span>,
     },
     {
       key: "approved",
-      header: "Approved",
+      header: tr("Approved", "Disetujui"),
       align: "right",
       render: (d) =>
         d.approved_total > 0
@@ -104,7 +106,7 @@ export default function PurchaseRequestsPage() {
     },
     {
       key: "state",
-      header: "Lines by status",
+      header: tr("Lines by status", "Baris per status"),
       className: "max-w-[240px] whitespace-normal",
       render: (d) => {
         const counts = new Map<LineStatus, number>();
@@ -125,17 +127,20 @@ export default function PurchaseRequestsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Procurement · Requests"
-        title="Submissions"
-        description="How requests arrived: who submitted what, on which day. The items themselves live on the Requests board — this view is the paperwork, not the work."
+        breadcrumb={tr("Procurement · Requests", "Pengadaan · Permintaan")}
+        title={tr("Submissions", "Pengajuan")}
+        description={tr(
+          "How requests arrived: who submitted what, on which day. The items themselves live on the Requests board — this view is the paperwork, not the work.",
+          "Bagaimana permintaan masuk: siapa mengajukan apa, pada hari apa. Barangnya sendiri ada di papan Permintaan — tampilan ini adalah berkasnya, bukan pekerjaannya.",
+        )}
         actions={
           <>
             <Link href="/procurement/pr">
-              <Button variant="outline">Requests board</Button>
+              <Button variant="outline">{tr("Requests board", "Papan permintaan")}</Button>
             </Link>
             {mayEdit && (
               <Link href="/procurement/pr/new">
-                <Button icon={Plus}>New request</Button>
+                <Button icon={Plus}>{tr("New request", "Permintaan baru")}</Button>
               </Link>
             )}
           </>
@@ -150,16 +155,16 @@ export default function PurchaseRequestsPage() {
           return (
             <>
               <div className="mb-6 grid gap-4 sm:grid-cols-3">
-                <StatCard label="Documents" value={docs.length} icon={FileText} hint={`${allLines.length} lines`} />
+                <StatCard label={tr("Documents", "Dokumen")} value={docs.length} icon={FileText} hint={tr(`${allLines.length} lines`, `${allLines.length} baris`)} />
                 <StatCard
-                  label="Waiting for approval"
+                  label={tr("Waiting for approval", "Menunggu persetujuan")}
                   value={waiting.length}
                   icon={ClipboardList}
                   tone="amber"
                   hint={formatIDR(waiting.reduce((s, l) => s + l.item_total, 0))}
                 />
                 <StatCard
-                  label="Requested in total"
+                  label={tr("Requested in total", "Total diminta")}
                   value={formatIDR(allLines.reduce((s, l) => s + l.item_total, 0))}
                   icon={FileText}
                   tone="brand"
@@ -168,8 +173,8 @@ export default function PurchaseRequestsPage() {
 
               <Card>
                 <CardHeader
-                  title="All requests"
-                  subtitle="Filter by line status — a document is shown when any of its lines matches."
+                  title={tr("All requests", "Semua permintaan")}
+                  subtitle={tr("Filter by line status — a document is shown when any of its lines matches.", "Saring menurut status baris — dokumen ditampilkan bila salah satu barisnya cocok.")}
                   icon={ClipboardList}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
@@ -180,14 +185,14 @@ export default function PurchaseRequestsPage() {
                         onChange={(e) => setStatus(e.target.value as LineStatus | "")}
                         className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Any status</option>
+                        <option value="">{tr("Any status", "Semua status")}</option>
                         {LINE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <input
                         id="pr-search"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="Document, item, requester…"
+                        placeholder={tr("Document, item, requester…", "Dokumen, barang, peminta…")}
                         className="h-9 w-44 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
                       />
                     </div>
@@ -198,7 +203,7 @@ export default function PurchaseRequestsPage() {
                   rows={rows}
                   rowKey={(d) => d.id}
                   onRowClick={setSelected}
-                  empty={q || status ? "Nothing matches those filters." : "No requests yet."}
+                  empty={q || status ? tr("Nothing matches those filters.", "Tidak ada yang cocok dengan filter itu.") : tr("No requests yet.", "Belum ada permintaan.")}
                 />
               </Card>
             </>
@@ -216,7 +221,7 @@ export default function PurchaseRequestsPage() {
           selected && mayEdit && selected.status === "DRAFT" ? (
             <div className="flex justify-end">
               <Button size="sm" icon={Send} onClick={() => submit(selected)} disabled={busy}>
-                {busy ? "Submitting…" : "Submit for approval"}
+                {busy ? tr("Submitting…", "Mengajukan…") : tr("Submit for approval", "Ajukan untuk persetujuan")}
               </Button>
             </div>
           ) : null
@@ -226,10 +231,10 @@ export default function PurchaseRequestsPage() {
           <div className="space-y-5 text-sm">
             <dl className="grid grid-cols-2 gap-3">
               {([
-                ["Project", selected.project_code ?? "—"],
-                ["Submitted", selected.submitted_at?.slice(0, 10) ?? "not yet"],
-                ["Requested", formatIDR(selected.requested_total)],
-                ["Approved", selected.approved_total > 0 ? formatIDR(selected.approved_total) : "—"],
+                [tr("Project", "Proyek"), selected.project_code ?? "—"],
+                [tr("Submitted", "Diajukan"), selected.submitted_at?.slice(0, 10) ?? tr("not yet", "belum")],
+                [tr("Requested", "Diminta"), formatIDR(selected.requested_total)],
+                [tr("Approved", "Disetujui"), selected.approved_total > 0 ? formatIDR(selected.approved_total) : "—"],
               ] as [string, string][]).map(([k, v]) => (
                 <div key={k} className="rounded-lg border border-slate-200 px-3 py-2">
                   <dt className="text-xs text-slate-400">{k}</dt>
@@ -240,14 +245,16 @@ export default function PurchaseRequestsPage() {
 
             {selected.status === "DRAFT" && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800">
-                Still a draft. Nothing has been asked of anyone yet — it appears in
-                nobody&rsquo;s approval queue until it is submitted.
+                {tr(
+                  "Still a draft. Nothing has been asked of anyone yet — it appears in nobody’s approval queue until it is submitted.",
+                  "Masih draf. Belum ada yang diminta dari siapa pun — draf ini tidak muncul di antrean persetujuan siapa pun sampai diajukan.",
+                )}
               </p>
             )}
 
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Lines
+                {tr("Lines", "Baris")}
               </p>
               <div className="space-y-2">
                 {selected.lines.map((l) => {
@@ -268,7 +275,7 @@ export default function PurchaseRequestsPage() {
                             {l.description}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {l.qty != null ? `${formatNumber(l.qty)} ${l.uom ?? ""} × ${formatIDR(l.unit_price ?? 0)}` : "no quantity"}
+                            {l.qty != null ? `${formatNumber(l.qty)} ${l.uom ?? ""} × ${formatIDR(l.unit_price ?? 0)}` : tr("no quantity", "tanpa kuantitas")}
                             {l.vendor_name && ` · ${l.vendor_name}`}
                           </p>
                         </div>
@@ -276,7 +283,7 @@ export default function PurchaseRequestsPage() {
                           <p className="tabular-nums font-semibold text-slate-800">{formatIDR(l.item_total)}</p>
                           {l.approval?.approved && l.approval.approved_amount !== l.item_total && (
                             <p className="text-[11px] text-brand-700">
-                              approved {formatIDR(l.approval.approved_amount ?? 0)}
+                              {tr("approved", "disetujui")} {formatIDR(l.approval.approved_amount ?? 0)}
                             </p>
                           )}
                         </div>
@@ -285,14 +292,14 @@ export default function PurchaseRequestsPage() {
                       <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         <StatusPill kind="line" status={l.status} />
                         {l.received_qty > 0 && l.qty != null && (
-                          <Badge tone="slate">received {formatNumber(l.received_qty)} of {formatNumber(l.qty)}</Badge>
+                          <Badge tone="slate">{tr(`received ${formatNumber(l.received_qty)} of ${formatNumber(l.qty)}`, `diterima ${formatNumber(l.received_qty)} dari ${formatNumber(l.qty)}`)}</Badge>
                         )}
                         {mayEdit && !l.removed_at && (
                           <button
                             onClick={() => removeLine(l.line_no_full)}
                             className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400 transition-colors hover:text-rose-600"
                           >
-                            <Trash2 className="h-3 w-3" /> No longer needed
+                            <Trash2 className="h-3 w-3" /> {tr("No longer needed", "Tidak diperlukan lagi")}
                           </button>
                         )}
                       </div>
@@ -301,8 +308,8 @@ export default function PurchaseRequestsPage() {
                         <div className="mt-2.5">
                           <Progress value={pct} tone={cov.settled ? "green" : "amber"} />
                           <p className="mt-1 text-[11px] text-slate-500">
-                            {formatIDR(cov.covered)} of {formatIDR(cov.approved)} covered
-                            {cov.remaining > 0 && ` · ${formatIDR(cov.remaining)} still owed`}
+                            {tr(`${formatIDR(cov.covered)} of ${formatIDR(cov.approved)} covered`, `${formatIDR(cov.covered)} dari ${formatIDR(cov.approved)} tertutup`)}
+                            {cov.remaining > 0 && tr(` · ${formatIDR(cov.remaining)} still owed`, ` · ${formatIDR(cov.remaining)} masih terutang`)}
                           </p>
                         </div>
                       )}

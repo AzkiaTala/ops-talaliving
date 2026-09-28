@@ -12,6 +12,7 @@ import { STAGE_LABEL, type MarketLevel, type PropertyView } from "@/services/mar
 import { PropertyDrawer } from "./PropertyDrawer";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr, type Tr } from "@/lib/i18n";
 
 /** Package — recruiting the agents who bring the owners (D183).
  *
@@ -26,6 +27,7 @@ import { useToast } from "@/store/toast";
  *  out, so nobody maintains it and nobody can forget it.
  */
 export default function PipelinePage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   /* One filter, three altitudes: the scope is a **prefix of the market code**,
@@ -48,17 +50,17 @@ export default function PipelinePage() {
   function reloadAll() { reloadProps(); reloadMetrics(); reloadQueue(); }
 
   async function moveOn(propertyRef: string, agentId: string, agentName: string) {
-    const reason = window.prompt(`Lepas ${agentName} dan lanjut ke agen berikutnya. Alasannya:`, "Tujuh hari tanpa balasan.");
+    const reason = window.prompt(tr(`Release ${agentName} and move on to the next agent. Reason:`, `Lepas ${agentName} dan lanjut ke agen berikutnya. Alasannya:`), tr("Seven days without a reply.", "Tujuh hari tanpa balasan."));
     if (!reason?.trim()) return;
     setBusy(true);
     const res = await marketing.moveToNextAgent({ property_ref: propertyRef, agent_id: agentId, reason });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak jadi", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not done", "Tidak jadi"), res.error.message); return; }
     toast(
-      "success", `${agentName} dilepas`,
+      "success", tr(`${agentName} released`, `${agentName} dilepas`),
       res.data.next_agent_name
-        ? `Pesan ke ${res.data.next_agent_name} dicatat terkirim hari ini.`
-        : "Tidak ada agen berikutnya — properti ini kembali ke tumpukan.",
+        ? tr(`The message to ${res.data.next_agent_name} is recorded as sent today.`, `Pesan ke ${res.data.next_agent_name} dicatat terkirim hari ini.`)
+        : tr("No next agent — this property goes back on the pile.", "Tidak ada agen berikutnya — properti ini kembali ke tumpukan."),
     );
     reloadAll();
   }
@@ -66,9 +68,9 @@ export default function PipelinePage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Marketing"
-        title="Package — pipeline agen"
-        description="Properti strata di-scrape dan diperkaya di luar sistem; yang di sini adalah apa yang terjadi sesudahnya. Tiga agen per properti, didekati berurutan sampai satu setuju."
+        breadcrumb={tr("Marketing", "Marketing")}
+        title={tr("Package — agent pipeline", "Package — pipeline agen")}
+        description={tr("Strata properties are scraped and enriched outside the system; what is here is what happens after that. Three agents per property, approached in turn until one agrees.", "Properti strata di-scrape dan diperkaya di luar sistem; yang di sini adalah apa yang terjadi sesudahnya. Tiga agen per properti, didekati berurutan sampai satu setuju.")}
         actions={<SourceBadge state={properties} />}
       />
 
@@ -101,7 +103,7 @@ export default function PipelinePage() {
                 return (
                   <div className="mb-4 flex flex-wrap items-center gap-1.5">
                     <Button size="sm" variant={scope === "" ? "primary" : "outline"} onClick={() => setScope("")}>
-                      Semua negara
+                      {tr("All countries", "Semua negara")}
                     </Button>
                     {countries.map(([code, name]) => (
                       <Button key={code} size="sm" variant={scope === code ? "primary" : "outline"} onClick={() => setScope(code)}>
@@ -128,15 +130,15 @@ export default function PipelinePage() {
             <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
               <dl className="grid divide-y divide-slate-100 sm:grid-cols-3 sm:divide-y-0 lg:grid-cols-6 lg:divide-x">
                 {([
-                  ["Properti", String(m.properties), `${m.qualified} qualified`],
-                  ["Tervalidasi", `${m.validated}/${m.qualified}`, "diperiksa orang, bukan mesin"],
-                  ["Dikirimi pesan", String(m.messaged), "agen"],
-                  ["Membalas", String(m.replied), "agen"],
+                  [tr("Properties", "Properti"), String(m.properties), tr(`${m.qualified} qualified`, `${m.qualified} qualified`)],
+                  [tr("Validated", "Tervalidasi"), `${m.validated}/${m.qualified}`, tr("checked by a person, not a machine", "diperiksa orang, bukan mesin")],
+                  [tr("Messaged", "Dikirimi pesan"), String(m.messaged), tr("agents", "agen")],
+                  [tr("Replied", "Membalas"), String(m.replied), tr("agents", "agen")],
                   /* No rate over nothing — the same rule every other figure here
                      follows: missing, never a made-up zero. */
-                  ["Tingkat balasan", m.reply_rate == null ? "—" : `${m.reply_rate}%`,
-                    m.reply_rate == null ? "belum ada yang dikirimi" : "dari yang dikirimi"],
-                  ["Deal", String(m.deals), `${m.forms_back} formulir kembali`],
+                  [tr("Reply rate", "Tingkat balasan"), m.reply_rate == null ? "—" : `${m.reply_rate}%`,
+                    m.reply_rate == null ? tr("nobody messaged yet", "belum ada yang dikirimi") : tr("of those messaged", "dari yang dikirimi")],
+                  [tr("Deal", "Deal"), String(m.deals), tr(`${m.forms_back} forms returned`, `${m.forms_back} formulir kembali`)],
                 ] as [string, string, string][]).map(([k, v, note]) => (
                   <div key={k} className="px-4 py-3.5">
                     <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -152,14 +154,14 @@ export default function PipelinePage() {
                 {(q) => (
                   <Card>
                     <CardHeader
-                      title={q.length === 0 ? "Tidak ada yang perlu dikejar" : `${q.length} perlu tindakan`}
-                      subtitle="Lewat tujuh hari tanpa balasan di atas, lalu yang jatuh tempo hari ini."
+                      title={q.length === 0 ? tr("Nothing to chase", "Tidak ada yang perlu dikejar") : tr(`${q.length} need action`, `${q.length} perlu tindakan`)}
+                      subtitle={tr("Past seven days without a reply at the top, then those due today.", "Lewat tujuh hari tanpa balasan di atas, lalu yang jatuh tempo hari ini.")}
                       icon={AlertTriangle}
                     />
                     <ul className="divide-y divide-slate-100">
                       {q.length === 0 && (
                         <li className="px-5 py-6 text-[13px] text-slate-500">
-                          Antrean bersih. Bukan berarti tidak ada kerjaan — berarti tidak ada yang lewat tenggat.
+                          {tr("Queue is clear. That does not mean there is no work — it means nothing is past its deadline.", "Antrean bersih. Bukan berarti tidak ada kerjaan — berarti tidak ada yang lewat tenggat.")}
                         </li>
                       )}
                       {q.map((row) => (
@@ -170,29 +172,29 @@ export default function PipelinePage() {
                           )} />
                           <span className="text-[13px] font-medium text-slate-800">{row.agent_name}</span>
                           <span className="text-[12px] text-slate-500">
-                            {row.property_name} · {row.market_label} · agen {row.slot}
+                            {row.property_name} · {row.market_label} · {tr("agent", "agen")} {row.slot}
                           </span>
                           {/* Whether to ring somebody depends on the time
                               THERE, which a list of names cannot say (D187). */}
-                          <span className="text-[11px] text-slate-400">{localTime(row.timezone)}</span>
+                          <span className="text-[11px] text-slate-400">{localTime(row.timezone, tr)}</span>
                           <Badge tone="slate">{STAGE_LABEL[row.stage]}</Badge>
                           <span className="flex-1" />
                           {row.kind === "move_on" ? (
                             <>
                               <span className="text-[11px] font-medium text-rose-700">
-                                {row.waiting_days} hari tanpa balasan
+                                {tr(`${row.waiting_days} days without a reply`, `${row.waiting_days} hari tanpa balasan`)}
                               </span>
                               {mayEdit && (
                                 <Button
                                   size="sm" variant="outline" icon={ArrowRight} disabled={busy}
                                   onClick={() => moveOn(row.property_ref, row.agent_id, row.agent_name)}
                                 >
-                                  Agen berikutnya
+                                  {tr("Next agent", "Agen berikutnya")}
                                 </Button>
                               )}
                             </>
                           ) : (
-                            <span className="text-[11px] text-emerald-700">jatuh tempo {row.next_action_on}</span>
+                            <span className="text-[11px] text-emerald-700">{tr("due", "jatuh tempo")} {row.next_action_on}</span>
                           )}
                         </li>
                       ))}
@@ -204,8 +206,8 @@ export default function PipelinePage() {
               <div className="space-y-4">
                 <Card>
                   <CardHeader
-                    title="Corong — agen terjauh per properti"
-                    subtitle="Satu properti dihitung sekali, di tahap agen yang paling jauh."
+                    title={tr("Funnel — furthest agent per property", "Corong — agen terjauh per properti")}
+                    subtitle={tr("Each property is counted once, at the stage of its furthest agent.", "Satu properti dihitung sekali, di tahap agen yang paling jauh.")}
                     icon={Target}
                   />
                   <div className="space-y-1.5 px-5 py-3">
@@ -224,8 +226,12 @@ export default function PipelinePage() {
 
                 <Card>
                   <CardHeader
-                    title="Scrape → enrichment"
-                    subtitle={`Dikelompokkan per ${m.level === "country" ? "negara" : m.level === "city" ? "kota" : "area"} — ikut sedalam apa Anda menyaring.`}
+                    title={tr("Scrape → enrichment", "Scrape → enrichment")}
+                    subtitle={m.level === "country"
+                      ? tr("Grouped by country — follows how deep you filter.", "Dikelompokkan per negara — ikut sedalam apa Anda menyaring.")
+                      : m.level === "city"
+                        ? tr("Grouped by city — follows how deep you filter.", "Dikelompokkan per kota — ikut sedalam apa Anda menyaring.")
+                        : tr("Grouped by area — follows how deep you filter.", "Dikelompokkan per area — ikut sedalam apa Anda menyaring.")}
                     icon={Radar}
                   />
                   <ul className="divide-y divide-slate-100">
@@ -233,13 +239,13 @@ export default function PipelinePage() {
                       <li key={s.key} className="flex flex-wrap items-center gap-x-3 px-5 py-2 text-[12px]">
                         <span className="min-w-[150px] font-medium text-slate-800">{s.label}</span>
                         <span className="text-slate-600">
-                          {s.enriched}/{s.scraped} diperkaya
+                          {tr(`${s.enriched}/${s.scraped} enriched`, `${s.enriched}/${s.scraped} diperkaya`)}
                           {s.enriched < s.scraped && (
-                            <span className="text-amber-700"> · {s.scraped - s.enriched} menunggu</span>
+                            <span className="text-amber-700">{tr(` · ${s.scraped - s.enriched} waiting`, ` · ${s.scraped - s.enriched} menunggu`)}</span>
                           )}
                         </span>
                         <span className="flex-1" />
-                        <span className="text-slate-500">{s.converted} jadi properti</span>
+                        <span className="text-slate-500">{tr(`${s.converted} became properties`, `${s.converted} jadi properti`)}</span>
                         {/* More than one currency in a group means no average
                             is offered: a mean across dollars and rupiah is not
                             a number (D187). */}
@@ -249,7 +255,7 @@ export default function PipelinePage() {
                       </li>
                     ))}
                     {m.scrape.length === 0 && (
-                      <li className="px-5 py-4 text-[13px] text-slate-500">Belum ada hasil scrape.</li>
+                      <li className="px-5 py-4 text-[13px] text-slate-500">{tr("No scrape results yet.", "Belum ada hasil scrape.")}</li>
                     )}
                   </ul>
                 </Card>
@@ -265,11 +271,11 @@ export default function PipelinePage() {
           return (
             <Card className="mt-4">
               <CardHeader
-                title={`${shown.length} properti`}
-                subtitle="Yang lewat tenggat dulu, lalu skor tertinggi. Klik untuk agennya."
+                title={tr(`${shown.length} properties`, `${shown.length} properti`)}
+                subtitle={tr("Overdue first, then highest score. Click for its agents.", "Yang lewat tenggat dulu, lalu skor tertinggi. Klik untuk agennya.")}
                 icon={Target}
               />
-              <Paged rows={shown} pageSize={12} unit="properti">
+              <Paged rows={shown} pageSize={12} unit={tr("properties", "properti")}>
                 {(page) => (
                   <ul className="divide-y divide-slate-100">
                     {page.map((p) => <Row key={p.id} property={p} onOpen={() => setOpen(p.ref)} />)}
@@ -295,17 +301,18 @@ export default function PipelinePage() {
 
 /** What time it is where the agent is. The only question a list of names
  *  cannot answer, and the one that decides whether to ring now (D187). */
-function localTime(timezone: string): string {
+function localTime(timezone: string, tr: Tr): string {
   try {
     return new Intl.DateTimeFormat("id-ID", {
       timeZone: timezone, hour: "2-digit", minute: "2-digit",
-    }).format(new Date()) + " di sana";
+    }).format(new Date()) + tr(" there", " di sana");
   } catch {
     return "";
   }
 }
 
 function Row({ property: p, onOpen }: { property: PropertyView; onOpen: () => void }) {
+  const tr = useTr();
   const flagged = p.agents.some((a) => a.move_on);
   return (
     <li>
@@ -313,27 +320,27 @@ function Row({ property: p, onOpen }: { property: PropertyView; onOpen: () => vo
         <span className="min-w-[200px] flex-1">
           <span className="block text-[13px] font-medium text-slate-800">{p.name}</span>
           <span className="block font-mono text-[10px] text-slate-400">
-            {p.ref} · {p.market.label} · {p.rooms ?? "?"} kamar · ADR{" "}
+            {p.ref} · {p.market.label} · {p.rooms ?? "?"} {tr("rooms", "kamar")} · ADR{" "}
             {/* The currency belongs to the market, never assumed — 106 is not
                 a number until you know what it is in (D187). */}
             {p.adr ? `${p.market.currency} ${formatNumber(p.adr)}` : "?"}
           </span>
         </span>
         <Badge tone={p.score >= 4 ? "green" : p.score === 3 ? "amber" : "slate"}>
-          {p.score ? `skor ${p.score}` : "belum diskor"}
+          {p.score ? tr(`score ${p.score}`, `skor ${p.score}`) : tr("not scored", "belum diskor")}
         </Badge>
         {!p.status.startsWith("QUALIFIED") ? (
           <Badge tone="red">{p.status.toLowerCase()}</Badge>
         ) : !p.validated ? (
-          <Badge tone="amber">belum divalidasi</Badge>
+          <Badge tone="amber">{tr("not validated", "belum divalidasi")}</Badge>
         ) : null}
         <Badge tone={p.best_stage === "DEAL" ? "green" : "brand"}>{STAGE_LABEL[p.best_stage]}</Badge>
         <span className="text-[12px] text-slate-500">
-          {p.agents.length} agen
-          {p.next_agent && ` · sekarang ${p.next_agent.name}`}
+          {tr(`${p.agents.length} agents`, `${p.agents.length} agen`)}
+          {p.next_agent && tr(` · now ${p.next_agent.name}`, ` · sekarang ${p.next_agent.name}`)}
         </span>
-        {flagged && <span className="text-[11px] font-medium text-rose-700">lewat 7 hari</span>}
-        {p.exhausted && <span className="text-[11px] text-slate-500">semua agen habis</span>}
+        {flagged && <span className="text-[11px] font-medium text-rose-700">{tr("past 7 days", "lewat 7 hari")}</span>}
+        {p.exhausted && <span className="text-[11px] text-slate-500">{tr("all agents exhausted", "semua agen habis")}</span>}
       </button>
     </li>
   );

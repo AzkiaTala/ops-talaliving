@@ -15,6 +15,7 @@ import type { PrLineView, RoundStatus, RoundTransfer } from "@/services/procurem
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { TransferForm } from "./TransferForm";
+import { useTr, type Message } from "@/lib/i18n";
 
 /** The payment round: one queue of what is owed, funded in one transfer.
  *
@@ -34,14 +35,15 @@ import { TransferForm } from "./TransferForm";
  *  were invisible until they called.
  */
 
-const STEPS: { key: RoundStatus; label: string; note: string }[] = [
-  { key: "OPEN", label: "Open", note: "collecting what is owed" },
-  { key: "APPROVED", label: "Approved", note: "numbers frozen" },
-  { key: "TRANSFERRED", label: "Transferred", note: "money in BCA 271" },
-  { key: "CLOSED", label: "Closed", note: "what is left goes back" },
+const STEPS: { key: RoundStatus; label: Message; note: Message }[] = [
+  { key: "OPEN", label: { en: "Open", id: "Terbuka" }, note: { en: "collecting what is owed", id: "mengumpulkan yang terutang" } },
+  { key: "APPROVED", label: { en: "Approved", id: "Disetujui" }, note: { en: "numbers frozen", id: "angka dibekukan" } },
+  { key: "TRANSFERRED", label: { en: "Transferred", id: "Ditransfer" }, note: { en: "money in BCA 271", id: "uang sudah di BCA 271" } },
+  { key: "CLOSED", label: { en: "Closed", id: "Ditutup" }, note: { en: "what is left goes back", id: "sisanya kembali ke antrean" } },
 ];
 
 export default function RoundsPage() {
+  const tr = useTr();
   const { hasAuthority } = useSession();
   const { toast } = useToast();
   const [rounds, reload] = useLoad(() => procurement.listRounds(), []);
@@ -55,13 +57,21 @@ export default function RoundsPage() {
     setBusy(true);
     const res = await procurement.syncRound();
     setBusy(false);
-    if (res.error) { toast("warning", "Not synced", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not synced", "Tidak tersinkron"), res.error.message); return; }
     toast(
       res.meta.outcome === "noop" ? "info" : "success",
-      res.meta.outcome === "noop" ? "Nothing to roll in" : `Round ${res.data.round_no} updated`,
       res.meta.outcome === "noop"
-        ? "Every approved item that is still owed is already in the round."
-        : `${res.data.line_count} item(s) · ${formatIDR(res.data.requested_total)}`,
+        ? tr("Nothing to roll in", "Tidak ada yang dimasukkan")
+        : tr(`Round ${res.data.round_no} updated`, `Putaran ${res.data.round_no} diperbarui`),
+      res.meta.outcome === "noop"
+        ? tr(
+          "Every approved item that is still owed is already in the round.",
+          "Semua barang yang disetujui dan masih terutang sudah ada di putaran ini.",
+        )
+        : tr(
+          `${res.data.line_count} item(s) · ${formatIDR(res.data.requested_total)}`,
+          `${res.data.line_count} barang · ${formatIDR(res.data.requested_total)}`,
+        ),
     );
     reload();
   }
@@ -71,10 +81,14 @@ export default function RoundsPage() {
     const res = await procurement.approveRound(roundNo);
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not approved", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not approved", "Tidak disetujui"), res.error.message);
       return;
     }
-    toast("success", `Round ${roundNo} approved`, `${formatIDR(res.data.requested_total)} frozen`);
+    toast(
+      "success",
+      tr(`Round ${roundNo} approved`, `Putaran ${roundNo} disetujui`),
+      tr(`${formatIDR(res.data.requested_total)} frozen`, `${formatIDR(res.data.requested_total)} dibekukan`),
+    );
     reload();
   }
 
@@ -83,17 +97,20 @@ export default function RoundsPage() {
     const res = await procurement.closeRound(roundNo);
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not closed", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not closed", "Tidak ditutup"), res.error.message);
       return;
     }
     /* The step everyone forgets, so closing says exactly what it let go of. */
     setReleased({ round_no: roundNo, lines: res.data.still_owed });
     toast(
       res.data.still_owed.length > 0 ? "warning" : "success",
-      `Round ${roundNo} closed`,
+      tr(`Round ${roundNo} closed`, `Putaran ${roundNo} ditutup`),
       res.data.still_owed.length > 0
-        ? `${res.data.still_owed.length} item(s) still owed — back in the queue`
-        : "Everything in it was settled.",
+        ? tr(
+          `${res.data.still_owed.length} item(s) still owed — back in the queue`,
+          `${res.data.still_owed.length} barang masih terutang — kembali ke antrean`,
+        )
+        : tr("Everything in it was settled.", "Semua isinya sudah lunas."),
     );
     reload();
   }
@@ -101,7 +118,7 @@ export default function RoundsPage() {
   const lineColumns: Column<PrLineView>[] = [
     {
       key: "item",
-      header: "Item",
+      header: tr("Item", "Barang"),
       className: "whitespace-normal",
       render: (l) => {
         const meta = [l.line_no_full, l.requested_by_name, l.vendor_name].filter(Boolean).join(" · ");
@@ -116,7 +133,7 @@ export default function RoundsPage() {
     },
     {
       key: "qty",
-      header: "Qty",
+      header: tr("Qty", "Jml"),
       align: "right",
       render: (l) => (
         <span className="whitespace-nowrap text-[12px] text-slate-600">
@@ -126,20 +143,20 @@ export default function RoundsPage() {
     },
     {
       key: "owed",
-      header: "In this round",
+      header: tr("In this round", "Di putaran ini"),
       align: "right",
       render: (l) => (
         <div className="whitespace-nowrap">
           <p className="tabular-nums font-medium text-slate-800">{formatIDR(l.coverage.remaining)}</p>
           {l.coverage.covered > 0 && (
-            <p className="text-[11px] text-slate-500">{formatIDR(l.coverage.covered)} paid so far</p>
+            <p className="text-[11px] text-slate-500">{formatIDR(l.coverage.covered)} {tr("paid so far", "sudah dibayar")}</p>
           )}
         </div>
       ),
     },
     {
       key: "status",
-      header: "Item status",
+      header: tr("Item status", "Status barang"),
       render: (l) => <StatusPill kind="line" status={l.status} />,
     },
   ];
@@ -147,9 +164,12 @@ export default function RoundsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Procurement"
-        title="Payment rounds"
-        description="Everything approved and still owed, collected into one queue and funded in one transfer. Funding the round is not paying anyone — that happens item by item, against a document."
+        breadcrumb={tr("Procurement", "Pengadaan")}
+        title={tr("Payment rounds", "Putaran pembayaran")}
+        description={tr(
+          "Everything approved and still owed, collected into one queue and funded in one transfer. Funding the round is not paying anyone — that happens item by item, against a document.",
+          "Semua yang disetujui dan masih terutang, dikumpulkan dalam satu antrean dan didanai dengan satu transfer. Mendanai putaran bukan berarti membayar siapa pun — pembayaran dilakukan per barang, dengan dokumen.",
+        )}
       />
 
       <Loaded state={rounds} onRetry={reload}>
@@ -168,7 +188,10 @@ export default function RoundsPage() {
                 <Card key={live.round_id} className="mb-5">
                   <CardHeader
                     title={live.round_no}
-                    subtitle={`${live.line_count} item(s) · ${formatIDR(live.requested_total)} requested`}
+                    subtitle={tr(
+                      `${live.line_count} item(s) · ${formatIDR(live.requested_total)} requested`,
+                      `${live.line_count} barang · ${formatIDR(live.requested_total)} diminta`,
+                    )}
                     icon={Wallet}
                     action={
                       <div className="flex flex-wrap items-center gap-2">
@@ -199,9 +222,9 @@ export default function RoundsPage() {
                             "text-[13px] font-semibold",
                             now ? "text-brand-800" : done ? "text-slate-500" : "text-slate-400",
                           )}>
-                            {step.label}
+                            {tr(step.label.en, step.label.id)}
                           </p>
-                          <p className="text-[11px] text-slate-500">{step.note}</p>
+                          <p className="text-[11px] text-slate-500">{tr(step.note.en, step.note.id)}</p>
                         </li>
                       );
                     })}
@@ -209,16 +232,20 @@ export default function RoundsPage() {
 
                   <dl className="grid gap-x-6 gap-y-3 border-b border-slate-100 px-4 py-3.5 sm:grid-cols-4">
                     {([
-                      ["Requested", formatIDR(live.requested_total), live.status === "OPEN" ? "recalculated as things change" : "frozen at approval"],
-                      ["BCA 271", formatIDR(live.paying_balance), "the account that pays suppliers"],
-                      ["To transfer", live.to_transfer > 0 ? formatIDR(live.to_transfer) : "nothing needed", "before this round can be paid"],
-                      ["After paying it all", formatIDR(live.remaining_after_payment), live.remaining_after_payment < 0 ? "short by this much" : "left in the account"],
+                      [tr("Requested", "Diminta"), formatIDR(live.requested_total), live.status === "OPEN"
+                        ? tr("recalculated as things change", "dihitung ulang saat ada perubahan")
+                        : tr("frozen at approval", "dibekukan saat disetujui")],
+                      ["BCA 271", formatIDR(live.paying_balance), tr("the account that pays suppliers", "rekening untuk membayar pemasok")],
+                      [tr("To transfer", "Perlu ditransfer"), live.to_transfer > 0 ? formatIDR(live.to_transfer) : tr("nothing needed", "tidak perlu"), tr("before this round can be paid", "sebelum putaran ini bisa dibayar")],
+                      [tr("After paying it all", "Setelah semua dibayar"), formatIDR(live.remaining_after_payment), live.remaining_after_payment < 0
+                        ? tr("short by this much", "kurang sebesar ini")
+                        : tr("left in the account", "sisa di rekening")],
                     ] as [string, string, string][]).map(([k, v, note]) => (
                       <div key={k}>
                         <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                         <dd className={cn(
                           "mt-0.5 text-lg font-bold tabular-nums tracking-tight",
-                          k === "After paying it all" && live.remaining_after_payment < 0
+                          k === tr("After paying it all", "Setelah semua dibayar") && live.remaining_after_payment < 0
                             ? "text-amber-700" : "text-slate-800",
                         )}>
                           {v}
@@ -232,10 +259,11 @@ export default function RoundsPage() {
                     <p className="flex items-start gap-2 border-b border-slate-100 bg-violet-50 px-4 py-2.5 text-[13px] text-violet-900">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>
-                        <strong>The money is in BCA 271, and nothing is paid yet.</strong>{" "}
-                        Every item below is still owed to a supplier — a line becomes paid
-                        when a payment is recorded against it, with a document, not when a
-                        round is funded.
+                        <strong>{tr("The money is in BCA 271, and nothing is paid yet.", "Uangnya sudah di BCA 271, dan belum ada yang dibayar.")}</strong>{" "}
+                        {tr(
+                          "Every item below is still owed to a supplier — a line becomes paid when a payment is recorded against it, with a document, not when a round is funded.",
+                          "Setiap barang di bawah masih terutang ke pemasok — sebuah baris menjadi lunas saat pembayaran dicatat untuknya, dengan dokumen, bukan saat putaran didanai.",
+                        )}
                       </span>
                     </p>
                   )}
@@ -243,24 +271,27 @@ export default function RoundsPage() {
                   <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
                     {live.status === "OPEN" && (
                       <Button variant="outline" size="sm" icon={RefreshCw} disabled={busy} onClick={sync}>
-                        Roll in what is owed
+                        {tr("Roll in what is owed", "Masukkan yang terutang")}
                       </Button>
                     )}
                     {live.status === "OPEN" && mayDecideFunds && (
                       <Button size="sm" icon={Check} disabled={busy || live.line_count === 0} onClick={() => approve(live.round_no)}>
-                        Approve the round
+                        {tr("Approve the round", "Setujui putaran")}
                       </Button>
                     )}
                     {live.status !== "OPEN" && mayDecideFunds && (
                       <Button variant="outline" size="sm" icon={Lock} disabled={busy} onClick={() => close(live.round_no)}>
-                        Close the round
+                        {tr("Close the round", "Tutup putaran")}
                       </Button>
                     )}
                     {!mayDecideFunds && (
                       <p className="text-[12px] text-slate-500">
-                        Approving and closing a round belong to whoever holds{" "}
-                        <span className="font-mono text-[11px]">approve_funds</span> — you can
-                        read it either way.
+                        {tr(
+                          "Approving and closing a round belong to whoever holds",
+                          "Menyetujui dan menutup putaran adalah hak pemegang",
+                        )}{" "}
+                        <span className="font-mono text-[11px]">approve_funds</span>{" "}
+                        {tr("— you can read it either way.", "— Anda tetap bisa membacanya.")}
                       </p>
                     )}
                   </div>
@@ -272,8 +303,10 @@ export default function RoundsPage() {
                         <TransferForm round={live} onDone={reload} />
                       ) : (
                         <p className="text-[13px] text-slate-500">
-                          Approved and waiting for the transfer, which is recorded by
-                          whoever writes the ledger.
+                          {tr(
+                            "Approved and waiting for the transfer, which is recorded by whoever writes the ledger.",
+                            "Disetujui dan menunggu transfer, yang dicatat oleh penulis buku besar.",
+                          )}
                         </p>
                       )}
                     </div>
@@ -292,7 +325,7 @@ export default function RoundsPage() {
                     columns={lineColumns}
                     rows={live.lines}
                     rowKey={(l) => l.id}
-                    empty="Nothing in this round yet — roll in what is owed."
+                    empty={tr("Nothing in this round yet — roll in what is owed.", "Putaran ini masih kosong — masukkan yang terutang.")}
                   />
                 </Card>
               )) : (
@@ -300,9 +333,12 @@ export default function RoundsPage() {
                   <div className="p-5">
                     <EmptyState
                       icon={Wallet}
-                      title="No round is open"
-                      description="Rolling in what is owed opens one and fills it with every approved item that has not been paid."
-                      action={<Button icon={RefreshCw} disabled={busy} onClick={sync}>Roll in what is owed</Button>}
+                      title={tr("No round is open", "Tidak ada putaran terbuka")}
+                      description={tr(
+                        "Rolling in what is owed opens one and fills it with every approved item that has not been paid.",
+                        "Memasukkan yang terutang akan membuka putaran dan mengisinya dengan semua barang disetujui yang belum dibayar.",
+                      )}
+                      action={<Button icon={RefreshCw} disabled={busy} onClick={sync}>{tr("Roll in what is owed", "Masukkan yang terutang")}</Button>}
                     />
                   </div>
                 </Card>
@@ -311,19 +347,22 @@ export default function RoundsPage() {
               {released && (
                 <Card className="mb-5">
                   <CardHeader
-                    title={`${released.round_no} closed`}
+                    title={tr(`${released.round_no} closed`, `${released.round_no} ditutup`)}
                     subtitle={released.lines.length > 0
-                      ? "These were in the round and are still owed. They are back in the queue — closing a round never settles anything."
-                      : "Everything in it was settled."}
+                      ? tr(
+                        "These were in the round and are still owed. They are back in the queue — closing a round never settles anything.",
+                        "Barang-barang ini ada di putaran dan masih terutang. Semuanya kembali ke antrean — menutup putaran tidak pernah melunasi apa pun.",
+                      )
+                      : tr("Everything in it was settled.", "Semua isinya sudah lunas.")}
                     icon={Lock}
-                    action={<Button variant="ghost" size="sm" onClick={() => setReleased(null)}>Dismiss</Button>}
+                    action={<Button variant="ghost" size="sm" onClick={() => setReleased(null)}>{tr("Dismiss", "Tutup")}</Button>}
                   />
                   {released.lines.length > 0 && (
                     <DataTable
                       dense
                       columns={lineColumns}
                       rows={released.lines}
-                      empty="This round released nothing — it closed with no lines on it."
+                      empty={tr("This round released nothing — it closed with no lines on it.", "Putaran ini tidak melepas apa pun — ditutup tanpa baris.")}
                       rowKey={(l) => l.id}
                     />
                   )}
@@ -331,16 +370,20 @@ export default function RoundsPage() {
               )}
 
               <Card>
-                <CardHeader title="Past rounds" subtitle="Closed, with what was actually transferred." icon={History} />
+                <CardHeader
+                  title={tr("Past rounds", "Putaran sebelumnya")}
+                  subtitle={tr("Closed, with what was actually transferred.", "Sudah ditutup, dengan jumlah yang benar-benar ditransfer.")}
+                  icon={History}
+                />
                 <DataTable
                   dense
                   columns={[
-                    { key: "no", header: "Round", render: (r) => <span className="font-mono text-[12px] text-slate-700">{r.round_no}</span> },
-                    { key: "lines", header: "Items", align: "right", render: (r) => <span className="tabular-nums text-[12px] text-slate-600">{r.line_count}</span> },
-                    { key: "req", header: "Requested", align: "right", render: (r) => <span className="tabular-nums text-slate-700">{formatIDR(r.requested_total)}</span> },
+                    { key: "no", header: tr("Round", "Putaran"), render: (r) => <span className="font-mono text-[12px] text-slate-700">{r.round_no}</span> },
+                    { key: "lines", header: tr("Items", "Barang"), align: "right", render: (r) => <span className="tabular-nums text-[12px] text-slate-600">{r.line_count}</span> },
+                    { key: "req", header: tr("Requested", "Diminta"), align: "right", render: (r) => <span className="tabular-nums text-slate-700">{formatIDR(r.requested_total)}</span> },
                     {
                       key: "trf",
-                      header: "Transferred",
+                      header: tr("Transferred", "Ditransfer"),
                       align: "right",
                       render: (r) => r.transfers.length > 0
                         ? (
@@ -349,17 +392,19 @@ export default function RoundsPage() {
                             {/* Funded in parts more often than not, and every
                                 part carried its own proof (D80, D82). */}
                             <p className="text-[10px] text-slate-400">
-                              {r.transfers.length} transfer{r.transfers.length > 1 ? "s" : ""} · proof on file
+                              {r.transfers.length > 1
+                                ? tr(`${r.transfers.length} transfers · proof on file`, `${r.transfers.length} transfer · bukti tersimpan`)
+                                : tr(`${r.transfers.length} transfer · proof on file`, `${r.transfers.length} transfer · bukti tersimpan`)}
                             </p>
                           </div>
                         )
-                        : <span className="text-slate-300">never funded</span>,
+                        : <span className="text-slate-300">{tr("never funded", "tidak pernah didanai")}</span>,
                     },
-                    { key: "status", header: "Status", render: (r) => <StatusPill kind="round" status={r.status} /> },
+                    { key: "status", header: tr("Status", "Status"), render: (r) => <StatusPill kind="round" status={r.status} /> },
                   ]}
                   rows={past}
                   rowKey={(r) => r.round_id}
-                  empty="No closed rounds yet."
+                  empty={tr("No closed rounds yet.", "Belum ada putaran yang ditutup.")}
                 />
               </Card>
             </>
@@ -384,6 +429,7 @@ function TransfersPanel({
   total: number;
   shortfall: number;
 }) {
+  const tr = useTr();
   const [attachments] = useLoad(() => documents.listAttachments(), []);
   const nameOf = (id: string) => attachments.status === "ready"
     ? attachments.data.find((a) => a.id === id)?.filename ?? null
@@ -393,14 +439,14 @@ function TransfersPanel({
     <div className="border-b border-slate-100 px-4 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-          Funded so far
+          {tr("Funded so far", "Sudah didanai")}
         </p>
         <p className="text-lg font-bold tabular-nums tracking-tight text-slate-800">
           {formatIDR(total)}
         </p>
         {shortfall > 0
-          ? <p className="text-[13px] text-amber-700">{formatIDR(shortfall)} still to come in</p>
-          : <p className="text-[13px] text-emerald-700">fully funded</p>}
+          ? <p className="text-[13px] text-amber-700">{formatIDR(shortfall)} {tr("still to come in", "masih akan masuk")}</p>
+          : <p className="text-[13px] text-emerald-700">{tr("fully funded", "didanai penuh")}</p>}
       </div>
 
       <ul className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">
@@ -414,7 +460,7 @@ function TransfersPanel({
             </span>
             <span className="ml-auto flex items-center gap-1.5 rounded bg-violet-50 px-2 py-0.5 text-[12px] text-violet-800">
               <FileText className="h-3.5 w-3.5" />
-              {nameOf(t.proof_attachment_id) ?? "proof on file"}
+              {nameOf(t.proof_attachment_id) ?? tr("proof on file", "bukti tersimpan")}
             </span>
           </li>
         ))}

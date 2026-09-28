@@ -13,6 +13,7 @@ import type { BankStatementView, StatementLineView } from "@/services/accounting
 import { ImportStatement } from "./ImportStatement";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Rekening koran — how the leadership accounts reach the ledger at all.
  *
@@ -33,6 +34,7 @@ import { useToast } from "@/store/toast";
  *    books from it (D182).
  */
 export default function StatementsPage() {
+  const tr = useTr();
   const { can, hasAuthority } = useSession();
   const [statements, reload] = useLoad(() => accounting.listStatements(), []);
   const [open, setOpen] = useState<string | null>(null);
@@ -43,13 +45,13 @@ export default function StatementsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accounting"
-        title="Rekening koran"
-        description="Untuk BCA 064 dan BCA USD 081 ini bukan pencocokan — ini satu-satunya jalan mutasi mereka masuk ledger. Baris dolar tidak bisa dibukukan sebelum kursnya diisi."
+        breadcrumb={tr("Accounting", "Akuntansi")}
+        title={tr("Bank statements", "Rekening koran")}
+        description={tr("For BCA 064 and BCA USD 081 this is not reconciliation — it is the only way their movements reach the ledger. A dollar line cannot be booked before its rate is filled in.", "Untuk BCA 064 dan BCA USD 081 ini bukan pencocokan — ini satu-satunya jalan mutasi mereka masuk buku besar. Baris dolar tidak bisa dibukukan sebelum kursnya diisi.")}
         actions={
           <div className="flex items-center gap-2">
             <SourceBadge state={statements} />
-            {mayEdit && <Button icon={Upload} onClick={() => setImporting(true)}>Upload</Button>}
+            {mayEdit && <Button icon={Upload} onClick={() => setImporting(true)}>{tr("Upload", "Unggah")}</Button>}
           </div>
         }
       />
@@ -77,7 +79,7 @@ export default function StatementsPage() {
             {all.length === 0 && (
               <Card>
                 <p className="px-5 py-8 text-[13px] text-slate-500">
-                  Belum ada rekening koran yang diunggah.
+                  {tr("No bank statement has been uploaded yet.", "Belum ada rekening koran yang diunggah.")}
                 </p>
               </Card>
             )}
@@ -98,21 +100,25 @@ function StatementCard({
   mayEdit: boolean;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const money = (n: number) => s.currency === "IDR" ? formatIDR(n) : `${s.currency} ${formatNumber(n)}`;
 
   return (
     <Card>
       <CardHeader
         title={`${s.account_code} · ${s.period_start} → ${s.period_end}`}
-        subtitle={`${s.filename} — diunggah ${s.uploaded_by_name}, ${s.uploaded_at.slice(0, 10)}${s.note ? ` · ${s.note}` : ""}`}
+        subtitle={tr(
+          `${s.filename} — uploaded by ${s.uploaded_by_name}, ${s.uploaded_at.slice(0, 10)}${s.note ? ` · ${s.note}` : ""}`,
+          `${s.filename} — diunggah ${s.uploaded_by_name}, ${s.uploaded_at.slice(0, 10)}${s.note ? ` · ${s.note}` : ""}`,
+        )}
         icon={Landmark}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            {s.unmatched > 0 && <Badge tone="amber">{s.unmatched} belum diputuskan</Badge>}
-            {s.awaiting_rate > 0 && <Badge tone="red">{s.awaiting_rate} menunggu kurs</Badge>}
-            {s.booked > 0 && <Badge tone="green">{s.booked} masuk ledger</Badge>}
+            {s.unmatched > 0 && <Badge tone="amber">{tr(`${s.unmatched} undecided`, `${s.unmatched} belum diputuskan`)}</Badge>}
+            {s.awaiting_rate > 0 && <Badge tone="red">{tr(`${s.awaiting_rate} awaiting a rate`, `${s.awaiting_rate} menunggu kurs`)}</Badge>}
+            {s.booked > 0 && <Badge tone="green">{tr(`${s.booked} in the ledger`, `${s.booked} masuk buku besar`)}</Badge>}
             <Button size="sm" variant="outline" onClick={onToggle}>
-              {expanded ? "Tutup" : "Buka"}
+              {expanded ? tr("Close", "Tutup") : tr("Open", "Buka")}
             </Button>
           </div>
         }
@@ -120,17 +126,17 @@ function StatementCard({
 
       <dl className="grid divide-y divide-slate-100 border-t border-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
         {([
-          ["Saldo awal", money(s.opening_balance), `menurut ${s.account_code}`],
-          ["Mutasi", `${s.movement >= 0 ? "+" : "−"}${money(Math.abs(s.movement))}`, `${s.lines.length} baris`],
-          ["Saldo akhir (bank)", money(s.closing_balance), "tertulis di rekening koran"],
-          ["Saldo akhir (hitung)", money(s.computed_closing),
-            s.balance_ok ? "cocok" : `selisih ${money(Math.abs(s.computed_closing - s.closing_balance))}`],
-        ] as [string, string, string][]).map(([k, v, note]) => (
+          [tr("Opening balance", "Saldo awal"), money(s.opening_balance), tr(`according to ${s.account_code}`, `menurut ${s.account_code}`)],
+          [tr("Movements", "Mutasi"), `${s.movement >= 0 ? "+" : "−"}${money(Math.abs(s.movement))}`, tr(`${s.lines.length} row(s)`, `${s.lines.length} baris`)],
+          [tr("Closing balance (bank)", "Saldo akhir (bank)"), money(s.closing_balance), tr("as printed on the statement", "tertulis di rekening koran")],
+          [tr("Closing balance (computed)", "Saldo akhir (hitung)"), money(s.computed_closing),
+            s.balance_ok ? tr("matches", "cocok") : tr(`off by ${money(Math.abs(s.computed_closing - s.closing_balance))}`, `selisih ${money(Math.abs(s.computed_closing - s.closing_balance))}`)],
+        ] as [string, string, string][]).map(([k, v, note], i) => (
           <div key={k} className="px-4 py-3">
             <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
             <dd className={cn(
               "mt-0.5 text-[17px] font-bold tabular-nums tracking-tight",
-              k === "Saldo akhir (hitung)" && !s.balance_ok ? "text-rose-700" : "text-slate-800",
+              i === 3 && !s.balance_ok ? "text-rose-700" : "text-slate-800",
             )}>
               {v}
             </dd>
@@ -143,9 +149,9 @@ function StatementCard({
         <p className="flex items-start gap-2 border-t border-slate-100 bg-rose-50/70 px-5 py-2.5 text-[12px] text-rose-900">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            <strong>Filenya belum utuh.</strong> Saldo awal ditambah mutasi tidak sama dengan saldo
-            akhir yang dicetak bank. Ada halaman yang belum ikut, atau exportnya tersaring —
-            membukukan dari file setengah berarti ledger ikut setengah.
+            <strong>{tr("The file is incomplete.", "Filenya belum utuh.")}</strong>{" "}
+            {tr("The opening balance plus the movements does not equal the closing balance the bank printed. A page is missing, or the export was filtered — booking from half a file means half a ledger.",
+              "Saldo awal ditambah mutasi tidak sama dengan saldo akhir yang dicetak bank. Ada halaman yang belum ikut, atau exportnya tersaring — membukukan dari file setengah berarti buku besar ikut setengah.")}
           </span>
         </p>
       )}
@@ -154,14 +160,16 @@ function StatementCard({
         <p className="flex items-start gap-2 border-t border-slate-100 bg-amber-50/70 px-5 py-2.5 text-[12px] text-amber-900">
           <Coins className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            {s.awaiting_rate} baris dalam {s.currency} belum punya kurs. Sistem tidak menebak kurs:
-            yang benar adalah kurs yang bank berikan hari itu, dan itu ada di nota transaksinya.
+            {tr(
+              `${s.awaiting_rate} row(s) in ${s.currency} have no rate yet. The system does not guess a rate: the right one is the rate the bank gave that day, and it is on the transaction slip.`,
+              `${s.awaiting_rate} baris dalam ${s.currency} belum punya kurs. Sistem tidak menebak kurs: yang benar adalah kurs yang bank berikan hari itu, dan itu ada di nota transaksinya.`,
+            )}
           </span>
         </p>
       )}
 
       {expanded && (
-        <Paged rows={s.lines} pageSize={15} unit="baris">
+        <Paged rows={s.lines} pageSize={15} unit={tr("rows", "baris")}>
           {(page) => (
             <ul className="divide-y divide-slate-100 border-t border-slate-100">
               {page.map((l) => (
@@ -187,6 +195,7 @@ function LineRow({
   mayEdit: boolean;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [rate, setRate] = useState(0);
@@ -198,7 +207,7 @@ function LineRow({
     const res = await p;
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak jadi", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not done", "Tidak jadi"), res.error.message);
       return;
     }
     toast("success", done, "");
@@ -234,9 +243,9 @@ function LineRow({
             : l.status === "matched" ? "brand"
               : l.status === "ignored" ? "slate" : "amber"
         }>
-          {l.status === "booked" ? `masuk ledger ${l.trx_no}`
-            : l.status === "matched" ? `cocok ${l.trx_no}`
-              : l.status === "ignored" ? "dilewati" : "belum diputuskan"}
+          {l.status === "booked" ? tr(`in the ledger ${l.trx_no}`, `masuk buku besar ${l.trx_no}`)
+            : l.status === "matched" ? tr(`matched ${l.trx_no}`, `cocok ${l.trx_no}`)
+              : l.status === "ignored" ? tr("skipped", "dilewati") : tr("undecided", "belum diputuskan")}
         </Badge>
       </div>
 
@@ -245,7 +254,7 @@ function LineRow({
           {/* A foreign line cannot go anywhere until the rate is typed. */}
           {l.amount_idr == null && mayEdit && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12px] text-slate-600">Kurs hari itu:</span>
+              <span className="text-[12px] text-slate-600">{tr("Rate that day:", "Kurs hari itu:")}</span>
               <div className="w-[150px]">
                 <MoneyInput value={rate} onChange={setRate} />
               </div>
@@ -253,10 +262,10 @@ function LineRow({
                 size="sm" variant="outline" disabled={busy || rate <= 0}
                 onClick={() => act(
                   accounting.setStatementRate({ statement_no: s.statement_no, line_id: l.id, fx_rate: rate }),
-                  "Kurs tersimpan",
+                  tr("Rate saved", "Kurs tersimpan"),
                 )}
               >
-                Simpan kurs
+                {tr("Save rate", "Simpan kurs")}
               </Button>
               <span className="text-[11px] text-slate-500">
                 {rate > 0 && `= ${formatIDR(Math.round(l.amount * rate))}`}
@@ -267,17 +276,17 @@ function LineRow({
           {l.suggestions.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5">
               <Link2 className="h-3.5 w-3.5 text-slate-400" />
-              <span className="text-[12px] text-slate-600">Mirip dengan:</span>
+              <span className="text-[12px] text-slate-600">{tr("Similar to:", "Mirip dengan:")}</span>
               {l.suggestions.map((m) => (
                 <Button
                   key={m.trx_no} size="sm" variant="outline" disabled={busy || !mayEdit}
                   onClick={() => act(
                     accounting.matchStatementLine({ statement_no: s.statement_no, line_id: l.id, trx_no: m.trx_no }),
-                    `Ditautkan ke ${m.trx_no}`,
+                    tr(`Linked to ${m.trx_no}`, `Ditautkan ke ${m.trx_no}`),
                   )}
                 >
                   {m.trx_no} · {m.description.slice(0, 32)}
-                  {m.days_apart !== 0 && ` · ${Math.abs(m.days_apart)} hari`}
+                  {m.days_apart !== 0 && tr(` · ${Math.abs(m.days_apart)} day(s)`, ` · ${Math.abs(m.days_apart)} hari`)}
                 </Button>
               ))}
             </div>
@@ -291,25 +300,25 @@ function LineRow({
                     size="sm" icon={Plus} disabled={busy || !mayPost || l.amount_idr == null}
                     onClick={() => setBooking(true)}
                   >
-                    Bukukan
+                    {tr("Book", "Bukukan")}
                   </Button>
                   <Button
                     size="sm" variant="ghost" icon={EyeOff} disabled={busy}
                     onClick={() => {
-                      const note = window.prompt("Alasan dilewati — dibaca saat baris ini ditanyakan:");
+                      const note = window.prompt(tr("Why it is skipped — read when this row is asked about:", "Alasan dilewati — dibaca saat baris ini ditanyakan:"));
                       if (note?.trim()) {
                         void act(
                           accounting.ignoreStatementLine({ statement_no: s.statement_no, line_id: l.id, note }),
-                          "Dilewati, dengan alasan",
+                          tr("Skipped, with a reason", "Dilewati, dengan alasan"),
                         );
                       }
                     }}
                   >
-                    Lewati
+                    {tr("Skip", "Lewati")}
                   </Button>
                   {!mayPost && (
                     <span className="text-[11px] text-slate-500">
-                      Membukukan ke ledger butuh wewenang <span className="font-mono">post_ledger</span>.
+                      {tr("Booking to the ledger needs the authority", "Membukukan ke buku besar butuh wewenang")} <span className="font-mono">post_ledger</span>.
                     </span>
                   )}
                 </>
@@ -318,7 +327,7 @@ function LineRow({
                   <select
                     value={form.type_code}
                     onChange={(e) => setForm({ ...form, type_code: e.target.value })}
-                    aria-label="Jenis transaksi"
+                    aria-label={tr("Transaction type", "Jenis transaksi")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   >
                     {["CASHFLOW", "SUPPLIERS", "BANK CHARGES", "OTHERS", "CHINA", "PREPAID VENDOR"].map((c) => (
@@ -328,7 +337,7 @@ function LineRow({
                   <input
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Keterangan — baris bank apa adanya bukan penjelasan"
+                    placeholder={tr("Description — the bank line as it stands is not an explanation", "Keterangan — baris bank apa adanya bukan penjelasan")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                   <Button
@@ -338,12 +347,12 @@ function LineRow({
                         statement_no: s.statement_no, line_id: l.id,
                         type_code: form.type_code as never, description: form.description,
                       }),
-                      "Masuk ledger",
+                      tr("In the ledger", "Masuk buku besar"),
                     )}
                   >
-                    Simpan
+                    {tr("Save", "Simpan")}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setBooking(false)}>Batal</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setBooking(false)}>{tr("Cancel", "Batal")}</Button>
                 </div>
               )}
             </div>

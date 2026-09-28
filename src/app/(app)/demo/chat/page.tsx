@@ -12,6 +12,7 @@ import { procurement, accounting, documents } from "@/demo/api";
 import type { ApprovalBatchView, ApprovalRequestView } from "@/services/procurement/contracts";
 import { useDemo } from "@/demo/provider";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Google Chat, standing in for itself.
  *
@@ -33,6 +34,7 @@ import { useToast } from "@/store/toast";
 export default function ChatSimulatorPage() {
   const state = useDemo();
   const { toast } = useToast();
+  const tr = useTr();
   const [asEmail, setAsEmail] = useState("evin@talaliving.com");
   const [batches, reload] = useLoad(() => procurement.listApprovalBatches({ pending: true }), []);
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
@@ -45,11 +47,14 @@ export default function ChatSimulatorPage() {
       <PageHeader
         breadcrumb="Demo"
         title="Google Chat"
-        description="The approval half that does not happen in this app. A list is sent here, the approver answers from their own account, and the decision is recorded against them — not against whoever's laptop the meeting is running on."
+        description={tr(
+          "The approval half that does not happen in this app. A list is sent here, the approver answers from their own account, and the decision is recorded against them — not against whoever's laptop the meeting is running on.",
+          "Separuh persetujuan yang tidak terjadi di aplikasi ini. Daftar dikirim ke sini, penyetuju menjawab dari akunnya sendiri, dan keputusannya dicatat atas namanya — bukan atas nama pemilik laptop tempat rapat berjalan.",
+        )}
       />
 
       <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
-        <label htmlFor="as-who" className="text-[13px] text-slate-600">Answering as</label>
+        <label htmlFor="as-who" className="text-[13px] text-slate-600">{tr("Answering as", "Menjawab sebagai")}</label>
         <select
           id="as-who"
           value={asEmail}
@@ -61,9 +66,10 @@ export default function ChatSimulatorPage() {
           ))}
         </select>
         <p className="text-[12px] text-slate-500">
-          Google says who this is; the app does not get a say. Answer somebody
-          else&apos;s list and watch it be refused — that refusal is the reason
-          this route exists.
+          {tr(
+            "Google says who this is; the app does not get a say. Answer somebody else's list and watch it be refused — that refusal is the reason this route exists.",
+            "Google yang menentukan siapa ini; aplikasi tidak ikut menentukan. Jawab daftar milik orang lain dan lihat ditolak — penolakan itulah alasan jalur ini ada.",
+          )}
         </p>
       </div>
 
@@ -77,8 +83,8 @@ export default function ChatSimulatorPage() {
 
       <Card>
         <CardHeader
-          title="Waiting for an answer"
-          subtitle="One card per send, with everything that went out in it."
+          title={tr("Waiting for an answer", "Menunggu jawaban")}
+          subtitle={tr("One card per send, with everything that went out in it.", "Satu kartu per kiriman, berisi semua yang ikut dikirim.")}
           icon={MessagesSquare}
           action={<SourceBadge state={batches} />}
         />
@@ -87,8 +93,11 @@ export default function ChatSimulatorPage() {
             <div className="p-5">
               <EmptyState
                 icon={MessagesSquare}
-                title="No lists waiting"
-                description="Send items from the requests board — the button appears when something is waiting for approval."
+                title={tr("No lists waiting", "Tidak ada daftar yang menunggu")}
+                description={tr(
+                  "Send items from the requests board — the button appears when something is waiting for approval.",
+                  "Kirim item dari papan permintaan — tombolnya muncul saat ada yang menunggu persetujuan.",
+                )}
               />
             </div>
           ) : (
@@ -117,6 +126,7 @@ function PoApprovalCards({
   asEmail: string;
   toast: (tone: "success" | "warning" | "critical", title: string, body?: string) => void;
 }) {
+  const tr = useTr();
   const [rows, reload] = useLoad(() => procurement.listPoApprovals({ pending: true }), []);
   const [busy, setBusy] = useState<string | null>(null);
   const [declining, setDeclining] = useState<string | null>(null);
@@ -129,10 +139,14 @@ function PoApprovalCards({
     });
     setBusy(null);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not recorded", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", approved ? `Confirmed ${poNo}` : `Declined ${poNo}`, `Recorded as ${asEmail}, via chat`);
+    toast(
+      "success",
+      approved ? tr(`Confirmed ${poNo}`, `${poNo} dikonfirmasi`) : tr(`Declined ${poNo}`, `${poNo} ditolak`),
+      tr(`Recorded as ${asEmail}, via chat`, `Dicatat sebagai ${asEmail}, lewat chat`),
+    );
     setDeclining(null); setNote("");
     reload();
   }
@@ -142,8 +156,11 @@ function PoApprovalCards({
       {(list) => list.length === 0 ? <></> : (
         <Card className="mb-5">
           <CardHeader
-            title="Purchase orders waiting to be confirmed"
-            subtitle="An order is a promise made to a supplier in the company's name. When the person writing it already holds the authority it is confirmed in the same act — asking yourself is theatre. When they do not, the question arrives here."
+            title={tr("Purchase orders waiting to be confirmed", "Purchase order yang menunggu dikonfirmasi")}
+            subtitle={tr(
+              "An order is a promise made to a supplier in the company's name. When the person writing it already holds the authority it is confirmed in the same act — asking yourself is theatre. When they do not, the question arrives here.",
+              "Pesanan adalah janji kepada pemasok atas nama perusahaan. Kalau penulisnya sudah memegang wewenangnya, pesanan dikonfirmasi saat itu juga — bertanya ke diri sendiri hanya sandiwara. Kalau tidak, pertanyaannya datang ke sini.",
+            )}
             icon={FileSignature}
             action={<SourceBadge state={rows} />}
           />
@@ -156,10 +173,10 @@ function PoApprovalCards({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold text-slate-800">
-                      OPS TALALIVING · purchase order for confirmation
+                      OPS TALALIVING · {tr("purchase order for confirmation", "purchase order untuk dikonfirmasi")}
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      {po.po_no} · to {po.sent_to_email} · sent by {po.asked_by_email} ·{" "}
+                      {po.po_no} · {tr("to", "kepada")} {po.sent_to_email} · {tr("sent by", "dikirim oleh")} {po.asked_by_email} ·{" "}
                       {new Date(po.asked_at).toLocaleString()}
                     </p>
                   </div>
@@ -172,12 +189,12 @@ function PoApprovalCards({
                     {po.vendor_pic && <dd className="text-[11px] text-slate-500">{po.vendor_pic}</dd>}
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-slate-400">Contract value</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Contract value", "Nilai kontrak")}</dt>
                     <dd className="tabular-nums font-medium text-slate-800">{formatIDR(po.contract_value)}</dd>
-                    <dd className="text-[11px] text-slate-500">{po.line_count} line{po.line_count === 1 ? "" : "s"}</dd>
+                    <dd className="text-[11px] text-slate-500">{tr(`${po.line_count} line${po.line_count === 1 ? "" : "s"}`, `${po.line_count} baris`)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-slate-400">Expected</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Expected", "Perkiraan tiba")}</dt>
                     {/* Missing, never a guess: an order with no agreed date is
                         the thing that makes a delivery merely absent (D134). */}
                     <dd className="font-medium text-slate-800">{po.expected_delivery ?? "—"}</dd>
@@ -192,19 +209,19 @@ function PoApprovalCards({
                     <input
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="Why not? Somebody has to tell the supplier something."
+                      placeholder={tr("Why not? Somebody has to tell the supplier something.", "Kenapa tidak? Seseorang harus menyampaikan sesuatu ke pemasok.")}
                       className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     />
                     <div className="mt-2 flex justify-end gap-2">
                       <Button size="sm" variant="ghost" onClick={() => { setDeclining(null); setNote(""); }}>
-                        Cancel
+                        {tr("Cancel", "Batal")}
                       </Button>
                       <Button
                         size="sm" variant="danger" icon={X}
                         disabled={busy !== null}
                         onClick={() => answer(po.token, po.po_no, false, note)}
                       >
-                        Decline
+                        {tr("Decline", "Tolak")}
                       </Button>
                     </div>
                   </div>
@@ -215,14 +232,14 @@ function PoApprovalCards({
                       disabled={busy !== null}
                       onClick={() => setDeclining(po.token)}
                     >
-                      Decline
+                      {tr("Decline", "Tolak")}
                     </Button>
                     <Button
                       size="sm" icon={Check}
                       disabled={busy !== null}
                       onClick={() => answer(po.token, po.po_no, true, null)}
                     >
-                      Confirm this order
+                      {tr("Confirm this order", "Konfirmasi pesanan ini")}
                     </Button>
                   </div>
                 )}
@@ -244,6 +261,7 @@ function BatchCard({
   onDone: () => void;
   toast: (tone: "success" | "warning" | "critical", title: string, body?: string) => void;
 }) {
+  const tr = useTr();
   const [busy, setBusy] = useState<string | null>(null);
   const mine = asEmail === batch.sent_to_email;
   const pending = batch.items.filter((i) => !i.answered_at);
@@ -259,10 +277,14 @@ function BatchCard({
     });
     setBusy(null);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not recorded", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", approved ? `Approved ${formatIDR(amount)}` : "Declined", `Recorded as ${asEmail}, via chat`);
+    toast(
+      "success",
+      approved ? tr(`Approved ${formatIDR(amount)}`, `Disetujui ${formatIDR(amount)}`) : tr("Declined", "Ditolak"),
+      tr(`Recorded as ${asEmail}, via chat`, `Dicatat sebagai ${asEmail}, lewat chat`),
+    );
     onDone();
   }
 
@@ -271,10 +293,17 @@ function BatchCard({
     const res = await procurement.answerBatch({ batch_token: batch.token, answered_by_email: asEmail });
     setBusy(null);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not recorded", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", `Approved ${res.data.answered} item(s)`, `${formatIDR(res.data.to_pay_total)} to pay · recorded as ${asEmail}`);
+    toast(
+      "success",
+      tr(`Approved ${res.data.answered} item(s)`, `${res.data.answered} item disetujui`),
+      tr(
+        `${formatIDR(res.data.to_pay_total)} to pay · recorded as ${asEmail}`,
+        `${formatIDR(res.data.to_pay_total)} harus dibayar · dicatat sebagai ${asEmail}`,
+      ),
+    );
     onDone();
   }
 
@@ -286,28 +315,31 @@ function BatchCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-slate-800">
-            OPS TALALIVING · {batch.items.length} item{batch.items.length === 1 ? "" : "s"} for approval
+            OPS TALALIVING · {tr(
+              `${batch.items.length} item${batch.items.length === 1 ? "" : "s"} for approval`,
+              `${batch.items.length} item untuk disetujui`,
+            )}
           </p>
           <p className="text-[11px] text-slate-400">
-            {batch.batch_no} · to {batch.sent_to_email} · sent by {batch.sent_by_email} ·{" "}
+            {batch.batch_no} · {tr("to", "kepada")} {batch.sent_to_email} · {tr("sent by", "dikirim oleh")} {batch.sent_by_email} ·{" "}
             {new Date(batch.sent_at).toLocaleString()}
           </p>
         </div>
-        {batch.answered > 0 && <Badge tone="slate">{batch.answered} answered</Badge>}
+        {batch.answered > 0 && <Badge tone="slate">{tr(`${batch.answered} answered`, `${batch.answered} dijawab`)}</Badge>}
       </div>
 
       {/* The three totals, so a yes is not a number somebody has to add up. */}
       <dl className="grid gap-x-6 gap-y-2 border-b border-slate-100 bg-slate-50/60 px-4 py-3 text-[13px] sm:grid-cols-4">
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-slate-400">Asked for</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Asked for", "Diminta")}</dt>
           <dd className="tabular-nums font-medium text-slate-800">{formatIDR(batch.requested_total)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-slate-400">Approved so far</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Approved so far", "Disetujui sejauh ini")}</dt>
           <dd className="tabular-nums font-medium text-emerald-700">{formatIDR(batch.approved_total)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-slate-400">Has to be paid</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Has to be paid", "Harus dibayar")}</dt>
           <dd className="tabular-nums font-medium text-slate-800">{formatIDR(batch.to_pay_total)}</dd>
         </div>
         <div>
@@ -321,7 +353,7 @@ function BatchCard({
             {balance === undefined ? "—" : formatIDR(balance)}
             {shortfall !== null && shortfall > 0 && (
               <span className="block text-[11px] font-normal text-amber-700">
-                top up {formatIDR(shortfall)}
+                {tr("top up", "isi ulang")} {formatIDR(shortfall)}
               </span>
             )}
           </dd>
@@ -342,14 +374,17 @@ function BatchCard({
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-4 py-3">
         {!mine && (
           <p className="mr-auto text-[12px] text-amber-700">
-            This list belongs to {batch.sent_to_email}.
+            {tr("This list belongs to", "Daftar ini milik")} {batch.sent_to_email}.
           </p>
         )}
         {pending.length > 0 && (
           <Button size="sm" icon={CheckCheck} disabled={busy !== null} onClick={approveRest}>
             {busy === "all"
-              ? "Recording…"
-              : `Approve the remaining ${pending.length} as asked · ${formatIDR(pending.reduce((s, i) => s + i.item_total, 0))}`}
+              ? tr("Recording…", "Mencatat…")
+              : tr(
+                `Approve the remaining ${pending.length} as asked · ${formatIDR(pending.reduce((s, i) => s + i.item_total, 0))}`,
+                `Setujui ${pending.length} sisanya sesuai permintaan · ${formatIDR(pending.reduce((s, i) => s + i.item_total, 0))}`,
+              )}
           </Button>
         )}
       </div>
@@ -366,6 +401,7 @@ function ChatItem({
     item: ApprovalRequestView, approved: boolean, qty: number | null, amount: number, instructions: string | null,
   ) => void;
 }) {
+  const tr = useTr();
   const [qty, setQty] = useState<number>(item.qty ?? 0);
   const [amount, setAmount] = useState<number>(item.item_total);
   /* Prefilled with what the room said, so the approver reading this on a phone
@@ -381,7 +417,9 @@ function ChatItem({
           <span className="ml-2 font-mono text-[10px] text-slate-400">{item.line_no_full}</span>
         </span>
         <Badge tone={item.outcome === "approved" ? "green" : "slate"}>
-          {item.outcome === "approved" ? `approved ${formatIDR(item.approved_amount ?? 0)}` : "not yet"}
+          {item.outcome === "approved"
+            ? tr(`approved ${formatIDR(item.approved_amount ?? 0)}`, `disetujui ${formatIDR(item.approved_amount ?? 0)}`)
+            : tr("not yet", "belum")}
         </Badge>
       </li>
     );
@@ -403,7 +441,7 @@ function ChatItem({
       <div className="grid gap-2.5 sm:grid-cols-4">
         {item.qty != null && (
           <div>
-            <label htmlFor={`q-${item.id}`} className="block text-[11px] text-slate-500">How many</label>
+            <label htmlFor={`q-${item.id}`} className="block text-[11px] text-slate-500">{tr("How many", "Berapa banyak")}</label>
             <NumberInput
               id={`q-${item.id}`}
               size="sm"
@@ -420,28 +458,29 @@ function ChatItem({
         )}
         <div>
           <label htmlFor={`a-${item.id}`} className="block text-[11px] text-slate-500">
-            For how much <span className="text-slate-400">of {formatIDR(item.item_total)}</span>
+            {tr("For how much", "Berapa nilainya")} <span className="text-slate-400">{tr("of", "dari")} {formatIDR(item.item_total)}</span>
           </label>
           <MoneyInput id={`a-${item.id}`} size="sm" value={amount} onChange={setAmount} className="mt-1" />
           {amount !== item.item_total && (
             <p className={cn("mt-1 text-[11px]", amount > item.item_total ? "text-amber-700" : "text-brand-700")}>
-              {formatIDR(Math.abs(amount - item.item_total))}{" "}
-              {amount > item.item_total ? "more" : "less"} than asked
+              {amount > item.item_total
+                ? tr(`${formatIDR(Math.abs(amount - item.item_total))} more than asked`, `${formatIDR(Math.abs(amount - item.item_total))} lebih dari yang diminta`)
+                : tr(`${formatIDR(Math.abs(amount - item.item_total))} less than asked`, `${formatIDR(Math.abs(amount - item.item_total))} kurang dari yang diminta`)}
             </p>
           )}
         </div>
         <div className="sm:col-span-2">
           <label htmlFor={`i-${item.id}`} className="block text-[11px] text-slate-500">
-            Instructions (optional)
+            {tr("Instructions (optional)", "Instruksi (opsional)")}
             {item.meeting_note && (
-              <span className="ml-1 text-slate-400">— from the meeting, edit or send as is</span>
+              <span className="ml-1 text-slate-400">{tr("— from the meeting, edit or send as is", "— dari rapat, ubah atau kirim apa adanya")}</span>
             )}
           </label>
           <input
             id={`i-${item.id}`}
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
-            placeholder="e.g. Negotiate first"
+            placeholder={tr("e.g. Negotiate first", "mis. Negosiasi dulu")}
             className="mt-1 h-8 w-full rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
           />
         </div>
@@ -452,13 +491,13 @@ function ChatItem({
           variant="outline" size="sm" icon={X} disabled={busy}
           onClick={() => onAnswer(item, false, null, amount, instructions || null)}
         >
-          Not yet
+          {tr("Not yet", "Belum")}
         </Button>
         <Button
           size="sm" icon={Check} disabled={busy}
           onClick={() => onAnswer(item, true, item.qty != null ? qty : null, amount, instructions || null)}
         >
-          {busy ? "Sending…" : `Approve ${formatIDR(amount)}`}
+          {busy ? tr("Sending…", "Mengirim…") : tr(`Approve ${formatIDR(amount)}`, `Setujui ${formatIDR(amount)}`)}
         </Button>
       </div>
     </li>
@@ -474,6 +513,7 @@ function ChatItem({
  */
 function SendProof({ asEmail }: { asEmail: string }) {
   const { toast } = useToast();
+  const tr = useTr();
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -481,7 +521,7 @@ function SendProof({ asEmail }: { asEmail: string }) {
   const [file, setFile] = useState<File | null>(null);
 
   async function send() {
-    if (!file) { toast("warning", "No file", "A transfer proof is a document, not a number."); return; }
+    if (!file) { toast("warning", tr("No file", "Tidak ada berkas"), tr("A transfer proof is a document, not a number.", "Bukti transfer adalah dokumen, bukan angka.")); return; }
     setBusy(true);
     const res = await documents.uploadToInbox({
       file,
@@ -491,11 +531,11 @@ function SendProof({ asEmail }: { asEmail: string }) {
       note: note.trim() || `Transfer into BCA 271, sent by ${asEmail}`,
     });
     setBusy(false);
-    if (res.error) { toast("critical", "Not sent", res.error.message); return; }
+    if (res.error) { toast("critical", tr("Not sent", "Tidak terkirim"), res.error.message); return; }
     toast(
       "success",
-      "Sent to accounting",
-      "It is waiting to be booked — nothing has reached the ledger yet.",
+      tr("Sent to accounting", "Terkirim ke accounting"),
+      tr("It is waiting to be booked — nothing has reached the ledger yet.", "Menunggu dibukukan — belum ada yang masuk buku besar."),
     );
     setFile(null); setAmount(0); setNote("");
   }
@@ -503,25 +543,26 @@ function SendProof({ asEmail }: { asEmail: string }) {
   return (
     <div className="mb-5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-card">
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-        <Upload className="h-3.5 w-3.5" /> Send a transfer proof
+        <Upload className="h-3.5 w-3.5" /> {tr("Send a transfer proof", "Kirim bukti transfer")}
       </p>
       <p className="mt-1 text-[12px] text-slate-500">
-        The other half of the round: leadership makes the transfer from a phone and
-        drops the receipt here. It joins the queue on the payment-round screen and
-        is booked by whoever writes the ledger — sending it books nothing.
+        {tr(
+          "The other half of the round: leadership makes the transfer from a phone and drops the receipt here. It joins the queue on the payment-round screen and is booked by whoever writes the ledger — sending it books nothing.",
+          "Separuh lain dari putaran: pimpinan mentransfer dari ponsel dan menaruh buktinya di sini. Bukti itu masuk antrean di layar putaran pembayaran dan dibukukan oleh yang menulis buku besar — mengirimnya tidak membukukan apa pun.",
+        )}
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-4">
         <div>
-          <label htmlFor="sp-amount" className="block text-xs text-slate-500">Amount</label>
+          <label htmlFor="sp-amount" className="block text-xs text-slate-500">{tr("Amount", "Jumlah")}</label>
           <MoneyInput id="sp-amount" size="sm" value={amount} onChange={setAmount} className="mt-1" />
         </div>
         <div className="sm:col-span-2">
-          <label htmlFor="sp-note" className="block text-xs text-slate-500">Note</label>
+          <label htmlFor="sp-note" className="block text-xs text-slate-500">{tr("Note", "Catatan")}</label>
           <input
             id="sp-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. Top-up BCA 271 for this week's round"
+            placeholder={tr("e.g. Top-up BCA 271 for this week's round", "mis. Isi ulang BCA 271 untuk putaran minggu ini")}
             className="mt-1 h-8 w-full rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
           />
         </div>
@@ -531,10 +572,10 @@ function SendProof({ asEmail }: { asEmail: string }) {
             onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
           />
           <Button variant="outline" size="sm" icon={Upload} onClick={() => fileRef.current?.click()}>
-            <span className="max-w-[120px] truncate">{file ? file.name : "Choose"}</span>
+            <span className="max-w-[120px] truncate">{file ? file.name : tr("Choose", "Pilih")}</span>
           </Button>
           <Button size="sm" disabled={busy || !file} onClick={send}>
-            {busy ? "Sending…" : "Send"}
+            {busy ? tr("Sending…", "Mengirim…") : tr("Send", "Kirim")}
           </Button>
         </div>
       </div>

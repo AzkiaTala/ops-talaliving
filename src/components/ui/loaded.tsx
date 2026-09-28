@@ -5,6 +5,7 @@ import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "./primitives";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 import type { ApiError, Page } from "@/services/_shared/envelope";
 import type { CachedPromise } from "@/lib/api-cache";
 
@@ -24,10 +25,11 @@ export type LoadState<T> =
   | { status: "failed"; error: ApiError };
 
 export function SourceBadge({ state }: { state: LoadState<unknown> }) {
+  const tr = useTr();
   const map = {
-    loading: { label: "loading", cls: "bg-slate-100 text-slate-500 ring-slate-200" },
-    ready: { label: "live", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-    failed: { label: "failed", cls: "bg-rose-50 text-rose-700 ring-rose-200" },
+    loading: { label: tr("loading", "memuat"), cls: "bg-slate-100 text-slate-500 ring-slate-200" },
+    ready: { label: tr("live", "live"), cls: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+    failed: { label: tr("failed", "gagal"), cls: "bg-rose-50 text-rose-700 ring-rose-200" },
   }[state.status];
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ring-1 ring-inset", map.cls)}>
@@ -48,6 +50,7 @@ export function Loaded<T>({
   onRetry?: () => void;
   skeletonRows?: number;
 }) {
+  const tr = useTr();
   if (state.status === "loading") {
     return (
       <div className="space-y-2 px-5 py-4" aria-busy="true">
@@ -65,7 +68,7 @@ export function Loaded<T>({
           <AlertTriangle className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-sm font-semibold text-slate-700">Could not load this</p>
+          <p className="text-sm font-semibold text-slate-700">{tr("Could not load this", "Tidak bisa memuat ini")}</p>
           {/* The message the service gave, verbatim. A refusal a person cannot
               read is a refusal they will report as a mystery. */}
           <p className="mt-1 max-w-sm text-sm text-slate-500">{stripRefs(state.error.message)}</p>
@@ -75,7 +78,7 @@ export function Loaded<T>({
         </div>
         {onRetry && (
           <Button variant="outline" size="sm" icon={RefreshCw} onClick={onRetry}>
-            Try again
+            {tr("Try again", "Coba lagi")}
           </Button>
         )}
       </div>
@@ -94,10 +97,11 @@ export function Loaded<T>({
  *  Swapping forty rows for a skeleton because one of them changed makes every
  *  save feel like a page load, and takes the reader's place with it. */
 function RefreshBar() {
+  const tr = useTr();
   return (
     <div
       role="progressbar"
-      aria-label="Refreshing"
+      aria-label={tr("Refreshing", "Memperbarui")}
       className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden bg-brand-100"
     >
       <div className="h-full w-1/3 animate-pulse bg-brand-500" />

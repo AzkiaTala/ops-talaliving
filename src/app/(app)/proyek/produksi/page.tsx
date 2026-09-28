@@ -8,6 +8,7 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { accounting, procurement, production } from "@/demo/api";
+import { useTr } from "@/lib/i18n";
 
 /** Projected against actual, for one project.
  *
@@ -34,15 +35,16 @@ import { accounting, procurement, production } from "@/demo/api";
  *  match.
  */
 export default function ProjectCostPage() {
+  const tr = useTr();
   const [projects] = useLoad(() => procurement.listProjects(), []);
   const [code, setCode] = useState<string | null>(null);
 
   return (
     <div>
       <PageHeader
-        breadcrumb="Projects"
-        title="Biaya produksi: proyeksi vs aktual"
-        description="Proyeksi dihitung dari BOM × jumlah yang dipesan. Aktual dibaca dari PR yang dibuat dari BOM itu, dan dari belanja yang dibukukan ke proyek."
+        breadcrumb={tr("Projects", "Proyek")}
+        title={tr("Production cost: projected vs actual", "Biaya produksi: proyeksi vs aktual")}
+        description={tr("Projection is BOM × quantity ordered. Actual is read from the PRs raised from that BOM, and from spending booked to the project.", "Proyeksi dihitung dari BOM × jumlah yang dipesan. Aktual dibaca dari PR yang dibuat dari BOM itu, dan dari belanja yang dibukukan ke proyek.")}
       />
 
       <Loaded state={projects}>
@@ -59,7 +61,7 @@ export default function ProjectCostPage() {
                     onClick={() => setCode(p.code)}
                   >
                     {p.name}
-                    {!p.is_active && <span className="ml-1 text-[10px] opacity-70">selesai</span>}
+                    {!p.is_active && <span className="ml-1 text-[10px] opacity-70">{tr("done", "selesai")}</span>}
                   </Button>
                 ))}
               </div>
@@ -73,6 +75,7 @@ export default function ProjectCostPage() {
 }
 
 function ProjectCost({ code }: { code: string }) {
+  const tr = useTr();
   const [lines] = useLoad(() => procurement.listProjectLines(code), [code]);
   const [products] = useLoad(() => production.listProducts({ include_inactive: true }), []);
   const [orders] = useLoad(() => production.listWorkOrders({ include_done: true }), []);
@@ -143,13 +146,13 @@ function ProjectCost({ code }: { code: string }) {
                             <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                               <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                                 {([
-                                  ["Proyeksi bahan", projected > 0 ? formatIDR(projected) : "—",
-                                    unprojectable > 0 ? `${unprojectable} baris belum bisa diproyeksikan` : "dari BOM × jumlah dipesan"],
-                                  ["Diminta lewat PR", fromBom.length > 0 ? formatIDR(asked) : "—",
-                                    `${fromBom.length} baris dari BOM`],
-                                  ["Disetujui", fromBom.length > 0 ? formatIDR(approved) : "—",
-                                    approved === 0 && fromBom.length > 0 ? "belum ada yang disetujui" : "yang benar-benar di-yes-kan"],
-                                  ["Terbayar", fromBom.length > 0 ? formatIDR(paidFromBom) : "—", "uang yang benar-benar keluar"],
+                                  [tr("Projected materials", "Proyeksi bahan"), projected > 0 ? formatIDR(projected) : "—",
+                                    unprojectable > 0 ? tr(`${unprojectable} lines cannot be projected yet`, `${unprojectable} baris belum bisa diproyeksikan`) : tr("from BOM × quantity ordered", "dari BOM × jumlah dipesan")],
+                                  [tr("Requested via PR", "Diminta lewat PR"), fromBom.length > 0 ? formatIDR(asked) : "—",
+                                    tr(`${fromBom.length} lines from BOM`, `${fromBom.length} baris dari BOM`)],
+                                  [tr("Approved", "Disetujui"), fromBom.length > 0 ? formatIDR(approved) : "—",
+                                    approved === 0 && fromBom.length > 0 ? tr("nothing approved yet", "belum ada yang disetujui") : tr("what was actually said yes to", "yang benar-benar di-yes-kan")],
+                                  [tr("Paid", "Terbayar"), fromBom.length > 0 ? formatIDR(paidFromBom) : "—", tr("money that actually went out", "uang yang benar-benar keluar")],
                                 ] as [string, string, string][]).map(([k, v, note]) => (
                                   <div key={k} className="px-4 py-3.5">
                                     <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -165,26 +168,29 @@ function ProjectCost({ code }: { code: string }) {
                                 )}>
                                   <Scale className="h-4 w-4 shrink-0" />
                                   {delta > 0
-                                    ? `Bahan yang sudah dibayar ${formatIDR(delta)} di ATAS proyeksi BOM.`
-                                    : `Bahan yang sudah dibayar ${formatIDR(-delta)} di BAWAH proyeksi BOM.`}
+                                    ? tr(`Materials paid so far are ${formatIDR(delta)} ABOVE the BOM projection.`, `Bahan yang sudah dibayar ${formatIDR(delta)} di ATAS proyeksi BOM.`)
+                                    : tr(`Materials paid so far are ${formatIDR(-delta)} BELOW the BOM projection.`, `Bahan yang sudah dibayar ${formatIDR(-delta)} di BAWAH proyeksi BOM.`)}
                                   <span className="text-[11px] opacity-80">
-                                    Perbandingan ini bahan lawan bahan. Ongkos kerja tidak ada di kedua sisi.
+                                    {tr("This compares materials with materials. Labour is on neither side.", "Perbandingan ini bahan lawan bahan. Ongkos kerja tidak ada di kedua sisi.")}
                                   </span>
                                 </p>
                               )}
                               {fromBom.length === 0 ? (
                                 <p className="border-t border-slate-100 px-4 py-2.5 text-[12px] text-slate-500">
-                                  Belum ada PR yang dibuat dari BOM proyek ini, jadi belum ada yang
-                                  bisa dibandingkan. Buat PR dari BOM di layar papan produksi.
+                                  {tr(
+                                    "No PR has been raised from this project's BOM yet, so there is nothing to compare. Raise a PR from the BOM on the production board screen.",
+                                    "Belum ada PR yang dibuat dari BOM proyek ini, jadi belum ada yang bisa dibandingkan. Buat PR dari BOM di layar papan produksi.",
+                                  )}
                                 </p>
                               ) : paidFromBom === 0 && (
                                 <p className="border-t border-slate-100 px-4 py-2.5 text-[12px] text-slate-500">
-                                  Sudah ada permintaan dari BOM, belum ada yang terbayar — jadi
-                                  perbandingan aktual belum bisa ditarik. Yang bisa dibaca sekarang:
-                                  apakah yang <strong>diminta</strong> sudah di atas proyeksi.
+                                  {tr(
+                                    "There are requests from the BOM, but nothing paid yet — so no actual comparison can be drawn. What can be read now: whether what was",
+                                    "Sudah ada permintaan dari BOM, belum ada yang terbayar — jadi perbandingan aktual belum bisa ditarik. Yang bisa dibaca sekarang: apakah yang",
+                                  )}{" "}<strong>{tr("requested", "diminta")}</strong>{" "}{tr("is already above the projection.", "sudah di atas proyeksi.")}
                                   {asked > projected && projected > 0 && (
                                     <span className="text-amber-800">
-                                      {" "}Sudah {formatIDR(asked - projected)} di atasnya.
+                                      {" "}{tr(`Already ${formatIDR(asked - projected)} above it.`, `Sudah ${formatIDR(asked - projected)} di atasnya.`)}
                                     </span>
                                   )}
                                 </p>
@@ -193,8 +199,8 @@ function ProjectCost({ code }: { code: string }) {
 
                             <Card className="mb-4">
                               <CardHeader
-                                title="Per item yang dipesan"
-                                subtitle="Proyeksi bahan per baris pesanan — BOM satu unit dikali jumlah yang dipesan."
+                                title={tr("Per ordered item", "Per item yang dipesan")}
+                                subtitle={tr("Projected materials per order line — one unit's BOM times the quantity ordered.", "Proyeksi bahan per baris pesanan — BOM satu unit dikali jumlah yang dipesan.")}
                                 icon={ShoppingCart}
                                 action={<SourceBadge state={lines} />}
                               />
@@ -202,11 +208,11 @@ function ProjectCost({ code }: { code: string }) {
                                 <table className="w-full min-w-[720px] border-collapse text-[13px]">
                                   <thead>
                                     <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                                      <th className="px-4 py-2 text-left">Item</th>
-                                      <th className="px-4 py-2 text-right">Dipesan</th>
-                                      <th className="px-4 py-2 text-right">Bahan / unit</th>
-                                      <th className="px-4 py-2 text-right">Proyeksi</th>
-                                      <th className="px-4 py-2 text-left">Catatan</th>
+                                      <th className="px-4 py-2 text-left">{tr("Item", "Item")}</th>
+                                      <th className="px-4 py-2 text-right">{tr("Ordered", "Dipesan")}</th>
+                                      <th className="px-4 py-2 text-right">{tr("Materials / unit", "Bahan / unit")}</th>
+                                      <th className="px-4 py-2 text-right">{tr("Projected", "Proyeksi")}</th>
+                                      <th className="px-4 py-2 text-left">{tr("Notes", "Catatan")}</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -215,7 +221,7 @@ function ProjectCost({ code }: { code: string }) {
                                         <td className="px-4 py-2">
                                           <span className="block text-slate-800">{line.description}</span>
                                           <span className="block font-mono text-[10px] text-slate-400">
-                                            {line.product_code ?? "tanpa kode produk"}
+                                            {line.product_code ?? tr("no product code", "tanpa kode produk")}
                                           </span>
                                         </td>
                                         <td className="px-4 py-2 text-right tabular-nums text-slate-700">
@@ -228,16 +234,16 @@ function ProjectCost({ code }: { code: string }) {
                                           {total == null ? "—" : formatIDR(total)}
                                         </td>
                                         <td className="px-4 py-2 text-[12px] text-amber-800">
-                                          {!line.product_code ? <span className="text-slate-400">bukan barang produksi</span>
-                                            : noBom ? "produk ini belum punya BOM"
-                                              : incomplete ? "ada komponen tanpa harga"
+                                          {!line.product_code ? <span className="text-slate-400">{tr("not a produced item", "bukan barang produksi")}</span>
+                                            : noBom ? tr("this product has no BOM yet", "produk ini belum punya BOM")
+                                              : incomplete ? tr("some components have no price", "ada komponen tanpa harga")
                                                 : <span className="text-slate-400">—</span>}
                                         </td>
                                       </tr>
                                     ))}
                                     {rows.length === 0 && (
                                       <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                                        Pesanan ini belum punya baris item.
+                                        {tr("This order has no item lines yet.", "Pesanan ini belum punya baris item.")}
                                       </td></tr>
                                     )}
                                   </tbody>
@@ -247,8 +253,8 @@ function ProjectCost({ code }: { code: string }) {
 
                             <Card className="mb-4">
                               <CardHeader
-                                title="Per Job Order"
-                                subtitle="Proyeksi BOM untuk jumlah yang dibuat, dan apa yang diminta lewat PR terhadapnya."
+                                title={tr("Per Job Order", "Per Job Order")}
+                                subtitle={tr("BOM projection for the quantity made, and what was requested via PR against it.", "Proyeksi BOM untuk jumlah yang dibuat, dan apa yang diminta lewat PR terhadapnya.")}
                                 icon={Scale}
                               />
                               <ul className="divide-y divide-slate-100">
@@ -268,19 +274,19 @@ function ProjectCost({ code }: { code: string }) {
                                       </span>
                                       <span className="w-32 text-right text-[12px] tabular-nums text-slate-600">
                                         {proj == null ? "—" : formatIDR(proj)}
-                                        <span className="block text-[10px] text-slate-400">proyeksi</span>
+                                        <span className="block text-[10px] text-slate-400">{tr("projected", "proyeksi")}</span>
                                       </span>
                                       <span className="w-32 text-right text-[12px] tabular-nums text-slate-700">
                                         {own.length === 0 ? "—" : formatIDR(ownAsked)}
-                                        <span className="block text-[10px] text-slate-400">diminta</span>
+                                        <span className="block text-[10px] text-slate-400">{tr("requested", "diminta")}</span>
                                       </span>
                                       <span className="w-32 text-right text-[12px] tabular-nums text-slate-800">
                                         {own.length === 0 ? "—" : formatIDR(ownPaid)}
-                                        <span className="block text-[10px] text-slate-400">terbayar</span>
+                                        <span className="block text-[10px] text-slate-400">{tr("paid", "terbayar")}</span>
                                       </span>
                                       {proj != null && ownAsked > 0 && (
                                         <Badge tone={ownAsked > proj ? "amber" : "green"}>
-                                          {ownAsked > proj ? "di atas" : "di bawah"} proyeksi
+                                          {ownAsked > proj ? tr("above projection", "di atas proyeksi") : tr("below projection", "di bawah proyeksi")}
                                         </Badge>
                                       )}
                                     </li>
@@ -288,7 +294,7 @@ function ProjectCost({ code }: { code: string }) {
                                 })}
                                 {mine.length === 0 && (
                                   <li className="px-5 py-6 text-[13px] text-slate-500">
-                                    Belum ada Job Order untuk proyek ini.
+                                    {tr("No Job Orders for this project yet.", "Belum ada Job Order untuk proyek ini.")}
                                   </li>
                                 )}
                               </ul>
@@ -296,24 +302,24 @@ function ProjectCost({ code }: { code: string }) {
 
                             <Card>
                               <CardHeader
-                                title="Semua belanja yang dibukukan ke proyek ini"
-                                subtitle="Dari ledger — bahan, jasa, subkontrak, pengiriman. Lebih luas dari proyeksi bahan, jadi jangan dikurangkan langsung."
+                                title={tr("All spending booked to this project", "Semua belanja yang dibukukan ke proyek ini")}
+                                subtitle={tr("From the ledger — materials, services, subcontracting, delivery. Wider than the materials projection, so do not subtract one from the other.", "Dari ledger — bahan, jasa, subkontrak, pengiriman. Lebih luas dari proyeksi bahan, jadi jangan dikurangkan langsung.")}
                                 icon={AlertTriangle}
                               />
                               <div className="px-5 py-3">
                                 <p className="text-2xl font-bold tabular-nums text-slate-800">{formatIDR(spent)}</p>
                                 <p className="text-[12px] text-slate-500">
-                                  {txs.filter((t) => t.direction === "OUT").length} transaksi keluar.
-                                  {paidFromBom > 0 && ` Dari jumlah ini, ${formatIDR(paidFromBom)} bisa ditelusuri ke BOM lewat PR.`}
+                                  {tr(`${txs.filter((t) => t.direction === "OUT").length} outgoing transactions.`, `${txs.filter((t) => t.direction === "OUT").length} transaksi keluar.`)}
+                                  {paidFromBom > 0 && tr(` Of this, ${formatIDR(paidFromBom)} can be traced to the BOM via PR.`, ` Dari jumlah ini, ${formatIDR(paidFromBom)} bisa ditelusuri ke BOM lewat PR.`)}
                                 </p>
                                 <p className="mt-2 text-[11px] text-slate-500">
-                                  Angka ini termasuk yang tidak ada di BOM — jasa pasang, ongkos
-                                  kirim, subkontrak. Perbandingan proyeksi vs aktual di atas sengaja
-                                  hanya memakai bahan, supaya dua sisi yang dibandingkan sama
-                                  isinya. Upah tetap belum dialokasikan ke proyek sama sekali.
+                                  {tr(
+                                    "This figure includes what is not in the BOM — installation, shipping, subcontracting. The projected vs actual comparison above deliberately uses materials only, so both sides hold the same things. Fixed wages are not allocated to projects at all yet.",
+                                    "Angka ini termasuk yang tidak ada di BOM — jasa pasang, ongkos kirim, subkontrak. Perbandingan proyeksi vs aktual di atas sengaja hanya memakai bahan, supaya dua sisi yang dibandingkan sama isinya. Upah tetap belum dialokasikan ke proyek sama sekali.",
+                                  )}
                                 </p>
                                 <Link href="/accounting/liquidation">
-                                  <Button size="sm" variant="outline" className="mt-2">Lihat rinciannya di likuidasi</Button>
+                                  <Button size="sm" variant="outline" className="mt-2">{tr("See the details in liquidation", "Lihat rinciannya di likuidasi")}</Button>
                                 </Link>
                               </div>
                             </Card>

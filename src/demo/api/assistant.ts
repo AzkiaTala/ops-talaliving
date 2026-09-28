@@ -25,8 +25,8 @@ import { getState, apply, newId, writeAudit } from "../store";
 import { latency, actingUser, requireModule, replayed, remember } from "./_kit";
 import { TOOLS, findTool, resolveTool, findSeam } from "../assistant/catalogue";
 import { DEMO_RPC } from "../assistant/seams";
-import { settingText } from "../settings";
 import type { Lang } from "@/lib/i18n";
+import { getActiveLang } from "@/lib/i18n";
 import { route, normalise, rules } from "../assistant/router";
 import { GUIDES, resolveGuide, draftShape, resolvePoDraft, confirmPoDraft, resolveLeaveDraft, confirmLeaveDraft } from "@/lib/john-lau";
 import { seamInitial, seamDraftShape, confirmSeam, apiSeamCall, type SeamCall } from "@/lib/john-lau-seams";
@@ -62,11 +62,11 @@ const callSeam: SeamCall = async (spec, params, key) => {
 
 const SERVICE = "procurement" as const;
 
-/** The language in force, from the setting (D216, D224). Resolved here so a
+/** The language in force — the viewer's choice, else the setting (D216, D224, D318). Resolved here so a
  *  Phase-2 HTTP client receives finished sentences, and the language of a
  *  refusal is decided in the same place as the refusal. */
 function lang(): Lang {
-  return settingText(getState(), "format.language", "en") === "id" ? "id" : "en";
+  return getActiveLang();
 }
 
 export async function listTools(): Promise<Result<AssistantTool[]>> {

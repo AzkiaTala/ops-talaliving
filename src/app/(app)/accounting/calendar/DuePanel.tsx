@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import { accounting } from "@/demo/api";
 import type { CashDue } from "@/services/accounting/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** The reminder half of the calendar.
  *
@@ -20,6 +21,7 @@ import { useToast } from "@/store/toast";
  *  paid. Overdue first, because that is the one that costs money.
  */
 export function DuePanel({ onChanged }: { onChanged: () => void }) {
+  const tr = useTr();
   const [due, reload] = useLoad(() => accounting.listDue(), []);
   const [linking, setLinking] = useState<CashDue | null>(null);
 
@@ -27,13 +29,13 @@ export function DuePanel({ onChanged }: { onChanged: () => void }) {
     <>
       <Card className="mb-4">
         <CardHeader
-          title="Due next"
-          subtitle="The next three weeks, and anything already late — the same movements the month expansion shows, sorted by date."
+          title={tr("Due next", "Jatuh tempo berikutnya")}
+          subtitle={tr("The next three weeks, and anything already late — the same movements the month expansion shows, sorted by date.", "Tiga minggu ke depan, dan apa pun yang sudah terlambat — pergerakan yang sama dengan rincian bulan, diurutkan menurut tanggal.")}
           icon={Bell}
         />
         <Loaded state={due} onRetry={reload}>
           {(rows) => rows.length === 0 ? (
-            <p className="px-5 py-6 text-[13px] text-slate-500">Nothing falls due in the next three weeks.</p>
+            <p className="px-5 py-6 text-[13px] text-slate-500">{tr("Nothing falls due in the next three weeks.", "Tidak ada yang jatuh tempo dalam tiga minggu ke depan.")}</p>
           ) : (
             <ul className="divide-y divide-slate-100">
               {rows.map((d) => (
@@ -44,12 +46,12 @@ export function DuePanel({ onChanged }: { onChanged: () => void }) {
                     {d.vendor_name && <span className="font-normal text-slate-500"> · {d.vendor_name}</span>}
                     {d.frequency === "once" && (
                       <span className="ml-1.5 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-normal text-violet-700">
-                        one-off
+                        {tr("one-off", "sekali")}
                       </span>
                     )}
                     {d.amount_kind === "estimate" && (
-                      <span className="ml-1.5 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-normal text-sky-700" title="An estimate — any matched payment settles it">
-                        estimate
+                      <span className="ml-1.5 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-normal text-sky-700" title={tr("An estimate — any matched payment settles it", "Perkiraan — pembayaran apa pun yang cocok melunasinya")}>
+                        {tr("estimate", "perkiraan")}
                       </span>
                     )}
                   </span>
@@ -62,7 +64,7 @@ export function DuePanel({ onChanged }: { onChanged: () => void }) {
                   <DueBadge d={d} />
                   {d.direction === "OUT" && (
                     <Button variant="ghost" size="sm" icon={Link2} onClick={() => setLinking(d)}>
-                      Link a payment
+                      {tr("Link a payment", "Tautkan pembayaran")}
                     </Button>
                   )}
                 </li>
@@ -84,14 +86,15 @@ export function DuePanel({ onChanged }: { onChanged: () => void }) {
 }
 
 function DueBadge({ d }: { d: CashDue }) {
+  const tr = useTr();
   if (d.state === "OVERDUE") {
-    return <Badge tone="red">{d.days_away === 0 ? "due today" : `${Math.abs(d.days_away)} day(s) late`}</Badge>;
+    return <Badge tone="red">{d.days_away === 0 ? tr("due today", "jatuh tempo hari ini") : tr(`${Math.abs(d.days_away)} day(s) late`, `terlambat ${Math.abs(d.days_away)} hari`)}</Badge>;
   }
   if (d.state === "PARTIAL") {
-    return <Badge tone="amber">part paid — {formatIDR(d.actual)} so far</Badge>;
+    return <Badge tone="amber">{tr(`part paid — ${formatIDR(d.actual)} so far`, `terbayar sebagian — ${formatIDR(d.actual)} sejauh ini`)}</Badge>;
   }
-  if (d.days_away === 0) return <Badge tone="amber">due today</Badge>;
-  return <Badge tone={d.days_away <= 7 ? "amber" : "slate"}>in {d.days_away} day(s)</Badge>;
+  if (d.days_away === 0) return <Badge tone="amber">{tr("due today", "jatuh tempo hari ini")}</Badge>;
+  return <Badge tone={d.days_away <= 7 ? "amber" : "slate"}>{tr(`in ${d.days_away} day(s)`, `dalam ${d.days_away} hari`)}</Badge>;
 }
 
 const LINK_PAGE_SIZE = 10;
@@ -115,6 +118,7 @@ function daysBefore(day: string, n: number): string {
  *  place a payment is recorded, because a calendar that could post its own
  *  transactions would be a second books nobody reconciles. */
 function LinkPayment({ due, onClose, onLinked }: { due: CashDue; onClose: () => void; onLinked: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   /* The last two weeks of outgoing rows, newest first and at most sixty,
      asked of the database directly. The search box and the sort below work
@@ -133,25 +137,26 @@ function LinkPayment({ due, onClose, onLinked }: { due: CashDue; onClose: () => 
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Not linked", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not linked", "Tidak ditautkan"), res.error.message);
       return;
     }
-    toast("success", "Linked", `${trxNo} now counts against ${due.name}.`);
+    toast("success", tr("Linked", "Ditautkan"), tr(`${trxNo} now counts against ${due.name}.`, `${trxNo} sekarang dihitung untuk ${due.name}.`));
     onLinked();
   }
 
   return (
-    <Modal open onClose={onClose} width="max-w-2xl" title={`Which row paid ${due.name}?`}>
+    <Modal open onClose={onClose} width="max-w-2xl" title={tr(`Which row paid ${due.name}?`, `Baris mana yang membayar ${due.name}?`)}>
       <p className="mb-3 text-[13px] text-slate-600">
-        {due.month} · planned {formatIDR(due.planned)}. Uang keluar {LINK_WINDOW_DAYS} hari
-        terakhir (maks. {LINK_MAX_ROWS} transaksi) — a payment is recorded in the
-        ledger first, with its evidence, and named here afterwards.
+        {tr(
+          `${due.month} · planned ${formatIDR(due.planned)}. Money out in the last ${LINK_WINDOW_DAYS} days (max. ${LINK_MAX_ROWS} transactions) — a payment is recorded in the ledger first, with its evidence, and named here afterwards.`,
+          `${due.month} · direncanakan ${formatIDR(due.planned)}. Uang keluar ${LINK_WINDOW_DAYS} hari terakhir (maks. ${LINK_MAX_ROWS} transaksi) — pembayaran dicatat di buku besar lebih dulu, beserta buktinya, lalu disebutkan di sini.`,
+        )}
       </p>
       <label className="relative mb-3 block">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
         <input
           value={q} onChange={(e) => setQ(e.target.value)} autoFocus
-          placeholder="Cari deskripsi, nomor, tipe, akun, atau nominal…"
+          placeholder={tr("Search description, number, type, account, or amount…", "Cari deskripsi, nomor, tipe, akun, atau nominal…")}
           className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-2 text-sm focus:border-brand-400 focus:outline-none"
         />
       </label>
@@ -173,25 +178,30 @@ function LinkPayment({ due, onClose, onLinked }: { due: CashDue; onClose: () => 
           if (all.length === 0) {
             return (
               <p className="text-[13px] text-amber-700">
-                Tidak ada uang keluar dalam {LINK_WINDOW_DAYS} hari terakhir. Catat
-                pembayarannya di ledger dulu, lalu kembali ke sini.
+                {tr(
+                  `No money went out in the last ${LINK_WINDOW_DAYS} days. Record the payment in the ledger first, then come back here.`,
+                  `Tidak ada uang keluar dalam ${LINK_WINDOW_DAYS} hari terakhir. Catat pembayarannya di buku besar dulu, lalu kembali ke sini.`,
+                )}
               </p>
             );
           }
           const cut = rows.status === "ready" && rows.page?.has_more
             ? <p className="mb-2 text-[12px] text-amber-700">
-                {LINK_MAX_ROWS} transaksi terbaru dari {rows.page.total} dalam {LINK_WINDOW_DAYS} hari terakhir yang ditampilkan; yang lebih lama tidak ada di sini.
+                {tr(
+                  `Showing the ${LINK_MAX_ROWS} newest of ${rows.page.total} transactions in the last ${LINK_WINDOW_DAYS} days; older ones are not here.`,
+                  `${LINK_MAX_ROWS} transaksi terbaru dari ${rows.page.total} dalam ${LINK_WINDOW_DAYS} hari terakhir yang ditampilkan; yang lebih lama tidak ada di sini.`,
+                )}
               </p>
             : null;
           return candidates.length === 0 ? (
-            <p className="text-[13px] text-slate-500">Tidak ada transaksi yang cocok dengan &ldquo;{q}&rdquo;.</p>
+            <p className="text-[13px] text-slate-500">{tr(`No transaction matches “${q}”.`, `Tidak ada transaksi yang cocok dengan “${q}”.`)}</p>
           ) : (
             /* Ten at a time, at a fixed height: sixty rows in one list is a
              * modal that grows past the screen and pushes its own title and
              * close button off it. */
             <>
             {cut}
-            <Paged rows={candidates} pageSize={LINK_PAGE_SIZE} unit="transaksi">
+            <Paged rows={candidates} pageSize={LINK_PAGE_SIZE} unit={tr("transactions", "transaksi")}>
               {(shown) => (
                 <ul className="-mx-5 h-[480px] divide-y divide-slate-100 overflow-y-auto border-t border-slate-100 px-5">
                   {shown.map((t) => (
@@ -208,7 +218,7 @@ function LinkPayment({ due, onClose, onLinked }: { due: CashDue; onClose: () => 
                         <AmountGap amount={t.amount_idr} planned={due.planned} />
                       </span>
                       <Button size="sm" variant="outline" disabled={busy} onClick={() => link(t.trx_no)}>
-                        This one
+                        {tr("This one", "Yang ini")}
                       </Button>
                     </li>
                   ))}
@@ -226,9 +236,10 @@ function LinkPayment({ due, onClose, onLinked }: { due: CashDue; onClose: () => 
 /** How far a ledger row sits from the plan — the reason it is where it is in
  *  the list. */
 function AmountGap({ amount, planned }: { amount: number; planned: number }) {
+  const tr = useTr();
   const gap = amount - planned;
   if (Math.abs(gap) < 1) {
-    return <span className="block text-[11px] font-medium text-emerald-700">sama persis</span>;
+    return <span className="block text-[11px] font-medium text-emerald-700">{tr("exact match", "sama persis")}</span>;
   }
   return (
     <span className="block text-[11px] tabular-nums text-slate-400">

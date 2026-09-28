@@ -12,6 +12,7 @@ import { inventory } from "@/demo/api";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { LocationManager } from "./LocationManager";
+import { useTr } from "@/lib/i18n";
 
 /** Opname: what the rack actually held.
  *
@@ -27,6 +28,7 @@ import { LocationManager } from "./LocationManager";
  *  apart is one nobody can defend.
  */
 export default function StockCountPage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [items, reloadItems] = useLoad(() => inventory.listStock(), []);
@@ -63,13 +65,14 @@ export default function StockCountPage() {
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak tersimpan", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
       return;
     }
     if ("noop" in res.data) {
-      toast("info", "Cocok", "Hitungan fisik sama dengan catatan sistem — tidak ada yang perlu dicatat.");
+      toast("info", tr("Matches", "Cocok"), tr("The physical count equals the system record — nothing needs recording.", "Hitungan fisik sama dengan catatan sistem — tidak ada yang perlu dicatat."));
     } else {
-      toast("success", "Penyesuaian tercatat", `Selisih ${res.data.difference > 0 ? "+" : ""}${formatNumber(res.data.difference)}`);
+      const diff = `${res.data.difference > 0 ? "+" : ""}${formatNumber(res.data.difference)}`;
+      toast("success", tr("Adjustment recorded", "Penyesuaian tercatat"), tr(`Difference ${diff}`, `Selisih ${diff}`));
     }
     setDraft({ ...draft, counted: 0, reason: "" });
     reloadItems();
@@ -79,9 +82,9 @@ export default function StockCountPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
-        title="Opname & penyesuaian"
-        description="Masukkan jumlah hasil hitung fisik. Selisihnya yang dicatat, bukan angka barunya — dan setiap selisih wajib punya alasan."
+        breadcrumb={tr("Inventory", "Persediaan")}
+        title={tr("Opname & adjustments", "Opname & penyesuaian")}
+        description={tr("Enter the physically counted quantity. The difference is recorded, not the new figure — and every difference must have a reason.", "Masukkan jumlah hasil hitung fisik. Selisihnya yang dicatat, bukan angka barunya — dan setiap selisih wajib punya alasan.")}
         actions={<SourceBadge state={moves} />}
       />
 
@@ -90,8 +93,8 @@ export default function StockCountPage() {
       {mayAdjust && (
         <Card className="mb-4">
           <CardHeader
-            title="Catat hasil hitung"
-            subtitle="Sistem menampilkan apa yang tercatat sekarang; Anda mengisi apa yang benar-benar ada di rak."
+            title={tr("Record a count", "Catat hasil hitung")}
+            subtitle={tr("The system shows what is recorded now; you enter what is actually on the rack.", "Sistem menampilkan apa yang tercatat sekarang; Anda mengisi apa yang benar-benar ada di rak.")}
             icon={ClipboardCheck}
           />
           <Loaded state={items} skeletonRows={2}>
@@ -101,10 +104,10 @@ export default function StockCountPage() {
                   <select
                     value={draft.item_code}
                     onChange={(e) => setDraft({ ...draft, item_code: e.target.value, counted: 0 })}
-                    aria-label="Barang"
+                    aria-label={tr("Item", "Barang")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   >
-                    <option value="">Pilih barang…</option>
+                    <option value="">{tr("Choose an item…", "Pilih barang…")}</option>
                     {all.map((i) => (
                       <option key={i.item_code} value={i.item_code}>
                         {i.item_name} · {i.item_code}
@@ -116,10 +119,10 @@ export default function StockCountPage() {
                       <select
                         value={draft.location}
                         onChange={(e) => setDraft({ ...draft, location: e.target.value })}
-                        aria-label="Lokasi"
+                        aria-label={tr("Location", "Lokasi")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Pilih lokasi…</option>
+                        <option value="">{tr("Choose a location…", "Pilih lokasi…")}</option>
                         {locs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
                       </select>
                     )}
@@ -129,26 +132,26 @@ export default function StockCountPage() {
 
                 {chosen && !draft.location && (
                   <p className="mt-2 text-[12px] text-amber-700">
-                    Pilih lokasinya dulu. {chosen.item_name} tercatat di{" "}
+                    {tr("Choose the location first.", "Pilih lokasinya dulu.")} {chosen.item_name} {tr("is recorded at", "tercatat di")}{" "}
                     {chosen.by_location.length === 0
-                      ? "belum ada lokasi mana pun"
+                      ? tr("no location yet", "belum ada lokasi mana pun")
                       : chosen.by_location.map((l) => `${l.location_name} ${formatNumber(l.qty)}`).join(" · ")}
-                    {" "}— opname adalah hitungan satu rak, bukan satu total.
+                    {" "}{tr("— an opname counts one rack, not one total.", "— opname adalah hitungan satu rak, bukan satu total.")}
                   </p>
                 )}
                 {chosen && draft.location && (
                   <p className="mt-2 text-[12px] text-slate-600">
-                    Tercatat di sistem: <span className="font-semibold tabular-nums">{formatNumber(systemQty)} {chosen.uom}</span>
+                    {tr("Recorded in the system:", "Tercatat di sistem:")} <span className="font-semibold tabular-nums">{formatNumber(systemQty)} {chosen.uom}</span>
                     {" · "}
-                    Hitungan Anda: <span className="font-semibold tabular-nums">{formatNumber(draft.counted)} {chosen.uom}</span>
+                    {tr("Your count:", "Hitungan Anda:")} <span className="font-semibold tabular-nums">{formatNumber(draft.counted)} {chosen.uom}</span>
                     {" · "}
                     <span className={cn(
                       "font-semibold tabular-nums",
                       difference === 0 ? "text-slate-500" : difference < 0 ? "text-rose-700" : "text-emerald-700",
                     )}>
-                      selisih {difference > 0 ? "+" : ""}{formatNumber(difference)}
+                      {tr("difference", "selisih")} {difference > 0 ? "+" : ""}{formatNumber(difference)}
                     </span>
-                    {difference === 0 && " — tidak ada yang dicatat kalau cocok."}
+                    {difference === 0 && tr(" — nothing is recorded when it matches.", " — tidak ada yang dicatat kalau cocok.")}
                   </p>
                 )}
 
@@ -156,7 +159,7 @@ export default function StockCountPage() {
                   <input
                     value={draft.reason}
                     onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
-                    placeholder="Alasan — kenapa berbeda, atau apa dugaannya"
+                    placeholder={tr("Reason — why it differs, or what you suspect", "Alasan — kenapa berbeda, atau apa dugaannya")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                   <Button
@@ -164,12 +167,14 @@ export default function StockCountPage() {
                     disabled={busy || !draft.item_code || !draft.location || !draft.reason.trim()}
                     onClick={save}
                   >
-                    {busy ? "Menyimpan…" : "Catat selisih"}
+                    {busy ? tr("Saving…", "Menyimpan…") : tr("Record difference", "Catat selisih")}
                   </Button>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Sistem tidak pernah menebak kenapa stok berbeda. Yang tercatat adalah selisihnya
-                  dan kalimat Anda — itu yang dibaca orang lain bulan depan saat angkanya ditanya.
+                  {tr(
+                    "The system never guesses why stock differs. What is recorded is the difference and your sentence — that is what others read next month when the figure is questioned.",
+                    "Sistem tidak pernah menebak kenapa stok berbeda. Yang tercatat adalah selisihnya dan kalimat Anda — itu yang dibaca orang lain bulan depan saat angkanya ditanya.",
+                  )}
                 </p>
               </div>
             )}
@@ -184,18 +189,20 @@ export default function StockCountPage() {
           return (
             <Card>
               <CardHeader
-                title={`${adjustments.length} penyesuaian tercatat`}
-                subtitle="Semuanya tetap ada. Penyesuaian yang dihapus adalah penyesuaian yang tidak pernah bisa dijelaskan."
+                title={tr(`${adjustments.length} adjustments recorded`, `${adjustments.length} penyesuaian tercatat`)}
+                subtitle={tr("All of them stay. A deleted adjustment is an adjustment that can never be explained.", "Semuanya tetap ada. Penyesuaian yang dihapus adalah penyesuaian yang tidak pernah bisa dijelaskan.")}
                 icon={Scale}
               />
               {short.length > 0 && (
                 <p className="flex items-start gap-2 border-b border-slate-100 bg-amber-50/60 px-5 py-2.5 text-[12px] text-amber-900">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  {short.length} kali hitungan fisik lebih sedikit dari catatan. Kalau satu barang
-                  berulang kali kurang, itu bukan kesalahan hitung — itu pola.
+                  {tr(
+                    `${short.length} times the physical count was lower than the record. If one item comes up short again and again, that is not a counting error — it is a pattern.`,
+                    `${short.length} kali hitungan fisik lebih sedikit dari catatan. Kalau satu barang berulang kali kurang, itu bukan kesalahan hitung — itu pola.`,
+                  )}
                 </p>
               )}
-              <Paged rows={adjustments} pageSize={12} unit="penyesuaian">
+              <Paged rows={adjustments} pageSize={12} unit={tr("adjustments", "penyesuaian")}>
                 {(page) => (
                   <ul className="divide-y divide-slate-100">
                     {page.map((m) => (
@@ -217,7 +224,7 @@ export default function StockCountPage() {
                     ))}
                     {adjustments.length === 0 && (
                       <li className="px-5 py-8 text-[13px] text-slate-500">
-                        Belum ada opname. Bukan berarti stoknya cocok — berarti belum pernah dihitung.
+                        {tr("No opname yet. That does not mean the stock matches — it means it has never been counted.", "Belum ada opname. Bukan berarti stoknya cocok — berarti belum pernah dihitung.")}
                       </li>
                     )}
                   </ul>

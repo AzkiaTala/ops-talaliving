@@ -23,8 +23,9 @@
  *  Phase 2 it generates the migration; the database is what enforces.
  */
 import type { ModuleName, ModuleLevel, Authority } from "@/services/identity/contracts";
+import { bilingual, trNow, type Message } from "@/lib/i18n";
 
-export { MODULES, MODULE_LABEL, AUTHORITIES, AUTHORITY_LABEL } from "@/services/identity/contracts";
+export { MODULES, MODULE_LABEL, MODULE_LABELS, AUTHORITIES, AUTHORITY_LABEL, AUTHORITY_LABELS } from "@/services/identity/contracts";
 export type { ModuleName, ModuleLevel, Authority } from "@/services/identity/contracts";
 
 /** What each module offers. **Access verbs only** — approving, posting and
@@ -59,11 +60,12 @@ const ADMIN_ONLY = new Set(["manage_users", "manage_roles", "purge_activity", "p
 
 export const LEVELS: ModuleLevel[] = ["read", "write", "admin"];
 
-export const LEVEL_LABEL: Record<ModuleLevel, string> = {
-  read: "Read",
-  write: "Read & edit",
-  admin: "Full",
+export const LEVEL_LABELS: Record<ModuleLevel, Message> = {
+  read: { en: "Read", id: "Baca" },
+  write: { en: "Read & edit", id: "Baca & ubah" },
+  admin: { en: "Full", id: "Penuh" },
 };
+export const LEVEL_LABEL = bilingual(LEVEL_LABELS);
 
 export interface ModuleGrant {
   module: ModuleName;
@@ -103,8 +105,10 @@ export function expandPermissions(grants: readonly ModuleGrant[]): string[] {
  *  What *is* enforced is the verb the owner used: **baca**. Leadership holds
  *  `it: read` and administration stays at `admin` — see `requireLevel`.
  */
-export const IT_ACCESS_RULE =
-  "Modul IT hanya boleh dibuka IT dan pimpinan. Pimpinan membaca (read); mengelola pengguna, peran, dan menghapus log aktivitas tetap di IT (admin).";
+export const IT_ACCESS_RULE: Message = {
+  en: "Only IT and leadership may open the IT module. Leadership reads (read); managing users and roles and purging the activity log stay with IT (admin).",
+  id: "Modul IT hanya boleh dibuka IT dan pimpinan. Pimpinan membaca (read); mengelola pengguna, peran, dan menghapus log aktivitas tetap di IT (admin).",
+};
 
 export function hasPermission(permissions: readonly string[], code?: string): boolean {
   if (!code) return true;
@@ -117,26 +121,28 @@ export function hasPermission(permissions: readonly string[], code?: string): bo
  *  sentence a person reads and the permissions they actually get cannot say
  *  different things. Written for the person choosing, not the developer.
  */
-const VERB_LABEL: Record<string, string> = {
-  create: "create",
-  update: "edit",
-  adjust: "adjust stock",
-  schedule: "schedule",
-  run: "run payroll",
-  handover: "hand over",
-  manage_users: "manage users",
-  manage_roles: "manage roles",
-  purge_activity: "purge the activity log",
-  plan_cash: "set the cash estimates",
-  manage_drives: "choose the shared drive folders",
+const VERB_LABEL: Record<string, Message> = {
+  create: { en: "create", id: "membuat" },
+  update: { en: "edit", id: "mengubah" },
+  adjust: { en: "adjust stock", id: "menyesuaikan stok" },
+  schedule: { en: "schedule", id: "menjadwalkan" },
+  run: { en: "run payroll", id: "menjalankan penggajian" },
+  handover: { en: "hand over", id: "melakukan serah terima" },
+  manage_users: { en: "manage users", id: "mengelola pengguna" },
+  manage_roles: { en: "manage roles", id: "mengelola peran" },
+  purge_activity: { en: "purge the activity log", id: "menghapus log aktivitas" },
+  plan_cash: { en: "set the cash estimates", id: "menetapkan perkiraan kas" },
+  manage_drives: { en: "choose the shared drive folders", id: "memilih folder shared drive" },
 };
 
 export function describeGrant(module: ModuleName, level: ModuleLevel): string {
   const verbs = expandPermissions([{ module, level }])
     .map((p) => p.slice(p.indexOf(".") + 1))
     .filter((a) => a !== "read")
-    .map((a) => VERB_LABEL[a] ?? a);
-  if (verbs.length === 0) return "View only";
-  if (verbs.length === 1) return `View and ${verbs[0]}`;
-  return `View, ${verbs.slice(0, -1).join(", ")} and ${verbs[verbs.length - 1]}`;
+    .map((a) => (VERB_LABEL[a] ? trNow(VERB_LABEL[a].en, VERB_LABEL[a].id) : a));
+  if (verbs.length === 0) return trNow("View only", "Hanya melihat");
+  if (verbs.length === 1) return trNow(`View and ${verbs[0]}`, `Melihat dan ${verbs[0]}`);
+  const head = verbs.slice(0, -1).join(", ");
+  const tail = verbs[verbs.length - 1];
+  return trNow(`View, ${head} and ${tail}`, `Melihat, ${head}, dan ${tail}`);
 }

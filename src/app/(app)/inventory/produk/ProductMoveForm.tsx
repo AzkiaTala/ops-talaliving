@@ -9,18 +9,19 @@ import { inventory } from "@/demo/api";
 import type { ProductMoveInputKind, ProductStockRow } from "@/services/inventory/contracts";
 import { useToast } from "@/store/toast";
 import { batchKey, batchLabel } from "./batch";
+import { useTr, type Message } from "@/lib/i18n";
 
 type Mode = ProductMoveInputKind | "allocate" | "count" | "home";
 
-const MODES: { mode: Mode; label: string; hint: string; adjust?: boolean }[] = [
-  { mode: "produced", label: "Hasil produksi", hint: "Barang selesai dari Job Order masuk gudang. Pesanan kliennya ikut dari JO." },
-  { mode: "transfer", label: "Pindah lokasi", hint: "Dari satu rak ke rak lain — dua catatan yang saling menutup." },
-  { mode: "allocate", label: "Pakai untuk pesanan lain", hint: "Surplus satu batch dipakai untuk pesanan klien lain. Hanya surplus — yang masih harus dikirim ke pesanan asal tetap di sana." },
-  { mode: "sold", label: "Dijual lepas", hint: "Surplus dijual di luar proyek. Tulis pembelinya." },
-  { mode: "scrap", label: "Rusak / afkir", hint: "Tidak bisa dikirim lagi. Tulis kenapa.", adjust: true },
-  { mode: "return", label: "Retur dari klien", hint: "Barang kembali dari lokasi proyek. Tulis alasannya." },
-  { mode: "count", label: "Hitung (opname)", hint: "Isi jumlah yang ada di rak. Selisihnya yang disimpan, dengan alasan.", adjust: true },
-  { mode: "home", label: "Lokasi rumah", hint: "Rak tempat produk ini biasanya disimpan — surat jalan mengambil dari sini." },
+const MODES: { mode: Mode; label: Message; hint: Message; adjust?: boolean }[] = [
+  { mode: "produced", label: { en: "Production output", id: "Hasil produksi" }, hint: { en: "Finished goods from a Job Order go into the warehouse. The client order comes with the JO.", id: "Barang selesai dari Job Order masuk gudang. Pesanan kliennya ikut dari JO." } },
+  { mode: "transfer", label: { en: "Move location", id: "Pindah lokasi" }, hint: { en: "From one rack to another — two records that close each other.", id: "Dari satu rak ke rak lain — dua catatan yang saling menutup." } },
+  { mode: "allocate", label: { en: "Use for another order", id: "Pakai untuk pesanan lain" }, hint: { en: "A batch's surplus is used for another client order. Surplus only — what still has to ship to the original order stays there.", id: "Surplus satu batch dipakai untuk pesanan klien lain. Hanya surplus — yang masih harus dikirim ke pesanan asal tetap di sana." } },
+  { mode: "sold", label: { en: "Sold outright", id: "Dijual lepas" }, hint: { en: "Surplus sold outside a project. Write down the buyer.", id: "Surplus dijual di luar proyek. Tulis pembelinya." } },
+  { mode: "scrap", label: { en: "Damaged / scrapped", id: "Rusak / afkir" }, hint: { en: "Can no longer be shipped. Write down why.", id: "Tidak bisa dikirim lagi. Tulis kenapa." }, adjust: true },
+  { mode: "return", label: { en: "Returned by client", id: "Retur dari klien" }, hint: { en: "Goods came back from the project site. Write down the reason.", id: "Barang kembali dari lokasi proyek. Tulis alasannya." } },
+  { mode: "count", label: { en: "Count (opname)", id: "Hitung (opname)" }, hint: { en: "Enter the quantity on the rack. The difference is what is saved, with a reason.", id: "Isi jumlah yang ada di rak. Selisihnya yang disimpan, dengan alasan." }, adjust: true },
+  { mode: "home", label: { en: "Home location", id: "Lokasi rumah" }, hint: { en: "The rack this product is usually kept on — the surat jalan takes from here.", id: "Rak tempat produk ini biasanya disimpan — surat jalan mengambil dari sini." } },
 ];
 
 /** One form for every write on the finished-goods rack (`0170`). Pengiriman
@@ -31,6 +32,7 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [options] = useLoad(() => inventory.productMoveOptions(), []);
   const [locations] = useLoad(() => inventory.listStockLocations(), []);
@@ -52,7 +54,8 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
   const lineId = batch?.project_line_id ?? null;
 
   const shown = MODES.filter((m) => !m.adjust || mayAdjust);
-  const hint = MODES.find((m) => m.mode === mode)!.hint;
+  const hintMsg = MODES.find((m) => m.mode === mode)!.hint;
+  const hint = tr(hintMsg.en, hintMsg.id);
   const needsReason = mode === "sold" || mode === "scrap" || mode === "return" || mode === "allocate";
   const ready = !busy && (
     mode === "produced" ? !!form.wo_no && form.qty > 0 && !!form.location
@@ -94,24 +97,25 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
             }, key);
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Tidak tercatat", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not recorded", "Tidak tercatat"), res.error.message);
       /* A refused write may be corrected and sent again — it is a new decision. */
       setKey(newKey());
       return;
     }
-    toast("success", "Tercatat", MODES.find((m) => m.mode === mode)!.label);
+    const done = MODES.find((m) => m.mode === mode)!.label;
+    toast("success", tr("Recorded", "Tercatat"), tr(done.en, done.id));
     onDone();
   }
 
   return (
     <Card className="mb-4">
-      <CardHeader title="Catat gerak barang jadi" subtitle={hint} icon={PackagePlus} />
+      <CardHeader title={tr("Record a finished-goods move", "Catat gerak barang jadi")} subtitle={hint} icon={PackagePlus} />
       <div className="space-y-3 px-5 py-4">
         <div className="flex flex-wrap gap-1.5">
           {shown.map((m) => (
             <Button key={m.mode} size="sm" variant={mode === m.mode ? "primary" : "outline"}
               onClick={() => { setMode(m.mode); setKey(newKey()); }}>
-              {m.label}
+              {tr(m.label.en, m.label.id)}
             </Button>
           ))}
         </div>
@@ -124,7 +128,7 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
                   Job Order
                   <select value={form.wo_no} onChange={(e) => setForm({ ...form, wo_no: e.target.value })}
                     aria-label="Job Order" className={`mt-1 ${field}`}>
-                    <option value="">Pilih Job Order…</option>
+                    <option value="">{tr("Choose a Job Order…", "Pilih Job Order…")}</option>
                     {opts.work_orders.map((w) => (
                       <option key={w.wo_no} value={w.wo_no}>
                         {w.wo_no} — {w.item_name} ({w.product_code}, {w.qty}){w.project_code ? ` · ${w.project_code}` : ""}
@@ -135,11 +139,11 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
               ) : (
                 <>
                   <label className="text-[11px] text-slate-500">
-                    Produk
+                    {tr("Product", "Produk")}
                     <select value={form.product_code}
                       onChange={(e) => setForm({ ...form, product_code: e.target.value, batch: "" })}
-                      aria-label="Produk" className={`mt-1 ${field}`}>
-                      <option value="">Pilih produk…</option>
+                      aria-label={tr("Product", "Produk")} className={`mt-1 ${field}`}>
+                      <option value="">{tr("Choose a product…", "Pilih produk…")}</option>
                       {opts.products.map((p) => (
                         <option key={p.product_code} value={p.product_code}>{p.product_code} — {p.name}</option>
                       ))}
@@ -147,13 +151,13 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
                   </label>
                   {mode !== "home" && (
                     <label className="text-[11px] text-slate-500">
-                      Batch / pesanan
+                      {tr("Batch / order", "Batch / pesanan")}
                       <select value={form.batch} onChange={(e) => setForm({ ...form, batch: e.target.value })}
                         aria-label="Batch" disabled={!form.product_code} className={`mt-1 ${field}`}>
-                        <option value="">Pilih batch…</option>
+                        <option value="">{tr("Choose a batch…", "Pilih batch…")}</option>
                         {batches.map((b) => (
                           <option key={batchKey(b)} value={batchKey(b)}>
-                            {batchLabel(b)}{b.on_hand != null ? ` — di gudang ${b.on_hand}` : ""}
+                            {batchLabel(b, tr)}{b.on_hand != null ? tr(` — on hand ${b.on_hand}`, ` — di gudang ${b.on_hand}`) : ""}
                             {mode === "allocate" && b.surplus != null ? ` · surplus ${b.surplus}` : ""}
                           </option>
                         ))}
@@ -162,15 +166,15 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
                   )}
                   {mode === "allocate" && (
                     <label className="text-[11px] text-slate-500 sm:col-span-2">
-                      Untuk pesanan
+                      {tr("For order", "Untuk pesanan")}
                       <select value={form.to_line} onChange={(e) => setForm({ ...form, to_line: e.target.value })}
-                        aria-label="Untuk pesanan" disabled={!form.product_code} className={`mt-1 ${field}`}>
-                        <option value="">Pilih baris pesanan…</option>
+                        aria-label={tr("For order", "Untuk pesanan")} disabled={!form.product_code} className={`mt-1 ${field}`}>
+                        <option value="">{tr("Choose an order line…", "Pilih baris pesanan…")}</option>
                         {opts.order_lines
                           .filter((l) => l.product_code === form.product_code && l.id !== lineId)
                           .map((l) => (
                             <option key={l.id} value={l.id}>
-                              {l.project_code} · baris {l.line_no} — {l.description} ({l.qty})
+                              {l.project_code} · {tr("line", "baris")} {l.line_no} — {l.description} ({l.qty})
                             </option>
                           ))}
                       </select>
@@ -183,19 +187,19 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
                 {(locs) => (
                   <>
                     <label className="text-[11px] text-slate-500">
-                      {mode === "transfer" ? "Dari lokasi" : mode === "home" ? "Lokasi rumah" : "Lokasi"}
+                      {mode === "transfer" ? tr("From location", "Dari lokasi") : mode === "home" ? tr("Home location", "Lokasi rumah") : tr("Location", "Lokasi")}
                       <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}
-                        aria-label="Lokasi" className={`mt-1 ${field}`}>
+                        aria-label={tr("Location", "Lokasi")} className={`mt-1 ${field}`}>
                         {mode === "home" && <option value="">(GUDANG)</option>}
                         {locs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
                       </select>
                     </label>
                     {mode === "transfer" && (
                       <label className="text-[11px] text-slate-500">
-                        Ke lokasi
+                        {tr("To location", "Ke lokasi")}
                         <select value={form.to_location} onChange={(e) => setForm({ ...form, to_location: e.target.value })}
-                          aria-label="Ke lokasi" className={`mt-1 ${field}`}>
-                          <option value="">Pilih…</option>
+                          aria-label={tr("To location", "Ke lokasi")} className={`mt-1 ${field}`}>
+                          <option value="">{tr("Choose…", "Pilih…")}</option>
                           {locs.filter((l) => l.code !== form.location).map((l) => (
                             <option key={l.code} value={l.code}>{l.name}</option>
                           ))}
@@ -208,16 +212,16 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
 
               {mode !== "home" && (
                 <label className="text-[11px] text-slate-500">
-                  {mode === "count" ? "Jumlah di rak (hasil hitung)" : "Jumlah"}
+                  {mode === "count" ? tr("Quantity on the rack (counted)", "Jumlah di rak (hasil hitung)") : tr("Quantity", "Jumlah")}
                   <div className="mt-1"><NumberInput value={form.qty} onChange={(v) => setForm({ ...form, qty: v })} /></div>
                 </label>
               )}
               {mode !== "home" && mode !== "produced" && (
                 <label className="text-[11px] text-slate-500 sm:col-span-2">
-                  {needsReason ? "Alasan (wajib)" : mode === "count" ? "Alasan selisih" : "Catatan"}
+                  {needsReason ? tr("Reason (required)", "Alasan (wajib)") : mode === "count" ? tr("Reason for the difference", "Alasan selisih") : tr("Note", "Catatan")}
                   <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                    aria-label="Alasan" className={`mt-1 ${field}`}
-                    placeholder={mode === "sold" ? "Dijual ke …" : mode === "scrap" ? "Kaki patah saat …" : ""} />
+                    aria-label={tr("Reason", "Alasan")} className={`mt-1 ${field}`}
+                    placeholder={mode === "sold" ? tr("Sold to …", "Dijual ke …") : mode === "scrap" ? tr("Leg broke while …", "Kaki patah saat …") : ""} />
                 </label>
               )}
             </div>
@@ -225,8 +229,8 @@ export function ProductMoveForm({ rows, mayAdjust, onDone, onCancel }: {
         </Loaded>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" icon={PackagePlus} disabled={!ready} onClick={submit}>{busy ? "Menyimpan…" : "Simpan"}</Button>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>Batal</Button>
+          <Button size="sm" icon={PackagePlus} disabled={!ready} onClick={submit}>{busy ? tr("Saving…", "Menyimpan…") : tr("Save", "Simpan")}</Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>{tr("Cancel", "Batal")}</Button>
         </div>
       </div>
     </Card>

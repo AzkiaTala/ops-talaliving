@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { procurement } from "@/demo/api";
 import { VendorBlock } from "../VendorBlock";
+import { useTr } from "@/lib/i18n";
 
 /** One supplier, full width (D103).
  *
@@ -21,6 +22,7 @@ export default function VendorTrackerPage({ params }: { params: Promise<{ vendor
   /* Next 15 hands route params to the page as a promise, so it can start
      rendering before the segment is resolved. `use` unwraps it here — the
      rest of the component reads the same plain string it always did. */
+  const tr = useTr();
   const { vendor } = use(params);
   const [journey, reload] = useLoad(() => procurement.getVendorJourney(vendor), [vendor]);
 
@@ -31,14 +33,14 @@ export default function VendorTrackerPage({ params }: { params: Promise<{ vendor
         className="mb-3 inline-flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        All suppliers
+        {tr("All suppliers", "Semua pemasok")}
       </Link>
 
       <Loaded state={journey} onRetry={reload}>
         {(v) => (
           <>
             <PageHeader
-              breadcrumb="Purchase tracker"
+              breadcrumb={tr("Purchase tracker", "Pelacak pembelian")}
               title={v.vendor_name}
               description={v.headline}
               actions={<SourceBadge state={journey} />}

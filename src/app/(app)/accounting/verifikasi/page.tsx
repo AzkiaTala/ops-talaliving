@@ -22,6 +22,7 @@ import { type UomCode } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { UomOptions } from "@/components/ui/uom-options";
+import { useTr, type Message } from "@/lib/i18n";
 
 /** The narrow road: documents whose parent is genuinely unknown.
  *
@@ -49,12 +50,17 @@ import { UomOptions } from "@/components/ui/uom-options";
  */
 type Road = "transaction" | "retro_pr_line" | "link" | "note" | "reject";
 
-const ROADS: { key: Road; label: string; icon: typeof Receipt; hint: string }[] = [
-  { key: "transaction", label: "Make a transaction", icon: Receipt, hint: "money left, nobody raised a request" },
-  { key: "retro_pr_line", label: "Retro request line", icon: Undo2, hint: "write the request that should have existed" },
-  { key: "link", label: "Link to a row", icon: Link2, hint: "already booked — this is its proof" },
-  { key: "note", label: "Note", icon: StickyNote, hint: "not a transaction" },
-  { key: "reject", label: "Reject", icon: XCircle, hint: "not ours" },
+const ROADS: { key: Road; label: Message; icon: typeof Receipt; hint: Message }[] = [
+  { key: "transaction", label: { en: "Make a transaction", id: "Buat transaksi" }, icon: Receipt,
+    hint: { en: "money left, nobody raised a request", id: "uang keluar, tidak ada yang mengajukan permintaan" } },
+  { key: "retro_pr_line", label: { en: "Retro request line", id: "Baris permintaan susulan" }, icon: Undo2,
+    hint: { en: "write the request that should have existed", id: "tulis permintaan yang seharusnya ada" } },
+  { key: "link", label: { en: "Link to a row", id: "Tautkan ke baris" }, icon: Link2,
+    hint: { en: "already booked — this is its proof", id: "sudah dibukukan — ini buktinya" } },
+  { key: "note", label: { en: "Note", id: "Catatan" }, icon: StickyNote,
+    hint: { en: "not a transaction", id: "bukan transaksi" } },
+  { key: "reject", label: { en: "Reject", id: "Tolak" }, icon: XCircle,
+    hint: { en: "not ours", id: "bukan milik kita" } },
 ];
 
 /** How much of the history the card shows. */
@@ -133,6 +139,7 @@ function groupByDocument(rows: EvidenceInboxRow[]): InboxDoc[] {
 }
 
 export default function InboxPage() {
+  const tr = useTr();
   const { hasAuthority } = useSession();
   const { toast } = useToast();
   const [rows, reload] = useLoad(() => accounting.listInbox(), [], { keepOnError: true });
@@ -213,9 +220,9 @@ export default function InboxPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accounting"
-        title="Purchase verification"
-        description="Documents that arrived with nothing to attach them to — somebody bought first and photographed the nota. Everything here leaves by one of five roads, and none of them throws the file away."
+        breadcrumb={tr("Accounting", "Akuntansi")}
+        title={tr("Purchase verification", "Verifikasi pembelian")}
+        description={tr("Documents that arrived with nothing to attach them to — somebody bought first and photographed the nota. Everything here leaves by one of five roads, and none of them throws the file away.", "Dokumen yang datang tanpa ada tempat untuk dilampirkan — seseorang membeli dulu lalu memotret notanya. Semua yang ada di sini keluar lewat salah satu dari lima jalan, dan tidak satu pun membuang berkasnya.")}
       />
 
       {/* A screen that asks again on its own has to say when it last did.
@@ -229,15 +236,15 @@ export default function InboxPage() {
           className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-medium text-slate-600 hover:bg-slate-100"
         >
           <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
+          {tr("Refresh", "Muat ulang")}
         </button>
         <span>
           {lastPolled
-            ? `Checked ${officeClock(lastPolled)} · asks again every minute`
-            : "Checks for new documents every minute"}
+            ? tr(`Checked ${officeClock(lastPolled)} · asks again every minute`, `Diperiksa ${officeClock(lastPolled)} · memeriksa lagi setiap menit`)
+            : tr("Checks for new documents every minute", "Memeriksa dokumen baru setiap menit")}
         </span>
         {selected !== null && (
-          <span className="text-slate-400">· paused while a document is open</span>
+          <span className="text-slate-400">{tr("· paused while a document is open", "· dijeda selama dokumen terbuka")}</span>
         )}
       </div>
 
@@ -245,21 +252,21 @@ export default function InboxPage() {
         <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
           <p className="text-[13px] text-slate-600">
             <span className="text-xl font-bold tabular-nums text-slate-800">{health.data.arrived}</span>{" "}
-            arrived this way since {health.data.week_start}
+            {tr(`arrived this way since ${health.data.week_start}`, `masuk lewat jalan ini sejak ${health.data.week_start}`)}
           </p>
           <p className="text-[13px] text-slate-600">
             <span className="text-xl font-bold tabular-nums text-slate-800">{health.data.unresolved}</span>{" "}
-            still waiting
+            {tr("still waiting", "masih menunggu")}
           </p>
           <p className="text-[12px] text-slate-500">
-            {health.data.by_origin.chat} from chat · {health.data.by_origin.web} from the app
+            {tr(`${health.data.by_origin.chat} from chat · ${health.data.by_origin.web} from the app`, `${health.data.by_origin.chat} dari chat · ${health.data.by_origin.web} dari aplikasi`)}
           </p>
           {/* The number is here rather than in a report because it is a
               measure of the main road, not of this screen: a queue that grows
               means people are going around the front door. */}
           <p className="ml-auto max-w-md text-[12px] text-slate-500">
-            This queue should stay small. Every row in it is a purchase that
-            happened before anybody asked.
+            {tr("This queue should stay small. Every row in it is a purchase that happened before anybody asked.",
+              "Antrean ini seharusnya tetap kecil. Setiap barisnya adalah pembelian yang terjadi sebelum ada yang meminta.")}
           </p>
         </div>
       )}
@@ -270,8 +277,8 @@ export default function InboxPage() {
             <div className="p-5">
               <EmptyState
                 icon={Check}
-                title="Nothing waiting"
-                description="Every document that arrived without a parent has been resolved. The main road is doing its job."
+                title={tr("Nothing waiting", "Tidak ada yang menunggu")}
+                description={tr("Every document that arrived without a parent has been resolved. The main road is doing its job.", "Setiap dokumen yang datang tanpa induk sudah diselesaikan. Jalan utama bekerja sebagaimana mestinya.")}
               />
             </div>
           </Card>
@@ -279,8 +286,8 @@ export default function InboxPage() {
           <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
             <Card className="h-fit">
               <CardHeader
-                title={`${docs.length} waiting`}
-                subtitle="Oldest first — a queue is not a filing cabinet."
+                title={tr(`${docs.length} waiting`, `${docs.length} menunggu`)}
+                subtitle={tr("Oldest first — a queue is not a filing cabinet.", "Terlama di atas — antrean bukan lemari arsip.")}
                 icon={Inbox}
                 action={<SourceBadge state={rows} />}
               />
@@ -305,21 +312,21 @@ export default function InboxPage() {
                           <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                           <span className="min-w-0 truncate">{docTitle(d, file?.filename)}</span>
                           {d.rows.length > 1 && (
-                            <Badge tone="violet">{d.rows.length} baris</Badge>
+                            <Badge tone="violet">{tr(`${d.rows.length} rows`, `${d.rows.length} baris`)}</Badge>
                           )}
                         </p>
                         <p className="mt-0.5 text-[12px] text-slate-600">
-                          {r.extracted.vendor_name ?? "vendor not read"} ·{" "}
-                          {d.amount != null ? formatIDR(d.amount) : "amount not read"}
+                          {r.extracted.vendor_name ?? tr("vendor not read", "vendor tidak terbaca")} ·{" "}
+                          {d.amount != null ? formatIDR(d.amount) : tr("amount not read", "jumlah tidak terbaca")}
                         </p>
                         <p className="text-[11px] text-slate-400">
                           {r.reported_at.slice(0, 10)} · {r.origin}
-                          {r.reported_by_name != null && ` · from ${r.reported_by_name}`}
-                          {r.extracted.confidence != null && ` · read ${r.extracted.confidence}% sure`}
+                          {r.reported_by_name != null && tr(` · from ${r.reported_by_name}`, ` · dari ${r.reported_by_name}`)}
+                          {r.extracted.confidence != null && tr(` · read ${r.extracted.confidence}% sure`, ` · terbaca ${r.extracted.confidence}% yakin`)}
                         </p>
                         {similar.length > 0 && (
                           <p className="mt-1 text-[11px] text-amber-700">
-                            looks like {similar.join(", ")}
+                            {tr(`looks like ${similar.join(", ")}`, `mirip ${similar.join(", ")}`)}
                           </p>
                         )}
                       </button>
@@ -355,8 +362,8 @@ export default function InboxPage() {
                   <div className="p-5">
                     <EmptyState
                       icon={Inbox}
-                      title="Pick one"
-                      description="The document on the left, what to do with it on the right."
+                      title={tr("Pick one", "Pilih salah satu")}
+                      description={tr("The document on the left, what to do with it on the right.", "Dokumennya di kiri, apa yang dilakukan dengannya di kanan.")}
                     />
                   </div>
                 </Card>
@@ -375,13 +382,13 @@ export default function InboxPage() {
           return (
             <Card className="mt-4">
               <CardHeader
-                title="Already decided"
+                title={tr("Already decided", "Sudah diputuskan")}
                 subtitle={
                   <>
-                    Kept, whichever road they took — including the ones that never reached the ledger.{" "}
+                    {tr("Kept, whichever road they took — including the ones that never reached the ledger.", "Disimpan, jalan mana pun yang diambil — termasuk yang tidak pernah sampai ke buku besar.")}{" "}
                     {decidedTotal > decidedRows.length
-                      ? `${decidedRows.length} keputusan terakhir dari ${decidedTotal}.`
-                      : `Semuanya: ${decidedRows.length} keputusan.`}
+                      ? tr(`The latest ${decidedRows.length} decisions of ${decidedTotal}.`, `${decidedRows.length} keputusan terakhir dari ${decidedTotal}.`)
+                      : tr(`All of them: ${decidedRows.length} decisions.`, `Semuanya: ${decidedRows.length} keputusan.`)}
                   </>
                 }
                 icon={StickyNote}
@@ -416,14 +423,14 @@ export default function InboxPage() {
                         <span className="min-w-0 flex-1 text-slate-700">
                           {docTitle(d, f?.filename)}
                           {d.rows.length > 1 && (
-                            <span className="ml-2"><Badge tone="violet">{d.rows.length} baris</Badge></span>
+                            <span className="ml-2"><Badge tone="violet">{tr(`${d.rows.length} rows`, `${d.rows.length} baris`)}</Badge></span>
                           )}
                         </span>
                         {d.amount != null && (
                           <span className="tabular-nums text-slate-500">{formatIDR(d.amount)}</span>
                         )}
                         <span className="font-mono text-[11px] text-slate-400">
-                          {r.produced_pr_line_no ?? (r.produced_trx_id ? "posted" : "no ledger row")}
+                          {r.produced_pr_line_no ?? (r.produced_trx_id ? tr("posted", "diposting") : tr("no ledger row", "tanpa baris buku besar"))}
                         </span>
                         <span className="text-[11px] text-slate-400">{r.reported_at.slice(0, 10)}</span>
                       </button>
@@ -483,6 +490,7 @@ function ResolvePanel({
   onDone: () => void;
   toast: (tone: "success" | "warning" | "critical" | "info", title: string, body?: string) => void;
 }) {
+  const tr = useTr();
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
   const [vendors] = useLoad(() => procurement.listVendors({}), []);
   const [projects] = useLoad(() => procurement.listProjects(), []);
@@ -607,7 +615,7 @@ function ResolvePanel({
       const res = await accounting.resolveInbox({ ...input, ref_id: ref });
       if (res.error) {
         return i === 0 ? { error: res.error.message, partial: false }
-          : { error: `${res.error.message} (${i} dari ${refs.length} baris sudah tercatat)`, partial: true };
+          : { error: tr(`${res.error.message} (${i} of ${refs.length} rows already recorded)`, `${res.error.message} (${i} dari ${refs.length} baris sudah tercatat)`), partial: true };
       }
     }
     return null;
@@ -618,8 +626,8 @@ function ResolvePanel({
     try {
       if (road === "note" || road === "reject") {
         const err = await resolveAll({ resolution: road, reason });
-        if (err) { toast("warning", "Not recorded", err.error); if (err.partial) onDone(); return; }
-        toast("success", road === "note" ? "Kept as a note" : "Rejected, and kept", "No money was recorded either way.");
+        if (err) { toast("warning", tr("Not recorded", "Tidak dicatat"), err.error); if (err.partial) onDone(); return; }
+        toast("success", road === "note" ? tr("Kept as a note", "Disimpan sebagai catatan") : tr("Rejected, and kept", "Ditolak, dan disimpan"), tr("No money was recorded either way.", "Tidak ada uang yang dicatat."));
         onDone();
         return;
       }
@@ -630,11 +638,11 @@ function ResolvePanel({
         const res = await accounting.linkEvidence({
           ref_ids: refs, trx_nos: linked.map((t) => t.trx_no),
         });
-        if (res.error) { toast("warning", "Not linked", res.error.message); return; }
-        toast("success", "Linked",
+        if (res.error) { toast("warning", tr("Not linked", "Tidak ditautkan"), res.error.message); return; }
+        toast("success", tr("Linked", "Ditautkan"),
           res.data.rows === 1
-            ? `${filename} now proves ${res.data.trx_nos[0]}.`
-            : `${filename} now proves ${res.data.rows} ledger rows · ${formatIDR(res.data.rows_total)}.`);
+            ? tr(`${filename} now proves ${res.data.trx_nos[0]}.`, `${filename} sekarang menjadi bukti ${res.data.trx_nos[0]}.`)
+            : tr(`${filename} now proves ${res.data.rows} ledger rows · ${formatIDR(res.data.rows_total)}.`, `${filename} sekarang menjadi bukti ${res.data.rows} baris buku besar · ${formatIDR(res.data.rows_total)}.`));
         onDone();
         return;
       }
@@ -648,9 +656,9 @@ function ResolvePanel({
           description: description.trim() || filename,
           qty, uom, unit_price: unitPrice,
           vendor_id: vendorId || null,
-          purpose: purpose.trim() || "Bought before anybody asked — written after the fact",
+          purpose: purpose.trim() || tr("Bought before anybody asked — written after the fact", "Dibeli sebelum ada yang meminta — ditulis setelahnya"),
         });
-        if (line.error) { toast("warning", "Not created", line.error.message); return; }
+        if (line.error) { toast("warning", tr("Not created", "Tidak dibuat"), line.error.message); return; }
         lineNo = line.data.line_no_full;
       }
 
@@ -677,9 +685,9 @@ function ResolvePanel({
             qty: l.qty, uom: l.uom, unit_price: l.unit_price, amount: lineAmount(l),
           })),
         });
-        if (booked.error) { toast("warning", "Not booked", booked.error.message); return; }
-        toast("success", `Posted ${booked.data.trx_no}`,
-          `${formatIDR(amount)} · ${lines.length} baris`);
+        if (booked.error) { toast("warning", tr("Not booked", "Tidak dibukukan"), booked.error.message); return; }
+        toast("success", tr(`Posted ${booked.data.trx_no}`, `${booked.data.trx_no} diposting`),
+          tr(`${formatIDR(amount)} · ${lines.length} rows`, `${formatIDR(amount)} · ${lines.length} baris`));
         onDone();
         return;
       }
@@ -695,7 +703,7 @@ function ResolvePanel({
         }],
         documents: [{ attachment_id: row.attachment_id, kind: "Receipt / Invoice / Nota" }],
       });
-      if (posted.error) { toast("warning", "Not posted", posted.error.message); return; }
+      if (posted.error) { toast("warning", tr("Not posted", "Tidak diposting"), posted.error.message); return; }
 
       if (lineNo) {
         /* Allocating is what makes the board show it for what it is: paid,
@@ -703,17 +711,17 @@ function ResolvePanel({
         const alloc = await accounting.allocate({
           trx_no: posted.data.trx_no, pr_line_no: lineNo, amount, method: "cash",
         });
-        if (alloc.error) toast("warning", "Posted, not allocated", alloc.error.message);
+        if (alloc.error) toast("warning", tr("Posted, not allocated", "Diposting, tidak dialokasikan"), alloc.error.message);
       }
 
       const err = await resolveAll({
         resolution: road, trx_no: posted.data.trx_no, pr_line_no: lineNo,
       });
-      if (err) { toast("warning", "Posted, inbox unchanged", err.error); return; }
+      if (err) { toast("warning", tr("Posted, inbox unchanged", "Diposting, inbox tidak berubah"), err.error); return; }
       toast(
         "success",
-        `Posted ${posted.data.trx_no}`,
-        lineNo ? `${formatIDR(amount)} · request line ${lineNo} written after the fact` : formatIDR(amount),
+        tr(`Posted ${posted.data.trx_no}`, `${posted.data.trx_no} diposting`),
+        lineNo ? tr(`${formatIDR(amount)} · request line ${lineNo} written after the fact`, `${formatIDR(amount)} · baris permintaan ${lineNo} ditulis setelahnya`) : formatIDR(amount),
       );
       onDone();
     } finally {
@@ -736,8 +744,8 @@ function ResolvePanel({
       <CardHeader
         title={docTitle(doc, file?.filename)}
         subtitle={`${row.origin} · ${row.reported_at.slice(0, 16).replace("T", " ")}`
-          + (row.reported_by_name != null ? ` · from ${row.reported_by_name}` : "")
-          + ` · read ${row.extracted.confidence ?? "—"}% sure`}
+          + (row.reported_by_name != null ? tr(` · from ${row.reported_by_name}`, ` · dari ${row.reported_by_name}`) : "")
+          + tr(` · read ${row.extracted.confidence ?? "—"}% sure`, ` · terbaca ${row.extracted.confidence ?? "—"}% yakin`)}
         icon={FileText}
         action={<Badge tone={row.money_direction === "IN" ? "green" : "slate"}>{row.money_direction ?? "OUT"}</Badge>}
       />
@@ -764,21 +772,21 @@ function ResolvePanel({
 
         {doc.rows.length > 1 && (
           <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[13px] text-violet-900">
-            Satu foto, terbaca <strong>{doc.rows.length} baris</strong>, diperlakukan sebagai
-            satu dokumen.{" "}
+            {tr("One photo, read as", "Satu foto, terbaca")} <strong>{tr(`${doc.rows.length} rows`, `${doc.rows.length} baris`)}</strong>
+            {tr(", treated as one document.", ", diperlakukan sebagai satu dokumen.")}{" "}
             {road === "transaction"
-              ? <>Semuanya ada di daftar baris di bawah dan dibukukan sekaligus — satu transaksi, bukan {doc.rows.length}.</>
-              : <>Keputusan di bawah berlaku untuk semua {doc.rows.length} barisnya sekaligus.</>}
+              ? <>{tr(`They are all in the line list below and booked at once — one transaction, not ${doc.rows.length}.`, `Semuanya ada di daftar baris di bawah dan dibukukan sekaligus — satu transaksi, bukan ${doc.rows.length}.`)}</>
+              : <>{tr(`The decision below applies to all ${doc.rows.length} of its rows at once.`, `Keputusan di bawah berlaku untuk semua ${doc.rows.length} barisnya sekaligus.`)}</>}
           </p>
         )}
 
         {/* What the reading proposed. A proposal, never a posting (A13). */}
         <dl className="grid gap-x-6 gap-y-2 rounded-lg bg-slate-50 px-3 py-2.5 sm:grid-cols-4">
           {([
-            ["Vendor", vendorRead ?? "not read"],
-            ["Date", row.extracted.document_date ?? "not read"],
-            ["Amount", doc.amount != null ? formatIDR(doc.amount) : "not read"],
-            ["Type", row.extracted.doc_type ?? "not read"],
+            [tr("Vendor", "Vendor"), vendorRead ?? tr("not read", "tidak terbaca")],
+            [tr("Date", "Tanggal"), row.extracted.document_date ?? tr("not read", "tidak terbaca")],
+            [tr("Amount", "Jumlah"), doc.amount != null ? formatIDR(doc.amount) : tr("not read", "tidak terbaca")],
+            [tr("Type", "Jenis"), row.extracted.doc_type ?? tr("not read", "tidak terbaca")],
           ] as [string, string][]).map(([k, v]) => (
             <div key={k}>
               <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -796,24 +804,24 @@ function ResolvePanel({
           <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              This looks like <span className="font-mono">{similarTrxNos.join(", ")}</span>,
-              already in the ledger. If it is the same money, the road is{" "}
+              {tr("This looks like", "Ini mirip")} <span className="font-mono">{similarTrxNos.join(", ")}</span>,
+              {" "}{tr("already in the ledger. If it is the same money, the road is", "yang sudah ada di buku besar. Bila uangnya sama, jalannya adalah")}{" "}
               <button className="font-medium underline" onClick={() => {
                 setRoad("link");
                 setLinkQ(similarTrxNos[0]);
               }}>
-                link to a row
+                {tr("link to a row", "tautkan ke baris")}
               </button>{" "}
-              — posting it again would invent money.
+              {tr("— posting it again would invent money.", "— memposting lagi berarti mengarang uang.")}
             </span>
           </p>
         )}
 
         {isOthers && (
           <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-600">
-            Read as <strong>Others</strong>, so it starts on the notes road: nothing
-            that is not a company transaction should touch the ledger, even for a
-            moment.
+            {tr("Read as", "Terbaca sebagai")} <strong>Others</strong>
+            {tr(", so it starts on the notes road: nothing that is not a company transaction should touch the ledger, even for a moment.",
+              ", jadi dimulai di jalan catatan: apa pun yang bukan transaksi perusahaan tidak boleh menyentuh buku besar, walau sesaat.")}
           </p>
         )}
 
@@ -825,7 +833,7 @@ function ResolvePanel({
               <button
                 key={r.key}
                 onClick={() => setRoad(r.key)}
-                title={r.hint}
+                title={tr(r.hint.en, r.hint.id)}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] transition-colors",
                   on ? "border-brand-300 bg-brand-50 text-brand-800"
@@ -833,7 +841,7 @@ function ResolvePanel({
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {r.label}
+                {tr(r.label.en, r.label.id)}
               </button>
             );
           })}
@@ -842,75 +850,75 @@ function ResolvePanel({
         {(road === "transaction" || road === "retro_pr_line") && (
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor="rv-date" className="block text-xs text-slate-500">Date the money moved</label>
+              <label htmlFor="rv-date" className="block text-xs text-slate-500">{tr("Date the money moved", "Tanggal uang bergerak")}</label>
               <input id="rv-date" type="date" value={date} onChange={(e) => setDate(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none" />
             </div>
             <div>
-              <label htmlFor="rv-account" className="block text-xs text-slate-500">Account</label>
+              <label htmlFor="rv-account" className="block text-xs text-slate-500">{tr("Account", "Rekening")}</label>
               <select id="rv-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
-                <option value="">Choose…</option>
+                <option value="">{tr("Choose…", "Pilih…")}</option>
                 {accountRows.map((a) => <option key={a.account_id} value={a.account_id}>{a.code} — {a.name}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="rv-dir" className="block text-xs text-slate-500">In or out</label>
+              <label htmlFor="rv-dir" className="block text-xs text-slate-500">{tr("In or out", "Masuk atau keluar")}</label>
               <select id="rv-dir" value={direction} onChange={(e) => setDirection(e.target.value as Direction)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
-                <option value="OUT">OUT — money left</option>
-                <option value="IN">IN — money arrived</option>
+                <option value="OUT">{tr("OUT — money left", "OUT — uang keluar")}</option>
+                <option value="IN">{tr("IN — money arrived", "IN — uang masuk")}</option>
               </select>
             </div>
             <div>
-              <label htmlFor="rv-type" className="block text-xs text-slate-500">Type</label>
+              <label htmlFor="rv-type" className="block text-xs text-slate-500">{tr("Type", "Jenis")}</label>
               <select id="rv-type" value={typeCode} onChange={(e) => setTypeCode(e.target.value as TransactionTypeCode)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
                 <TypeOptions current={typeCode} />
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="rv-desc" className="block text-xs text-slate-500">What was bought</label>
+              <label htmlFor="rv-desc" className="block text-xs text-slate-500">{tr("What was bought", "Apa yang dibeli")}</label>
               <input id="rv-desc" value={description} onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g. PAKU 5CM, 4 kg"
+                placeholder={tr("e.g. PAKU 5CM, 4 kg", "mis. PAKU 5CM, 4 kg")}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none" />
             </div>
             <div>
-              <label htmlFor="rv-vendor" className="block text-xs text-slate-500">Vendor</label>
+              <label htmlFor="rv-vendor" className="block text-xs text-slate-500">{tr("Vendor", "Vendor")}</label>
               <select id="rv-vendor" value={vendorId} onChange={(e) => setVendorId(e.target.value)}
                 aria-describedby="rv-vendor-hint"
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
-                <option value="">Not a vendor purchase</option>
+                <option value="">{tr("Not a vendor purchase", "Bukan pembelian dari vendor")}</option>
                 {vendors.status === "ready" && vendors.data.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
               {vendorRead && (
                 <p id="rv-vendor-hint" className="mt-1 text-[11px] text-slate-500">
-                  Read as <span className="text-slate-700">{vendorRead}</span>
-                  {!vendorId && " — not a vendor we have on record; pick one or add it first"}
+                  {tr("Read as", "Terbaca sebagai")} <span className="text-slate-700">{vendorRead}</span>
+                  {!vendorId && tr(" — not a vendor we have on record; pick one or add it first", " — bukan vendor yang tercatat; pilih salah satu atau tambahkan dulu")}
                 </p>
               )}
             </div>
             <div>
-              <label htmlFor="rv-project" className="block text-xs text-slate-500">Project</label>
+              <label htmlFor="rv-project" className="block text-xs text-slate-500">{tr("Project", "Proyek")}</label>
               <select id="rv-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
-                <option value="">No project</option>
+                <option value="">{tr("No project", "Tanpa proyek")}</option>
                 {projects.status === "ready" && projects.data.map((pr) => (
                   <option key={pr.id} value={pr.id}>{pr.code} — {pr.name}</option>
                 ))}
               </select>
               <p className="mt-1 text-[11px] text-slate-500">
-                One nota, one project — it is shared by every line below.
+                {tr("One nota, one project — it is shared by every line below.", "Satu nota, satu proyek — dipakai bersama oleh semua baris di bawah.")}
               </p>
             </div>
             {road === "retro_pr_line" && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label htmlFor="rv-qty" className="block text-xs text-slate-500">Qty</label>
+                  <label htmlFor="rv-qty" className="block text-xs text-slate-500">{tr("Qty", "Jml")}</label>
                   <NumberInput id="rv-qty" value={qty} min={0} onChange={setQty} className="mt-1" />
                 </div>
                 <div>
-                  <label htmlFor="rv-uom" className="block text-xs text-slate-500">Unit</label>
+                  <label htmlFor="rv-uom" className="block text-xs text-slate-500">{tr("Unit", "Satuan")}</label>
                   <select id="rv-uom" value={uom} onChange={(e) => setUom(e.target.value as UomCode)}
                     className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
                     <UomOptions current={uom} />
@@ -920,18 +928,18 @@ function ResolvePanel({
             )}
             <div className="sm:col-span-2">
               <label htmlFor="rv-amount" className="block text-xs text-slate-500">
-                Amount <span className="text-slate-400">— the reading proposed {doc.amount != null ? formatIDR(doc.amount) : "nothing"}</span>
+                {tr("Amount", "Jumlah")} <span className="text-slate-400">{tr(`— the reading proposed ${doc.amount != null ? formatIDR(doc.amount) : "nothing"}`, `— hasil baca mengusulkan ${doc.amount != null ? formatIDR(doc.amount) : "tidak ada"}`)}</span>
               </label>
               <MoneyInput id="rv-amount" value={amount} onChange={setAmount} className="mt-1" />
               <p className="mt-1 text-[11px] text-slate-500">
                 {road === "retro_pr_line" && qty > 0 && `${qty} ${uom} × ${formatIDR(unitPrice)} — `}
-                posting is you agreeing with the number, not the extraction being believed.
+                {tr("posting is you agreeing with the number, not the extraction being believed.", "memposting berarti Anda menyetujui angkanya, bukan mempercayai hasil ekstraksi.")}
               </p>
             </div>
             {road === "transaction" && (
               <div className="sm:col-span-2">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-slate-500">What is on the nota</span>
+                  <span className="text-xs text-slate-500">{tr("What is on the nota", "Isi nota")}</span>
                   <button type="button"
                     onClick={() => setLines((ls) => [
                       ...ls,
@@ -939,7 +947,7 @@ function ResolvePanel({
                         description: "", qty: 1, uom: "pcs", unit_price: 0 },
                     ])}
                     className="text-[11px] font-medium text-brand-700 hover:underline">
-                    + baris
+                    {tr("+ row", "+ baris")}
                   </button>
                 </div>
 
@@ -947,21 +955,21 @@ function ResolvePanel({
                   {lines.map((l, i) => (
                     <div key={l.key} className="grid grid-cols-12 items-end gap-1.5">
                       <div className="col-span-12 sm:col-span-5">
-                        <label htmlFor={`rv-l-desc-${l.key}`} className="sr-only">Barang baris {i + 1}</label>
+                        <label htmlFor={`rv-l-desc-${l.key}`} className="sr-only">{tr(`Item, row ${i + 1}`, `Barang baris ${i + 1}`)}</label>
                         <input id={`rv-l-desc-${l.key}`} value={l.description}
-                          placeholder="e.g. PAKU 5CM"
+                          placeholder={tr("e.g. PAKU 5CM", "mis. PAKU 5CM")}
                           onChange={(e) => setLines((ls) => ls.map((x) =>
                             x.key === l.key ? { ...x, description: e.target.value } : x))}
                           className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm focus:border-brand-400 focus:outline-none" />
                       </div>
                       <div className="col-span-3 sm:col-span-2">
-                        <label htmlFor={`rv-l-qty-${l.key}`} className="sr-only">Qty baris {i + 1}</label>
+                        <label htmlFor={`rv-l-qty-${l.key}`} className="sr-only">{tr(`Qty, row ${i + 1}`, `Qty baris ${i + 1}`)}</label>
                         <NumberInput id={`rv-l-qty-${l.key}`} value={l.qty} min={0}
                           onChange={(v) => setLines((ls) => ls.map((x) =>
                             x.key === l.key ? { ...x, qty: v } : x))} />
                       </div>
                       <div className="col-span-3 sm:col-span-2">
-                        <label htmlFor={`rv-l-uom-${l.key}`} className="sr-only">Satuan baris {i + 1}</label>
+                        <label htmlFor={`rv-l-uom-${l.key}`} className="sr-only">{tr(`Unit, row ${i + 1}`, `Satuan baris ${i + 1}`)}</label>
                         <select id={`rv-l-uom-${l.key}`} value={l.uom}
                           onChange={(e) => setLines((ls) => ls.map((x) =>
                             x.key === l.key ? { ...x, uom: e.target.value as UomCode } : x))}
@@ -970,14 +978,14 @@ function ResolvePanel({
                         </select>
                       </div>
                       <div className="col-span-5 sm:col-span-2">
-                        <label htmlFor={`rv-l-price-${l.key}`} className="sr-only">Harga satuan baris {i + 1}</label>
+                        <label htmlFor={`rv-l-price-${l.key}`} className="sr-only">{tr(`Unit price, row ${i + 1}`, `Harga satuan baris ${i + 1}`)}</label>
                         <MoneyInput id={`rv-l-price-${l.key}`} value={l.unit_price}
                           onChange={(v) => setLines((ls) => ls.map((x) =>
                             x.key === l.key ? { ...x, unit_price: v } : x))} />
                       </div>
                       <div className="col-span-1 flex justify-end">
                         {lines.length > 1 && (
-                          <button type="button" aria-label={`Hapus baris ${i + 1}`}
+                          <button type="button" aria-label={tr(`Remove row ${i + 1}`, `Hapus baris ${i + 1}`)}
                             onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
                             className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                             <XCircle className="h-4 w-4" />
@@ -997,21 +1005,21 @@ function ResolvePanel({
                   linesAgree ? "bg-slate-50 text-slate-600" : "bg-amber-50 text-amber-900",
                 )}>
                   <span>
-                    {lines.length} baris berjumlah <strong>{formatIDR(linesTotal)}</strong>
+                    {tr(`${lines.length} row(s) totalling`, `${lines.length} baris berjumlah`)} <strong>{formatIDR(linesTotal)}</strong>
                   </span>
                   {linesAgree
-                    ? <span className="inline-flex items-center gap-1 text-[12px]"><Check className="h-3.5 w-3.5" /> cocok</span>
+                    ? <span className="inline-flex items-center gap-1 text-[12px]"><Check className="h-3.5 w-3.5" /> {tr("matches", "cocok")}</span>
                     : (
                       <span className="inline-flex items-center gap-1 text-[12px]">
                         <AlertTriangle className="h-3.5 w-3.5" />
-                        selisih {formatIDR(linesTotal - amount)} dari {formatIDR(amount)}
+                        {tr(`off by ${formatIDR(linesTotal - amount)} from ${formatIDR(amount)}`, `selisih ${formatIDR(linesTotal - amount)} dari ${formatIDR(amount)}`)}
                       </span>
                     )}
                 </div>
                 {!linesAgree && (
                   <p className="mt-1 text-[11px] text-amber-800">
-                    Tambahkan baris untuk sisanya, atau perbaiki salah satunya. Nota yang
-                    terbaca sebagian tidak bisa dibukukan seolah-olah utuh.
+                    {tr("Add a row for the rest, or correct one of them. A nota read in part cannot be booked as if it were whole.",
+                      "Tambahkan baris untuk sisanya, atau perbaiki salah satunya. Nota yang terbaca sebagian tidak bisa dibukukan seolah-olah utuh.")}
                   </p>
                 )}
               </div>
@@ -1019,13 +1027,13 @@ function ResolvePanel({
 
             {road === "retro_pr_line" && (
               <div className="sm:col-span-2">
-                <label htmlFor="rv-purpose" className="block text-xs text-slate-500">What it was for</label>
+                <label htmlFor="rv-purpose" className="block text-xs text-slate-500">{tr("What it was for", "Untuk apa")}</label>
                 <input id="rv-purpose" value={purpose} onChange={(e) => setPurpose(e.target.value)}
-                  placeholder="e.g. Bench repair, workshop"
+                  placeholder={tr("e.g. Bench repair, workshop", "mis. Perbaikan meja kerja, workshop")}
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none" />
                 <p className="mt-1 text-[11px] text-slate-500">
-                  The line is written unapproved on purpose: it will show on the board
-                  as <em>paid, not approved</em>, which is what happened.
+                  {tr("The line is written unapproved on purpose: it will show on the board as", "Baris ini sengaja ditulis tanpa persetujuan: di papan akan tampil sebagai")}{" "}
+                  <em>{tr("paid, not approved", "dibayar, tidak disetujui")}</em>{tr(", which is what happened.", ", sesuai yang terjadi.")}
                 </p>
               </div>
             )}
@@ -1035,10 +1043,13 @@ function ResolvePanel({
         {road === "link" && (
           <div>
             <label htmlFor="rv-trx-q" className="block text-xs text-slate-500">
-              Which ledger rows is this the proof of? Tick every row it pays for.
+              {tr("Which ledger rows is this the proof of? Tick every row it pays for.", "Ini bukti untuk baris buku besar yang mana? Centang setiap baris yang dibayarnya.")}
             </label>
             <input id="rv-trx-q" value={linkQ} onChange={(e) => setLinkQ(e.target.value)}
-              placeholder={`${docDate ? `Rows around ${docDate} — or search` : "Search"} by description or trx number`}
+              placeholder={tr(
+                `${docDate ? `Rows around ${docDate} — or search` : "Search"} by description or trx number`,
+                `${docDate ? `Baris sekitar ${docDate} — atau cari` : "Cari"} menurut deskripsi atau nomor trx`,
+              )}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none" />
 
             <Loaded state={candidates}>
@@ -1047,7 +1058,7 @@ function ResolvePanel({
                    them, so what is about to be linked is always in view. */
                 const shown = [...linked, ...list.filter((t) => !linked.some((x) => x.trx_no === t.trx_no))];
                 return shown.length === 0 ? (
-                  <p className="mt-2 text-[12px] text-slate-500">No ledger rows match.</p>
+                  <p className="mt-2 text-[12px] text-slate-500">{tr("No ledger rows match.", "Tidak ada baris buku besar yang cocok.")}</p>
                 ) : (
                   <ul className="mt-2 max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200">
                     {shown.map((t) => {
@@ -1083,22 +1094,22 @@ function ResolvePanel({
                   ? "bg-slate-50 text-slate-600" : "bg-amber-50 text-amber-900",
               )}>
                 <span>
-                  {linked.length} baris dipilih berjumlah <strong>{formatIDR(linkedTotal)}</strong>
+                  {tr(`${linked.length} row(s) chosen, totalling`, `${linked.length} baris dipilih berjumlah`)} <strong>{formatIDR(linkedTotal)}</strong>
                 </span>
                 {doc.amount == null
-                  ? <span className="text-[12px]">nilai dokumen belum terbaca</span>
+                  ? <span className="text-[12px]">{tr("the document value has not been read", "nilai dokumen belum terbaca")}</span>
                   : linkedTotal === doc.amount
-                    ? <span className="inline-flex items-center gap-1 text-[12px]"><Check className="h-3.5 w-3.5" /> cocok dengan dokumen</span>
+                    ? <span className="inline-flex items-center gap-1 text-[12px]"><Check className="h-3.5 w-3.5" /> {tr("matches the document", "cocok dengan dokumen")}</span>
                     : (
                       <span className="inline-flex items-center gap-1 text-[12px]">
                         <AlertTriangle className="h-3.5 w-3.5" />
-                        selisih {formatIDR(linkedTotal - doc.amount)} dari {formatIDR(doc.amount)}
+                        {tr(`off by ${formatIDR(linkedTotal - doc.amount)} from ${formatIDR(doc.amount)}`, `selisih ${formatIDR(linkedTotal - doc.amount)} dari ${formatIDR(doc.amount)}`)}
                       </span>
                     )}
               </div>
             )}
             <p className="mt-1 text-[11px] text-slate-500">
-              No new money: the rows already exist and were missing this document.
+              {tr("No new money: the rows already exist and were missing this document.", "Tidak ada uang baru: barisnya sudah ada dan hanya belum punya dokumen ini.")}
             </p>
             {/* The check that actually bites for one row: what it already
                 carries (D207). With several, the sum above is the check. */}
@@ -1109,30 +1120,29 @@ function ResolvePanel({
         {(road === "note" || road === "reject") && (
           <div>
             <label htmlFor="rv-reason" className="block text-xs text-slate-500">
-              {road === "note" ? "What is this?" : "Why is this not ours?"}
+              {road === "note" ? tr("What is this?", "Ini apa?") : tr("Why is this not ours?", "Mengapa ini bukan milik kita?")}
             </label>
             <input id="rv-reason" value={reason} onChange={(e) => setReason(e.target.value)}
-              placeholder={road === "note" ? "e.g. personal document, sent to the wrong thread" : "e.g. supplier sent somebody else's invoice"}
+              placeholder={road === "note" ? tr("e.g. personal document, sent to the wrong thread", "mis. dokumen pribadi, terkirim ke thread yang salah") : tr("e.g. supplier sent somebody else's invoice", "mis. pemasok mengirim faktur milik orang lain")}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none" />
             <p className="mt-1 text-[11px] text-slate-500">
-              Nothing reaches the ledger by this road, and the file is kept either
-              way — the question &quot;what did we decide about that photo&quot; arrives months
-              later.
+              {tr("Nothing reaches the ledger by this road, and the file is kept either way — the question \"what did we decide about that photo\" arrives months later.",
+                "Tidak ada yang sampai ke buku besar lewat jalan ini, dan berkasnya tetap disimpan — pertanyaan \"apa keputusan kita soal foto itu\" datang berbulan-bulan kemudian.")}
             </p>
           </div>
         )}
 
         {!mayResolve && (
           <p className="text-[12px] text-slate-500">
-            Resolving belongs to whoever holds <span className="font-mono text-[11px]">resolve_inbox</span>.
-            You can read the queue either way.
+            {tr("Resolving belongs to whoever holds", "Menyelesaikan adalah hak pemegang")} <span className="font-mono text-[11px]">resolve_inbox</span>.
+            {" "}{tr("You can read the queue either way.", "Anda tetap bisa membaca antreannya.")}
           </p>
         )}
       </div>
 
       <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
         <Button size="sm" disabled={busy || !canRun} onClick={run}>
-          {busy ? "Recording…" : ROADS.find((r) => r.key === road)!.label}
+          {busy ? tr("Recording…", "Mencatat…") : tr(ROADS.find((r) => r.key === road)!.label.en, ROADS.find((r) => r.key === road)!.label.id)}
         </Button>
       </div>
     </Card>
@@ -1157,11 +1167,12 @@ function ResolvePanel({
  *  different name.
  */
 function Coverage({ c }: { c: DocumentCoverage }) {
+  const tr = useTr();
   if (c.transactions.length === 0) {
     return (
       <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
-        Dokumen ini belum menopang baris mana pun. Apa pun yang dipilih di bawah akan jadi
-        yang pertama.
+        {tr("This document does not yet support any row. Whatever is chosen below will be the first.",
+          "Dokumen ini belum menopang baris mana pun. Apa pun yang dipilih di bawah akan jadi yang pertama.")}
       </p>
     );
   }
@@ -1171,10 +1182,10 @@ function Coverage({ c }: { c: DocumentCoverage }) {
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-slate-700">
         <Link2 className="h-3.5 w-3.5 text-brand-600" />
         <span>
-          Sudah menopang <strong>{c.transactions.length} baris buku besar</strong>
-          {c.lines.length > 0 && <> dan menyentuh <strong>{c.lines.length} baris permintaan</strong></>}
+          {tr("Already supports", "Sudah menopang")} <strong>{tr(`${c.transactions.length} ledger row(s)`, `${c.transactions.length} baris buku besar`)}</strong>
+          {c.lines.length > 0 && <> {tr("and touches", "dan menyentuh")} <strong>{tr(`${c.lines.length} request line(s)`, `${c.lines.length} baris permintaan`)}</strong></>}
         </span>
-        {c.shared && <Badge tone="amber">satu dokumen, banyak transaksi</Badge>}
+        {c.shared && <Badge tone="amber">{tr("one document, many transactions", "satu dokumen, banyak transaksi")}</Badge>}
       </p>
 
       <ul className="space-y-1">
@@ -1183,10 +1194,10 @@ function Coverage({ c }: { c: DocumentCoverage }) {
             <span className="font-mono text-[11px] text-slate-600">{t.trx_no}</span>
             <span className="text-slate-500">{t.account_code}</span>
             <span className="tabular-nums font-medium text-slate-800">{formatIDR(t.amount_idr)}</span>
-            {t.status === "VOID" && <Badge tone="slate">VOID — nilainya nol</Badge>}
+            {t.status === "VOID" && <Badge tone="slate">{tr("VOID — its value is zero", "VOID — nilainya nol")}</Badge>}
             {t.other_documents > 0 && (
               <span className="text-[11px] text-slate-400">
-                +{t.other_documents} dokumen lain di baris yang sama
+                {tr(`+${t.other_documents} other document(s) on the same row`, `+${t.other_documents} dokumen lain di baris yang sama`)}
               </span>
             )}
           </li>
@@ -1194,19 +1205,19 @@ function Coverage({ c }: { c: DocumentCoverage }) {
       </ul>
 
       <div className="flex flex-wrap items-baseline gap-x-3 border-t border-brand-200/70 pt-1.5 text-[12px]">
-        <span className="text-slate-500">Jumlah yang ditopang</span>
+        <span className="text-slate-500">{tr("Amount supported", "Jumlah yang ditopang")}</span>
         <span className="tabular-nums font-semibold text-slate-900">{formatIDR(c.covered_total)}</span>
         {c.document_amount == null ? (
           <span className="text-amber-700">
-            nilai dokumennya belum terbaca — selisihnya tidak bisa dihitung, dan nol di sini akan
-            menyesatkan
+            {tr("the document value has not been read — the gap cannot be computed, and a zero here would mislead",
+              "nilai dokumennya belum terbaca — selisihnya tidak bisa dihitung, dan nol di sini akan menyesatkan")}
           </span>
         ) : c.gap === 0 ? (
-          <span className="text-emerald-700">pas dengan nilai dokumennya</span>
+          <span className="text-emerald-700">{tr("exactly the document value", "pas dengan nilai dokumennya")}</span>
         ) : (
           <span className="text-amber-800">
-            selisih {formatIDR(Math.abs(c.gap ?? 0))}{" "}
-            {(c.gap ?? 0) > 0 ? "belum tercatat di mana pun" : "lebih besar dari nilai dokumennya"}
+            {tr("off by", "selisih")} {formatIDR(Math.abs(c.gap ?? 0))}{" "}
+            {(c.gap ?? 0) > 0 ? tr("not recorded anywhere yet", "belum tercatat di mana pun") : tr("more than the document value", "lebih besar dari nilai dokumennya")}
           </span>
         )}
       </div>
@@ -1222,21 +1233,21 @@ function Coverage({ c }: { c: DocumentCoverage }) {
                   {formatIDR(l.covered)} / {formatIDR(l.approved)}
                 </span>
                 {l.settled
-                  ? <Badge tone="green">lunas</Badge>
-                  : <Badge tone="amber">sisa {formatIDR(l.remaining)}</Badge>}
+                  ? <Badge tone="green">{tr("settled", "lunas")}</Badge>
+                  : <Badge tone="amber">{tr(`remaining ${formatIDR(l.remaining)}`, `sisa ${formatIDR(l.remaining)}`)}</Badge>}
               </span>
               {/* More than one payment on a line **is** the split: part cash,
                   part transfer, two ledger rows, one purchase. */}
               {l.payments.length > 1 && (
                 <span className="mt-0.5 block pl-2 text-[11px] text-slate-500">
-                  dibayar {l.payments.length}×:{" "}
+                  {tr(`paid ${l.payments.length}×:`, `dibayar ${l.payments.length}×:`)}{" "}
                   {l.payments.map((p, i) => (
                     <span key={`${p.trx_no}-${i}`}>
                       {i > 0 && " + "}
                       <span className={p.from_this_document ? "font-medium text-slate-700" : ""}>
                         {p.method} {formatIDR(p.amount)} ({p.account_code})
                       </span>
-                      {!p.from_this_document && <span className="text-slate-400"> — dokumen lain</span>}
+                      {!p.from_this_document && <span className="text-slate-400">{tr(" — another document", " — dokumen lain")}</span>}
                     </span>
                   ))}
                 </span>
@@ -1257,6 +1268,7 @@ function Coverage({ c }: { c: DocumentCoverage }) {
  *  Neither is visible from the document's side (D207).
  */
 function TargetRow({ trxNo }: { trxNo: string }) {
+  const tr = useTr();
   const [cov] = useLoad(() => accounting.coverageForTransaction(trxNo), [trxNo]);
 
   return (
@@ -1272,28 +1284,30 @@ function TargetRow({ trxNo }: { trxNo: string }) {
 
           {c.documents.length > 0 ? (
             <p className="text-slate-600">
-              Sudah punya {c.documents.length} dokumen:{" "}
+              {tr(`Already has ${c.documents.length} document(s):`, `Sudah punya ${c.documents.length} dokumen:`)}{" "}
               <span className="text-slate-500">{c.documents.map((d) => `${d.filename} (${d.kind})`).join(" · ")}</span>
               {c.documents.length >= 2 && (
                 <span className="block text-amber-800">
-                  Dua dokumen di satu baris itu biasa — nota dan bukti transfernya. Yang ketiga
-                  layak dilihat dulu: pastikan ini bukan nota yang sama yang dibukukan lagi.
+                  {tr("Two documents on one row is normal — the nota and its transfer proof. A third is worth a look first: make sure this is not the same nota being booked again.",
+                    "Dua dokumen di satu baris itu biasa — nota dan bukti transfernya. Yang ketiga layak dilihat dulu: pastikan ini bukan nota yang sama yang dibukukan lagi.")}
                 </span>
               )}
             </p>
           ) : (
-            <p className="text-slate-500">Belum ada dokumen di baris ini.</p>
+            <p className="text-slate-500">{tr("No document on this row yet.", "Belum ada dokumen di baris ini.")}</p>
           )}
 
           {c.allocations.length > 0 && (
             <p className="text-slate-600">
-              Uangnya menutup {c.allocations.length}{" "}
-              {c.allocations.length > 1 ? "pembelian" : "pembelian"}:{" "}
+              {tr(`Its money covers ${c.allocations.length}`, `Uangnya menutup ${c.allocations.length}`)}{" "}
+              {c.allocations.length > 1 ? tr("purchases", "pembelian") : tr("purchase", "pembelian")}:{" "}
               {c.allocations.map((a) => `${a.target} ${formatIDR(a.amount)} (${a.method})`).join(" · ")}
               {c.unallocated !== 0 && (
                 <span className="block text-amber-800">
                   {formatIDR(Math.abs(c.unallocated))}{" "}
-                  {c.unallocated > 0 ? "dari baris ini belum diarahkan ke pembelian mana pun" : "lebih banyak dialokasikan daripada nilai barisnya"}
+                  {c.unallocated > 0
+                    ? tr("of this row is not yet pointed at any purchase", "dari baris ini belum diarahkan ke pembelian mana pun")
+                    : tr("more allocated than the row is worth", "lebih banyak dialokasikan daripada nilai barisnya")}
                 </span>
               )}
             </p>
@@ -1301,10 +1315,10 @@ function TargetRow({ trxNo }: { trxNo: string }) {
 
           {c.lines.filter((l) => l.payments.length > 1).map((l) => (
             <p key={l.line_no_full} className="text-slate-600">
-              <span className="font-mono text-[11px]">{l.line_no_full}</span> dibayar{" "}
+              <span className="font-mono text-[11px]">{l.line_no_full}</span> {tr("paid", "dibayar")}{" "}
               {l.payments.length}×:{" "}
               {l.payments.map((pm) => `${pm.method} ${formatIDR(pm.amount)} (${pm.account_code})`).join(" + ")}
-              {l.settled && <> <Badge tone="green">lunas</Badge></>}
+              {l.settled && <> <Badge tone="green">{tr("settled", "lunas")}</Badge></>}
             </p>
           ))}
         </div>

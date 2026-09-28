@@ -18,7 +18,7 @@ import type {
   EffectiveDaysCalendar,
 } from "@/services/hr/contracts";
 import {
-  SENSITIVE_DOC_KINDS, SCHEME_LABEL, maskDocNo, clauseValueOk, scheduleProblem,
+  SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem,
 } from "@/services/hr/contracts";
 import type { DocKind } from "@/services/documents/contracts";
 import type { DemoState } from "../state";
@@ -33,7 +33,7 @@ import {
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
 import { officeToday as sharedOfficeToday } from "@/lib/office";
-import { CADENCE_LABEL, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
+import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
 
@@ -2644,7 +2644,7 @@ export async function saveTaskRoutine(
     }
     if (existing.cadence !== input.cadence) {
       return conflict(SERVICE, "cadence_is_fixed",
-        `${existing.routine_no} sudah berjalan ${CADENCE_LABEL[existing.cadence].toLowerCase()}. `
+        `${existing.routine_no} sudah berjalan ${CADENCE_LABELS[existing.cadence].id.toLowerCase()}. `
         + "Mengganti iramanya memotong ulang setiap periode dan membuat periode yang sudah terbit bertabrakan dengan yang baru — hentikan yang ini, lalu buat tugas rutin baru.");
     }
   }
@@ -2952,7 +2952,7 @@ export async function enrol(
   if (open) {
     return conflict(
       SERVICE, "already_enrolled",
-      `${emp.full_name} sudah terdaftar di ${SCHEME_LABEL[input.scheme]} sejak ${open.enrolled_on}. Akhiri dulu yang lama kalau memang didaftarkan ulang.`,
+      `${emp.full_name} sudah terdaftar di ${SCHEME_LABELS[input.scheme].id} sejak ${open.enrolled_on}. Akhiri dulu yang lama kalau memang didaftarkan ulang.`,
     );
   }
 
@@ -3069,7 +3069,7 @@ export async function saveContributionRate(
   if (latest && input.effective_from <= latest.effective_from) {
     return conflict(
       SERVICE, "not_forward",
-      `Versi terakhir ${SCHEME_LABEL[input.scheme]} berlaku sejak ${latest.effective_from}. Versi baru harus mulai setelahnya — iuran bulan lalu dihitung dengan tarif bulan lalu.`,
+      `Versi terakhir ${SCHEME_LABELS[input.scheme].id} berlaku sejak ${latest.effective_from}. Versi baru harus mulai setelahnya — iuran bulan lalu dihitung dengan tarif bulan lalu.`,
     );
   }
 

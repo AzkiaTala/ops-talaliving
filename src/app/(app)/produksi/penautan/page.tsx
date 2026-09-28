@@ -13,6 +13,7 @@ import type { Employee } from "@/services/hr/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { officeToday } from "@/lib/office";
+import { useTr } from "@/lib/i18n";
 
 /** Putting a name to the work — once per name, by a person (D264).
  *
@@ -40,6 +41,7 @@ import { officeToday } from "@/lib/office";
  *  than an untouched one because it looks complete.
  */
 export default function WorkAttributionPage() {
+  const tr = useTr();
   const { can } = useSession();
   const mayEdit = can("production.update");
   const [to, setTo] = useState(officeToday());
@@ -55,9 +57,12 @@ export default function WorkAttributionPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Production"
-        title="Penautan nama"
-        description="Papan produksi mencatat nama, bukan orang — karena subkon itu jawaban yang sah. Di sini nama itu dihubungkan ke karyawan, satu kali per nama, oleh manusia. Sistem boleh menyarankan; menautkan sendiri tidak."
+        breadcrumb={tr("Production", "Produksi")}
+        title={tr("Name linking", "Penautan nama")}
+        description={tr(
+          "The production board records names, not people — because a subcontractor is a legitimate answer. Here those names are linked to employees, once per name, by a person. The system may suggest; it never links on its own.",
+          "Papan produksi mencatat nama, bukan orang — karena subkon itu jawaban yang sah. Di sini nama itu dihubungkan ke karyawan, satu kali per nama, oleh manusia. Sistem boleh menyarankan; menautkan sendiri tidak.",
+        )}
         actions={
           <div className="flex items-center gap-2 text-[12px]">
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
@@ -79,39 +84,52 @@ export default function WorkAttributionPage() {
             <>
               <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatCard
-                  label="Sudah jelas siapa" value={`${coverage}%`} icon={Check}
+                  label={tr("Known who", "Sudah jelas siapa")} value={`${coverage}%`} icon={Check}
                   tone={coverage >= 80 ? "green" : coverage >= 50 ? "amber" : "red"}
                 />
-                <StatCard label="Tertaut ke karyawan" value={String(a.employee)} icon={Link2} />
-                <StatCard label="Bukan satu orang" value={String(a.not_a_person)} icon={Users} />
+                <StatCard label={tr("Linked to an employee", "Tertaut ke karyawan")} value={String(a.employee)} icon={Link2} />
+                <StatCard label={tr("Not one person", "Bukan satu orang")} value={String(a.not_a_person)} icon={Users} />
                 <StatCard
-                  label="Belum dijawab" value={String(a.unknown)} icon={AlertTriangle}
+                  label={tr("Unanswered", "Belum dijawab")} value={String(a.unknown)} icon={AlertTriangle}
                   tone={a.unknown > 0 ? "amber" : "slate"}
                 />
               </div>
 
               <p className="mb-4 text-[12px] text-slate-500">
-                Selama masih ada entri yang belum dijawab, kolom hasil produksi yang kosong di{" "}
-                <Link href="/hrd/kinerja" className="underline">kinerja</Link> tidak bisa dibaca sebagai
-                nol — bisa jadi orangnya bekerja dan tidak ada yang menuliskan siapa. Cakupan itu sifat
-                catatannya, bukan sifat orangnya.
+                {tr(
+                  "While any entry is unanswered, an empty production column in",
+                  "Selama masih ada entri yang belum dijawab, kolom hasil produksi yang kosong di",
+                )}{" "}
+                <Link href="/hrd/kinerja" className="underline">{tr("performance", "kinerja")}</Link>{" "}
+                {tr(
+                  "cannot be read as zero — the person may have worked and nobody wrote down who. Coverage is a property of the records, not of the people.",
+                  "tidak bisa dibaca sebagai nol — bisa jadi orangnya bekerja dan tidak ada yang menuliskan siapa. Cakupan itu sifat catatannya, bukan sifat orangnya.",
+                )}
                 {a.unnamed > 0 && (
-                  <> {a.unnamed} entri periode ini bahkan tidak menyebut nama sama sekali, dan itu tidak
-                  bisa diselesaikan dari sini — hanya oleh yang mencatatnya.</>
+                  <> {tr(
+                    `${a.unnamed} entries in this period name nobody at all, and that cannot be resolved from here — only by whoever recorded them.`,
+                    `${a.unnamed} entri periode ini bahkan tidak menyebut nama sama sekali, dan itu tidak bisa diselesaikan dari sini — hanya oleh yang mencatatnya.`,
+                  )}</>
                 )}
               </p>
 
               {d.names.length === 0 ? (
                 <EmptyState
                   icon={Check}
-                  title="Tidak ada nama yang menunggu jawaban"
-                  description="Semua nama pada periode ini sudah tertaut ke karyawan atau sudah ditandai bukan satu orang."
+                  title={tr("No names waiting for an answer", "Tidak ada nama yang menunggu jawaban")}
+                  description={tr(
+                    "Every name in this period is linked to an employee or marked as not one person.",
+                    "Semua nama pada periode ini sudah tertaut ke karyawan atau sudah ditandai bukan satu orang.",
+                  )}
                 />
               ) : (
                 <Card>
                   <CardHeader
-                    title={`${d.names.length} nama menunggu jawaban`}
-                    subtitle="Satu jawaban berlaku untuk semua entri dengan nama itu pada periode ini. Entri yang sudah dijawab sebelumnya tidak ikut tersentuh."
+                    title={tr(`${d.names.length} names waiting for an answer`, `${d.names.length} nama menunggu jawaban`)}
+                    subtitle={tr(
+                      "One answer applies to every entry with that name in this period. Entries answered earlier are not touched.",
+                      "Satu jawaban berlaku untuk semua entri dengan nama itu pada periode ini. Entri yang sudah dijawab sebelumnya tidak ikut tersentuh.",
+                    )}
                     icon={Link2}
                     action={<SourceBadge state={rows} />}
                   />
@@ -143,6 +161,7 @@ type NameRowProps = {
 };
 
 function NameRow({ row, employees, mayEdit, from, to, onDone }: NameRowProps) {
+  const tr = useTr();
   const { toast } = useToast();
   const [picked, setPicked] = useState<string>("");
   const [busy, setBusy] = useState(false);
@@ -161,11 +180,13 @@ function NameRow({ row, employees, mayEdit, from, to, onDone }: NameRowProps) {
     const res = await production.resolveWorkName({ name: row.name, from, to, ...answer });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "critical" : "warning", "Belum ditautkan", res.error.message);
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not linked yet", "Belum ditautkan"), res.error.message);
       return;
     }
-    toast("success", `${row.name} · ${res.data.updated} entri`,
-      answer.not_a_person ? "Ditandai bukan satu orang." : "Tertaut ke karyawan.");
+    toast("success", tr(`${row.name} · ${res.data.updated} entries`, `${row.name} · ${res.data.updated} entri`),
+      answer.not_a_person
+        ? tr("Marked as not one person.", "Ditandai bukan satu orang.")
+        : tr("Linked to an employee.", "Tertaut ke karyawan."));
     onDone();
   }
 
@@ -175,7 +196,7 @@ function NameRow({ row, employees, mayEdit, from, to, onDone }: NameRowProps) {
         <span className="min-w-[220px] flex-1">
           <span className="block text-[14px] font-medium text-slate-800">{row.name}</span>
           <span className="block text-[11px] text-slate-500">
-            {row.entries} entri · {formatNumber(row.qty)} pcs · {row.first_seen} — {row.last_seen}
+            {tr(`${row.entries} entries`, `${row.entries} entri`)} · {formatNumber(row.qty)} pcs · {row.first_seen} — {row.last_seen}
           </span>
           <span className="block text-[11px] text-slate-400">{row.work_orders.join(" · ")}</span>
         </span>
@@ -184,18 +205,20 @@ function NameRow({ row, employees, mayEdit, from, to, onDone }: NameRowProps) {
           {/* A suggestion, offered and never applied. */}
           {row.suggestion && (
             <Badge tone="brand">
-              saran: {row.suggestion.employee_no} · {row.suggestion.full_name}
+              {tr("suggestion:", "saran:")} {row.suggestion.employee_no} · {row.suggestion.full_name}
             </Badge>
           )}
           {row.ambiguous && (
             <span className="flex items-center gap-1.5 text-[11px] text-amber-700">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              {row.ambiguous.length} orang bernama sama ({row.ambiguous.map((m) => m.employee_no).join(", ")}) —
-              tidak ada saran, pilih sendiri
+              {tr(
+                `${row.ambiguous.length} people share this name (${row.ambiguous.map((m) => m.employee_no).join(", ")}) — no suggestion, choose yourself`,
+                `${row.ambiguous.length} orang bernama sama (${row.ambiguous.map((m) => m.employee_no).join(", ")}) — tidak ada saran, pilih sendiri`,
+              )}
             </span>
           )}
           {!row.suggestion && !row.ambiguous && (
-            <span className="text-[11px] text-slate-400">tidak ada karyawan dengan nama ini</span>
+            <span className="text-[11px] text-slate-400">{tr("no employee with this name", "tidak ada karyawan dengan nama ini")}</span>
           )}
         </span>
       </div>
@@ -207,7 +230,7 @@ function NameRow({ row, employees, mayEdit, from, to, onDone }: NameRowProps) {
               size="sm" variant="secondary" icon={Check} disabled={busy}
               onClick={() => save({ employee_id: row.suggestion!.employee_id })}
             >
-              Ya, {row.suggestion.full_name}
+              {tr("Yes,", "Ya,")} {row.suggestion.full_name}
             </Button>
           )}
           <div className="w-[260px]">
@@ -215,7 +238,7 @@ function NameRow({ row, employees, mayEdit, from, to, onDone }: NameRowProps) {
               options={options}
               value={picked}
               onChange={(v) => setPicked(v)}
-              placeholder="Pilih karyawan lain…"
+              placeholder={tr("Choose another employee…", "Pilih karyawan lain…")}
             />
           </div>
           <Button
@@ -223,13 +246,13 @@ function NameRow({ row, employees, mayEdit, from, to, onDone }: NameRowProps) {
             disabled={busy || !picked}
             onClick={() => save({ employee_id: picked })}
           >
-            Tautkan
+            {tr("Link", "Tautkan")}
           </Button>
           <Button
             size="sm" variant="ghost" icon={Users} disabled={busy}
             onClick={() => save({ not_a_person: true })}
           >
-            Bukan satu orang
+            {tr("Not one person", "Bukan satu orang")}
           </Button>
         </div>
       )}

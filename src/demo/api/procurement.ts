@@ -12,7 +12,7 @@ import type {
 import type { DemoState } from "../state";
 import { productView, workOrderView, joReferenceProblem } from "../production-derive";
 import type { PrLine as PrLineRow } from "@/services/procurement/contracts";
-import { PROBLEM_CONDITIONS, COUNTING_CONDITIONS, VARIANCE_REASON_LABEL } from "@/services/procurement/contracts";
+import { PROBLEM_CONDITIONS, COUNTING_CONDITIONS, VARIANCE_REASON_LABELS } from "@/services/procurement/contracts";
 import type { DocKind } from "@/services/documents/contracts";
 import { REQUEST_SUPPORT_KINDS } from "@/services/documents/contracts";
 import { getActiveLocale } from "@/lib/format";
@@ -2982,7 +2982,7 @@ export async function explainVariance(
     if (settles && !draft.line_settlements.some((s) => s.line_id === line.id)) {
       draft.line_settlements.push({
         id: newId("stl"), line_id: line.id, shortfall: Math.abs(v.delta),
-        reason: `${VARIANCE_REASON_LABEL[input.reason]}${input.note?.trim() ? ` — ${input.note.trim()}` : ""}`,
+        reason: `${VARIANCE_REASON_LABELS[input.reason].en}${input.note?.trim() ? ` — ${input.note.trim()}` : ""}`,
         decided_by: user.id, decided_at: new Date().toISOString(),
       });
     }

@@ -6,17 +6,24 @@
  *  it. Append-only: a follow-up that moves is closed with its result and a new
  *  one logged.
  */
+import { trNow, type Message } from "@/lib/i18n";
 
 export type ActivityKind = "call" | "whatsapp" | "email" | "meeting" | "visit" | "note";
 
-export const ACTIVITY_KINDS: { code: ActivityKind; label: string }[] = [
-  { code: "call", label: "Telepon" },
-  { code: "whatsapp", label: "WhatsApp" },
-  { code: "email", label: "Email" },
-  { code: "meeting", label: "Meeting" },
-  { code: "visit", label: "Kunjungan" },
-  { code: "note", label: "Catatan" },
-];
+export const ACTIVITY_KIND_LABELS: Record<ActivityKind, Message> = {
+  call: { en: "Call", id: "Telepon" },
+  whatsapp: { en: "WhatsApp", id: "WhatsApp" },
+  email: { en: "Email", id: "Email" },
+  meeting: { en: "Meeting", id: "Meeting" },
+  visit: { en: "Visit", id: "Kunjungan" },
+  note: { en: "Note", id: "Catatan" },
+};
+
+export const ACTIVITY_KINDS: { code: ActivityKind; label: string }[] =
+  (Object.keys(ACTIVITY_KIND_LABELS) as ActivityKind[]).map((code) => ({
+    code,
+    get label() { return trNow(ACTIVITY_KIND_LABELS[code].en, ACTIVITY_KIND_LABELS[code].id); },
+  }));
 
 export const ACTIVITY_KIND_LABEL = (k: ActivityKind): string =>
   ACTIVITY_KINDS.find((x) => x.code === k)?.label ?? k;

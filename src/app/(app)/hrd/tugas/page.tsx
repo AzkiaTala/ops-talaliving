@@ -10,10 +10,11 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { officeToday } from "@/lib/office";
 import { cn } from "@/lib/cn";
 import { hr } from "@/demo/api";
-import { CADENCE_LABEL, type Cadence } from "@/services/hr/task-periods";
-import type { TaskView } from "@/services/hr/contracts";
+import type { Cadence } from "@/services/hr/task-periods";
+import { CADENCE_LABEL, type TaskView } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Pemantauan tugas — the module built against a failure the owner described
  *  in one sentence (D303):
@@ -51,6 +52,7 @@ import { useToast } from "@/store/toast";
 export default function TasksPage() {
   const { can } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
   const today = officeToday();
 
   const [tasks, reloadTasks] = useLoad(() => hr.listTasks(), []);
@@ -96,12 +98,12 @@ export default function TasksPage() {
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak dibuat", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not created", "Tidak dibuat"), res.error.message);
       return;
     }
-    toast("success", `${res.data.task_no} dibuat`,
-      `${res.data.assignee_name} · jatuh tempo ${res.data.due_date}`
-      + (res.data.chase_date ? ` · ditagih ${res.data.chase_date}` : ""));
+    toast("success", tr(`${res.data.task_no} created`, `${res.data.task_no} dibuat`),
+      tr(`${res.data.assignee_name} · due ${res.data.due_date}`, `${res.data.assignee_name} · jatuh tempo ${res.data.due_date}`)
+      + (res.data.chase_date ? tr(` · chased ${res.data.chase_date}`, ` · ditagih ${res.data.chase_date}`) : ""));
     setDraft({ assignee_no: draft.assignee_no, title: "", due_date: "", deliverable: "",
                period_start: "", period_end: "", chase_date: "" });
     setAdding(false);
@@ -110,17 +112,21 @@ export default function TasksPage() {
 
   async function chase(t: TaskView) {
     const note = window.prompt(
-      `Menagih ${t.assignee_name}: ${t.title}\n\n`
-      + "Apa jawabannya? Catatan ini yang dibaca saat ditagih lagi — dan tugas ini "
-      + "keluar dari daftar tagihan begitu dicatat, bukan setelah pekerjaannya datang.",
+      tr(`Chasing ${t.assignee_name}: ${t.title}\n\n`, `Menagih ${t.assignee_name}: ${t.title}\n\n`)
+      + tr(
+        "What was the answer? This note is what is read at the next chase — and the task "
+        + "leaves the chase list as soon as it is recorded, not once the work arrives.",
+        "Apa jawabannya? Catatan ini yang dibaca saat ditagih lagi — dan tugas ini "
+        + "keluar dari daftar tagihan begitu dicatat, bukan setelah pekerjaannya datang.",
+      ),
       "",
     );
     if (note === null) return;
     setBusy(true);
     const res = await hr.chaseTask({ task_no: t.task_no, note });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak tercatat", res.error.message); return; }
-    toast("success", t.task_no, "Penagihan dicatat");
+    if (res.error) { toast("warning", tr("Not recorded", "Tidak tercatat"), res.error.message); return; }
+    toast("success", t.task_no, tr("Chase recorded", "Penagihan dicatat"));
     reloadTasks();
   }
 
@@ -129,7 +135,7 @@ export default function TasksPage() {
     const res = await hr.acknowledgeTask({ task_no: t.task_no });
     setBusy(false);
     if (res.error) { toast("warning", "Tidak berubah", res.error.message); return; }
-    toast("success", t.task_no, "Ditandai sudah diterima orangnya");
+    toast("success", t.task_no, tr("Marked as received by the person", "Ditandai sudah diterima orangnya"));
     reloadTasks();
   }
 
@@ -137,11 +143,14 @@ export default function TasksPage() {
     let reason: string | null = null;
     let delivered: string | null = null;
     if (action === "block") {
-      reason = window.prompt("Tertahan menunggu apa? Tugas yang tertahan dikeluarkan dari penilaian orangnya, jadi alasannya wajib.");
+      reason = window.prompt(tr(
+        "Blocked waiting on what? A blocked task is taken out of the person's assessment, so the reason is required.",
+        "Tertahan menunggu apa? Tugas yang tertahan dikeluarkan dari penilaian orangnya, jadi alasannya wajib.",
+      ));
       if (!reason?.trim()) return;
     }
     if (action === "cancel") {
-      reason = window.prompt("Kenapa dibatalkan?");
+      reason = window.prompt(tr("Why is it cancelled?", "Kenapa dibatalkan?"));
       if (!reason?.trim()) return;
     }
     if (action === "done") {
@@ -149,8 +158,11 @@ export default function TasksPage() {
          over an empty text box is how a tracker stops being used (A6). */
       delivered = window.prompt(
         t.deliverable
-          ? `Yang diminta: ${t.deliverable}\n\nApa yang diserahkan? Boleh dikosongkan.`
-          : "Apa yang diserahkan? Boleh dikosongkan.",
+          ? tr(
+            `Asked for: ${t.deliverable}\n\nWhat was handed over? May be left empty.`,
+            `Yang diminta: ${t.deliverable}\n\nApa yang diserahkan? Boleh dikosongkan.`,
+          )
+          : tr("What was handed over? May be left empty.", "Apa yang diserahkan? Boleh dikosongkan."),
         "",
       );
       if (delivered === null) return;
@@ -160,8 +172,8 @@ export default function TasksPage() {
     setBusy(false);
     if (res.error) { toast("warning", "Tidak berubah", res.error.message); return; }
     toast("success", t.task_no,
-      action === "done" ? "Selesai" : action === "block" ? "Ditandai tertahan"
-      : action === "unblock" ? "Tidak lagi tertahan" : "Dibatalkan");
+      action === "done" ? tr("Done", "Selesai") : action === "block" ? tr("Marked blocked", "Ditandai tertahan")
+      : action === "unblock" ? tr("No longer blocked", "Tidak lagi tertahan") : tr("Cancelled", "Dibatalkan"));
     reloadTasks();
   }
 
@@ -173,9 +185,12 @@ export default function TasksPage() {
       due_offset_days: rDraft.due_offset_days, chase_lead_days: rDraft.chase_lead_days,
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak tersimpan", res.error.message); return; }
-    toast("success", `${res.data.routine_no} dibuat`,
-      `${CADENCE_LABEL[res.data.cadence]} · ${res.data.assignee_name} · periode berjalan ${res.data.current_period}`);
+    if (res.error) { toast("warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", tr(`${res.data.routine_no} created`, `${res.data.routine_no} dibuat`),
+      tr(
+        `${CADENCE_LABEL[res.data.cadence]} · ${res.data.assignee_name} · current period ${res.data.current_period}`,
+        `${CADENCE_LABEL[res.data.cadence]} · ${res.data.assignee_name} · periode berjalan ${res.data.current_period}`,
+      ));
     setRDraft({ ...rDraft, title: "", deliverable: "" });
     setAddingRoutine(false);
     reloadRoutines();
@@ -183,9 +198,12 @@ export default function TasksPage() {
 
   async function endRoutine(routineNo: string, title: string) {
     const reason = window.prompt(
-      `Menghentikan "${title}".\n\n`
-      + "Kenapa dihentikan? Tugas yang sudah terbit tetap berlaku — yang berhenti "
-      + "adalah penerbitan periode berikutnya.",
+      tr(`Stopping "${title}".\n\n`, `Menghentikan "${title}".\n\n`)
+      + tr(
+        "Why is it stopped? Tasks already raised still stand — what stops is raising the next periods.",
+        "Kenapa dihentikan? Tugas yang sudah terbit tetap berlaku — yang berhenti "
+        + "adalah penerbitan periode berikutnya.",
+      ),
     );
     if (!reason?.trim()) return;
     setBusy(true);
@@ -194,8 +212,11 @@ export default function TasksPage() {
     if (res.error) { toast("warning", "Tidak berubah", res.error.message); return; }
     toast("success", routineNo,
       res.data.open_count > 0
-        ? `Dihentikan. ${res.data.open_count} tugas yang sudah terbit masih terbuka.`
-        : "Dihentikan.");
+        ? tr(
+          `Stopped. ${res.data.open_count} tasks already raised are still open.`,
+          `Dihentikan. ${res.data.open_count} tugas yang sudah terbit masih terbuka.`,
+        )
+        : tr("Stopped.", "Dihentikan."));
     reloadRoutines(); reloadTasks();
   }
 
@@ -203,14 +224,17 @@ export default function TasksPage() {
     setBusy(true);
     const res = await hr.rollTaskRoutines({});
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak diterbitkan", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not raised", "Tidak diterbitkan"), res.error.message); return; }
     /* Both numbers, always. "0 dibuat" means *nothing was needed* and it also
        means *everything collided*, and those are not the same news. */
     toast(res.data.created > 0 ? "success" : "info",
-      `${res.data.created} tugas terbit`,
+      tr(`${res.data.created} tasks raised`, `${res.data.created} tugas terbit`),
       res.data.already_there > 0
-        ? `${res.data.already_there} periode sudah ada dan dilewati.`
-        : "Tidak ada periode yang terlewat.");
+        ? tr(
+          `${res.data.already_there} periods already existed and were skipped.`,
+          `${res.data.already_there} periode sudah ada dan dilewati.`,
+        )
+        : tr("No period was missed.", "Tidak ada periode yang terlewat."));
     reloadTasks(); reloadRoutines();
   }
 
@@ -218,18 +242,21 @@ export default function TasksPage() {
     <div>
       <PageHeader
         breadcrumb="HRD"
-        title="Pemantauan tugas"
-        description="Tugas rutin dan tugas tambahan, lengkap dengan periode pengerjaannya, apa yang harus diserahkan, dan kapan ditagih. Yang mengingat tanggal penagihan adalah papan ini, bukan orangnya."
+        title={tr("Task tracking", "Pemantauan tugas")}
+        description={tr(
+          "Routine and extra tasks, with their working period, what has to be handed over, and when to chase. This board remembers the chase date, not the person.",
+          "Tugas rutin dan tugas tambahan, lengkap dengan periode pengerjaannya, apa yang harus diserahkan, dan kapan ditagih. Yang mengingat tanggal penagihan adalah papan ini, bukan orangnya.",
+        )}
         actions={
           <div className="flex flex-wrap items-center gap-1.5">
             {mayCreate && (
               <Button size="sm" variant="ghost" onClick={roll} disabled={busy}>
-                <Repeat className="h-4 w-4" /> Terbitkan periode
+                <Repeat className="h-4 w-4" /> {tr("Raise periods", "Terbitkan periode")}
               </Button>
             )}
             {mayCreate && (
               <Button size="sm" onClick={() => { setAdding((v) => !v); setAddingRoutine(false); }}>
-                <Plus className="h-4 w-4" /> Tugas baru
+                <Plus className="h-4 w-4" /> {tr("New task", "Tugas baru")}
               </Button>
             )}
             <SourceBadge state={tasks} />
@@ -240,11 +267,17 @@ export default function TasksPage() {
       {/* ── what has to be asked for, today ──────────────────────────────── */}
       <Card className="mb-4">
         <CardHeader
-          title="Ditagih hari ini"
+          title={tr("To chase today", "Ditagih hari ini")}
           subtitle={
             chases.length === 0
-              ? "Tidak ada yang jatuh tempo ditagih. Daftar ini kosong karena sudah ditagih atau memang belum waktunya — bukan karena tidak ada tugas."
-              : `${chases.length} tugas sudah sampai tanggal penagihannya dan belum ada yang menanyakan.`
+              ? tr(
+                "Nothing is due to be chased. This list is empty because it was chased already or it is not time yet — not because there are no tasks.",
+                "Tidak ada yang jatuh tempo ditagih. Daftar ini kosong karena sudah ditagih atau memang belum waktunya — bukan karena tidak ada tugas.",
+              )
+              : tr(
+                `${chases.length} tasks have reached their chase date and nobody has asked yet.`,
+                `${chases.length} tugas sudah sampai tanggal penagihannya dan belum ada yang menanyakan.`,
+              )
           }
           icon={BellRing}
           action={<Badge tone={chases.length > 0 ? "amber" : "slate"}>{chases.length}</Badge>}
@@ -257,26 +290,26 @@ export default function TasksPage() {
                   <p className="text-sm font-medium text-slate-800">{t.title}</p>
                   <p className="text-[12px] text-slate-500">
                     {t.assignee_name}
-                    {t.period_label && <> · periode <span className="font-medium">{t.period_label}</span></>}
-                    {" · jatuh tempo "}{t.due_date}
+                    {t.period_label && <> · {tr("period", "periode")} <span className="font-medium">{t.period_label}</span></>}
+                    {tr(" · due ", " · jatuh tempo ")}{t.due_date}
                     {t.days_left < 0
-                      ? <span className="text-rose-700"> ({-t.days_left} hari lewat)</span>
-                      : <span className="text-slate-400"> ({t.days_left} hari lagi)</span>}
+                      ? <span className="text-rose-700">{tr(` (${-t.days_left} days over)`, ` (${-t.days_left} hari lewat)`)}</span>
+                      : <span className="text-slate-400">{tr(` (${t.days_left} days left)`, ` (${t.days_left} hari lagi)`)}</span>}
                   </p>
                   {t.deliverable && (
                     <p className="mt-0.5 text-[12px] text-slate-600">
-                      <span className="text-slate-400">yang diminta:</span> {t.deliverable}
+                      <span className="text-slate-400">{tr("asked for:", "yang diminta:")}</span> {t.deliverable}
                     </p>
                   )}
                   {!t.acknowledged && (
                     <p className="mt-0.5 text-[11px] text-amber-700">
-                      Belum ada tanda tugas ini diterima orangnya.
+                      {tr("No sign yet that the person has received this task.", "Belum ada tanda tugas ini diterima orangnya.")}
                     </p>
                   )}
                 </div>
                 {mayEdit && (
                   <Button size="sm" onClick={() => chase(t)} disabled={busy}>
-                    <AlarmClock className="h-4 w-4" /> Catat penagihan
+                    <AlarmClock className="h-4 w-4" /> {tr("Record chase", "Catat penagihan")}
                   </Button>
                 )}
               </li>
@@ -287,16 +320,21 @@ export default function TasksPage() {
 
       {unheard > 0 && (
         <p className="mb-4 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-[13px] text-slate-700">
-          <strong>{unheard} dari {open.length} tugas terbuka belum ditandai diterima.</strong>{" "}
-          Tanda itu bukan syarat apa pun — yang belum ditandai tetap jatuh tempo dan tetap
-          terlambat kalau terlambat. Gunanya nanti, waktu pertanyaannya menjadi
-          <em> apakah orangnya memang pernah diberi tahu</em>, dan jawabannya harus ada
-          bekasnya di dua sisi.
+          <strong>{tr(
+            `${unheard} of ${open.length} open tasks are not marked as received.`,
+            `${unheard} dari ${open.length} tugas terbuka belum ditandai diterima.`,
+          )}</strong>{" "}
+          {tr(
+            "The mark is not a condition for anything — an unmarked task still falls due and is still late if it is late. It matters later, when the question becomes",
+            "Tanda itu bukan syarat apa pun — yang belum ditandai tetap jatuh tempo dan tetap terlambat kalau terlambat. Gunanya nanti, waktu pertanyaannya menjadi",
+          )}
+          <em>{tr(" whether the person was ever actually told", " apakah orangnya memang pernah diberi tahu")}</em>
+          {tr(", and the answer has to leave a trace on both sides.", ", dan jawabannya harus ada bekasnya di dua sisi.")}
         </p>
       )}
 
       <div className="mb-3 flex gap-1.5">
-        {([["open", "Terbuka"], ["all", "Semua"], ["routines", "Tugas rutin"]] as const).map(([k, label]) => (
+        {([["open", tr("Open", "Terbuka")], ["all", tr("All", "Semua")], ["routines", tr("Routine tasks", "Tugas rutin")]] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -313,16 +351,23 @@ export default function TasksPage() {
 
       {adding && mayCreate && (
         <Card className="mb-4">
-          <CardHeader title="Tugas baru" subtitle="Periode dan tanggal penagihan boleh dikosongkan — keduanya untuk tugas yang menutup satu rentang waktu, bukan satu permintaan sekali jalan." icon={Plus} />
+          <CardHeader
+            title={tr("New task", "Tugas baru")}
+            subtitle={tr(
+              "Period and chase date may be left empty — both are for a task that covers a span of time, not a one-off request.",
+              "Periode dan tanggal penagihan boleh dikosongkan — keduanya untuk tugas yang menutup satu rentang waktu, bukan satu permintaan sekali jalan.",
+            )}
+            icon={Plus}
+          />
           <div className="grid gap-3 px-5 py-4 sm:grid-cols-2">
             <label className="text-[12px] text-slate-600">
-              Untuk siapa
+              {tr("For whom", "Untuk siapa")}
               <select
                 value={draft.assignee_no}
                 onChange={(e) => setDraft({ ...draft, assignee_no: e.target.value })}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm"
               >
-                <option value="">— pilih —</option>
+                <option value="">{tr("— choose —", "— pilih —")}</option>
                 {employees.status === "ready" && employees.data
                   .filter((e) => e.active)
                   .map((e) => (
@@ -333,56 +378,60 @@ export default function TasksPage() {
               </select>
             </label>
             <label className="text-[12px] text-slate-600">
-              Tugasnya apa
+              {tr("What is the task", "Tugasnya apa")}
               <input
                 value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm"
               />
             </label>
             <label className="text-[12px] text-slate-600 sm:col-span-2">
-              Yang harus diserahkan
+              {tr("What must be handed over", "Yang harus diserahkan")}
               <input
                 value={draft.deliverable}
                 onChange={(e) => setDraft({ ...draft, deliverable: e.target.value })}
-                placeholder="Laporan stok dalam bentuk excel, dikirim ke email pimpinan"
+                placeholder={tr("Stock report as an Excel file, sent to the leader's email", "Laporan stok dalam bentuk excel, dikirim ke email pimpinan")}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm"
               />
               <span className="mt-0.5 block text-[11px] text-slate-400">
-                Kalimat ini yang dipakai dua orang untuk menyepakati arti <em>selesai</em>.
+                {tr("This sentence is what two people use to agree on what", "Kalimat ini yang dipakai dua orang untuk menyepakati arti")}{" "}
+                <em>{tr("done", "selesai")}</em>{tr(" means.", ".")}
               </span>
             </label>
             <label className="text-[12px] text-slate-600">
-              Periode mulai
+              {tr("Period start", "Periode mulai")}
               <input type="date" value={draft.period_start}
                 onChange={(e) => setDraft({ ...draft, period_start: e.target.value })}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm" />
             </label>
             <label className="text-[12px] text-slate-600">
-              Periode selesai
+              {tr("Period end", "Periode selesai")}
               <input type="date" value={draft.period_end}
                 onChange={(e) => setDraft({ ...draft, period_end: e.target.value })}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm" />
             </label>
             <label className="text-[12px] text-slate-600">
-              Jatuh tempo
+              {tr("Due date", "Jatuh tempo")}
               <input type="date" value={draft.due_date}
                 onChange={(e) => setDraft({ ...draft, due_date: e.target.value })}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm" />
             </label>
             <label className="text-[12px] text-slate-600">
-              Ditagih tanggal
+              {tr("Chase on", "Ditagih tanggal")}
               <input type="date" value={draft.chase_date}
                 onChange={(e) => setDraft({ ...draft, chase_date: e.target.value })}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm" />
               <span className="mt-0.5 block text-[11px] text-slate-400">
-                Hari papan ini mengingatkan untuk menanyakannya. Tidak boleh lewat dari jatuh tempo.
+                {tr(
+                  "The day this board reminds you to ask. It may not be after the due date.",
+                  "Hari papan ini mengingatkan untuk menanyakannya. Tidak boleh lewat dari jatuh tempo.",
+                )}
               </span>
             </label>
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
-            <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>Batal</Button>
+            <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>{tr("Cancel", "Batal")}</Button>
             <Button size="sm" onClick={add} disabled={busy || !draft.assignee_no || !draft.title || !draft.due_date}>
-              Simpan
+              {tr("Save", "Simpan")}
             </Button>
           </div>
         </Card>
@@ -395,7 +444,7 @@ export default function TasksPage() {
             if (list.length === 0) {
               return (
                 <Card><p className="px-5 py-8 text-center text-sm text-slate-500">
-                  Belum ada tugas di sini.
+                  {tr("No tasks here yet.", "Belum ada tugas di sini.")}
                 </p></Card>
               );
             }
@@ -410,7 +459,7 @@ export default function TasksPage() {
                             {t.title}
                             {t.routine_no && (
                               <span className="ml-2 align-middle text-[10px] font-normal uppercase tracking-wide text-slate-400">
-                                rutin
+                                {tr("routine", "rutin")}
                               </span>
                             )}
                           </p>
@@ -422,7 +471,7 @@ export default function TasksPage() {
                           </p>
                           {t.deliverable && (
                             <p className="mt-0.5 text-[12px] text-slate-600">
-                              <span className="text-slate-400">diminta:</span> {t.deliverable}
+                              <span className="text-slate-400">{tr("asked for:", "diminta:")}</span> {t.deliverable}
                             </p>
                           )}
                           {t.delivered_note && (
@@ -439,58 +488,58 @@ export default function TasksPage() {
                           )}
                           {t.cancelled_reason && (
                             <p className="mt-0.5 text-[12px] text-slate-500">
-                              Dibatalkan: {t.cancelled_reason}
+                              {tr("Cancelled:", "Dibatalkan:")} {t.cancelled_reason}
                             </p>
                           )}
                           {t.chased_at && (
                             <p className="mt-0.5 text-[11px] text-slate-400">
-                              Ditagih {t.chased_at.slice(0, 10)}
-                              {t.chased_by_name && <> oleh {t.chased_by_name}</>}
+                              {tr("Chased", "Ditagih")} {t.chased_at.slice(0, 10)}
+                              {t.chased_by_name && <> {tr("by", "oleh")} {t.chased_by_name}</>}
                               {t.chase_note && <>: {t.chase_note}</>}
                             </p>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <div className="flex flex-wrap items-center justify-end gap-1">
-                            {t.overdue && <Badge tone="red">terlambat {-t.days_left} hari</Badge>}
-                            {t.chase_due && <Badge tone="amber">ditagih hari ini</Badge>}
-                            {t.status === "OPEN" && t.blocked_reason && <Badge tone="amber">tertahan</Badge>}
+                            {t.overdue && <Badge tone="red">{tr(`${-t.days_left} days late`, `terlambat ${-t.days_left} hari`)}</Badge>}
+                            {t.chase_due && <Badge tone="amber">{tr("chase today", "ditagih hari ini")}</Badge>}
+                            {t.status === "OPEN" && t.blocked_reason && <Badge tone="amber">{tr("blocked", "tertahan")}</Badge>}
                             {t.status === "DONE" && (
                               <Badge tone={t.late ? "amber" : "green"}>
-                                {t.late ? "selesai terlambat" : "selesai"}
+                                {t.late ? tr("done late", "selesai terlambat") : tr("done", "selesai")}
                               </Badge>
                             )}
-                            {t.status === "CANCELLED" && <Badge tone="slate">dibatalkan</Badge>}
+                            {t.status === "CANCELLED" && <Badge tone="slate">{tr("cancelled", "dibatalkan")}</Badge>}
                             {t.status === "OPEN" && !t.acknowledged && (
-                              <Badge tone="slate">belum dibaca</Badge>
+                              <Badge tone="slate">{tr("not yet read", "belum dibaca")}</Badge>
                             )}
                           </div>
                           {mayEdit && t.status === "OPEN" && (
                             <div className="flex flex-wrap items-center justify-end gap-1">
                               {!t.acknowledged && (
                                 <Button size="sm" variant="ghost" onClick={() => acknowledge(t)} disabled={busy}>
-                                  <MailCheck className="h-4 w-4" /> Diterima
+                                  <MailCheck className="h-4 w-4" /> {tr("Received", "Diterima")}
                                 </Button>
                               )}
                               {t.chase_date && !t.chased_at && (
                                 <Button size="sm" variant="ghost" onClick={() => chase(t)} disabled={busy}>
-                                  <AlarmClock className="h-4 w-4" /> Tagih
+                                  <AlarmClock className="h-4 w-4" /> {tr("Chase", "Tagih")}
                                 </Button>
                               )}
                               <Button size="sm" variant="ghost" onClick={() => act(t, "done")} disabled={busy}>
-                                <Check className="h-4 w-4" /> Selesai
+                                <Check className="h-4 w-4" /> {tr("Done", "Selesai")}
                               </Button>
                               {t.blocked_reason ? (
                                 <Button size="sm" variant="ghost" onClick={() => act(t, "unblock")} disabled={busy}>
-                                  <PlayCircle className="h-4 w-4" /> Lanjut
+                                  <PlayCircle className="h-4 w-4" /> {tr("Resume", "Lanjut")}
                                 </Button>
                               ) : (
                                 <Button size="sm" variant="ghost" onClick={() => act(t, "block")} disabled={busy}>
-                                  <PauseCircle className="h-4 w-4" /> Tertahan
+                                  <PauseCircle className="h-4 w-4" /> {tr("Blocked", "Tertahan")}
                                 </Button>
                               )}
                               <Button size="sm" variant="ghost" onClick={() => act(t, "cancel")} disabled={busy}>
-                                <Ban className="h-4 w-4" /> Batal
+                                <Ban className="h-4 w-4" /> {tr("Cancel", "Batal")}
                               </Button>
                             </div>
                           )}
@@ -509,33 +558,41 @@ export default function TasksPage() {
       {tab === "routines" && (
         <>
           <p className="mb-3 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-[13px] text-slate-700">
-            Tugas rutin bukan tugas: ia tidak punya jatuh tempo dan tidak bisa diselesaikan.
-            Yang diselesaikan adalah tugas yang <strong>diterbitkan</strong> darinya, satu per
-            periode. <strong>Terbitkan periode</strong> boleh ditekan berapa kali pun — periode
-            yang sudah ada dilewati, bukan digandakan.
-            {" "}Iramanya tidak bisa diganti setelah berjalan: mengganti irama memotong ulang
-            batas setiap periode, dan periode yang sudah terbit akan bertabrakan diam-diam
-            dengan yang baru. Hentikan yang lama, buat yang baru.
+            {tr(
+              "A routine is not a task: it has no due date and cannot be finished. What gets finished is the task",
+              "Tugas rutin bukan tugas: ia tidak punya jatuh tempo dan tidak bisa diselesaikan. Yang diselesaikan adalah tugas yang",
+            )}{" "}
+            <strong>{tr("raised", "diterbitkan")}</strong>{" "}
+            {tr("from it, one per period.", "darinya, satu per periode.")}{" "}
+            <strong>{tr("Raise periods", "Terbitkan periode")}</strong>{" "}
+            {tr(
+              "can be pressed any number of times — periods that already exist are skipped, not duplicated.",
+              "boleh ditekan berapa kali pun — periode yang sudah ada dilewati, bukan digandakan.",
+            )}
+            {" "}{tr(
+              "The cadence cannot be changed once running: changing it re-cuts every period boundary, and periods already raised would silently collide with the new ones. Stop the old one, create a new one.",
+              "Iramanya tidak bisa diganti setelah berjalan: mengganti irama memotong ulang batas setiap periode, dan periode yang sudah terbit akan bertabrakan diam-diam dengan yang baru. Hentikan yang lama, buat yang baru.",
+            )}
           </p>
           {mayCreate && (
             <div className="mb-3 flex justify-end">
               <Button size="sm" onClick={() => setAddingRoutine((v) => !v)}>
-                <Plus className="h-4 w-4" /> Tugas rutin baru
+                <Plus className="h-4 w-4" /> {tr("New routine task", "Tugas rutin baru")}
               </Button>
             </div>
           )}
           {addingRoutine && mayCreate && (
             <Card className="mb-4">
-              <CardHeader title="Tugas rutin baru" icon={Repeat} />
+              <CardHeader title={tr("New routine task", "Tugas rutin baru")} icon={Repeat} />
               <div className="grid gap-3 px-5 py-4 sm:grid-cols-2">
                 <label className="text-[12px] text-slate-600">
-                  Untuk siapa
+                  {tr("For whom", "Untuk siapa")}
                   <select
                     value={rDraft.assignee_no}
                     onChange={(e) => setRDraft({ ...rDraft, assignee_no: e.target.value })}
                     className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm"
                   >
-                    <option value="">— pilih —</option>
+                    <option value="">{tr("— choose —", "— pilih —")}</option>
                     {employees.status === "ready" && employees.data
                       .filter((e) => e.active)
                       .map((e) => (
@@ -546,7 +603,7 @@ export default function TasksPage() {
                   </select>
                 </label>
                 <label className="text-[12px] text-slate-600">
-                  Irama
+                  {tr("Cadence", "Irama")}
                   <select
                     value={rDraft.cadence}
                     onChange={(e) => setRDraft({ ...rDraft, cadence: e.target.value as Cadence })}
@@ -558,14 +615,14 @@ export default function TasksPage() {
                   </select>
                 </label>
                 <label className="text-[12px] text-slate-600">
-                  Tugasnya apa
+                  {tr("What is the task", "Tugasnya apa")}
                   <input
                     value={rDraft.title} onChange={(e) => setRDraft({ ...rDraft, title: e.target.value })}
                     className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm"
                   />
                 </label>
                 <label className="text-[12px] text-slate-600">
-                  Yang harus diserahkan
+                  {tr("What must be handed over", "Yang harus diserahkan")}
                   <input
                     value={rDraft.deliverable}
                     onChange={(e) => setRDraft({ ...rDraft, deliverable: e.target.value })}
@@ -573,33 +630,36 @@ export default function TasksPage() {
                   />
                 </label>
                 <label className="text-[12px] text-slate-600">
-                  Jatuh tempo — hari setelah periode selesai
+                  {tr("Due — days after the period ends", "Jatuh tempo — hari setelah periode selesai")}
                   <input
                     type="number" min={0} max={60} value={rDraft.due_offset_days}
                     onChange={(e) => setRDraft({ ...rDraft, due_offset_days: Number(e.target.value) })}
                     className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm"
                   />
                   <span className="mt-0.5 block text-[11px] text-slate-400">
-                    Laporan bulanan yang ditagih tanggal 5 berarti 4.
+                    {tr("A monthly report chased on the 5th means 4.", "Laporan bulanan yang ditagih tanggal 5 berarti 4.")}
                   </span>
                 </label>
                 <label className="text-[12px] text-slate-600">
-                  Ditagih — hari sebelum jatuh tempo
+                  {tr("Chased — days before the due date", "Ditagih — hari sebelum jatuh tempo")}
                   <input
                     type="number" min={0} max={60} value={rDraft.chase_lead_days}
                     onChange={(e) => setRDraft({ ...rDraft, chase_lead_days: Number(e.target.value) })}
                     className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm"
                   />
                   <span className="mt-0.5 block text-[11px] text-slate-400">
-                    Nol berarti ditanyakan pada hari jatuh temponya — jujur, tapi biasanya sudah terlambat untuk menolong.
+                    {tr(
+                      "Zero means asking on the due date itself — honest, but usually too late to help.",
+                      "Nol berarti ditanyakan pada hari jatuh temponya — jujur, tapi biasanya sudah terlambat untuk menolong.",
+                    )}
                   </span>
                 </label>
               </div>
               <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
-                <Button size="sm" variant="ghost" onClick={() => setAddingRoutine(false)}>Batal</Button>
+                <Button size="sm" variant="ghost" onClick={() => setAddingRoutine(false)}>{tr("Cancel", "Batal")}</Button>
                 <Button size="sm" onClick={addRoutine}
                   disabled={busy || !rDraft.assignee_no || !rDraft.title || !rDraft.deliverable}>
-                  Simpan
+                  {tr("Save", "Simpan")}
                 </Button>
               </div>
             </Card>
@@ -607,7 +667,7 @@ export default function TasksPage() {
           <Loaded state={routines} onRetry={reloadRoutines}>
             {(list) => list.length === 0 ? (
               <Card><p className="px-5 py-8 text-center text-sm text-slate-500">
-                Belum ada tugas rutin.
+                {tr("No routine tasks yet.", "Belum ada tugas rutin.")}
               </p></Card>
             ) : (
               <div className="grid gap-3 lg:grid-cols-2">
@@ -619,33 +679,33 @@ export default function TasksPage() {
                       icon={r.live ? Repeat : Ban}
                       action={
                         r.live
-                          ? <Badge tone="green">berjalan</Badge>
-                          : <Badge tone="slate">berhenti {r.ends_on}</Badge>
+                          ? <Badge tone="green">{tr("running", "berjalan")}</Badge>
+                          : <Badge tone="slate">{tr("stopped", "berhenti")} {r.ends_on}</Badge>
                       }
                     />
                     <div className="space-y-1.5 px-5 py-3 text-[13px]">
                       <p className="text-slate-700">
-                        <span className="text-slate-400">diserahkan:</span> {r.deliverable}
+                        <span className="text-slate-400">{tr("handed over:", "diserahkan:")}</span> {r.deliverable}
                       </p>
                       {r.detail && <p className="text-[12px] text-slate-500">{r.detail}</p>}
                       <p className="text-[12px] text-slate-500">
                         <CalendarRange className="mr-1 inline h-3.5 w-3.5" />
-                        Periode berjalan <strong>{r.current_period}</strong> · jatuh tempo{" "}
+                        {tr("Current period", "Periode berjalan")} <strong>{r.current_period}</strong>{tr(" · due", " · jatuh tempo")}{" "}
                         <span className="font-mono">{r.current_due}</span>
-                        {r.chase_lead_days > 0 && <> · ditagih {r.chase_lead_days} hari sebelumnya</>}
+                        {r.chase_lead_days > 0 && tr(` · chased ${r.chase_lead_days} days before`, ` · ditagih ${r.chase_lead_days} hari sebelumnya`)}
                       </p>
                       <p className="text-[12px] text-slate-500">
                         <ListChecks className="mr-1 inline h-3.5 w-3.5" />
-                        {r.raised_count} terbit, {r.open_count} masih terbuka
+                        {tr(`${r.raised_count} raised, ${r.open_count} still open`, `${r.raised_count} terbit, ${r.open_count} masih terbuka`)}
                       </p>
                       {r.ended_reason && (
-                        <p className="text-[12px] text-slate-500">Dihentikan: {r.ended_reason}</p>
+                        <p className="text-[12px] text-slate-500">{tr("Stopped:", "Dihentikan:")} {r.ended_reason}</p>
                       )}
                     </div>
                     {mayEdit && r.live && (
                       <div className="flex justify-end border-t border-slate-100 px-5 py-2.5">
                         <Button size="sm" variant="ghost" onClick={() => endRoutine(r.routine_no, r.title)} disabled={busy}>
-                          <Ban className="h-4 w-4" /> Hentikan
+                          <Ban className="h-4 w-4" /> {tr("Stop", "Hentikan")}
                         </Button>
                       </div>
                     )}
@@ -658,11 +718,10 @@ export default function TasksPage() {
       )}
 
       <p className="mt-4 text-[11px] leading-relaxed text-slate-400">
-        Hari kantor hari ini {today}. Tidak satu pun yang di halaman ini masuk ke penilaian
-        siapa pun: penagihan yang terlewat, tugas yang belum ditandai diterima, dan catatan
-        penyerahan yang kosong sekurang-kurangnya sama-sama kelalaian yang memberi tugas dan
-        yang menerimanya — dan angka yang tidak bisa membedakan keduanya akan menghukum orang
-        yang salah.
+        {tr(
+          `Today's office day is ${today}. Nothing on this page feeds anybody's assessment: a missed chase, a task not marked as received and an empty hand-over note are at least as much the failure of whoever assigned the task as of whoever received it — and a number that cannot tell the two apart punishes the wrong person.`,
+          `Hari kantor hari ini ${today}. Tidak satu pun yang di halaman ini masuk ke penilaian siapa pun: penagihan yang terlewat, tugas yang belum ditandai diterima, dan catatan penyerahan yang kosong sekurang-kurangnya sama-sama kelalaian yang memberi tugas dan yang menerimanya — dan angka yang tidak bisa membedakan keduanya akan menghukum orang yang salah.`,
+        )}
       </p>
     </div>
   );

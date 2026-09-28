@@ -15,6 +15,7 @@ import { TrxDrawer } from "./TrxDrawer";
 import { CashPosition } from "./CashPosition";
 import { NewEntry } from "./NewEntry";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** The ledger: every row of money, and what each one is attached to.
  *
@@ -36,6 +37,7 @@ import { useSession } from "@/store/session";
 const PAGE_SIZE = 25;
 
 export default function LedgerPage() {
+  const tr = useTr();
   const { hasAuthority } = useSession();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
@@ -80,7 +82,7 @@ export default function LedgerPage() {
   const columns: Column<TransactionView>[] = [
     {
       key: "when",
-      header: "Date",
+      header: tr("Date", "Tanggal"),
       render: (t) => (
         <div className="whitespace-nowrap">
           <p className="text-[13px] text-slate-700">{t.trx_date}</p>
@@ -90,7 +92,7 @@ export default function LedgerPage() {
     },
     {
       key: "what",
-      header: "Description",
+      header: tr("Description", "Deskripsi"),
       className: "whitespace-normal",
       render: (t) => (
         <div className="max-w-[380px] whitespace-normal break-words">
@@ -109,7 +111,7 @@ export default function LedgerPage() {
     },
     {
       key: "amount",
-      header: "Amount",
+      header: tr("Amount", "Jumlah"),
       align: "right",
       render: (t) => (
         <div className="whitespace-nowrap">
@@ -123,14 +125,14 @@ export default function LedgerPage() {
               report nobody runs (D88). Not a budget figure — the money is
               gone either way; the question is what it was for. */}
           {t.unallocated > 0 && t.status !== "VOID" && t.expects_allocation && (
-            <p className="text-[11px] text-amber-700">no request behind it</p>
+            <p className="text-[11px] text-amber-700">{tr("no request behind it", "tanpa permintaan di baliknya")}</p>
           )}
         </div>
       ),
     },
     {
       key: "evidence",
-      header: "Evidence",
+      header: tr("Evidence", "Bukti"),
       align: "center",
       render: (t) => t.evidence_count > 0
         ? (
@@ -142,12 +144,12 @@ export default function LedgerPage() {
         : t.status === "VOID"
           ? <span className="text-slate-300">—</span>
           : <span className="inline-flex items-center gap-1 text-[12px] text-amber-700">
-              <AlertTriangle className="h-3.5 w-3.5" /> none
+              <AlertTriangle className="h-3.5 w-3.5" /> {tr("none", "tidak ada")}
             </span>,
     },
     {
       key: "status",
-      header: "Status",
+      header: tr("Status", "Status"),
       render: (t) => (
         <div className="space-y-0.5">
           <StatusPill kind="trx" status={t.status} />
@@ -162,11 +164,11 @@ export default function LedgerPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accounting"
-        title="Ledger"
-        description="Money that actually moved, in and out, with what it was for and what proves it. Nothing is deleted here — a wrong row is voided with a reason and stays visible."
+        breadcrumb={tr("Accounting", "Akuntansi")}
+        title={tr("Ledger", "Buku besar")}
+        description={tr("Money that actually moved, in and out, with what it was for and what proves it. Nothing is deleted here — a wrong row is voided with a reason and stays visible.", "Uang yang benar-benar bergerak, masuk dan keluar, beserta untuk apa dan apa buktinya. Tidak ada yang dihapus di sini — baris yang salah dibatalkan (void) dengan alasan dan tetap terlihat.")}
         actions={mayPost ? (
-          <Button icon={Plus} onClick={() => setCreating(true)}>New entry</Button>
+          <Button icon={Plus} onClick={() => setCreating(true)}>{tr("New entry", "Entri baru")}</Button>
         ) : undefined}
       />
 
@@ -179,7 +181,7 @@ export default function LedgerPage() {
           onChange={(e) => filter(() => setTypeCode(e.target.value))}
           className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-brand-400 focus:outline-none"
         >
-          <option value="">All types</option>
+          <option value="">{tr("All types", "Semua jenis")}</option>
           <TypeOptions includeRetired />
         </select>
         <label className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -190,13 +192,13 @@ export default function LedgerPage() {
             onChange={(e) => filter(() => setShowVoid(e.target.checked))}
             className="h-3.5 w-3.5 rounded border-slate-300"
           />
-          Include voided
+          {tr("Include voided", "Sertakan yang dibatalkan")}
         </label>
         <input
           id="f-q"
           value={q}
           onChange={(e) => filter(() => setQ(e.target.value))}
-          placeholder="Description or number…"
+          placeholder={tr("Description or number…", "Deskripsi atau nomor…")}
           className="ml-auto h-9 w-56 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
         />
       </div>
@@ -215,12 +217,15 @@ export default function LedgerPage() {
           return (
             <Card>
               <CardHeader
-                title={`Page ${page + 1} of ${lastPage + 1}`}
-                subtitle={`${formatIDR(inn)} in · ${formatIDR(out)} out on this page${unlinked.length ? ` · ${unlinked.length} purchase(s) with no request behind them` : ""}`}
+                title={tr(`Page ${page + 1} of ${lastPage + 1}`, `Halaman ${page + 1} dari ${lastPage + 1}`)}
+                subtitle={tr(
+                  `${formatIDR(inn)} in · ${formatIDR(out)} out on this page${unlinked.length ? ` · ${unlinked.length} purchase(s) with no request behind them` : ""}`,
+                  `${formatIDR(inn)} masuk · ${formatIDR(out)} keluar di halaman ini${unlinked.length ? ` · ${unlinked.length} pembelian tanpa permintaan di baliknya` : ""}`,
+                )}
                 icon={BookOpen}
                 action={
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">{total} row(s)</span>
+                    <span className="text-xs text-slate-500">{tr(`${total} row(s)`, `${total} baris`)}</span>
                     <SourceBadge state={rows} />
                   </div>
                 }
@@ -231,11 +236,11 @@ export default function LedgerPage() {
                 rows={visible}
                 rowKey={(t) => t.id}
                 onRowClick={(t) => setSelected(t.trx_no)}
-                empty={q || accountId || typeCode ? "Nothing matches those filters." : "The ledger is empty."}
+                empty={q || accountId || typeCode ? tr("Nothing matches those filters.", "Tidak ada yang cocok dengan filter itu.") : tr("The ledger is empty.", "Buku besar masih kosong.")}
               />
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5">
                 <p className="text-[12px] text-slate-500">
-                  Showing {visible.length} of {total}
+                  {tr(`Showing ${visible.length} of ${total}`, `Menampilkan ${visible.length} dari ${total}`)}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
@@ -243,14 +248,14 @@ export default function LedgerPage() {
                     disabled={page === 0}
                     onClick={() => setPage((n) => Math.max(n - 1, 0))}
                   >
-                    Previous
+                    {tr("Previous", "Sebelumnya")}
                   </Button>
                   <Button
                     variant="outline" size="sm"
                     disabled={page >= lastPage}
                     onClick={() => setPage((n) => Math.min(n + 1, lastPage))}
                   >
-                    Next <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                    {tr("Next", "Berikutnya")} <ChevronRight className="ml-1 h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>

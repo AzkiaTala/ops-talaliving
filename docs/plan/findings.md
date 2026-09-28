@@ -7198,3 +7198,57 @@ a grant downgraded between draft and yes is refused at the yes. The existing
 PR-line stage passes unchanged through the new road. Sandbox: the same card,
 the same refusal from the stand-in, and the demo's own fixture markets
 answering `market_exists` — the conflict read out, not hidden.
+
+## F171 · 2026-09-28 · the language check: half the app was Indonesian under an English menu
+
+**What was asked.** Check every page for mixed languages, then make every
+piece of screen copy switchable between English (default) and Indonesian
+(D318).
+
+**What the check found**, page by page, before the change:
+
+- **Indonesian body under an English menu and breadcrumb** — the commonest
+  state: HRD (berkas 201, cuti, iuran, jadwal, kontrak, lembur, payroll
+  minggu, payslip, tugas, WLKP, kinerja), accounting (tagihan, rekening
+  koran), inventory (produk, opname, material, log kayu), production (every
+  screen), projects (every screen and the box scan page), marketing, master
+  data clients, IT (audit, aktivitas, peran, pengguna, John Lau, aturan
+  gaji), settings, profile, set-password, the live sign-in form.
+- **Mixed inside one card**: attendance and its day drawer, employees and
+  their drawer, payroll run (English tiles, Indonesian columns *Pokok,
+  Tunjangan, Penyesuaian, Diterima*), purchase verification (English body,
+  Indonesian coverage panels and totals), cash calendar's *link a payment*
+  dialog (one sentence changed language half way), PO detail (Indonesian QR
+  card), PR line drawer and new PR (*untuk*, *jatuh tempo*), the pager under
+  every table (*dari*, *baris*), the evidence strip, the John Lau dock's toasts.
+- **English only**, in a module whose neighbours were Indonesian: inventory
+  assets, master data except clients, procurement meeting, rounds, tracker
+  and receiving, ledger, liquidation, documents, dashboard, demo.
+- **Shared label maps in one language**: ~50 display maps in
+  `src/services/*/contracts.ts` — some English (procurement meeting states,
+  variance reasons), most Indonesian (project, quotation, delivery,
+  installation, marketing stages, HR leave kinds, overtime stages, scheme
+  names) — so a translated screen still printed its statuses in the other
+  language.
+- **Twenty-one menu items** had no translation key and stayed English in
+  Indonesian mode.
+
+**Two things the change had to fix, not just wrap.** Several screens chose
+an icon or a colour **by comparing the label text** (`k === "Open days"`,
+`label.includes("lewat batas")`). Once the label follows the language that
+comparison is false in one of them, so those now key on an id or a
+position. One of them was already broken before: the payroll run's amber
+*Days unread* tile compared against *Open days*, a label that no longer
+existed, and never lit — left for its own change.
+
+**Hydration.** The first cut read the stored choice immediately, so a label
+map read during the first client render answered Indonesian while the server
+had rendered English, and React threw the sign-in page away. The language now
+answers the server's default until `<LangHydrated />` has mounted, then the
+viewer's own — found by walking every route in both languages in a browser,
+not by `tsc`, which was green throughout (F164 again).
+
+**What stays one language, on purpose.** Data from the database, stored
+codes, business vocabulary (D224), anything written into a record, and the
+two documents that leave the company, which print both languages side by
+side (D318).

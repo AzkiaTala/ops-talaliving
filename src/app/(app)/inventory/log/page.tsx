@@ -14,6 +14,7 @@ import { BoardStock } from "./BoardStock";
 import { BoardUsage } from "./BoardUsage";
 import { NotaImport } from "./NotaImport";
 import { TimberMonthRecap } from "./TimberMonthRecap";
+import { useTr, type Message } from "@/lib/i18n";
 
 /** Timber: what came in as logs, what came out as boards, and what the wood
  *  actually costs.
@@ -30,13 +31,14 @@ import { TimberMonthRecap } from "./TimberMonthRecap";
  */
 type Tab = "beli" | "rak" | "pakai";
 
-const TABS: { id: Tab; label: string; icon: typeof Scale }[] = [
-  { id: "beli", label: "Pembelian & kubikasi", icon: Scale },
-  { id: "rak", label: "Stok papan", icon: Layers },
-  { id: "pakai", label: "Pemakaian", icon: History },
+const TABS: { id: Tab; label: Message; icon: typeof Scale }[] = [
+  { id: "beli", label: { en: "Purchases & kubikasi", id: "Pembelian & kubikasi" }, icon: Scale },
+  { id: "rak", label: { en: "Board stock", id: "Stok papan" }, icon: Layers },
+  { id: "pakai", label: { en: "Usage", id: "Pemakaian" }, icon: History },
 ];
 
 export default function TimberPage() {
+  const tr = useTr();
   const [tab, setTab] = useState<Tab>("beli");
   const [bump, setBump] = useState(0);
   const [adding, setAdding] = useState(false);
@@ -48,17 +50,18 @@ export default function TimberPage() {
   const { shown: loads, pager } = usePaged(
     purchases.status === "ready" ? purchases.data : [],
     15,
+    tr("loads", "kiriman"),
   );
 
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
-        title="Kayu"
-        description="Satu modul untuk tiga hal: kubikasi lawan harga, isi rak papan, dan ke mana papannya pergi. Log dan papan tidak lagi dipisah — mereka kayu yang sama, sebelum dan sesudah gergaji."
+        breadcrumb={tr("Inventory", "Persediaan")}
+        title={tr("Timber", "Kayu")}
+        description={tr("One module for three things: kubikasi against price, what is on the board rack, and where the boards went. Logs and boards are no longer separate — they are the same wood, before and after the saw.", "Satu modul untuk tiga hal: kubikasi lawan harga, isi rak papan, dan ke mana papannya pergi. Log dan papan tidak lagi dipisah — mereka kayu yang sama, sebelum dan sesudah gergaji.")}
         actions={
           <Button size="sm" variant={adding ? "primary" : "outline"} icon={FileSearch} onClick={() => setAdding(!adding)}>
-            {adding ? "Tutup" : "Masukkan dari nota"}
+            {adding ? tr("Close", "Tutup") : tr("Enter from a nota", "Masukkan dari nota")}
           </Button>
         }
       />
@@ -87,7 +90,7 @@ export default function TimberPage() {
             variant={tab === t.id ? "primary" : "outline"}
             onClick={() => setTab(t.id)}
           >
-            {t.label}
+            {tr(t.label.en, t.label.id)}
           </Button>
         ))}
       </div>
@@ -121,8 +124,8 @@ export default function TimberPage() {
           return (
             <Card className="mb-4">
               <CardHeader
-                title="Per vendor"
-                subtitle="Yang menentukan adalah dua kolom terakhir — biaya sampai di rak (kayu + angkut + potong + lain-lain) per m³ dan per m² papan, bukan harga di nota."
+                title={tr("Per vendor", "Per vendor")}
+                subtitle={tr("What decides is the last two columns — the cost landed on the rack (wood + transport + sawing + other) per m³ and per m² of board, not the price on the nota.", "Yang menentukan adalah dua kolom terakhir — biaya sampai di rak (kayu + angkut + potong + lain-lain) per m³ dan per m² papan, bukan harga di nota.")}
                 icon={Scale}
                 action={<SourceBadge state={vendors} />}
               />
@@ -130,14 +133,14 @@ export default function TimberPage() {
                 <table className="w-full min-w-[880px] border-collapse whitespace-nowrap text-[13px]">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-2 text-left">Vendor · jenis</th>
-                      <th className="px-3 py-2 text-right">Log m³</th>
-                      <th className="px-3 py-2 text-right">Papan</th>
-                      <th className="px-3 py-2 text-right">Rendemen</th>
-                      <th className="px-3 py-2 text-right">Nilai kayu</th>
-                      <th className="px-3 py-2 text-right">Angkut · potong · lain</th>
-                      <th className="px-3 py-2 text-right">Rp / m³ papan</th>
-                      <th className="px-4 py-2 text-right">Rp / m² papan</th>
+                      <th className="px-4 py-2 text-left">{tr("Vendor · species", "Vendor · jenis")}</th>
+                      <th className="px-3 py-2 text-right">{tr("Log m³", "Log m³")}</th>
+                      <th className="px-3 py-2 text-right">{tr("Boards", "Papan")}</th>
+                      <th className="px-3 py-2 text-right">{tr("Yield", "Rendemen")}</th>
+                      <th className="px-3 py-2 text-right">{tr("Wood value", "Nilai kayu")}</th>
+                      <th className="px-3 py-2 text-right">{tr("Transport · sawing · other", "Angkut · potong · lain")}</th>
+                      <th className="px-3 py-2 text-right">{tr("Rp / m³ board", "Rp / m³ papan")}</th>
+                      <th className="px-4 py-2 text-right">{tr("Rp / m² board", "Rp / m² papan")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -148,8 +151,8 @@ export default function TimberPage() {
                             {v.vendor_name} <span className="font-normal text-slate-500">· {v.species}</span>
                           </span>
                           <span className="block text-[11px] text-slate-400">
-                            {v.purchases} kiriman
-                            {v.unsawn_m3 > 0 && ` · ${formatNumber(v.unsawn_m3)} m³ belum digergaji`}
+                            {tr(`${v.purchases} loads`, `${v.purchases} kiriman`)}
+                            {v.unsawn_m3 > 0 && tr(` · ${formatNumber(v.unsawn_m3)} m³ not yet sawn`, ` · ${formatNumber(v.unsawn_m3)} m³ belum digergaji`)}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-700">{v.log_m3 > 0 ? formatNumber(v.log_m3) : "—"}</td>
@@ -170,15 +173,15 @@ export default function TimberPage() {
                             <span className="block text-[10px] text-slate-400">{formatIDR(v.cost_per_log_m3)} / m³ log</span>
                           )}
                           {cheapestLog?.vendor_id === v.vendor_id && cheapestLog.species === v.species && best.length > 1 && (
-                            <span className="block text-[10px] text-slate-400">termurah di kertas</span>
+                            <span className="block text-[10px] text-slate-400">{tr("cheapest on paper", "termurah di kertas")}</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-600">
                           {v.extra_cost > 0 ? formatIDR(v.extra_cost) : "—"}
-                          {([["angkut", v.cost_angkut], ["potong", v.cost_potong], ["lain", v.cost_bongkar + v.cost_lain]] as const)
-                            .filter(([, n]) => n > 0)
-                            .map(([label, n]) => (
-                              <span key={label} className="block text-[10px] text-slate-400">{label} {formatIDR(n)}</span>
+                          {([["angkut", tr("transport", "angkut"), v.cost_angkut], ["potong", tr("sawing", "potong"), v.cost_potong], ["lain", tr("other", "lain"), v.cost_bongkar + v.cost_lain]] as const)
+                            .filter(([, , n]) => n > 0)
+                            .map(([id, label, n]) => (
+                              <span key={id} className="block text-[10px] text-slate-400">{label} {formatIDR(n)}</span>
                             ))}
                         </td>
                         <td className="px-3 py-2 text-right">
@@ -186,10 +189,10 @@ export default function TimberPage() {
                             {v.landed_cost_per_sawn_m3 == null ? "—" : formatIDR(v.landed_cost_per_sawn_m3)}
                           </span>
                           {v.extra_cost > 0 && v.cost_per_sawn_m3 != null && (
-                            <span className="block text-[10px] text-slate-400">kayu saja {formatIDR(v.cost_per_sawn_m3)}</span>
+                            <span className="block text-[10px] text-slate-400">{tr("wood only", "kayu saja")} {formatIDR(v.cost_per_sawn_m3)}</span>
                           )}
                           {cheapest?.vendor_id === v.vendor_id && cheapest.species === v.species && best.length > 1 && (
-                            <span className="block text-[10px] font-medium text-emerald-700">termurah sebenarnya</span>
+                            <span className="block text-[10px] font-medium text-emerald-700">{tr("actually cheapest", "termurah sebenarnya")}</span>
                           )}
                         </td>
                         <td className="px-4 py-2 text-right font-semibold tabular-nums text-slate-900">
@@ -204,20 +207,22 @@ export default function TimberPage() {
                 <p className="flex items-start gap-2 border-t border-slate-100 bg-amber-50/70 px-4 py-2.5 text-[12px] text-amber-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    <strong>{cheapestLog.vendor_name}</strong> lebih murah per m³ log, tapi{" "}
-                    <strong>{cheapest.vendor_name}</strong> lebih murah per m³ papan untuk{" "}
-                    {cheapest.species} — selisih{" "}
-                    {formatIDR(Math.abs((cheapest.landed_cost_per_sawn_m3 ?? 0) - (cheapestLog.landed_cost_per_sawn_m3 ?? 0)))} per m³
-                    kayu yang benar-benar bisa dipakai, setelah angkut dan potong. Rendemen dan ongkosnya yang
-                    berbeda, bukan harga di nota.
+                    <strong>{cheapestLog.vendor_name}</strong> {tr("is cheaper per m³ of log, but", "lebih murah per m³ log, tapi")}{" "}
+                    <strong>{cheapest.vendor_name}</strong> {tr("is cheaper per m³ of board for", "lebih murah per m³ papan untuk")}{" "}
+                    {cheapest.species} — {tr("a difference of", "selisih")}{" "}
+                    {formatIDR(Math.abs((cheapest.landed_cost_per_sawn_m3 ?? 0) - (cheapestLog.landed_cost_per_sawn_m3 ?? 0)))}{" "}
+                    {tr(
+                      "per m³ of wood that can actually be used, after transport and sawing. The yield and the costs differ, not the price on the nota.",
+                      "per m³ kayu yang benar-benar bisa dipakai, setelah angkut dan potong. Rendemen dan ongkosnya yang berbeda, bukan harga di nota.",
+                    )}
                   </span>
                 </p>
               )}
               <p className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500">
-                Kiriman yang belum digergaji tidak ikut menentukan harga per m³ papan — bagian
-                tagihannya disisihkan sampai kayunya benar-benar keluar dari gergaji. Per m² dihitung dari
-                luas papan (lebar × panjang) semua ketebalan; bandingkan antar vendor yang digergaji ke tebal
-                yang mirip.
+                {tr(
+                  "Loads not yet sawn do not count toward the price per m³ of board — their share of the bill is set aside until the wood actually comes off the saw. Per m² is computed from board area (width × length) across all thicknesses; compare vendors sawn to similar thicknesses.",
+                  "Kiriman yang belum digergaji tidak ikut menentukan harga per m³ papan — bagian tagihannya disisihkan sampai kayunya benar-benar keluar dari gergaji. Per m² dihitung dari luas papan (lebar × panjang) semua ketebalan; bandingkan antar vendor yang digergaji ke tebal yang mirip.",
+                )}
               </p>
             </Card>
           );
@@ -228,8 +233,8 @@ export default function TimberPage() {
         {(all) => (
           <Card>
             <CardHeader
-              title={`${all.length} kiriman log`}
-              subtitle="Klik satu kiriman untuk melihat tiap batang, papan yang keluar, dan selisih ukuran dengan penjual."
+              title={tr(`${all.length} log loads`, `${all.length} kiriman log`)}
+              subtitle={tr("Click a load to see each log, the boards it gave, and the measurement difference with the seller.", "Klik satu kiriman untuk melihat tiap batang, papan yang keluar, dan selisih ukuran dengan penjual.")}
               icon={TreePine}
               action={<SourceBadge state={purchases} />}
             />
@@ -246,26 +251,26 @@ export default function TimberPage() {
                           {p.species} · {p.vendor_name}
                         </span>
                         <span className="block font-mono text-[10px] text-slate-400">
-                          {p.purchase_no} · {p.received_on} · {p.logs.length} batang
+                          {p.purchase_no} · {p.received_on} · {tr(`${p.logs.length} logs`, `${p.logs.length} batang`)}
                         </span>
                       </span>
                       <span className="whitespace-nowrap text-[12px] tabular-nums text-slate-700">
                         {formatNumber(p.log_m3)} m³ log
                       </span>
                       <span className="whitespace-nowrap text-[12px] tabular-nums text-slate-700">
-                        {p.sawn_m3 > 0 ? `${formatNumber(p.sawn_m3)} m³ papan` : "belum digergaji"}
+                        {p.sawn_m3 > 0 ? tr(`${formatNumber(p.sawn_m3)} m³ board`, `${formatNumber(p.sawn_m3)} m³ papan`) : tr("not yet sawn", "belum digergaji")}
                       </span>
                       {p.yield_percent != null && (
                         <Badge tone={p.yield_percent < 50 ? "amber" : "green"}>
-                          rendemen {p.yield_percent}%
+                          {tr("yield", "rendemen")} {p.yield_percent}%
                         </Badge>
                       )}
                       <span className="w-36 text-right text-[12px] tabular-nums text-slate-800">
                         {p.landed_cost_per_sawn_m3 == null ? formatIDR(p.landed_cost) : formatIDR(p.landed_cost_per_sawn_m3)}
                         <span className="block text-[10px] text-slate-400">
                           {p.landed_cost_per_sawn_m3 == null
-                            ? (p.extra_cost > 0 ? "kayu + biaya" : "nilai tagihan")
-                            : p.extra_cost > 0 ? "per m³ papan, + biaya" : "per m³ papan"}
+                            ? (p.extra_cost > 0 ? tr("wood + costs", "kayu + biaya") : tr("invoice value", "nilai tagihan"))
+                            : p.extra_cost > 0 ? tr("per m³ board, + costs", "per m³ papan, + biaya") : tr("per m³ board", "per m³ papan")}
                         </span>
                       </span>
                     </div>
@@ -273,7 +278,7 @@ export default function TimberPage() {
                       <p className="mt-1 flex items-start gap-1.5 text-[11px] text-amber-800">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                         {p.warnings[0]}
-                        {p.warnings.length > 1 && <span className="text-slate-400"> +{p.warnings.length - 1} lagi</span>}
+                        {p.warnings.length > 1 && <span className="text-slate-400"> {tr(`+${p.warnings.length - 1} more`, `+${p.warnings.length - 1} lagi`)}</span>}
                       </p>
                     )}
                   </button>
@@ -282,8 +287,11 @@ export default function TimberPage() {
             </ul>
             {pager}
             <p className="border-t border-slate-100 px-5 py-2 text-[11px] text-slate-500">
-              Kubikasi log dihitung dengan {LOG_MEASURE_LABEL.round.toLowerCase()} kecuali kiriman
-              itu mencatat cara lain — dua cara dipakai di pasar dan hasilnya berbeda sekitar 21%.
+              {tr("Log kubikasi is computed with", "Kubikasi log dihitung dengan")} {LOG_MEASURE_LABEL.round.toLowerCase()}{" "}
+              {tr(
+                "unless the load records another method — two methods are used in the market and their results differ by about 21%.",
+                "kecuali kiriman itu mencatat cara lain — dua cara dipakai di pasar dan hasilnya berbeda sekitar 21%.",
+              )}
             </p>
           </Card>
         )}

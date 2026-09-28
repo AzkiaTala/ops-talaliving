@@ -18,6 +18,7 @@
  *  transaction, the other because "not enough boards" (D205) needs every
  *  other row for that size, which RLS cannot see.
  */
+import { trNow } from "@/lib/i18n";
 import type {
   StockLocation, StockMove, StockMoveView, StockItemView, StockItemDetail,
   LogMeasure, LogPiece, LogPieceView, SawnBoard, SawnBoardView, LogPurchaseView,
@@ -829,24 +830,24 @@ async function buildLogPurchaseViews(purchaseNos?: string[]): Promise<Result<Log
     /* A load bought as boards has no sticks to measure, and is not missing
        any (`0156`). */
     if ((r.pieces as number) === 0 && boards.length === 0) {
-      warnings.push("Belum ada batang yang diukur — kubikasi dan harga per m³ belum bisa dihitung.");
+      warnings.push(trNow("No logs measured yet — the cubic volume and the price per m³ cannot be worked out yet.", "Belum ada batang yang diukur — kubikasi dan harga per m³ belum bisa dihitung."));
     }
     if (log_m3 > 0 && sawn_m3 === 0) {
-      warnings.push("Belum ada papan yang dilaporkan — angka rendemen dan harga per m³ papan belum ada.");
+      warnings.push(trNow("No boards reported yet — there is no yield figure or board price per m³ yet.", "Belum ada papan yang dilaporkan — angka rendemen dan harga per m³ papan belum ada."));
     }
     if (unsawn_m3 > 0 && sawn_m3 > 0) {
-      warnings.push(`${unsawn_m3} m³ belum digergaji — rendemen dan harga per m³ papan dihitung hanya dari batang yang sudah.`);
+      warnings.push(trNow(`${unsawn_m3} m³ not sawn yet — the yield and the board price per m³ count only the logs that have been.`, `${unsawn_m3} m³ belum digergaji — rendemen dan harga per m³ papan dihitung hanya dari batang yang sudah.`));
     }
     if (yield_percent != null && yield_percent > 100) {
-      warnings.push(`Papan ${sawn_m3} m³ melebihi log ${log_m3} m³ — salah ukur, atau ada papan dari log lain masuk ke sini.`);
+      warnings.push(trNow(`Boards ${sawn_m3} m³ exceed the logs ${log_m3} m³ — a measuring mistake, or boards from another load were entered here.`, `Papan ${sawn_m3} m³ melebihi log ${log_m3} m³ — salah ukur, atau ada papan dari log lain masuk ke sini.`));
     } else if (yield_percent != null && yield_percent < lowYieldThreshold) {
-      warnings.push(`Rendemen ${yield_percent}% — di bawah yang biasa. Layak ditanyakan ke pemilik sawmill.`);
+      warnings.push(trNow(`Yield ${yield_percent}% — below the usual. Worth asking the sawmill owner.`, `Rendemen ${yield_percent}% — di bawah yang biasa. Layak ditanyakan ke pemilik sawmill.`));
     }
     if (measure_gap_m3 != null && Math.abs(measure_gap_m3) >= 0.05) {
       warnings.push(
         measure_gap_m3 < 0
-          ? `Ukuran kita ${Math.abs(measure_gap_m3)} m³ LEBIH KECIL dari yang ditagih (${claimed_m3} m³).`
-          : `Ukuran kita ${measure_gap_m3} m³ lebih besar dari yang ditagih (${claimed_m3} m³).`,
+          ? trNow(`Our measure is ${Math.abs(measure_gap_m3)} m³ SMALLER than what was billed (${claimed_m3} m³).`, `Ukuran kita ${Math.abs(measure_gap_m3)} m³ LEBIH KECIL dari yang ditagih (${claimed_m3} m³).`)
+          : trNow(`Our measure is ${measure_gap_m3} m³ larger than what was billed (${claimed_m3} m³).`, `Ukuran kita ${measure_gap_m3} m³ lebih besar dari yang ditagih (${claimed_m3} m³).`),
       );
     }
 
@@ -1595,14 +1596,14 @@ export async function materialForWorkOrder(woNo: string): Promise<Result<Materia
   let no_plan_reason: string | null = null;
   const expected = new Map<string, { qty: number; uom: string }>();
   if (!w.product_code) {
-    no_plan_reason = "Produk Job Order ini tidak ada di katalog.";
+    no_plan_reason = trNow("This Job Order's product is not in the catalogue.", "Produk Job Order ini tidak ada di katalog.");
   } else {
     const p = await prod().from("v_product_summary").select("current_rev").eq("product_code", w.product_code).maybeSingle();
     if (p.error) return fail(SERVICE, p.error);
-    if (!p.data) no_plan_reason = "Produk Job Order ini tidak ada di katalog.";
+    if (!p.data) no_plan_reason = trNow("This Job Order's product is not in the catalogue.", "Produk Job Order ini tidak ada di katalog.");
     rev = rev ?? (p.data?.current_rev as number | null) ?? null;
     if (!no_plan_reason && rev === null) {
-      no_plan_reason = "Produk ini belum punya BOM yang dirilis, jadi tidak ada daftar bahan yang bisa dibandingkan.";
+      no_plan_reason = trNow("This product has no released BOM yet, so there is no list of materials to compare against.", "Produk ini belum punya BOM yang dirilis, jadi tidak ada daftar bahan yang bisa dibandingkan.");
     }
     if (!no_plan_reason) {
       const ex = await prod().rpc("explode_bom", { p_product_code: w.product_code, p_qty: qty, p_rev: rev });
@@ -1610,8 +1611,8 @@ export async function materialForWorkOrder(woNo: string): Promise<Result<Materia
       const rows = (ex.data ?? []) as { ref_code: string; kind: string; qty: number | string; uom: string; cycle: boolean }[];
       const cyc = rows.find((r) => r.cycle);
       const items = rows.filter((r) => r.kind === "item");
-      if (cyc) no_plan_reason = `BOM produk ini berputar di ${cyc.ref_code}, jadi kebutuhannya belum bisa dihitung.`;
-      else if (items.length === 0) no_plan_reason = "Produk ini belum punya bill of material, jadi tidak ada daftar bahan yang bisa dibandingkan.";
+      if (cyc) no_plan_reason = trNow(`This product's BOM loops at ${cyc.ref_code}, so what it needs cannot be worked out yet.`, `BOM produk ini berputar di ${cyc.ref_code}, jadi kebutuhannya belum bisa dihitung.`);
+      else if (items.length === 0) no_plan_reason = trNow("This product has no bill of material yet, so there is no list of materials to compare against.", "Produk ini belum punya bill of material, jadi tidak ada daftar bahan yang bisa dibandingkan.");
       else for (const r of items) expected.set(r.ref_code, { qty: Number(r.qty), uom: r.uom });
     }
   }

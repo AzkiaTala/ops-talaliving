@@ -13,6 +13,7 @@ import {
 } from "@/lib/roles";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Who may open what, and who may decide what — two questions, one screen.
  *
@@ -25,6 +26,7 @@ import { useToast } from "@/store/toast";
 export default function UsersPage() {
   const { can } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
   const [users, reload] = useLoad(() => identity.listUsers(), []);
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,8 +39,8 @@ export default function UsersPage() {
     setBusy(true);
     const res = await identity.setModules(userId, next);
     setBusy(false);
-    if (res.error) { toast("critical", "Tidak tersimpan", res.error.message); return; }
-    toast("success", "Akses diubah", `${MODULE_LABEL[module]} — ${level ? LEVEL_LABEL[level] : "dicabut"}`);
+    if (res.error) { toast("critical", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", tr("Access changed", "Akses diubah"), `${MODULE_LABEL[module]} — ${level ? LEVEL_LABEL[level] : tr("revoked", "dicabut")}`);
     reload();
   }
 
@@ -47,8 +49,8 @@ export default function UsersPage() {
     setBusy(true);
     const res = await identity.setAuthorities(userId, next);
     setBusy(false);
-    if (res.error) { toast("critical", "Tidak tersimpan", res.error.message); return; }
-    toast("success", held.includes(authority) ? "Wewenang dicabut" : "Wewenang diberikan", AUTHORITY_LABEL[authority]);
+    if (res.error) { toast("critical", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", held.includes(authority) ? tr("Authority revoked", "Wewenang dicabut") : tr("Authority granted", "Wewenang diberikan"), AUTHORITY_LABEL[authority]);
     reload();
   }
 
@@ -56,8 +58,11 @@ export default function UsersPage() {
     <div>
       <PageHeader
         breadcrumb="IT"
-        title="Pengguna & akses"
-        description="Grant modul membuka layar; wewenang memberi keputusan. Keduanya terpisah, dan yang kedua tidak pernah tersirat dari yang pertama."
+        title={tr("Users & access", "Pengguna & akses")}
+        description={tr(
+          "A module grant opens screens; an authority gives a decision. The two are separate, and the second is never implied by the first.",
+          "Grant modul membuka layar; wewenang memberi keputusan. Keduanya terpisah, dan yang kedua tidak pernah tersirat dari yang pertama.",
+        )}
         actions={<SourceBadge state={users} />}
       />
 
@@ -72,7 +77,7 @@ export default function UsersPage() {
                     <span className="font-medium text-slate-800">{AUTHORITY_LABEL[a]}</span>
                     {" — "}
                     {holders.length === 0
-                      ? <span className="text-rose-700">tidak ada yang memegang</span>
+                      ? <span className="text-rose-700">{tr("nobody holds it", "tidak ada yang memegang")}</span>
                       : holders.map((u) => u.user.full_name).join(", ")}
                   </p>
                 );
@@ -81,11 +86,11 @@ export default function UsersPage() {
 
             <Card>
               <CardHeader
-                title={`${all.length} pengguna`}
-                subtitle="Klik satu orang untuk mengubah aksesnya. Setiap perubahan tercatat di audit log."
+                title={tr(`${all.length} users`, `${all.length} pengguna`)}
+                subtitle={tr("Click a person to change their access. Every change is recorded in the audit log.", "Klik satu orang untuk mengubah aksesnya. Setiap perubahan tercatat di audit log.")}
                 icon={UserCog}
               />
-              <Paged rows={all} pageSize={12} unit="pengguna">
+              <Paged rows={all} pageSize={12} unit={tr("users", "pengguna")}>
                 {(page) => (
                   <ul className="divide-y divide-slate-100">
                     {page.map((u) => {
@@ -101,18 +106,18 @@ export default function UsersPage() {
                               <span className="block font-mono text-[10px] text-slate-400">{u.user.email}</span>
                             </span>
                             <span className="text-[12px] text-slate-500">
-                              {u.modules.length} modul · {u.permissions.length} izin
+                              {tr(`${u.modules.length} modules · ${u.permissions.length} permissions`, `${u.modules.length} modul · ${u.permissions.length} izin`)}
                             </span>
                             {u.authorities.map((a) => (
                               <Badge key={a} tone="brand">{AUTHORITY_LABEL[a]}</Badge>
                             ))}
-                            {!u.user.is_active && <Badge tone="slate">nonaktif</Badge>}
+                            {!u.user.is_active && <Badge tone="slate">{tr("inactive", "nonaktif")}</Badge>}
                           </button>
 
                           {expanded && (
                             <div className="mt-3 space-y-3">
                               <div>
-                                <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-400">Akses modul</p>
+                                <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-400">{tr("Module access", "Akses modul")}</p>
                                 <ul className="space-y-1">
                                   {MODULES.map((m) => {
                                     const grant = u.modules.find((g) => g.module === m);
@@ -130,11 +135,11 @@ export default function UsersPage() {
                                           </Button>
                                         ))}
                                         <span className="text-[11px] text-slate-400">
-                                          {grant ? describeGrant(m, grant.level) : "tidak punya akses"}
+                                          {grant ? describeGrant(m, grant.level) : tr("no access", "tidak punya akses")}
                                         </span>
                                         {m === "it" && (
                                           <span className="basis-full pl-[118px] text-[11px] text-amber-700">
-                                            {IT_ACCESS_RULE}
+                                            {tr(IT_ACCESS_RULE.en, IT_ACCESS_RULE.id)}
                                           </span>
                                         )}
                                       </li>
@@ -145,7 +150,7 @@ export default function UsersPage() {
 
                               <div>
                                 <p className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-400">
-                                  <KeyRound className="h-3 w-3" /> Wewenang
+                                  <KeyRound className="h-3 w-3" /> {tr("Authorities", "Wewenang")}
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {AUTHORITIES.map((a) => (
@@ -161,8 +166,11 @@ export default function UsersPage() {
                                   ))}
                                 </div>
                                 <p className="mt-1 text-[11px] text-slate-500">
-                                  Wewenang diberikan sendiri-sendiri. Level <em>Full</em> pada sebuah modul
-                                  tidak pernah membuat orang bisa menyetujui uang.
+                                  {tr("Authorities are granted one by one. The", "Wewenang diberikan sendiri-sendiri. Level")} <em>Full</em>{" "}
+                                  {tr(
+                                    "level on a module never lets somebody approve money.",
+                                    "pada sebuah modul tidak pernah membuat orang bisa menyetujui uang.",
+                                  )}
                                 </p>
                               </div>
                             </div>

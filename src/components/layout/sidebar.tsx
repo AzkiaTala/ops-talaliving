@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, Factory, X } from "lucide-react";
 import { NAV } from "@/lib/nav";
 import { useBrand } from "@/lib/brand";
-import { useT } from "@/lib/i18n";
+import { useT, useTr } from "@/lib/i18n";
 import { MESSAGES } from "@/lib/messages";
 import { useSession } from "@/store/session";
 import { isRouteLive } from "@/lib/live";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/cn";
 export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
   const brand = useBrand();
   const t = useT();
+  const tr = useTr();
   const pathname = usePathname();
   const { can } = useSession();
 
@@ -40,7 +41,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
         <button
           onClick={onClose}
           className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-brand-200 hover:bg-white/10 lg:hidden"
-          aria-label="Close menu"
+          aria-label={tr("Close menu", "Tutup menu")}
         >
           <X className="h-5 w-5" />
         </button>
@@ -104,7 +105,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
                               active ? "bg-brand-100 text-brand-700" : "bg-white/10 text-brand-200",
                             )}
                           >
-                            Core
+                            {tr("Core", "Inti")}
                           </span>
                         )}
                       </Link>

@@ -12,6 +12,7 @@ import { accounting } from "@/demo/api";
 import type { PoJourney, PoLineJourney, VendorJourney } from "@/services/procurement/contracts";
 import type { VendorPayment } from "@/services/accounting/contracts";
 import { ReceiveForm } from "./ReceiveForm";
+import { useTr } from "@/lib/i18n";
 
 /** One vendor's whole story: four numbers, then every order, then every
  *  payment ever made to them.
@@ -28,16 +29,17 @@ export function VendorBlock({
   journey: VendorJourney;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const [payments] = useLoad(() => accounting.paymentsForVendor(journey.vendor_id), [journey.vendor_id]);
 
   return (
     <div className="space-y-4">
       <dl className="grid gap-px overflow-hidden rounded-xl bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
         {([
-          ["Contract value", formatIDR(journey.contract_value), "everything ordered"],
-          ["Paid to date", formatIDR(journey.paid), "money that left our bank"],
-          ["Outstanding", formatIDR(journey.outstanding), "contracted, not yet paid"],
-          ["Value received", formatIDR(journey.value_received), "what came through the door"],
+          [tr("Contract value", "Nilai kontrak"), formatIDR(journey.contract_value), tr("everything ordered", "semua yang dipesan")],
+          [tr("Paid to date", "Dibayar sampai kini"), formatIDR(journey.paid), tr("money that left our bank", "uang yang keluar dari bank kita")],
+          [tr("Outstanding", "Sisa utang"), formatIDR(journey.outstanding), tr("contracted, not yet paid", "dikontrak, belum dibayar")],
+          [tr("Value received", "Nilai diterima"), formatIDR(journey.value_received), tr("what came through the door", "yang sudah masuk gudang")],
         ] as [string, string, string][]).map(([k, v, note]) => (
           <div key={k} className="bg-white px-4 py-3">
             <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -54,8 +56,11 @@ export function VendorBlock({
       {/* Payments across every order, because that is how they were made. */}
       <Card>
         <CardHeader
-          title="Payment history — this vendor, all orders"
-          subtitle="One transfer can close several orders. Recording it once, with what it applies to, keeps both facts true."
+          title={tr("Payment history — this vendor, all orders", "Riwayat pembayaran — vendor ini, semua order")}
+          subtitle={tr(
+            "One transfer can close several orders. Recording it once, with what it applies to, keeps both facts true.",
+            "Satu transfer bisa melunasi beberapa order. Mencatatnya sekali, beserta order yang dibayarnya, menjaga kedua fakta tetap benar.",
+          )}
           icon={Banknote}
         />
         <DataTable
@@ -63,7 +68,7 @@ export function VendorBlock({
           columns={[
             {
               key: "when",
-              header: "Date",
+              header: tr("Date", "Tanggal"),
               render: (p) => (
                 <div className="whitespace-nowrap">
                   <p className="text-[13px] text-slate-700">{p.trx_date}</p>
@@ -73,10 +78,10 @@ export function VendorBlock({
             },
             {
               key: "applies",
-              header: "Applies to",
+              header: tr("Applies to", "Untuk"),
               className: "whitespace-normal",
               render: (p) => p.applies_to.length === 0
-                ? <span className="text-[12px] text-amber-700">no order named</span>
+                ? <span className="text-[12px] text-amber-700">{tr("no order named", "tidak ada order disebut")}</span>
                 : (
                   <ul className="max-w-[260px] space-y-0.5">
                     {p.applies_to.map((a) => (
@@ -93,7 +98,7 @@ export function VendorBlock({
             },
             {
               key: "amount",
-              header: "Amount",
+              header: tr("Amount", "Jumlah"),
               align: "right",
               render: (p) => (
                 <span className={cn(
@@ -106,7 +111,7 @@ export function VendorBlock({
             },
             {
               key: "note",
-              header: "Note",
+              header: tr("Note", "Catatan"),
               className: "whitespace-normal",
               render: (p) => (
                 <span className="block max-w-[320px] whitespace-normal break-words text-[12px] text-slate-500">
@@ -116,23 +121,23 @@ export function VendorBlock({
             },
             {
               key: "proof",
-              header: "Proof",
+              header: tr("Proof", "Bukti"),
               align: "center",
               render: (p) => (
                 <EvidenceChip
                   attachmentId={p.proof_attachment_id}
-                  present="on file" missing="missing"
-                  title={`${p.trx_no} — payment proof`}
+                  present={tr("on file", "tersimpan")} missing={tr("missing", "tidak ada")}
+                  title={tr(`${p.trx_no} — payment proof`, `${p.trx_no} — bukti pembayaran`)}
                 />
               ),
             },
           ] as Column<VendorPayment>[]}
           rows={payments.status === "ready" ? payments.data : []}
           rowKey={(p) => p.trx_no + p.trx_date}
-          empty="Nothing has been paid to this vendor yet."
+          empty={tr("Nothing has been paid to this vendor yet.", "Belum ada pembayaran ke vendor ini.")}
           footer={payments.status === "ready" && payments.data.length > 0 ? (
             <tr>
-              <td className="px-4 py-2.5 text-[13px] text-slate-600" colSpan={2}>Total paid</td>
+              <td className="px-4 py-2.5 text-[13px] text-slate-600" colSpan={2}>{tr("Total paid", "Total dibayar")}</td>
               <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-slate-800">
                 {formatIDR(payments.data.filter((p) => p.status !== "VOID").reduce((s, p) => s + p.amount, 0))}
               </td>
@@ -144,26 +149,26 @@ export function VendorBlock({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Total PO — this vendor" icon={Package} />
+          <CardHeader title={tr("Total PO — this vendor", "Total PO — vendor ini")} icon={Package} />
           <DataTable
             dense
             columns={[
-              { key: "po", header: "Order", render: (p) => <span className="font-mono text-[12px] text-slate-700">{p.po_no}</span> },
-              { key: "v", header: "Contract", align: "right", render: (p) => <span className="tabular-nums text-slate-700">{formatIDR(p.contract_value)}</span> },
+              { key: "po", header: tr("Order", "Order"), render: (p) => <span className="font-mono text-[12px] text-slate-700">{p.po_no}</span> },
+              { key: "v", header: tr("Contract", "Kontrak"), align: "right", render: (p) => <span className="tabular-nums text-slate-700">{formatIDR(p.contract_value)}</span> },
             ] as Column<PoJourney>[]}
             rows={journey.pos}
             rowKey={(p) => p.po_no}
-            empty="No order has been issued to this supplier yet."
+            empty={tr("No order has been issued to this supplier yet.", "Belum ada order yang diterbitkan untuk pemasok ini.")}
             footer={
               <>
                 <tr>
-                  <td className="px-4 py-2 text-[13px] text-slate-600">Total PO</td>
+                  <td className="px-4 py-2 text-[13px] text-slate-600">{tr("Total PO", "Total PO")}</td>
                   <td className="px-4 py-2 text-right tabular-nums font-semibold text-slate-800">
                     {formatIDR(journey.contract_value)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-2 text-[13px] text-slate-600">Balance</td>
+                  <td className="px-4 py-2 text-[13px] text-slate-600">{tr("Balance", "Sisa")}</td>
                   <td className={cn(
                     "px-4 py-2 text-right tabular-nums font-semibold",
                     journey.outstanding > 0 ? "text-slate-800" : "text-emerald-700",
@@ -177,7 +182,7 @@ export function VendorBlock({
         </Card>
 
         <Card>
-          <CardHeader title="Billable now" icon={Banknote} />
+          <CardHeader title={tr("Billable now", "Bisa ditagih sekarang")} icon={Banknote} />
           <div className="px-5 py-4">
             <p className={cn(
               "text-3xl font-bold tabular-nums tracking-tight",
@@ -186,22 +191,31 @@ export function VendorBlock({
               {formatIDR(journey.billable_now)}
             </p>
             <p className="mt-2 text-[13px] text-slate-600">
-              The deposit share once an order is issued, plus the delivered share of
-              everything else, minus what has already been paid — per order, then
-              added up.
+              {tr(
+                "The deposit share once an order is issued, plus the delivered share of everything else, minus what has already been paid — per order, then added up.",
+                "Porsi DP begitu order diterbitkan, ditambah porsi yang sudah dikirim dari sisanya, dikurangi yang sudah dibayar — per order, lalu dijumlahkan.",
+              )}
             </p>
             <p className="mt-2 text-[13px] text-slate-500">
               {journey.billable_now > 0
-                ? "Goods are here that nobody has paid for. This is what is safe to request next."
-                : "Every order here already cleared that test — there is nothing safe to request next."}
+                ? tr(
+                  "Goods are here that nobody has paid for. This is what is safe to request next.",
+                  "Ada barang di sini yang belum dibayar. Inilah yang aman untuk diajukan berikutnya.",
+                )
+                : tr(
+                  "Every order here already cleared that test — there is nothing safe to request next.",
+                  "Semua order di sini sudah lolos uji itu — tidak ada yang aman untuk diajukan berikutnya.",
+                )}
             </p>
             {journey.credit > 0 && (
               /* Over-delivery, priced and named. Not billable, not ours to
                  spend, and not quietly folded into another order (D98). */
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
-                <strong className="tabular-nums">{formatIDR(journey.credit)}</strong> of goods
-                arrived beyond what was ordered — a credit sitting with this vendor,
-                not applied to any order here.
+                <strong className="tabular-nums">{formatIDR(journey.credit)}</strong>{" "}
+                {tr(
+                  "of goods arrived beyond what was ordered — a credit sitting with this vendor, not applied to any order here.",
+                  "barang datang melebihi pesanan — kredit yang ada di vendor ini, tidak dipakai untuk order mana pun di sini.",
+                )}
               </p>
             )}
           </div>
@@ -212,12 +226,13 @@ export function VendorBlock({
 }
 
 function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void }) {
+  const tr = useTr();
   const [receiving, setReceiving] = useState<string | null>(null);
 
   const columns: Column<PoLineJourney>[] = [
     {
       key: "item",
-      header: "Item",
+      header: tr("Item", "Barang"),
       className: "whitespace-normal",
       render: (l) => (
         <span className="block max-w-[320px] whitespace-normal break-words text-[13px] text-slate-800">
@@ -225,27 +240,27 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
         </span>
       ),
     },
-    { key: "qty", header: "Qty", align: "right", render: (l) => <span className="tabular-nums text-[13px] text-slate-600">{formatNumber(l.qty)}</span> },
-    { key: "price", header: "Unit price", align: "right", render: (l) => <span className="tabular-nums text-[13px] text-slate-600">{formatIDR(l.unit_price)}</span> },
-    { key: "total", header: "Total", align: "right", render: (l) => <span className="tabular-nums text-slate-800">{formatIDR(l.line_total)}</span> },
+    { key: "qty", header: tr("Qty", "Jml"), align: "right", render: (l) => <span className="tabular-nums text-[13px] text-slate-600">{formatNumber(l.qty)}</span> },
+    { key: "price", header: tr("Unit price", "Harga satuan"), align: "right", render: (l) => <span className="tabular-nums text-[13px] text-slate-600">{formatIDR(l.unit_price)}</span> },
+    { key: "total", header: tr("Total", "Total"), align: "right", render: (l) => <span className="tabular-nums text-slate-800">{formatIDR(l.line_total)}</span> },
     {
       key: "received",
-      header: "Received",
+      header: tr("Received", "Diterima"),
       align: "right",
       render: (l) => (
         <div className="whitespace-nowrap">
           <span className="tabular-nums text-[13px] text-slate-700">
-            {formatNumber(l.received)} of {formatNumber(l.qty)}
+            {formatNumber(l.received)} {tr("of", "dari")} {formatNumber(l.qty)}
           </span>
           {l.receipts.length > 1 && (
-            <span className="block text-[11px] text-slate-400">{l.receipts.length} shipments</span>
+            <span className="block text-[11px] text-slate-400">{tr(`${l.receipts.length} shipments`, `${l.receipts.length} kiriman`)}</span>
           )}
         </div>
       ),
     },
     {
       key: "condition",
-      header: "Condition",
+      header: tr("Condition", "Kondisi"),
       render: (l) => (
         <Badge tone={
           l.condition === "GOOD" ? "green"
@@ -266,7 +281,7 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
             variant="ghost" size="sm" icon={Camera}
             onClick={() => setReceiving(receiving === l.po_line_id ? null : l.po_line_id)}
           >
-            Record arrival
+            {tr("Record arrival", "Catat kedatangan")}
           </Button>
         </div>
       ),
@@ -278,9 +293,11 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
       <CardHeader
         title={po.po_no}
         subtitle={[
-          po.issued_at ? `issued ${po.issued_at.slice(0, 10)}` : "not issued",
-          po.dp_percent ? `DP ${po.dp_percent}%` : "no deposit",
-          `${formatIDR(po.contract_value)} contracted`,
+          po.issued_at
+            ? tr(`issued ${po.issued_at.slice(0, 10)}`, `terbit ${po.issued_at.slice(0, 10)}`)
+            : tr("not issued", "belum terbit"),
+          po.dp_percent ? `DP ${po.dp_percent}%` : tr("no deposit", "tanpa DP"),
+          tr(`${formatIDR(po.contract_value)} contracted`, `${formatIDR(po.contract_value)} dikontrak`),
         ].join(" · ")}
         icon={Package}
         action={
@@ -291,9 +308,9 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
             <Badge tone={po.delivery_state === "COMPLETE" ? "green" : po.delivery_state === "PARTIAL" ? "amber" : "red"}>
               {po.delivery_state === "COMPLETE" ? "RECEIVED" : po.delivery_state === "PENDING" ? "NOT ARRIVED" : po.delivery_state}
             </Badge>
-            {po.credit > 0 && <Badge tone="amber">{formatIDR(po.credit)} credit</Badge>}
+            {po.credit > 0 && <Badge tone="amber">{formatIDR(po.credit)} {tr("credit", "kredit")}</Badge>}
             {po.billable_now > 0 && (
-              <Badge tone="violet">{formatIDR(po.billable_now)} billable</Badge>
+              <Badge tone="violet">{formatIDR(po.billable_now)} {tr("billable", "bisa ditagih")}</Badge>
             )}
           </div>
         }
@@ -303,7 +320,10 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
         columns={columns}
         rows={po.lines}
         rowKey={(l) => l.po_line_id}
-        empty="This order has no lines on it — an order with nothing on it is not an order."
+        empty={tr(
+          "This order has no lines on it — an order with nothing on it is not an order.",
+          "Order ini tidak punya baris — order tanpa isi bukanlah order.",
+        )}
       />
 
       {po.note && (
@@ -313,7 +333,7 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
       {/* Deliveries, with the tanda terima that proves each one. */}
       {po.lines.some((l) => l.receipts.length > 0) && (
         <div className="border-t border-slate-100 px-4 py-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">Delivery history</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Delivery history", "Riwayat kiriman")}</p>
           <ul className="mt-1.5 space-y-1.5">
             {po.lines.flatMap((l) => l.receipts.map((r) => (
               <li key={r.receipt_no + l.po_line_id} className="rounded-lg border border-slate-100 px-3 py-2">
@@ -323,11 +343,11 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
                   <Badge tone={r.condition === "GOOD" ? "green" : "amber"}>{r.condition}</Badge>
                   <span className="text-slate-500">{r.at.slice(0, 10)}</span>
                   {r.status === "REPORTED" && (
-                    <Badge tone="amber">reported — tanda terima to come</Badge>
+                    <Badge tone="amber">{tr("reported — tanda terima to come", "dilaporkan — tanda terima menyusul")}</Badge>
                   )}
-                  <span className="text-slate-500">received by <span className="text-slate-700">{r.by}</span></span>
+                  <span className="text-slate-500">{tr("received by", "diterima oleh")} <span className="text-slate-700">{r.by}</span></span>
                   {r.status === "CONFIRMED" && (
-                    <span className="text-slate-500">checked by <span className="text-slate-700">{r.qc_by}</span></span>
+                    <span className="text-slate-500">{tr("checked by", "diperiksa oleh")} <span className="text-slate-700">{r.qc_by}</span></span>
                   )}
                 </div>
                 {/* Both halves, named separately: the photo says what arrived,
@@ -336,12 +356,12 @@ function OrderBlock({ po, onChanged }: { po: PoJourney; onChanged: () => void })
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
                   <EvidenceChip
                     attachmentId={r.photo_attachment_id}
-                    present="photo of the goods" missing="no photo"
-                    title={`${r.receipt_no} — photo of the goods`}
+                    present={tr("photo of the goods", "foto barang")} missing={tr("no photo", "tanpa foto")}
+                    title={tr(`${r.receipt_no} — photo of the goods`, `${r.receipt_no} — foto barang`)}
                   />
                   <EvidenceChip
                     attachmentId={r.delivery_note_attachment_id}
-                    present="tanda terima" missing="no tanda terima"
+                    present="tanda terima" missing={tr("no tanda terima", "tanpa tanda terima")}
                     title={`${r.receipt_no} — tanda terima`}
                   />
                   {r.note && <span className="text-slate-500">{r.note}</span>}

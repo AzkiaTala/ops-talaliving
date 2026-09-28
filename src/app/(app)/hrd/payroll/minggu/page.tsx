@@ -12,6 +12,7 @@ import { hr } from "@/demo/api";
 import type { PayrollLine } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr, type Tr } from "@/lib/i18n";
 
 /** One week of wages, and the arrows to walk to the next one.
  *
@@ -46,19 +47,21 @@ function iso(ms: number): string {
 }
 
 const MONTH = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTH_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** `31 Agu – 6 Sep 2026`, the way a week is said out loud. */
-function periodLabel(from: string, to: string): string {
+function periodLabel(from: string, to: string, tr: Tr): string {
   const [, fm, fd] = from.split("-").map(Number);
   const [ty, tm, td] = to.split("-").map(Number);
-  const left = `${fd} ${MONTH[fm - 1]}`;
-  const right = `${td} ${MONTH[tm - 1]} ${ty}`;
+  const left = `${fd} ${tr(MONTH_EN[fm - 1], MONTH[fm - 1])}`;
+  const right = `${td} ${tr(MONTH_EN[tm - 1], MONTH[tm - 1])} ${ty}`;
   return `${left} – ${right}`;
 }
 
 export default function PayrollWeekPage() {
   const { can } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
   /* The week containing today, which is the one somebody almost always wants
      when they open this screen — unless a link named one, which is how the run
      screen hands over the week it is showing. Read straight off the address
@@ -94,16 +97,20 @@ export default function PayrollWeekPage() {
     const res = await hr.openPayroll({ period_start: weekStart, period_end: weekEnd });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Tidak dibuka", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not opened", "Tidak dibuka"), res.error.message);
       return;
     }
-    toast("success", `${res.data.run_no} dibuka`, `${res.data.lines.length} orang · ${formatIDR(res.data.gross_total)} bruto`);
+    toast(
+      "success",
+      tr(`${res.data.run_no} opened`, `${res.data.run_no} dibuka`),
+      tr(`${res.data.lines.length} people · ${formatIDR(res.data.gross_total)} gross`, `${res.data.lines.length} orang · ${formatIDR(res.data.gross_total)} bruto`),
+    );
     reload();
   }
 
   const columns: Column<PayrollLine>[] = [
     {
-      key: "who", header: "Karyawan", className: "whitespace-normal",
+      key: "who", header: tr("Employee", "Karyawan"), className: "whitespace-normal",
       render: (l) => (
         <div className="max-w-[220px]">
           <p className="font-medium text-slate-800">{l.full_name}</p>
@@ -113,36 +120,36 @@ export default function PayrollWeekPage() {
       ),
     },
     {
-      key: "basis", header: "Dasar", align: "right",
+      key: "basis", header: tr("Basis", "Dasar"), align: "right",
       render: (l) => (
         <div className="whitespace-nowrap text-right text-[12px] text-slate-600">
-          {l.pay_basis === "monthly" ? "bulanan" : `${formatNumber(l.days_worked)} hari`}
+          {l.pay_basis === "monthly" ? tr("monthly", "bulanan") : tr(`${formatNumber(l.days_worked)} days`, `${formatNumber(l.days_worked)} hari`)}
           <p className="text-[11px] text-slate-400">
-            {l.pay_basis === "monthly" ? formatIDR(l.base_rate) : `${formatIDR(l.base_rate)} / hari`}
+            {l.pay_basis === "monthly" ? formatIDR(l.base_rate) : tr(`${formatIDR(l.base_rate)} / day`, `${formatIDR(l.base_rate)} / hari`)}
           </p>
           {l.days_open > 0 && (
-            <p className="text-[11px] text-amber-700">{l.days_open} hari belum dibaca</p>
+            <p className="text-[11px] text-amber-700">{tr(`${l.days_open} days not yet read`, `${l.days_open} hari belum dibaca`)}</p>
           )}
         </div>
       ),
     },
     {
-      key: "ot", header: "Lembur", align: "right",
+      key: "ot", header: tr("Overtime", "Lembur"), align: "right",
       render: (l) => (
         <div className="whitespace-nowrap text-right">
           <span className={cn("tabular-nums", l.overtime_pay > 0 ? "text-slate-800" : "text-slate-300")}>
             {formatIDR(l.overtime_pay)}
           </span>
-          {l.overtime_hours > 0 && <p className="text-[11px] text-slate-500">{formatNumber(l.overtime_hours)} jam disetujui</p>}
+          {l.overtime_hours > 0 && <p className="text-[11px] text-slate-500">{tr(`${formatNumber(l.overtime_hours)} h approved`, `${formatNumber(l.overtime_hours)} jam disetujui`)}</p>}
         </div>
       ),
     },
     {
-      key: "net", header: "Diterima", align: "right",
+      key: "net", header: tr("Take-home", "Diterima"), align: "right",
       render: (l) => (
         <div className="whitespace-nowrap text-right">
           <span className="font-semibold tabular-nums text-slate-900">{formatIDR(l.net)}</span>
-          {l.net !== l.gross && <p className="text-[11px] text-slate-500">bruto {formatIDR(l.gross)}</p>}
+          {l.net !== l.gross && <p className="text-[11px] text-slate-500">{tr(`gross ${formatIDR(l.gross)}`, `bruto ${formatIDR(l.gross)}`)}</p>}
         </div>
       ),
     },
@@ -151,13 +158,16 @@ export default function PayrollWeekPage() {
   return (
     <div>
       <Link href="/hrd/payroll" className="mb-3 inline-flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-700">
-        <ArrowLeft className="h-3.5 w-3.5" /> Semua run
+        <ArrowLeft className="h-3.5 w-3.5" /> {tr("All runs", "Semua run")}
       </Link>
 
       <PageHeader
-        breadcrumb="HRD · Payroll"
-        title="Gajian mingguan"
-        description="Senin sampai Minggu. Angkanya dihitung dari absensi dan lembur yang disetujui setiap kali layar ini dibuka — minggu yang belum dibuatkan run pun tetap bisa dilihat."
+        breadcrumb={tr("HRD · Payroll", "HRD · Penggajian")}
+        title={tr("Weekly payroll", "Gajian mingguan")}
+        description={tr(
+          "Monday to Sunday. The figures are computed from attendance and approved overtime each time this screen opens — a week with no run yet can still be seen.",
+          "Senin sampai Minggu. Angkanya dihitung dari absensi dan lembur yang disetujui setiap kali layar ini dibuka — minggu yang belum dibuatkan run pun tetap bisa dilihat.",
+        )}
         actions={<SourceBadge state={view} />}
       />
 
@@ -166,24 +176,24 @@ export default function PayrollWeekPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-card">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" icon={ChevronLeft} onClick={() => setWeekStart(shift(weekStart, -7))}>
-            Minggu lalu
+            {tr("Last week", "Minggu lalu")}
           </Button>
           <div className="px-2 text-center">
             <p className="flex items-center gap-1.5 text-[14px] font-semibold text-slate-800">
               <CalendarRange className="h-4 w-4 text-slate-400" />
-              {periodLabel(weekStart, weekEnd)}
+              {periodLabel(weekStart, weekEnd, tr)}
             </p>
             <p className="font-mono text-[10px] text-slate-400">{weekStart} → {weekEnd}</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(shift(weekStart, 7))}>
-            Minggu depan <ChevronRight className="ml-1 h-3.5 w-3.5" />
+            {tr("Next week", "Minggu depan")} <ChevronRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </div>
         <Button
           variant="ghost" size="sm"
           onClick={() => setWeekStart(mondayOf(new Date().toISOString().slice(0, 10)))}
         >
-          Minggu ini
+          {tr("This week", "Minggu ini")}
         </Button>
       </div>
 
@@ -193,19 +203,24 @@ export default function PayrollWeekPage() {
             <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
               <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                 {([
-                  ["Bruto", formatIDR(d.gross_total), "sebelum potongan apa pun"],
-                  ["Diterima", formatIDR(d.net_total),
-                    d.adjustment_total === 0 ? "tidak ada penyesuaian"
-                      : `${d.adjustment_total < 0 ? "−" : "+"}${formatIDR(Math.abs(d.adjustment_total))} penyesuaian tangan`],
-                  ["Orang", String(d.lines.length), "bekerja di minggu ini"],
-                  ["Hari belum dibaca", String(d.open_days),
-                    d.open_days > 0 ? "harus dibaca sebelum disetujui" : "semua hari sudah dibaca"],
+                  [tr("Gross", "Bruto"), formatIDR(d.gross_total), tr("before any deduction", "sebelum potongan apa pun")],
+                  [tr("Take-home", "Diterima"), formatIDR(d.net_total),
+                    d.adjustment_total === 0 ? tr("no adjustments", "tidak ada penyesuaian")
+                      : tr(
+                        `${d.adjustment_total < 0 ? "−" : "+"}${formatIDR(Math.abs(d.adjustment_total))} manual adjustments`,
+                        `${d.adjustment_total < 0 ? "−" : "+"}${formatIDR(Math.abs(d.adjustment_total))} penyesuaian tangan`,
+                      )],
+                  [tr("People", "Orang"), String(d.lines.length), tr("working this week", "bekerja di minggu ini")],
+                  [tr("Days unread", "Hari belum dibaca"), String(d.open_days),
+                    d.open_days > 0
+                      ? tr("must be read before approval", "harus dibaca sebelum disetujui")
+                      : tr("every day has been read", "semua hari sudah dibaca")],
                 ] as [string, string, string][]).map(([k, v, note]) => (
                   <div key={k} className="px-4 py-3.5">
                     <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                     <dd className={cn(
                       "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                      k === "Hari belum dibaca" && d.open_days > 0 ? "text-amber-700" : "text-slate-800",
+                      k === tr("Days unread", "Hari belum dibaca") && d.open_days > 0 ? "text-amber-700" : "text-slate-800",
                     )}>
                       {v}
                     </dd>
@@ -226,23 +241,29 @@ export default function PayrollWeekPage() {
                     {d.status}
                   </Badge>
                   <span>
-                    Minggu ini sudah punya run <span className="font-mono">{d.run_no}</span> — penyesuaian,
-                    persetujuan dan slip gajinya ada di sana.
+                    {tr("This week already has run", "Minggu ini sudah punya run")}{" "}
+                    <span className="font-mono">{d.run_no}</span>{" "}
+                    {tr(
+                      "— its adjustments, approval and payslips are there.",
+                      "— penyesuaian, persetujuan dan slip gajinya ada di sana.",
+                    )}
                   </span>
                   <Link href={`/hrd/payroll/${encodeURIComponent(d.run_no)}`} className="ml-auto">
-                    <Button size="sm" variant="outline">Buka run</Button>
+                    <Button size="sm" variant="outline">{tr("Open run", "Buka run")}</Button>
                   </Link>
                 </>
               ) : (
                 <>
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>
-                    Belum ada run untuk minggu ini. Angka di bawah dihitung dari absensi, tapi belum
-                    ada dokumen: tidak bisa disetujui, dan slip gajinya belum bisa dicetak.
+                    {tr(
+                      "No run for this week yet. The figures below are computed from attendance, but there is no document yet: it cannot be approved, and its payslips cannot be printed.",
+                      "Belum ada run untuk minggu ini. Angka di bawah dihitung dari absensi, tapi belum ada dokumen: tidak bisa disetujui, dan slip gajinya belum bisa dicetak.",
+                    )}
                   </span>
                   {mayRun && (
                     <Button size="sm" icon={Plus} disabled={busy} onClick={open} className="ml-auto">
-                      {busy ? "Membuka…" : "Buka run minggu ini"}
+                      {busy ? tr("Opening…", "Membuka…") : tr("Open this week's run", "Buka run minggu ini")}
                     </Button>
                   )}
                 </>
@@ -251,18 +272,21 @@ export default function PayrollWeekPage() {
 
             <Card>
               <CardHeader
-                title="Per orang"
-                subtitle="Dihitung ulang setiap kali layar ini dibuka, dari hari kerja dan lembur yang sudah disetujui."
+                title={tr("Per person", "Per orang")}
+                subtitle={tr(
+                  "Recomputed each time this screen opens, from working days and approved overtime.",
+                  "Dihitung ulang setiap kali layar ini dibuka, dari hari kerja dan lembur yang sudah disetujui.",
+                )}
                 icon={CalendarRange}
               />
               <DataTable
                 dense columns={columns} rows={d.lines} rowKey={(l) => l.employee_no}
                 pageSize={15}
-                empty="Tidak ada karyawan di minggu ini."
+                empty={tr("No employees this week.", "Tidak ada karyawan di minggu ini.")}
                 footer={
                   <tr>
                     <td className="px-4 py-2.5 text-[13px] font-semibold text-slate-700" colSpan={3}>
-                      Total diterima · {d.lines.length} orang
+                      {tr(`Total take-home · ${d.lines.length} people`, `Total diterima · ${d.lines.length} orang`)}
                     </td>
                     <td className="px-4 py-2.5 text-right font-bold tabular-nums text-slate-900">
                       {formatIDR(d.net_total)}

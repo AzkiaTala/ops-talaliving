@@ -48,14 +48,16 @@ export type Cadence = "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMESTER" | "ANNUAL"
 
 export const CADENCES: Cadence[] = ["WEEKLY", "MONTHLY", "QUARTERLY", "SEMESTER", "ANNUAL"];
 
-/** What each cadence is called on a screen, in Indonesian. Not part of the
- *  parity gate — Postgres never prints this one. */
-export const CADENCE_LABEL: Record<Cadence, string> = {
-  WEEKLY: "Mingguan",
-  MONTHLY: "Bulanan",
-  QUARTERLY: "Tiga bulanan",
-  SEMESTER: "Enam bulanan",
-  ANNUAL: "Tahunan",
+/** What each cadence is called on a screen, in both languages. Not part of
+ *  the parity gate — Postgres never prints this one. The shape is
+ *  `Message` from `@/lib/i18n`, written out because this file imports nothing;
+ *  `CADENCE_LABEL` in `./contracts` is the map that follows the language. */
+export const CADENCE_LABELS: Record<Cadence, { en: string; id: string }> = {
+  WEEKLY: { en: "Weekly", id: "Mingguan" },
+  MONTHLY: { en: "Monthly", id: "Bulanan" },
+  QUARTERLY: { en: "Quarterly", id: "Tiga bulanan" },
+  SEMESTER: { en: "Half-yearly", id: "Enam bulanan" },
+  ANNUAL: { en: "Yearly", id: "Tahunan" },
 };
 
 /* Postgres `to_char(…, 'Mon')` with the C locale, which is what both the

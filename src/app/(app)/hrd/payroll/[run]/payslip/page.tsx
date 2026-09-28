@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { hr } from "@/demo/api";
 import type { PayrollLine, PayslipDay } from "@/services/hr/contracts";
 import { useBrand } from "@/lib/brand";
+import { useTr } from "@/lib/i18n";
 
 /** Payslips, several to a sheet of A4.
  *
@@ -34,7 +35,9 @@ import { useBrand } from "@/lib/brand";
  *  read is one they cannot dispute (D155). Statutory deductions are still not
  *  computed, and the slip still says so (D140).
  */
-const DAY_LABEL = ["", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+const DAY_LABEL: [string, string][] = [
+  ["", ""], ["Mon", "Sen"], ["Tue", "Sel"], ["Wed", "Rab"], ["Thu", "Kam"], ["Fri", "Jum"], ["Sat", "Sab"], ["Sun", "Min"],
+];
 
 export default function PayslipsPage({ params }: { params: Promise<{ run: string }> }) {
   /* Next 15 hands route params to the page as a promise, so it can start
@@ -43,6 +46,7 @@ export default function PayslipsPage({ params }: { params: Promise<{ run: string
   const { run } = use(params);
   const runNo = decodeURIComponent(run);
   const [detail] = useLoad(() => hr.getPayroll(runNo), [runNo]);
+  const tr = useTr();
   /* Four with the week, eight without. The dense one is for staff on a salary,
      whose slip is three numbers and a signature. */
   const [dense, setDense] = useState(false);
@@ -69,19 +73,21 @@ export default function PayslipsPage({ params }: { params: Promise<{ run: string
 
       <div className="no-print mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[13px]">
         <span className="text-slate-600">
-          {dense ? "Delapan slip per lembar A4, tanpa rekap harian." : "Enam slip per lembar A4, dengan rekap per hari."}
+          {dense
+            ? tr("Eight slips per A4 sheet, without the daily summary.", "Delapan slip per lembar A4, tanpa rekap harian.")
+            : tr("Six slips per A4 sheet, with the per-day summary.", "Enam slip per lembar A4, dengan rekap per hari.")}
         </span>
         <button
           onClick={() => setDense((d) => !d)}
           className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-medium hover:bg-slate-100"
         >
-          {dense ? "Tampilkan rekap harian (6 per lembar)" : "Padatkan (8 per lembar)"}
+          {dense ? tr("Show daily summary (6 per sheet)", "Tampilkan rekap harian (6 per lembar)") : tr("Compact (8 per sheet)", "Padatkan (8 per lembar)")}
         </button>
         <button
           onClick={() => window.print()}
           className="rounded-lg bg-brand-600 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-brand-700"
         >
-          Cetak
+          {tr("Print", "Cetak")}
         </button>
       </div>
 
@@ -181,6 +187,7 @@ function Slip({
   to: string;
 }) {
   const brand = useBrand();
+  const tr = useTr();
   const showDays = !dense && l.days.length > 0;
   const deductions = l.adjustments.filter((a) => a.amount < 0);
   const additions = l.adjustments.filter((a) => a.amount > 0);
@@ -195,7 +202,7 @@ function Slip({
       <div className="flex items-start justify-between border-b border-slate-400 pb-1.5">
         <div>
           <p className="text-[11px] font-bold tracking-tight">{brand.tagline}</p>
-          <p className="text-[9px] text-slate-500">SLIP GAJI · {runNo}</p>
+          <p className="text-[9px] text-slate-500">{tr("PAYSLIP", "SLIP GAJI")} · {runNo}</p>
         </div>
         <div className="text-right">
           <p className="text-[11px] font-semibold">{l.full_name}</p>
@@ -209,17 +216,17 @@ function Slip({
       {/* The three totals a daily worker checks first. */}
       <div className="mt-2 grid grid-cols-3 gap-1 border-y border-slate-200 py-1 text-center">
         <div>
-          <p className="text-[8px] uppercase tracking-wide text-slate-500">Hari dibayar</p>
+          <p className="text-[8px] uppercase tracking-wide text-slate-500">{tr("Days paid", "Hari dibayar")}</p>
           <p className="text-[12px] font-bold tabular-nums">{formatNumber(l.days_worked)}</p>
         </div>
         <div>
-          <p className="text-[8px] uppercase tracking-wide text-slate-500">Jam lembur</p>
+          <p className="text-[8px] uppercase tracking-wide text-slate-500">{tr("Overtime hours", "Jam lembur")}</p>
           <p className="text-[12px] font-bold tabular-nums">{formatNumber(l.overtime_hours)}</p>
         </div>
         <div>
-          <p className="text-[8px] uppercase tracking-wide text-slate-500">Terlambat</p>
+          <p className="text-[8px] uppercase tracking-wide text-slate-500">{tr("Late", "Terlambat")}</p>
           <p className={cn("text-[12px] font-bold tabular-nums", l.late_minutes > 0 && "text-slate-900")}>
-            {l.late_minutes > 0 ? `${l.late_minutes} mnt` : "—"}
+            {l.late_minutes > 0 ? tr(`${l.late_minutes} min`, `${l.late_minutes} mnt`) : "—"}
           </p>
         </div>
       </div>
@@ -235,16 +242,24 @@ function Slip({
               {/* The mark only exists where the grid is printed; the dense slip
                   has to name the days in words instead. */}
               <span className="font-semibold">
-                {showDays ? `${openDays} hari bertanda ?` : `${openDays} hari belum dibaca`}
+                {showDays
+                  ? tr(`${openDays} days marked ?`, `${openDays} hari bertanda ?`)
+                  : tr(`${openDays} days not yet read`, `${openDays} hari belum dibaca`)}
               </span>{" "}
-              — absensinya belum lengkap, jadi belum dihitung. Bukan hilang: minta HRD membacanya.
+              {tr(
+                "— the attendance is incomplete, so it is not counted yet. Not lost: ask HRD to read it.",
+                "— absensinya belum lengkap, jadi belum dihitung. Bukan hilang: minta HRD membacanya.",
+              )}
             </li>
           )}
           {shownOt > l.overtime_hours + 0.01 && (
             <li>
-              Jam di baris <span className="font-semibold">lembur</span> adalah catatan mesin
-              ({formatNumber(shownOt)} jam). Yang dibayar hanya yang sudah disetujui —
-              {" "}{formatNumber(l.overtime_hours)} jam.
+              {tr("The hours on the", "Jam di baris")}{" "}
+              <span className="font-semibold">{tr("overtime", "lembur")}</span>{" "}
+              {tr(
+                `row are the machine's record (${formatNumber(shownOt)} h). Only what has been approved is paid — ${formatNumber(l.overtime_hours)} h.`,
+                `adalah catatan mesin (${formatNumber(shownOt)} jam). Yang dibayar hanya yang sudah disetujui — ${formatNumber(l.overtime_hours)} jam.`,
+              )}
             </li>
           )}
         </ul>
@@ -254,13 +269,15 @@ function Slip({
         <tbody>
           <tr>
             <td className="py-0.5">
-              {l.pay_basis === "monthly" ? "Gaji pokok" : `Upah ${formatNumber(l.days_worked)} hari`}
+              {l.pay_basis === "monthly"
+                ? tr("Base salary", "Gaji pokok")
+                : tr(`Wage ${formatNumber(l.days_worked)} days`, `Upah ${formatNumber(l.days_worked)} hari`)}
               {l.pay_basis !== "monthly" && (l.days_sick_paid > 0 || l.days_leave_paid > 0) && (
                 <span className="block text-[8px] text-slate-500">
                   {[
-                    `${formatNumber(l.days_present)} masuk`,
-                    l.days_sick_paid > 0 ? `${formatNumber(l.days_sick_paid)} sakit (surat)` : null,
-                    l.days_leave_paid > 0 ? `${formatNumber(l.days_leave_paid)} cuti berbayar` : null,
+                    tr(`${formatNumber(l.days_present)} present`, `${formatNumber(l.days_present)} masuk`),
+                    l.days_sick_paid > 0 ? tr(`${formatNumber(l.days_sick_paid)} sick (with note)`, `${formatNumber(l.days_sick_paid)} sakit (surat)`) : null,
+                    l.days_leave_paid > 0 ? tr(`${formatNumber(l.days_leave_paid)} paid leave`, `${formatNumber(l.days_leave_paid)} cuti berbayar`) : null,
                   ].filter(Boolean).join(" · ")}
                 </span>
               )}
@@ -273,10 +290,13 @@ function Slip({
           {l.allowance_rate > 0 && (
             <tr>
               <td className="py-0.5">
-                Tunjangan — {formatNumber(l.allowance_days)} hari × {formatIDR(l.allowance_rate)}
+                {tr(
+                  `Allowance — ${formatNumber(l.allowance_days)} days × ${formatIDR(l.allowance_rate)}`,
+                  `Tunjangan — ${formatNumber(l.allowance_days)} hari × ${formatIDR(l.allowance_rate)}`,
+                )}
                 {l.allowance_withheld_days > 0 && (
                   <span className="block text-[8px] leading-snug text-slate-500">
-                    {formatNumber(l.allowance_withheld_days)} hari tidak dapat:{" "}
+                    {tr(`${formatNumber(l.allowance_withheld_days)} days without it:`, `${formatNumber(l.allowance_withheld_days)} hari tidak dapat:`)}{" "}
                     {l.allowance_withheld.map((w, i) => (
                       <span key={i}>{i > 0 ? " · " : ""}{w.work_date.slice(8)}/{w.work_date.slice(5, 7)} {w.reason}</span>
                     ))}
@@ -289,7 +309,7 @@ function Slip({
           {l.overtime_pay > 0 && (
             <tr>
               <td className="py-0.5">
-                Lembur — {formatNumber(l.overtime_hours)} jam
+                {tr(`Overtime — ${formatNumber(l.overtime_hours)} h`, `Lembur — ${formatNumber(l.overtime_hours)} jam`)}
                 {/* The ladder, not just the total: *3 jam = Rp 96.250* invites an
                     argument, *1 jam × 1,5 + 2 jam × 2* ends one (D173). */}
                 {l.overtime_parts.length > 0 && (
@@ -298,11 +318,11 @@ function Slip({
                       <span key={i}>
                         {i > 0 ? " · " : ""}
                         {p.multiplier > 0
-                          ? `${formatNumber(p.hours)} jam × ${formatNumber(p.multiplier)}`
-                          : "sesuai form"}
+                          ? tr(`${formatNumber(p.hours)} h × ${formatNumber(p.multiplier)}`, `${formatNumber(p.hours)} jam × ${formatNumber(p.multiplier)}`)
+                          : tr("per the form", "sesuai form")}
                       </span>
                     ))}
-                    {l.overtime_parts[0]?.hourly > 0 && ` · jam biasa ${formatIDR(l.overtime_parts[0].hourly)}`}
+                    {l.overtime_parts[0]?.hourly > 0 && tr(` · normal hour ${formatIDR(l.overtime_parts[0].hourly)}`, ` · jam biasa ${formatIDR(l.overtime_parts[0].hourly)}`)}
                   </span>
                 )}
               </td>
@@ -312,8 +332,8 @@ function Slip({
           {l.undertime_amount > 0 && (
             <tr>
               <td className="py-0.5">
-                Kurang jam — {formatNumber(l.undertime_hours)} jam
-                <span className="block text-[8px] text-slate-500">Sesuai aturan penggajian yang berlaku</span>
+                {tr(`Short hours — ${formatNumber(l.undertime_hours)} h`, `Kurang jam — ${formatNumber(l.undertime_hours)} jam`)}
+                <span className="block text-[8px] text-slate-500">{tr("Per the payroll rules in force", "Sesuai aturan penggajian yang berlaku")}</span>
               </td>
               <td className="py-0.5 text-right tabular-nums">({formatIDR(l.undertime_amount)})</td>
             </tr>
@@ -321,16 +341,22 @@ function Slip({
           {l.late_deduction > 0 && (
             <tr>
               <td className="py-0.5">
-                Terlambat — {formatNumber(l.late_minutes)} menit di {formatNumber(l.late_days)} hari
+                {tr(
+                  `Late — ${formatNumber(l.late_minutes)} minutes over ${formatNumber(l.late_days)} days`,
+                  `Terlambat — ${formatNumber(l.late_minutes)} menit di ${formatNumber(l.late_days)} hari`,
+                )}
                 <span className="block text-[8px] text-slate-500">
-                  Di luar toleransi, dihitung per jam. Tunjangan hari itu tetap dibayar.
+                  {tr(
+                    "Beyond the tolerance, counted per hour. That day's allowance is still paid.",
+                    "Di luar toleransi, dihitung per jam. Tunjangan hari itu tetap dibayar.",
+                  )}
                 </span>
               </td>
               <td className="py-0.5 text-right tabular-nums">({formatIDR(l.late_deduction)})</td>
             </tr>
           )}
           <tr className="border-t border-slate-300">
-            <td className="py-0.5 font-medium">Bruto</td>
+            <td className="py-0.5 font-medium">{tr("Gross", "Bruto")}</td>
             <td className="py-0.5 text-right font-semibold tabular-nums">{formatIDR(l.gross)}</td>
           </tr>
 
@@ -343,7 +369,10 @@ function Slip({
                 {/* The contradiction, said on the line that causes it. */}
                 {a.kind === "late" && a.amount < 0 && l.late_minutes === 0 && (
                   <span className="block text-[8px] text-amber-700">
-                    Absensi periode ini tidak mencatat keterlambatan di luar toleransi.
+                    {tr(
+                      "This period's attendance records no lateness beyond the tolerance.",
+                      "Absensi periode ini tidak mencatat keterlambatan di luar toleransi.",
+                    )}
                   </span>
                 )}
               </td>
@@ -367,14 +396,17 @@ function Slip({
               <td className="py-0.5">
                 {c.label}
                 <span className="block text-[8px] text-slate-500">
-                  Dari dasar upah {formatIDR(c.base)} · bagian perusahaan {formatIDR(c.employer)}
+                  {tr(
+                    `On a wage base of ${formatIDR(c.base)} · company share ${formatIDR(c.employer)}`,
+                    `Dari dasar upah ${formatIDR(c.base)} · bagian perusahaan ${formatIDR(c.employer)}`,
+                  )}
                 </span>
               </td>
               <td className="py-0.5 text-right tabular-nums">({formatIDR(c.employee)})</td>
             </tr>
           ))}
           <tr className="border-t-2 border-slate-900">
-            <td className="py-1 text-[11px] font-bold">Diterima</td>
+            <td className="py-1 text-[11px] font-bold">{tr("Take-home", "Diterima")}</td>
             <td className="py-1 text-right text-[12px] font-bold tabular-nums">{formatIDR(l.take_home)}</td>
           </tr>
         </tbody>
@@ -382,31 +414,48 @@ function Slip({
 
       <p className="mt-1 text-[8px] leading-snug text-slate-500">
         {l.contributions.length === 0
-          ? "Belum ada potongan iuran wajib: orang ini belum terdaftar di register BPJS. Yang belum ada kelihatan di slip; yang salah ditemukan karyawan yang uangnya kurang."
-          : "PPh 21 belum dihitung di sistem ini — tercatat sebagai pendaftaran saja."}
+          ? tr(
+            "No statutory contribution deducted yet: this person is not on the BPJS register. What is missing shows on the slip; what is wrong is found by an employee who is short.",
+            "Belum ada potongan iuran wajib: orang ini belum terdaftar di register BPJS. Yang belum ada kelihatan di slip; yang salah ditemukan karyawan yang uangnya kurang.",
+          )
+          : tr(
+            "PPh 21 is not computed in this system yet — recorded as registration only.",
+            "PPh 21 belum dihitung di sistem ini — tercatat sebagai pendaftaran saja.",
+          )}
         {/* What the company pays on this person's behalf and never takes off
             their wage. Worth printing: it is part of what the job is worth, and
             most people have never been told it exists. */}
         {l.contributions.some((c) => c.employee === 0) && (
-          ` Perusahaan juga membayar ${l.contributions.filter((c) => c.employee === 0)
-            .map((c) => `${c.label.replace("BPJS TK — ", "")} ${formatIDR(c.employer)}`)
-            .join(" dan ")} — tidak dipotong dari gaji.`
+          tr(
+            ` The company also pays ${l.contributions.filter((c) => c.employee === 0)
+              .map((c) => `${c.label.replace("BPJS TK — ", "")} ${formatIDR(c.employer)}`)
+              .join(" and ")} — not deducted from the wage.`,
+            ` Perusahaan juga membayar ${l.contributions.filter((c) => c.employee === 0)
+              .map((c) => `${c.label.replace("BPJS TK — ", "")} ${formatIDR(c.employer)}`)
+              .join(" dan ")} — tidak dipotong dari gaji.`,
+          )
         )}
-        {l.days_unpaid > 0 && ` ${formatNumber(l.days_unpaid)} hari tercatat tanpa dibayar.`}
-        {" "}Satu jam biasa {formatIDR(l.hourly)} —{" "}
+        {l.days_unpaid > 0 && tr(` ${formatNumber(l.days_unpaid)} days recorded unpaid.`, ` ${formatNumber(l.days_unpaid)} hari tercatat tanpa dibayar.`)}
+        {" "}{tr(`One normal hour ${formatIDR(l.hourly)} —`, `Satu jam biasa ${formatIDR(l.hourly)} —`)}{" "}
         {l.hourly_basis === "company"
-          ? `${formatIDR(l.annual_pay)} setahun dibagi hari kerja efektif dan jam sehari`
-          : "gaji sebulan dibagi 173, angka peraturan"}.
+          ? tr(
+            `${formatIDR(l.annual_pay)} a year divided by effective working days and hours per day`,
+            `${formatIDR(l.annual_pay)} setahun dibagi hari kerja efektif dan jam sehari`,
+          )
+          : tr("a month's salary divided by 173, the regulation figure", "gaji sebulan dibagi 173, angka peraturan")}.
         {/* Lateness that costs nothing must still be visible as lateness that
             costs nothing — otherwise the slip reads as though there was none. */}
         {l.late_deduction === 0 && l.late_minutes > 0 && (
-          ` Terlambat ${formatNumber(l.late_minutes)} menit di luar toleransi, tidak dipotong.`
+          tr(
+            ` Late ${formatNumber(l.late_minutes)} minutes beyond the tolerance, not deducted.`,
+            ` Terlambat ${formatNumber(l.late_minutes)} menit di luar toleransi, tidak dipotong.`,
+          )
         )}
       </p>
 
       <div className="mt-2 flex justify-between gap-2 text-[8px] text-slate-500">
-        <span className="flex-1 border-t border-slate-400 pt-0.5 text-center">Dibuat</span>
-        <span className="flex-1 border-t border-slate-400 pt-0.5 text-center">Diterima</span>
+        <span className="flex-1 border-t border-slate-400 pt-0.5 text-center">{tr("Prepared by", "Dibuat")}</span>
+        <span className="flex-1 border-t border-slate-400 pt-0.5 text-center">{tr("Received by", "Diterima")}</span>
       </div>
     </section>
   );
@@ -417,6 +466,7 @@ function Slip({
  *  Split into week blocks so a monthly period prints as four short rows rather
  *  than one that runs off the paper. */
 function WeekGrid({ days }: { days: PayslipDay[] }) {
+  const tr = useTr();
   const weeks: PayslipDay[][] = [];
   let current: PayslipDay[] = [];
   for (const d of days) {
@@ -434,14 +484,14 @@ function WeekGrid({ days }: { days: PayslipDay[] }) {
               <th className="w-8" />
               {week.map((d) => (
                 <th key={d.work_date} className="border border-slate-200 bg-slate-50 py-0.5 font-medium text-slate-600">
-                  {DAY_LABEL[d.weekday]} {d.work_date.slice(8)}
+                  {tr(DAY_LABEL[d.weekday][0], DAY_LABEL[d.weekday][1])} {d.work_date.slice(8)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="tabular-nums">
             <tr>
-              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">masuk</td>
+              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">{tr("in", "masuk")}</td>
               {week.map((d) => (
                 <td key={d.work_date} className="border border-slate-200 py-0.5">
                   {d.mark ? <span className="text-slate-500">{d.mark}</span> : (d.in_at ?? "—")}
@@ -449,7 +499,7 @@ function WeekGrid({ days }: { days: PayslipDay[] }) {
               ))}
             </tr>
             <tr>
-              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">pulang</td>
+              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">{tr("out", "pulang")}</td>
               {week.map((d) => (
                 <td key={d.work_date} className="border border-slate-200 py-0.5">
                   {d.mark ? "" : (d.out_at ?? "—")}
@@ -457,7 +507,7 @@ function WeekGrid({ days }: { days: PayslipDay[] }) {
               ))}
             </tr>
             <tr>
-              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">jam</td>
+              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">{tr("hours", "jam")}</td>
               {week.map((d) => (
                 <td key={d.work_date} className={cn(
                   "border border-slate-200 py-0.5 font-medium",
@@ -472,7 +522,7 @@ function WeekGrid({ days }: { days: PayslipDay[] }) {
               ))}
             </tr>
             <tr>
-              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">lembur</td>
+              <td className="pr-1 text-right text-[7px] uppercase text-slate-400">{tr("OT", "lembur")}</td>
               {week.map((d) => (
                 <td key={d.work_date} className="border border-slate-200 py-0.5 font-medium">
                   {d.overtime_hours > 0 ? `+${formatNumber(d.overtime_hours)}` : ""}

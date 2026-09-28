@@ -10,6 +10,7 @@ import { identity } from "@/demo/api";
 import { useDemo } from "@/demo/provider";
 import { isLiveMode } from "@/lib/live";
 import { AUTHORITY_LABEL, MODULE_LABEL } from "@/lib/roles";
+import { useTr } from "@/lib/i18n";
 
 /** Sign in.
  *
@@ -89,6 +90,7 @@ function PasswordForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const tr = useTr();
 
   /** Ask for a recovery link.
    *
@@ -104,7 +106,7 @@ function PasswordForm() {
    *  and to nobody else.
    */
   async function recover() {
-    if (!email) { setError("Isi alamat email dulu, lalu minta tautan."); return; }
+    if (!email) { setError(tr("Enter your email address first, then ask for the link.", "Isi alamat email dulu, lalu minta tautan.")); return; }
     setBusy(true);
     setError(null);
     const res = await identity.requestPasswordReset(email);
@@ -135,10 +137,12 @@ function PasswordForm() {
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-4">
-        <h1 className="text-base font-semibold text-slate-800">Masuk</h1>
+        <h1 className="text-base font-semibold text-slate-800">{tr("Sign in", "Masuk")}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Pakai alamat email kantor Anda. Akun dibuatkan oleh IT — halaman ini
-          tidak mendaftarkan siapa pun.
+          {tr(
+            "Use your work email address. Accounts are created by IT — this page does not register anyone.",
+            "Pakai alamat email kantor Anda. Akun dibuatkan oleh IT — halaman ini tidak mendaftarkan siapa pun.",
+          )}
         </p>
       </div>
 
@@ -151,14 +155,14 @@ function PasswordForm() {
             id="email" type="email" value={email} required autoFocus
             autoComplete="username"
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="nama@talaliving.com"
+            placeholder={tr("name@talaliving.com", "nama@talaliving.com")}
             className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
           />
         </div>
 
         <div>
           <label htmlFor="password" className="block text-[13px] font-medium text-slate-700">
-            Kata sandi
+            {tr("Password", "Kata sandi")}
           </label>
           <input
             id="password" type="password" value={password} required
@@ -179,7 +183,7 @@ function PasswordForm() {
           type="submit" icon={LogIn} className="w-full"
           disabled={busy || !email || !password}
         >
-          {busy ? "Memeriksa…" : "Masuk"}
+          {busy ? tr("Checking…", "Memeriksa…") : tr("Sign in", "Masuk")}
         </Button>
       </form>
 
@@ -188,21 +192,25 @@ function PasswordForm() {
           <p className="flex items-start gap-2 text-[12px] text-emerald-800">
             <MailCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              Kalau alamat itu terdaftar, tautannya sudah dikirim. Buka dari
-              perangkat ini — tautan berlaku satu jam dan sekali pakai.
+              {tr(
+                "If that address is registered, the link has been sent. Open it on this device — the link is valid for one hour and works once.",
+                "Kalau alamat itu terdaftar, tautannya sudah dikirim. Buka dari perangkat ini — tautan berlaku satu jam dan sekali pakai.",
+              )}
             </span>
           </p>
         ) : (
           <p className="text-[12px] text-slate-500">
-            Lupa kata sandi?{" "}
+            {tr("Forgot your password?", "Lupa kata sandi?")}{" "}
             <button
               type="button" onClick={recover} disabled={busy}
               className="font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800 disabled:text-slate-400"
             >
-              Kirim tautan ke email itu
+              {tr("Send a link to that email", "Kirim tautan ke email itu")}
             </button>
-            . Belum punya akun? Hubungi IT — akses tiap modul diberikan per
-            orang, bukan diminta sendiri.
+            {tr(
+              ". No account yet? Contact IT — access to each module is granted per person, not requested by yourself.",
+              ". Belum punya akun? Hubungi IT — akses tiap modul diberikan per orang, bukan diminta sendiri.",
+            )}
           </p>
         )}
       </div>
@@ -219,15 +227,18 @@ function PersonaList() {
   const { actAs } = useSession();
   const state = useDemo();
   const router = useRouter();
+  const tr = useTr();
 
   return (
     <>
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-4">
-          <h1 className="text-base font-semibold text-slate-800">Choose an account</h1>
+          <h1 className="text-base font-semibold text-slate-800">{tr("Choose an account", "Pilih akun")}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            No password is checked. This is a demonstration of the workflow, and every
-            account below sees a different part of it — which is the point.
+            {tr(
+              "No password is checked. This is a demonstration of the workflow, and every account below sees a different part of it — which is the point.",
+              "Tidak ada kata sandi yang diperiksa. Ini peragaan alur kerja, dan setiap akun di bawah melihat bagian yang berbeda — memang itu tujuannya.",
+            )}
           </p>
         </div>
 
@@ -272,7 +283,10 @@ function PersonaList() {
       </Card>
 
       <p className="mt-4 text-center text-xs text-slate-400">
-        Data lives in this browser only. Nothing here reaches a real system.
+        {tr(
+          "Data lives in this browser only. Nothing here reaches a real system.",
+          "Data hanya tersimpan di peramban ini. Tidak ada yang sampai ke sistem sungguhan.",
+        )}
       </p>
     </>
   );

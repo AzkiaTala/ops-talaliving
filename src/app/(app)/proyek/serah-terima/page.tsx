@@ -11,6 +11,7 @@ import { FileEvidence } from "@/components/ui/file-evidence";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { officeToday } from "@/lib/office";
+import { useTr } from "@/lib/i18n";
 
 /** Where every job actually stands, and the signature that ends one.
  *
@@ -28,6 +29,7 @@ import { officeToday } from "@/lib/office";
  *    record, so it can never read as though the list had been empty (D212).
  */
 export default function HandoverPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [rows, reload] = useLoad(() => delivery.listFulfilment(), []);
   const [open, setOpen] = useState<FulfilmentView | null>(null);
@@ -36,9 +38,9 @@ export default function HandoverPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Projects"
-        title="Serah terima"
-        description="Dipesan, dibuat, dikirim, terpasang — empat angka per proyek, dan jarak di antaranya. Serah terima tanpa BAST yang ditandatangani ditolak."
+        breadcrumb={tr("Projects", "Proyek")}
+        title={tr("Handover", "Serah terima")}
+        description={tr("Ordered, made, delivered, installed — four numbers per project, and the gaps between them. A handover without a signed BAST is refused.", "Dipesan, dibuat, dikirim, terpasang — empat angka per proyek, dan jarak di antaranya. Serah terima tanpa BAST yang ditandatangani ditolak.")}
       />
 
       <Loaded state={rows} onRetry={reload}>
@@ -48,8 +50,8 @@ export default function HandoverPage() {
               <Card key={f.project_code}>
                 <CardHeader
                   title={f.project_name}
-                  subtitle={`${f.client_name ?? "—"} · ${f.location ?? "lokasi belum dicatat"}${
-                    f.target_date ? ` · janji ${f.target_date}` : ""}`}
+                  subtitle={`${f.client_name ?? "—"} · ${f.location ?? tr("location not recorded yet", "lokasi belum dicatat")}${
+                    f.target_date ? tr(` · promised ${f.target_date}`, ` · janji ${f.target_date}`) : ""}`}
                   icon={Stamp}
                   action={
                     <div className="flex items-center gap-2">
@@ -62,7 +64,7 @@ export default function HandoverPage() {
                       </Badge>
                       {f.days_to_target != null && f.stage !== "handed_over" && (
                         <Badge tone={f.days_to_target < 0 ? "red" : f.days_to_target < 14 ? "amber" : "slate"}>
-                          {f.days_to_target < 0 ? `lewat ${-f.days_to_target} hari` : `${f.days_to_target} hari lagi`}
+                          {f.days_to_target < 0 ? tr(`${-f.days_to_target} days late`, `lewat ${-f.days_to_target} hari`) : tr(`${f.days_to_target} days left`, `${f.days_to_target} hari lagi`)}
                         </Badge>
                       )}
                     </div>
@@ -81,16 +83,16 @@ export default function HandoverPage() {
                       <p className="text-[13px] text-slate-800">{l.description}</p>
                       {l.is_service ? (
                         <p className="text-[11px] text-slate-400">
-                          jasa — tidak ada barang yang dibuat atau dikirim
+                          {tr("service — nothing is made or shipped", "jasa — tidak ada barang yang dibuat atau dikirim")}
                         </p>
                       ) : (
                         <dl className="mt-1.5 grid grid-cols-5 gap-1 text-center">
                           {([
-                            ["Pesan", String(l.ordered)],
-                            ["Buat", l.made == null ? "?" : String(l.made)],
-                            ["Jalan", String(l.delivered)],
-                            ["Sampai", String(l.arrived)],
-                            ["Pasang", String(l.installed)],
+                            [tr("Ordered", "Pesan"), String(l.ordered)],
+                            [tr("Made", "Buat"), l.made == null ? "?" : String(l.made)],
+                            [tr("Shipped", "Jalan"), String(l.delivered)],
+                            [tr("Arrived", "Sampai"), String(l.arrived)],
+                            [tr("Installed", "Pasang"), String(l.installed)],
                           ] as [string, string][]).map(([k, v], i) => (
                             <div key={k} className={cn(
                               "rounded-lg py-1",
@@ -114,12 +116,12 @@ export default function HandoverPage() {
                   <table className="w-full min-w-[720px] border-collapse text-[13px]">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                        <th className="px-4 py-2 text-left">Yang dipesan klien</th>
-                        <th className="px-4 py-2 text-right">Dipesan</th>
-                        <th className="px-4 py-2 text-right">Dibuat</th>
-                        <th className="px-4 py-2 text-right">Berangkat</th>
-                        <th className="px-4 py-2 text-right">Sampai</th>
-                        <th className="px-4 py-2 text-right">Terpasang</th>
+                        <th className="px-4 py-2 text-left">{tr("What the client ordered", "Yang dipesan klien")}</th>
+                        <th className="px-4 py-2 text-right">{tr("Ordered", "Dipesan")}</th>
+                        <th className="px-4 py-2 text-right">{tr("Made", "Dibuat")}</th>
+                        <th className="px-4 py-2 text-right">{tr("Dispatched", "Berangkat")}</th>
+                        <th className="px-4 py-2 text-right">{tr("Arrived", "Sampai")}</th>
+                        <th className="px-4 py-2 text-right">{tr("Installed", "Terpasang")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -129,7 +131,7 @@ export default function HandoverPage() {
                             <span className="block text-slate-800">{l.description}</span>
                             {l.is_service && (
                               <span className="block text-[11px] text-slate-400">
-                                jasa — tidak ada barang yang dibuat atau dikirim
+                                {tr("service — nothing is made or shipped", "jasa — tidak ada barang yang dibuat atau dikirim")}
                               </span>
                             )}
                           </td>
@@ -159,14 +161,14 @@ export default function HandoverPage() {
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 px-4 py-2.5 text-[12px]">
                   <span className="text-slate-600">
-                    {f.installed_percent == null ? "belum ada yang bisa dihitung" : `${f.installed_percent}% terpasang`}
+                    {f.installed_percent == null ? tr("nothing to count yet", "belum ada yang bisa dihitung") : tr(`${f.installed_percent}% installed`, `${f.installed_percent}% terpasang`)}
                   </span>
                   {f.open_snags > 0 && (
                     <span className={f.major_snags > 0 ? "text-rose-700" : "text-amber-800"}>
-                      {f.open_snags} temuan terbuka{f.major_snags > 0 && `, ${f.major_snags} berat`}
+                      {tr(`${f.open_snags} open snags`, `${f.open_snags} temuan terbuka`)}{f.major_snags > 0 && tr(`, ${f.major_snags} major`, `, ${f.major_snags} berat`)}
                     </span>
                   )}
-                  {f.in_transit > 0 && <span className="text-amber-800">{f.in_transit} kiriman masih di jalan</span>}
+                  {f.in_transit > 0 && <span className="text-amber-800">{tr(`${f.in_transit} deliveries still on the road`, `${f.in_transit} kiriman masih di jalan`)}</span>}
 
                   {f.handover ? (
                     <span className="ml-auto flex flex-wrap items-center gap-2 text-slate-700">
@@ -176,13 +178,13 @@ export default function HandoverPage() {
                       <Paperclip className="h-3 w-3 text-slate-400" />
                       {f.handover.open_snags_at_handover > 0 && (
                         <Badge tone="amber">
-                          ditandatangani dengan {f.handover.open_snags_at_handover} catatan
+                          {tr(`signed with ${f.handover.open_snags_at_handover} open items`, `ditandatangani dengan ${f.handover.open_snags_at_handover} catatan`)}
                         </Badge>
                       )}
                     </span>
                   ) : mayHandover ? (
                     <Button size="sm" className="ml-auto" icon={Stamp} onClick={() => setOpen(f)}>
-                      Serah terima
+                      {tr("Hand over", "Serah terima")}
                     </Button>
                   ) : null}
                 </div>
@@ -199,16 +201,18 @@ export default function HandoverPage() {
 
                 {f.handover?.open_snag_nos.length ? (
                   <p className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500">
-                    Catatan yang terbuka saat ditandatangani:{" "}
-                    <span className="font-mono">{f.handover.open_snag_nos.join(" · ")}</span>. Dibekukan
-                    pada tanggal itu — kalau sekarang sudah beres, yang berubah adalah temuannya, bukan
-                    berita acaranya.
+                    {tr("Items open when signed:", "Catatan yang terbuka saat ditandatangani:")}{" "}
+                    <span className="font-mono">{f.handover.open_snag_nos.join(" · ")}</span>.{" "}
+                    {tr(
+                      "Frozen on that date — if they are resolved now, what changes is the snag, not the handover record.",
+                      "Dibekukan pada tanggal itu — kalau sekarang sudah beres, yang berubah adalah temuannya, bukan berita acaranya.",
+                    )}
                   </p>
                 ) : null}
               </Card>
             ))}
             {all.length === 0 && (
-              <Card><div className="px-5 py-8 text-[13px] text-slate-500">Belum ada proyek klien yang aktif.</div></Card>
+              <Card><div className="px-5 py-8 text-[13px] text-slate-500">{tr("No active client projects yet.", "Belum ada proyek klien yang aktif.")}</div></Card>
             )}
           </div>
         )}
@@ -222,6 +226,7 @@ export default function HandoverPage() {
 function HandoverDrawer({ project, onClose, onDone }: {
   project: FulfilmentView; onClose: () => void; onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [clientRep, setClientRep] = useState("");
   const [ourRep, setOurRep] = useState("");
@@ -241,71 +246,75 @@ function HandoverDrawer({ project, onClose, onDone }: {
       note: note || null,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 409 ? "critical" : "warning", "Tidak dicatat", res.error.message); return; }
-    toast("success", "Serah terima tercatat", `${project.project_name} · ${project.open_snags} catatan terbuka dibekukan`);
+    if (res.error) { toast(res.error.status === 409 ? "critical" : "warning", tr("Not recorded", "Tidak dicatat"), res.error.message); return; }
+    toast("success", tr("Handover recorded", "Serah terima tercatat"), tr(`${project.project_name} · ${project.open_snags} open items frozen`, `${project.project_name} · ${project.open_snags} catatan terbuka dibekukan`));
     onDone();
   }
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-slate-900/20" onClick={onClose}>
       <div className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-[15px] font-semibold text-slate-900">Serah terima — {project.project_name}</h2>
+        <h2 className="text-[15px] font-semibold text-slate-900">{tr("Handover", "Serah terima")} — {project.project_name}</h2>
         <p className="mb-4 text-[12px] text-slate-500">
-          {project.installed_qty} dari {project.ordered_qty} unit terpasang
+          {tr(`${project.installed_qty} of ${project.ordered_qty} units installed`, `${project.installed_qty} dari ${project.ordered_qty} unit terpasang`)}
         </p>
 
         {project.open_snags > 0 && (
           <p className="mb-3 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              <strong>{project.open_snags} temuan masih terbuka</strong>
-              {project.major_snags > 0 && `, ${project.major_snags} di antaranya berat`}. Menyerahkan
-              dengan catatan terbuka itu wajar — klien ingin rumahnya kembali. Yang dicatat adalah
-              jumlah dan nomornya, supaya berita acara ini tidak pernah bisa dibaca seolah daftarnya
-              kosong.
+              <strong>{tr(`${project.open_snags} snags still open`, `${project.open_snags} temuan masih terbuka`)}</strong>
+              {project.major_snags > 0 && tr(`, ${project.major_snags} of them major`, `, ${project.major_snags} di antaranya berat`)}.{" "}
+              {tr(
+                "Handing over with open items is normal — the client wants their house back. What is recorded is their count and numbers, so this handover record can never read as though the list were empty.",
+                "Menyerahkan dengan catatan terbuka itu wajar — klien ingin rumahnya kembali. Yang dicatat adalah jumlah dan nomornya, supaya berita acara ini tidak pernah bisa dibaca seolah daftarnya kosong.",
+              )}
             </span>
           </p>
         )}
 
         <div className="space-y-3">
           <label className="block text-[12px] text-slate-500">
-            Yang tanda tangan dari klien
+            {tr("Signing for the client", "Yang tanda tangan dari klien")}
             <input value={clientRep} onChange={(e) => setClientRep(e.target.value)}
-              placeholder="Nama dan jabatan, seperti di kertasnya"
+              placeholder={tr("Name and title, as on the paper", "Nama dan jabatan, seperti di kertasnya")}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
           </label>
           <label className="block text-[12px] text-slate-500">
-            Yang tanda tangan dari kita
+            {tr("Signing for us", "Yang tanda tangan dari kita")}
             <input value={ourRep} onChange={(e) => setOurRep(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
           </label>
 
           <div className="rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-700">
-            <FileEvidence kind="BAST" label="Unggah BAST yang sudah ditandatangani" value={bast} onChange={setBast} />
+            <FileEvidence kind="BAST" label={tr("Upload the signed BAST", "Unggah BAST yang sudah ditandatangani")} value={bast} onChange={setBast} />
             <span>
               <span className="mt-1 block text-[11px] text-slate-500">
-                Tanpa ini permintaannya ditolak. Serah terima tanpa dokumennya adalah klaim bahwa
-                klien menerima pekerjaan — dan klien satu-satunya pihak yang tidak bisa mengoreksi
-                catatan kita.
+                {tr(
+                  "Without it the request is refused. A handover without its document is a claim that the client accepted the work — and the client is the one party who cannot correct our records.",
+                  "Tanpa ini permintaannya ditolak. Serah terima tanpa dokumennya adalah klaim bahwa klien menerima pekerjaan — dan klien satu-satunya pihak yang tidak bisa mengoreksi catatan kita.",
+                )}
               </span>
             </span>
           </div>
 
           <label className="block text-[12px] text-slate-500">
-            Catatan
+            {tr("Note", "Catatan")}
             <input value={note} onChange={(e) => setNote(e.target.value)}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
           </label>
 
           <div className="flex gap-2 pt-1">
             <Button disabled={busy || !clientRep.trim() || !ourRep.trim() || !bast} onClick={submit}>
-              {busy ? "Menyimpan…" : "Catat serah terima"}
+              {busy ? tr("Saving…", "Menyimpan…") : tr("Record handover", "Catat serah terima")}
             </Button>
-            <Button variant="ghost" onClick={onClose}>Batal</Button>
+            <Button variant="ghost" onClick={onClose}>{tr("Cancel", "Batal")}</Button>
           </div>
           <p className="text-[11px] text-slate-500">
-            Tombolnya tetap aktif tanpa centang BAST, dan permintaannya akan ditolak. Penolakan yang
-            terlihat lebih berguna daripada tombol mati yang tidak menjelaskan apa-apa.
+            {tr(
+              "The button stays active without the BAST, and the request will be refused. A visible refusal is more useful than a dead button that explains nothing.",
+              "Tombolnya tetap aktif tanpa centang BAST, dan permintaannya akan ditolak. Penolakan yang terlihat lebih berguna daripada tombol mati yang tidak menjelaskan apa-apa.",
+            )}
           </p>
         </div>
       </div>

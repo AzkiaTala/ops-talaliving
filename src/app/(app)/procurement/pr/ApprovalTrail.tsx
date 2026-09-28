@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { History } from "lucide-react";
 import { formatIDR } from "@/lib/format";
+import { useTr } from "@/lib/i18n";
 import { procurement } from "@/demo/api";
 import type { PrApproval } from "@/services/procurement/contracts";
 
@@ -15,6 +16,7 @@ import type { PrApproval } from "@/services/procurement/contracts";
  *  the moment somebody types over it.
  */
 export function ApprovalTrail({ lineNo }: { lineNo: string }) {
+  const tr = useTr();
   const [rows, setRows] = useState<PrApproval[] | null>(null);
 
   useEffect(() => {
@@ -25,8 +27,8 @@ export function ApprovalTrail({ lineNo }: { lineNo: string }) {
     return () => { alive = false; };
   }, [lineNo]);
 
-  if (!rows) return <p className="text-[12px] text-slate-400">Loading the trail…</p>;
-  if (rows.length === 0) return <p className="text-[12px] text-slate-400">No decision recorded yet.</p>;
+  if (!rows) return <p className="text-[12px] text-slate-400">{tr("Loading the trail…", "Memuat riwayat…")}</p>;
+  if (rows.length === 0) return <p className="text-[12px] text-slate-400">{tr("No decision recorded yet.", "Belum ada keputusan yang dicatat.")}</p>;
 
   return (
     <ol className="space-y-2">
@@ -35,10 +37,12 @@ export function ApprovalTrail({ lineNo }: { lineNo: string }) {
           <History className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
           <span>
             <span className="font-medium text-slate-700">
-              {a.approved ? `Approved ${formatIDR(a.approved_amount ?? 0)}` : "Un-approved"}
+              {a.approved
+                ? tr(`Approved ${formatIDR(a.approved_amount ?? 0)}`, `Disetujui ${formatIDR(a.approved_amount ?? 0)}`)
+                : tr("Un-approved", "Persetujuan dicabut")}
             </span>
             <span className="text-slate-500">
-              {" "}by {a.recorded_by_email} · {new Date(a.recorded_at).toLocaleString()} · via {a.channel}
+              {" "}{tr("by", "oleh")} {a.recorded_by_email} · {new Date(a.recorded_at).toLocaleString()} · {tr("via", "lewat")} {a.channel}
             </span>
           </span>
         </li>

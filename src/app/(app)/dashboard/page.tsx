@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { accounting, procurement } from "@/demo/api";
 import type { CashDue } from "@/services/accounting/contracts";
 import type { TransactionView } from "@/services/accounting/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** The first screen, on the same data as every other screen.
  *
@@ -28,6 +29,7 @@ import type { TransactionView } from "@/services/accounting/contracts";
  *  a dashboard that cannot be acted on is a poster.
  */
 export default function DashboardPage() {
+  const tr = useTr();
   const [plan, reloadPlan] = useLoad(() => accounting.getCashPlan(), []);
   const [due] = useLoad(() => accounting.listDue(), []);
   const [queue] = useLoad(() => procurement.queue(), []);
@@ -45,12 +47,12 @@ export default function DashboardPage() {
   const dueColumns: Column<CashDue>[] = [
     {
       key: "date",
-      header: "Due",
+      header: tr("Due", "Jatuh tempo"),
       render: (d) => <span className="whitespace-nowrap font-mono text-[12px] text-slate-500">{d.date}</span>,
     },
     {
       key: "what",
-      header: "What",
+      header: tr("What", "Apa"),
       className: "whitespace-normal",
       render: (d) => (
         <span className="text-[13px] text-slate-800">
@@ -61,7 +63,7 @@ export default function DashboardPage() {
     },
     {
       key: "amount",
-      header: "Amount",
+      header: tr("Amount", "Jumlah"),
       align: "right",
       render: (d) => (
         <span className={cn(
@@ -77,15 +79,15 @@ export default function DashboardPage() {
       header: "",
       align: "right",
       render: (d) => d.state === "OVERDUE"
-        ? <Badge tone="red">{Math.abs(d.days_away)} day(s) late</Badge>
-        : <Badge tone={d.days_away <= 7 ? "amber" : "slate"}>in {d.days_away} day(s)</Badge>,
+        ? <Badge tone="red">{tr(`${Math.abs(d.days_away)} day(s) late`, `terlambat ${Math.abs(d.days_away)} hari`)}</Badge>
+        : <Badge tone={d.days_away <= 7 ? "amber" : "slate"}>{tr(`in ${d.days_away} day(s)`, `${d.days_away} hari lagi`)}</Badge>,
     },
   ];
 
   const ledgerColumns: Column<TransactionView>[] = [
-    { key: "date", header: "Date", render: (t) => <span className="whitespace-nowrap font-mono text-[12px] text-slate-500">{t.trx_date}</span> },
+    { key: "date", header: tr("Date", "Tanggal"), render: (t) => <span className="whitespace-nowrap font-mono text-[12px] text-slate-500">{t.trx_date}</span> },
     {
-      key: "what", header: "What", className: "whitespace-normal",
+      key: "what", header: tr("What", "Apa"), className: "whitespace-normal",
       render: (t) => (
         <span className="block max-w-[420px] whitespace-normal break-words text-[13px] text-slate-700">
           {t.description}
@@ -94,7 +96,7 @@ export default function DashboardPage() {
       ),
     },
     {
-      key: "amount", header: "Amount", align: "right",
+      key: "amount", header: tr("Amount", "Jumlah"), align: "right",
       render: (t) => (
         <span className={cn(
           "whitespace-nowrap tabular-nums",
@@ -109,9 +111,12 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Overview"
-        title="Today"
-        description="Everything here is computed from the same demo data as the rest of the app — nothing on this page is invented."
+        breadcrumb={tr("Overview", "Ringkasan")}
+        title={tr("Today", "Hari ini")}
+        description={tr(
+          "Everything here is computed from the same demo data as the rest of the app — nothing on this page is invented.",
+          "Semua di sini dihitung dari data demo yang sama dengan bagian lain aplikasi — tidak ada yang dikarang di halaman ini.",
+        )}
       />
 
       <Loaded state={plan} onRetry={reloadPlan}>
@@ -119,33 +124,33 @@ export default function DashboardPage() {
           <>
             <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
-                label="Cash today"
+                label={tr("Cash today", "Kas hari ini")}
                 value={formatIDR(p.opening_cash)}
                 icon={Wallet}
-                hint="across the accounts that pay people"
+                hint={tr("across the accounts that pay people", "di seluruh rekening yang dipakai membayar")}
               />
               <StatCard
-                label={p.short_month ? "Money runs out" : "Plan holds until"}
+                label={p.short_month ? tr("Money runs out", "Uang habis") : tr("Plan holds until", "Rencana bertahan sampai")}
                 value={p.short_month
                   ? p.months.find((m) => m.month === p.short_month)?.label ?? "—"
                   : p.months[p.months.length - 1].label}
                 icon={CalendarDays}
                 tone={p.short_month ? "red" : "green"}
-                hint={p.short_month ? `short ${formatIDR(p.short_by)}` : "on the current plan"}
+                hint={p.short_month ? tr(`short ${formatIDR(p.short_by)}`, `kurang ${formatIDR(p.short_by)}`) : tr("on the current plan", "dengan rencana saat ini")}
               />
               <StatCard
-                label="Waiting for a decision"
+                label={tr("Waiting for a decision", "Menunggu keputusan")}
                 value={waiting.length}
                 icon={Bell}
                 tone="amber"
-                hint={waitingValue > 0 ? `${formatIDR(waitingValue)} asked for` : "nothing pending"}
+                hint={waitingValue > 0 ? tr(`${formatIDR(waitingValue)} asked for`, `${formatIDR(waitingValue)} diajukan`) : tr("nothing pending", "tidak ada yang menunggu")}
               />
               <StatCard
-                label="Billable by suppliers"
+                label={tr("Billable by suppliers", "Bisa ditagih pemasok")}
                 value={formatIDR(billable)}
                 icon={Route}
                 tone={billable > 0 ? "amber" : "slate"}
-                hint="goods here that nobody has paid for"
+                hint={tr("goods here that nobody has paid for", "barang sudah di sini tapi belum dibayar")}
               />
             </div>
 
@@ -154,16 +159,16 @@ export default function DashboardPage() {
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span className="flex-1">
                   {p.short_month && <>{p.verdict} </>}
-                  {stuck > 0 && <>{stuck} document(s) in the inbox still need a decision.</>}
+                  {stuck > 0 && <>{tr(`${stuck} document(s) in the inbox still need a decision.`, `${stuck} dokumen di inbox masih menunggu keputusan.`)}</>}
                 </span>
                 {p.short_month && (
                   <Link href="/accounting/calendar">
-                    <Button size="sm" variant="outline" icon={ArrowRight}>Open the calendar</Button>
+                    <Button size="sm" variant="outline" icon={ArrowRight}>{tr("Open the calendar", "Buka kalender")}</Button>
                   </Link>
                 )}
                 {stuck > 0 && (
                   <Link href="/accounting/verifikasi">
-                    <Button size="sm" variant="outline" icon={Inbox}>Open the inbox</Button>
+                    <Button size="sm" variant="outline" icon={Inbox}>{tr("Open the inbox", "Buka inbox")}</Button>
                   </Link>
                 )}
               </div>
@@ -171,12 +176,15 @@ export default function DashboardPage() {
 
             <Card className="mb-4">
               <CardHeader
-                title="Cash at the end of each month"
-                subtitle="On the current plan, twelve months forward. Where the line crosses zero is the month to act on."
+                title={tr("Cash at the end of each month", "Kas di akhir tiap bulan")}
+                subtitle={tr(
+                  "On the current plan, twelve months forward. Where the line crosses zero is the month to act on.",
+                  "Dengan rencana saat ini, dua belas bulan ke depan. Titik garis melewati nol adalah bulan yang harus ditindaklanjuti.",
+                )}
                 icon={CalendarDays}
                 action={
                   <Link href="/accounting/calendar" className="text-[13px] text-brand-700 underline">
-                    the calendar
+                    {tr("the calendar", "kalender")}
                   </Link>
                 }
               />
@@ -195,11 +203,11 @@ export default function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader
-            title="Due next"
-            subtitle="From the payment calendar — anything late comes first."
+            title={tr("Due next", "Jatuh tempo berikutnya")}
+            subtitle={tr("From the payment calendar — anything late comes first.", "Dari kalender pembayaran — yang terlambat tampil lebih dulu.")}
             icon={Bell}
             action={
-              <Link href="/accounting/calendar" className="text-[13px] text-brand-700 underline">all of it</Link>
+              <Link href="/accounting/calendar" className="text-[13px] text-brand-700 underline">{tr("all of it", "semuanya")}</Link>
             }
           />
           <Loaded state={due} onRetry={() => {}} skeletonRows={4}>
@@ -209,7 +217,7 @@ export default function DashboardPage() {
                 columns={dueColumns}
                 rows={all.slice(0, 6)}
                 rowKey={(d) => `${d.component_id}:${d.date}`}
-                empty="Nothing falls due in the next three weeks."
+                empty={tr("Nothing falls due in the next three weeks.", "Tidak ada yang jatuh tempo dalam tiga minggu ke depan.")}
               />
             )}
           </Loaded>
@@ -217,11 +225,11 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader
-            title="Last money out"
-            subtitle="The most recent rows in the ledger."
+            title={tr("Last money out", "Pengeluaran terakhir")}
+            subtitle={tr("The most recent rows in the ledger.", "Baris terbaru di buku besar.")}
             icon={Banknote}
             action={
-              <Link href="/accounting/ledger" className="text-[13px] text-brand-700 underline">the ledger</Link>
+              <Link href="/accounting/ledger" className="text-[13px] text-brand-700 underline">{tr("the ledger", "buku besar")}</Link>
             }
           />
           <Loaded state={rows} onRetry={() => {}} skeletonRows={4}>
@@ -231,7 +239,7 @@ export default function DashboardPage() {
                 columns={ledgerColumns}
                 rows={all.slice(0, 6)}
                 rowKey={(t) => t.trx_no}
-                empty="Nothing has been posted yet."
+                empty={tr("Nothing has been posted yet.", "Belum ada yang dibukukan.")}
               />
             )}
           </Loaded>

@@ -14,6 +14,7 @@ import {
   type OutreachStage, type PropertyView,
 } from "@/services/marketing/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** One property and its three agents, in the order they are approached.
  *
@@ -42,6 +43,7 @@ export function PropertyDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [property, reload] = useLoad(() => marketing.getProperty(propertyRef), [propertyRef]);
   const [busy, setBusy] = useState(false);
@@ -53,7 +55,7 @@ export function PropertyDrawer({
     const res = await marketing.setAgentStage({ property_ref: propertyRef, agent_id: agentId, stage: next });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak jadi", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not done", "Tidak jadi"), res.error.message);
       return;
     }
     toast("success", STAGE_LABEL[next], "");
@@ -61,15 +63,15 @@ export function PropertyDrawer({
   }
 
   async function moveOn(agentId: string, name: string) {
-    const reason = window.prompt(`Lepas ${name} dan lanjut ke agen berikutnya. Alasannya:`, "Tujuh hari tanpa balasan.");
+    const reason = window.prompt(tr(`Release ${name} and move on to the next agent. Reason:`, `Lepas ${name} dan lanjut ke agen berikutnya. Alasannya:`), tr("Seven days without a reply.", "Tujuh hari tanpa balasan."));
     if (!reason?.trim()) return;
     setBusy(true);
     const res = await marketing.moveToNextAgent({ property_ref: propertyRef, agent_id: agentId, reason });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak jadi", res.error.message); return; }
-    toast("success", `${name} dilepas`, res.data.next_agent_name
-      ? `Pesan ke ${res.data.next_agent_name} dicatat terkirim hari ini.`
-      : "Tidak ada agen berikutnya.");
+    if (res.error) { toast("warning", tr("Not done", "Tidak jadi"), res.error.message); return; }
+    toast("success", tr(`${name} released`, `${name} dilepas`), res.data.next_agent_name
+      ? tr(`The message to ${res.data.next_agent_name} is recorded as sent today.`, `Pesan ke ${res.data.next_agent_name} dicatat terkirim hari ini.`)
+      : tr("No next agent.", "Tidak ada agen berikutnya."));
     reload(); onChanged();
   }
 
@@ -79,8 +81,8 @@ export function PropertyDrawer({
       property_ref: propertyRef, agent_id: agentId, commission_percent: rate,
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak jadi", res.error.message); return; }
-    toast("success", `${name} jadi representative`, `Komisi ${rate}% nilai kontrak · ${res.data.rep_no}`);
+    if (res.error) { toast("warning", tr("Not done", "Tidak jadi"), res.error.message); return; }
+    toast("success", tr(`${name} is now a representative`, `${name} jadi representative`), tr(`Commission ${rate}% of contract value · ${res.data.rep_no}`, `Komisi ${rate}% nilai kontrak · ${res.data.rep_no}`));
     setOnboarding(null);
     reload(); onChanged();
   }
@@ -89,8 +91,8 @@ export function PropertyDrawer({
     setBusy(true);
     const res = await marketing.validateProperty({ property_ref: p.ref, validated: !p.validated });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak jadi", res.error.message); return; }
-    toast("success", p.validated ? "Validasi dicabut" : "Divalidasi", "");
+    if (res.error) { toast("warning", tr("Not done", "Tidak jadi"), res.error.message); return; }
+    toast("success", p.validated ? tr("Validation withdrawn", "Validasi dicabut") : tr("Validated", "Divalidasi"), "");
     reload(); onChanged();
   }
 
@@ -109,12 +111,12 @@ export function PropertyDrawer({
           <div className="space-y-4">
             <dl className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 sm:grid-cols-4">
               {([
-                ["Skor", p.score ? String(p.score) : "—", p.validated ? "sudah divalidasi orang" : "belum divalidasi"],
-                ["Kamar", p.rooms ? formatNumber(p.rooms) : "?", p.is_condo === false ? "bukan strata" : "strata"],
+                [tr("Score", "Skor"), p.score ? String(p.score) : "—", p.validated ? tr("validated by a person", "sudah divalidasi orang") : tr("not validated", "belum divalidasi")],
+                [tr("Rooms", "Kamar"), p.rooms ? formatNumber(p.rooms) : "?", p.is_condo === false ? tr("not strata", "bukan strata") : tr("strata", "strata")],
                 /* The currency is the market's, never assumed (D187). */
                 ["ADR", p.adr ? `${p.market.currency} ${formatNumber(p.adr)}` : "?",
-                  p.adr_flag === "CHECK" ? "perlu dicek" : p.market.currency],
-                ["Tahap terjauh", STAGE_LABEL[p.best_stage], `${p.agents.length} agen`],
+                  p.adr_flag === "CHECK" ? tr("needs checking", "perlu dicek") : p.market.currency],
+                [tr("Furthest stage", "Tahap terjauh"), STAGE_LABEL[p.best_stage], tr(`${p.agents.length} agents`, `${p.agents.length} agen`)],
               ] as [string, string, string][]).map(([k, v, note]) => (
                 <div key={k}>
                   <dt className="text-[10px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -128,7 +130,7 @@ export function PropertyDrawer({
               <div className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] text-slate-600">
                 {p.reno_signal && (
                   <p>
-                    <span className="font-medium text-slate-700">Sinyal renovasi:</span> {p.reno_signal}
+                    <span className="font-medium text-slate-700">{tr("Renovation signal:", "Sinyal renovasi:")}</span> {p.reno_signal}
                     {p.reno_source && <span className="text-slate-400"> — {p.reno_source}</span>}
                   </p>
                 )}
@@ -139,31 +141,31 @@ export function PropertyDrawer({
             {/* Ringing an agent at nine in the evening their time is the
                 mistake a worldwide pipeline makes first (D187). */}
             <p className="text-[12px] text-slate-600">
-              Sekarang <span className="font-medium">{localTime(p.market.timezone)}</span> di{" "}
-              {p.market.city} — {p.market.country_name}, bahasa {p.market.language.toUpperCase()}.
+              {tr("It is now", "Sekarang")} <span className="font-medium">{localTime(p.market.timezone)}</span> {tr("in", "di")}{" "}
+              {p.market.city} — {p.market.country_name}, {tr("language", "bahasa")} {p.market.language.toUpperCase()}.
             </p>
 
             <div className="flex flex-wrap items-center gap-2">
               {p.maps_url && (
                 <a href={p.maps_url} target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" icon={ExternalLink}>Buka di Maps</Button>
+                  <Button size="sm" variant="outline" icon={ExternalLink}>{tr("Open in Maps", "Buka di Maps")}</Button>
                 </a>
               )}
               {mayEdit && (
                 <Button size="sm" variant={p.validated ? "ghost" : "outline"} icon={Check} disabled={busy} onClick={() => validate(p)}>
-                  {p.validated ? "Cabut validasi" : "Tandai tervalidasi"}
+                  {p.validated ? tr("Withdraw validation", "Cabut validasi") : tr("Mark as validated", "Tandai tervalidasi")}
                 </Button>
               )}
               {!p.validated && (
                 <span className="text-[11px] text-amber-700">
-                  Skornya masih pendapat mesin sampai ada yang memeriksanya.
+                  {tr("The score is still the machine's opinion until someone checks it.", "Skornya masih pendapat mesin sampai ada yang memeriksanya.")}
                 </span>
               )}
             </div>
 
             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
               {p.agents.length === 0 && (
-                <li className="px-4 py-6 text-[13px] text-slate-500">Belum ada agen untuk properti ini.</li>
+                <li className="px-4 py-6 text-[13px] text-slate-500">{tr("No agents for this property yet.", "Belum ada agen untuk properti ini.")}</li>
               )}
               {p.agents.map((a) => (
                 <li key={a.id} className={cn("px-4 py-3", a.move_on && "bg-rose-50/40")}>
@@ -182,16 +184,16 @@ export function PropertyDrawer({
                     }>
                       {STAGE_LABEL[a.stage]}
                     </Badge>
-                    {a.rep_id && <Badge tone="green">representative</Badge>}
+                    {a.rep_id && <Badge tone="green">{tr("representative", "representative")}</Badge>}
                   </div>
 
                   <p className="mt-0.5 text-[11px] text-slate-500">
-                    {a.sent_on ? `dikirim ${a.sent_on}` : "belum dikirimi"}
-                    {a.replied_on && ` · balas ${a.replied_on}`}
+                    {a.sent_on ? tr(`sent ${a.sent_on}`, `dikirim ${a.sent_on}`) : tr("not messaged yet", "belum dikirimi")}
+                    {a.replied_on && tr(` · replied ${a.replied_on}`, ` · balas ${a.replied_on}`)}
                     {a.waiting_days != null && !a.replied_on && (
                       <span className={a.move_on ? "font-medium text-rose-700" : ""}>
-                        {" · "}{a.waiting_days} hari menunggu
-                        {a.move_on && " — lewat batas tujuh hari"}
+                        {" · "}{tr(`${a.waiting_days} days waiting`, `${a.waiting_days} hari menunggu`)}
+                        {a.move_on && tr(" — past the seven-day limit", " — lewat batas tujuh hari")}
                       </span>
                     )}
                     {a.remark && <span className="block text-slate-600">{a.remark}</span>}
@@ -205,21 +207,21 @@ export function PropertyDrawer({
                         </Button>
                       ))}
                       <Button size="sm" variant="ghost" icon={ArrowRight} disabled={busy} onClick={() => moveOn(a.id, a.name)}>
-                        Lepas & lanjut
+                        {tr("Release & move on", "Lepas & lanjut")}
                       </Button>
                       {!a.rep_id && (
                         onboarding === a.id ? (
                           <span className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-slate-500">Komisi %</span>
+                            <span className="text-[11px] text-slate-500">{tr("Commission %", "Komisi %")}</span>
                             <div className="w-[80px]"><NumberInput value={rate} onChange={setRate} /></div>
                             <Button size="sm" icon={UserCheck} disabled={busy} onClick={() => onboard(a.id, a.name)}>
-                              Onboarding
+                              {tr("Onboard", "Onboarding")}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setOnboarding(null)}>Batal</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setOnboarding(null)}>{tr("Cancel", "Batal")}</Button>
                           </span>
                         ) : (
                           <Button size="sm" variant="ghost" icon={UserCheck} onClick={() => setOnboarding(a.id)}>
-                            Jadikan representative
+                            {tr("Make representative", "Jadikan representative")}
                           </Button>
                         )
                       )}
@@ -231,8 +233,10 @@ export function PropertyDrawer({
 
             <p className="flex items-start gap-2 text-[11px] text-slate-500">
               <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-              Deal hanya bisa dicatat setelah agennya di-onboarding beserta persen komisinya — tanpa
-              itu tidak ada yang tahu berapa yang harus dibayar nanti.
+              {tr(
+                "A deal can only be recorded once the agent is onboarded with a commission percentage — without it nobody knows what has to be paid later.",
+                "Deal hanya bisa dicatat setelah agennya di-onboarding beserta persen komisinya — tanpa itu tidak ada yang tahu berapa yang harus dibayar nanti.",
+              )}
             </p>
           </div>
         </Drawer>

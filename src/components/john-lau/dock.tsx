@@ -14,7 +14,7 @@ import type { AssistantTurn } from "@/services/assistant/contracts";
 import type { ApiError } from "@/services/_shared/envelope";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
-import { useT, useLang } from "@/lib/i18n";
+import { useT, useLang, useTr } from "@/lib/i18n";
 import { formatIDR } from "@/lib/format";
 import { isRouteLive } from "@/lib/live";
 import { MESSAGES, EXAMPLES } from "@/lib/messages";
@@ -50,6 +50,7 @@ export function JohnLauDock() {
   const { toast } = useToast();
   const { ready } = useSession();
   const t = useT();
+  const tr = useTr();
   const router = useRouter();
 
   function setOpen(v: boolean) {
@@ -84,7 +85,7 @@ export function JohnLauDock() {
     setBusy(true);
     const res = await assistant.ask(q, { pathname });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak terkirim", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not sent", "Tidak terkirim"), res.error.message); return; }
     setTurns((t) => [...t, res.data.turn]);
   }
 
@@ -113,7 +114,7 @@ export function JohnLauDock() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          data-dock-open="john-lau" aria-label="Buka John Lau"
+          data-dock-open="john-lau" aria-label={tr("Open John Lau", "Buka John Lau")}
           className="fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full bg-brand-700 px-4 py-3 text-sm font-medium text-white shadow-lg hover:bg-brand-800 print:hidden"
         >
           <MessageSquare className="h-4 w-4" /> {t(MESSAGES.johnLau.launcher)}
@@ -121,7 +122,7 @@ export function JohnLauDock() {
       )}
 
       {open && (
-        <aside data-dock="john-lau" aria-label="Panel John Lau" className="fixed bottom-0 right-0 z-30 flex h-[min(78vh,720px)] w-full max-w-[420px] flex-col rounded-t-xl border border-slate-200 bg-white shadow-2xl sm:bottom-4 sm:right-4 sm:rounded-xl print:hidden">
+        <aside data-dock="john-lau" aria-label={tr("John Lau panel", "Panel John Lau")} className="fixed bottom-0 right-0 z-30 flex h-[min(78vh,720px)] w-full max-w-[420px] flex-col rounded-t-xl border border-slate-200 bg-white shadow-2xl sm:bottom-4 sm:right-4 sm:rounded-xl print:hidden">
           <header className="flex items-center gap-2 border-b border-slate-200 px-4 py-2.5">
             <MessageSquare className="h-4 w-4 text-brand-700" />
             <span className="text-[13px] font-semibold text-slate-800">John Lau</span>
@@ -202,6 +203,7 @@ function Turn({ turn, pathname, current, onNavigate, onChanged }: {
 }) {
   const { toast } = useToast();
   const t = useT();
+  const tr = useTr();
   const [fields, setFields] = useState<Record<string, string>>(
     /* Keyed by `f.key`, never by `f.label`: the label is language-dependent,
        and a payload keyed by display text empties itself when somebody
@@ -219,9 +221,9 @@ function Turn({ turn, pathname, current, onNavigate, onChanged }: {
     setBusy(true);
     const res = await assistant.confirmDraft({ turn_id: turn.id, fields });
     setBusy(false);
-    if (res.error) { setSaid(res.error); toast("warning", "Tidak jadi ditulis", res.error.message); return; }
+    if (res.error) { setSaid(res.error); toast("warning", tr("Not written", "Tidak jadi ditulis"), res.error.message); return; }
     setSaid(null);
-    toast("success", "Tersimpan", res.data.produced_ref ?? "Rancangan dikonfirmasi");
+    toast("success", t(MESSAGES.johnLau.savedAs), res.data.produced_ref ?? tr("Draft confirmed", "Rancangan dikonfirmasi"));
     onChanged(res.data);
   }
 
@@ -269,7 +271,7 @@ function Turn({ turn, pathname, current, onNavigate, onChanged }: {
                   {f.amount != null && f.unit === "IDR" ? formatIDR(f.amount) : f.value}
                 </span>
                 {f.href && (
-                  <button onClick={() => onNavigate(f.href!)} aria-label="Buka layarnya" className="text-brand-700 hover:underline">
+                  <button onClick={() => onNavigate(f.href!)} aria-label={t(MESSAGES.johnLau.openScreen)} className="text-brand-700 hover:underline">
                     <ArrowUpRight className="h-3 w-3" />
                   </button>
                 )}

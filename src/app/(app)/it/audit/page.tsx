@@ -8,6 +8,7 @@ import { Paged } from "@/components/ui/pager";
 import { cn } from "@/lib/cn";
 import { identity } from "@/demo/api";
 import type { AuditRowView } from "@/services/identity/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** The audit trail — what changed, who changed it, and what it was before.
  *
@@ -26,6 +27,7 @@ const OUTCOME_TONE = {
 } as const;
 
 export default function AuditPage() {
+  const tr = useTr();
   const [q, setQ] = useState("");
   const [outcome, setOutcome] = useState("");
   const [action, setAction] = useState("");
@@ -40,8 +42,11 @@ export default function AuditPage() {
     <div>
       <PageHeader
         breadcrumb="IT"
-        title="Audit log"
-        description="Apa yang berubah, oleh siapa, dan nilainya sebelum–sesudah. Penolakan ikut tercatat — itu justru yang paling sering dicari."
+        title={tr("Audit log", "Log audit")}
+        description={tr(
+          "What changed, by whom, and its value before and after. Refusals are recorded too — those are exactly what people look for most.",
+          "Apa yang berubah, oleh siapa, dan nilainya sebelum–sesudah. Penolakan ikut tercatat — itu justru yang paling sering dicari.",
+        )}
         actions={<SourceBadge state={rows} />}
       />
 
@@ -59,11 +64,17 @@ export default function AuditPage() {
                 <div className="mb-4 flex flex-wrap items-start gap-2 rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-[13px] text-violet-900">
                   <Eye className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    {reveals.length} nomor identitas dibuka —{" "}
-                    {[...new Set(reveals.map((r) => r.actor_email))].join(", ")}. Membaca nomor KTP,
-                    KK, NPWP atau BPJS tidak mengubah apa pun, tapi tercatat di sini dan tidak pernah
-                    dihapus: pertanyaan <em>siapa yang melihat data saya</em> datang berbulan-bulan
-                    kemudian. Baris ini menyebut dokumen siapa, bukan nomornya.
+                    {tr(`${reveals.length} identity number(s) opened —`, `${reveals.length} nomor identitas dibuka —`)}{" "}
+                    {[...new Set(reveals.map((r) => r.actor_email))].join(", ")}.{" "}
+                    {tr(
+                      "Reading a KTP, KK, NPWP or BPJS number changes nothing, but it is recorded here and never deleted: the question",
+                      "Membaca nomor KTP, KK, NPWP atau BPJS tidak mengubah apa pun, tapi tercatat di sini dan tidak pernah dihapus: pertanyaan",
+                    )}{" "}
+                    <em>{tr("who looked at my data", "siapa yang melihat data saya")}</em>{" "}
+                    {tr(
+                      "comes months later. This row names whose document it was, not the number.",
+                      "datang berbulan-bulan kemudian. Baris ini menyebut dokumen siapa, bukan nomornya.",
+                    )}
                   </span>
                 </div>
               )}
@@ -71,17 +82,23 @@ export default function AuditPage() {
                 <div className="mb-4 flex flex-wrap items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-[13px] text-amber-900">
                   <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    {refused.length} tindakan ditolak dalam rentang ini —{" "}
-                    {[...new Set(refused.map((r) => r.actor_email))].join(", ")}. Ditolak berulang kali
-                    berarti salah satu dari dua: haknya kurang, atau dia mengerjakan pekerjaan orang lain.
+                    {tr(`${refused.length} action(s) refused in this range —`, `${refused.length} tindakan ditolak dalam rentang ini —`)}{" "}
+                    {[...new Set(refused.map((r) => r.actor_email))].join(", ")}.{" "}
+                    {tr(
+                      "Being refused repeatedly means one of two things: the rights are missing, or the person is doing somebody else's job.",
+                      "Ditolak berulang kali berarti salah satu dari dua: haknya kurang, atau dia mengerjakan pekerjaan orang lain.",
+                    )}
                   </span>
                 </div>
               )}
 
               <Card>
                 <CardHeader
-                  title={`${all.length} baris`}
-                  subtitle="Terbaru di atas. Setiap baris ditulis dalam transaksi yang sama dengan perubahannya — tidak ada perubahan tanpa jejak."
+                  title={tr(`${all.length} rows`, `${all.length} baris`)}
+                  subtitle={tr(
+                    "Newest first. Every row is written in the same transaction as its change — no change without a trace.",
+                    "Terbaru di atas. Setiap baris ditulis dalam transaksi yang sama dengan perubahannya — tidak ada perubahan tanpa jejak.",
+                  )}
                   icon={ScrollText}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
@@ -89,38 +106,38 @@ export default function AuditPage() {
                         <Search className="h-3.5 w-3.5 text-slate-400" />
                         <input
                           value={q} onChange={(e) => setQ(e.target.value)}
-                          placeholder="Nomor dokumen…" aria-label="Cari nomor dokumen"
+                          placeholder={tr("Document number…", "Nomor dokumen…")} aria-label={tr("Search document number", "Cari nomor dokumen")}
                           className="h-7 w-44 text-sm focus:outline-none"
                         />
                       </label>
                       <select
                         value={outcome} onChange={(e) => setOutcome(e.target.value)}
-                        aria-label="Hasil"
+                        aria-label={tr("Outcome", "Hasil")}
                         className="h-8 rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Semua hasil</option>
-                        <option value="ok">Berhasil</option>
-                        <option value="refused">Ditolak</option>
-                        <option value="duplicate">Duplikat</option>
-                        <option value="noop">Tidak ada perubahan</option>
+                        <option value="">{tr("All outcomes", "Semua hasil")}</option>
+                        <option value="ok">{tr("Succeeded", "Berhasil")}</option>
+                        <option value="refused">{tr("Refused", "Ditolak")}</option>
+                        <option value="duplicate">{tr("Duplicate", "Duplikat")}</option>
+                        <option value="noop">{tr("No change", "Tidak ada perubahan")}</option>
                       </select>
                       <select
                         value={action} onChange={(e) => setAction(e.target.value)}
-                        aria-label="Tindakan"
+                        aria-label={tr("Action", "Tindakan")}
                         className="h-8 rounded-lg border border-slate-200 px-2 text-[13px] focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Semua tindakan</option>
-                        <option value="reveal">Buka nomor identitas</option>
+                        <option value="">{tr("All actions", "Semua tindakan")}</option>
+                        <option value="reveal">{tr("Open identity number", "Buka nomor identitas")}</option>
                       </select>
                     </div>
                   }
                 />
-                <Paged rows={all} pageSize={20} unit="baris">
+                <Paged rows={all} pageSize={20} unit={tr("rows", "baris")}>
                   {(page) => (
                     <ul className="divide-y divide-slate-100">
                       {page.map((r) => <Row key={r.id} row={r} />)}
                       {all.length === 0 && (
-                        <li className="px-5 py-8 text-[13px] text-slate-500">Tidak ada yang cocok.</li>
+                        <li className="px-5 py-8 text-[13px] text-slate-500">{tr("Nothing matches.", "Tidak ada yang cocok.")}</li>
                       )}
                     </ul>
                   )}
@@ -135,6 +152,7 @@ export default function AuditPage() {
 }
 
 function Row({ row: r }: { row: AuditRowView }) {
+  const tr = useTr();
   const [open, setOpen] = useState(false);
   const before = r.detail?.before as Record<string, unknown> | undefined;
   const after = r.detail?.after as Record<string, unknown> | undefined;
@@ -162,13 +180,13 @@ function Row({ row: r }: { row: AuditRowView }) {
           {before && after ? (
             <div className="grid gap-2 sm:grid-cols-2">
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-slate-400">Sebelum</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">{tr("Before", "Sebelum")}</p>
                 <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700">
                   {JSON.stringify(before, null, 1)}
                 </pre>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-slate-400">Sesudah</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">{tr("After", "Sesudah")}</p>
                 <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700">
                   {JSON.stringify(after, null, 1)}
                 </pre>

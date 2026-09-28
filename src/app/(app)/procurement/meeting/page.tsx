@@ -23,6 +23,7 @@ import { useSession } from "@/store/session";
 import { LineDrawer } from "../pr/LineDrawer";
 import { MoneyPanel } from "./MoneyPanel";
 import { QuickAdd } from "./QuickAdd";
+import { useTr } from "@/lib/i18n";
 
 /** The leadership meeting, as a screen.
  *
@@ -40,6 +41,7 @@ import { QuickAdd } from "./QuickAdd";
  *  same services; a different question.
  */
 export default function MeetingBoardPage() {
+  const tr = useTr();
   const { can, hasAuthority } = useSession();
   const { toast } = useToast();
   const [lines, reload] = useLoad(() => procurement.listOpenLines(), []);
@@ -110,14 +112,14 @@ export default function MeetingBoardPage() {
         instructions: noteOf(l).trim() || null,
       });
       if (res.error) {
-        toast(res.error.status === 403 ? "critical" : "warning", `Not approved · ${l.line_no_full}`, res.error.message);
+        toast(res.error.status === 403 ? "critical" : "warning", tr(`Not approved · ${l.line_no_full}`, `Tidak disetujui · ${l.line_no_full}`), res.error.message);
         continue;
       }
       done += 1;
     }
     setBusy(false);
     if (done > 0) {
-      toast("success", `Approved ${done} item(s)`, formatIDR(rows.reduce((s, l) => s + amountOf(l), 0)));
+      toast("success", tr(`Approved ${done} item(s)`, `${done} barang disetujui`), formatIDR(rows.reduce((s, l) => s + amountOf(l), 0)));
       setPicked({});
       reload();
     }
@@ -132,10 +134,10 @@ export default function MeetingBoardPage() {
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not recorded", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", `Instruction on ${l.line_no_full}`, noteOf(l).trim());
+    toast("success", tr(`Instruction on ${l.line_no_full}`, `Instruksi pada ${l.line_no_full}`), noteOf(l).trim());
     setNoteDraft((d) => ({ ...d, [l.id]: "" }));
     reload();
   }
@@ -143,12 +145,15 @@ export default function MeetingBoardPage() {
   async function sendSelected(rows: PrLineView[]) {
     const askable = rows.filter((l) => !l.pending_request);
     if (askable.length === 0) {
-      toast("warning", "Nothing to send", "Every item you picked is already waiting for an answer.");
+      toast("warning", tr("Nothing to send", "Tidak ada yang dikirim"), tr("Every item you picked is already waiting for an answer.", "Semua barang yang Anda pilih sudah menunggu jawaban."));
       return;
     }
     if (!askingWho) {
-      toast("warning", "Nobody to ask",
-        "No active account holds the authority to approve goods. IT grants it in Settings → People.");
+      toast("warning", tr("Nobody to ask", "Tidak ada yang bisa ditanya"),
+        tr(
+          "No active account holds the authority to approve goods. IT grants it in Settings → People.",
+          "Tidak ada akun aktif yang berwenang menyetujui barang. IT memberikannya di Pengaturan → Pengguna.",
+        ));
       return;
     }
     setBusy(true);
@@ -158,11 +163,17 @@ export default function MeetingBoardPage() {
       notes: Object.fromEntries(askable.map((l) => [l.line_no_full, noteOf(l).trim() || null])),
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Not sent", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not sent", "Tidak terkirim"), res.error.message); return; }
     toast(
       "success",
-      `Sent ${res.data.items.length} item(s) as ${res.data.batch_no}`,
-      `${formatIDR(res.data.requested_total)} for ${res.data.sent_to_email} to decide`,
+      tr(
+        `Sent ${res.data.items.length} item(s) as ${res.data.batch_no}`,
+        `${res.data.items.length} barang terkirim sebagai ${res.data.batch_no}`,
+      ),
+      tr(
+        `${formatIDR(res.data.requested_total)} for ${res.data.sent_to_email} to decide`,
+        `${formatIDR(res.data.requested_total)} untuk diputuskan oleh ${res.data.sent_to_email}`,
+      ),
     );
     setPicked({});
     setNoteDraft({});
@@ -173,7 +184,7 @@ export default function MeetingBoardPage() {
      every item, whichever pile it is in. */
   const itemColumn: Column<PrLineView> = {
     key: "item",
-    header: "Item",
+    header: tr("Item", "Barang"),
     className: "whitespace-normal",
     render: (l) => {
       const meta = [l.line_no_full, l.requested_by_name, l.project_code, l.vendor_name]
@@ -183,14 +194,17 @@ export default function MeetingBoardPage() {
           <p className="font-medium leading-snug text-slate-800">{l.description}</p>
           {l.purpose
             ? <p className="text-[12px] leading-snug text-slate-500">{l.purpose}</p>
-            : <p className="text-[12px] leading-snug text-amber-700">No note on what this is for.</p>}
+            : <p className="text-[12px] leading-snug text-amber-700">{tr("No note on what this is for.", "Tidak ada catatan untuk apa barang ini.")}</p>}
           <p className="truncate font-mono text-[10px] text-slate-400" title={meta}>{meta}</p>
           {/* The refusal exists in the API either way; saying it here means
               nobody meets it mid-meeting (D125). */}
           {!l.has_support && !l.approval?.approved && (
             <p className="mt-1 flex items-center gap-1 text-[12px] text-amber-700">
               <LinkIcon className="h-3 w-3 shrink-0" />
-              Nothing behind it yet — needs the shop link, the invoice or the bill.
+              {tr(
+                "Nothing behind it yet — needs the shop link, the invoice or the bill.",
+                "Belum ada dokumen pendukung — perlu link toko, invoice, atau tagihan.",
+              )}
             </p>
           )}
         </div>
@@ -213,7 +227,7 @@ export default function MeetingBoardPage() {
   function instructionColumn(mode: "draft" | "save"): Column<PrLineView> {
     return {
       key: "instructions",
-      header: "Instructions",
+      header: tr("Instructions", "Instruksi"),
       className: "whitespace-normal",
       render: (l) => {
         const existing = l.note?.instructions;
@@ -237,18 +251,22 @@ export default function MeetingBoardPage() {
                   onChange={(e) => setNoteDraft((d) => ({ ...d, [l.id]: e.target.value }))}
                   rows={2}
                   placeholder={mode === "draft"
-                    ? (mayDecide ? "e.g. only if they deliver before the 20th" : "what the room said — it goes with the question")
-                    : "add an instruction to this one"}
+                    ? (mayDecide
+                      ? tr("e.g. only if they deliver before the 20th", "mis. hanya jika dikirim sebelum tanggal 20")
+                      : tr("what the room said — it goes with the question", "apa kata rapat — ikut terkirim bersama pertanyaan"))
+                    : tr("add an instruction to this one", "tambahkan instruksi untuk barang ini")}
                   className="w-full resize-y rounded-lg border border-slate-200 px-2 py-1 text-[12px] leading-snug focus:border-brand-400 focus:outline-none"
                 />
                 {noteOf(l).trim() && (
                   mode === "draft" ? (
                     <p className="text-[11px] text-amber-700">
-                      {mayDecide ? "recorded when you approve" : "sent with the question"}
+                      {mayDecide
+                        ? tr("recorded when you approve", "dicatat saat Anda menyetujui")
+                        : tr("sent with the question", "dikirim bersama pertanyaan")}
                     </p>
                   ) : (
                     <Button size="sm" variant="outline" disabled={busy} onClick={() => saveNote(l)}>
-                      Record it
+                      {tr("Record it", "Catat")}
                     </Button>
                   )
                 )}
@@ -258,7 +276,7 @@ export default function MeetingBoardPage() {
             )}
             {pending && !noteOf(l).trim() && (
               <p className="mt-0.5 text-[11px] text-slate-500">
-                sent with the question: <span className="text-slate-700">{pending}</span>
+                {tr("sent with the question:", "dikirim bersama pertanyaan:")} <span className="text-slate-700">{pending}</span>
               </p>
             )}
             {existing && (
@@ -278,7 +296,7 @@ export default function MeetingBoardPage() {
     instructionColumn("draft"),
     {
       key: "qty",
-      header: "Qty",
+      header: tr("Qty", "Jml"),
       align: "right",
       render: (l) => (
         <span className="whitespace-nowrap text-[12px] text-slate-600">
@@ -288,14 +306,14 @@ export default function MeetingBoardPage() {
     },
     {
       key: "asked",
-      header: "Asked for",
+      header: tr("Asked for", "Diminta"),
       align: "right",
       render: (l) => (
         <div className="whitespace-nowrap">
           <p className="tabular-nums font-medium text-slate-800">{formatIDR(l.item_total)}</p>
           {l.coverage.covered > 0 && (
             <p className="text-[11px] font-medium text-rose-600">
-              {formatIDR(l.coverage.covered)} already paid
+              {formatIDR(l.coverage.covered)} {tr("already paid", "sudah dibayar")}
             </p>
           )}
         </div>
@@ -303,7 +321,7 @@ export default function MeetingBoardPage() {
     },
     {
       key: "pick",
-      header: "Pick",
+      header: tr("Pick", "Pilih"),
       className: "whitespace-normal",
       render: (l) => {
         const on = picked[l.id] ?? false;
@@ -319,7 +337,7 @@ export default function MeetingBoardPage() {
                 onChange={() => toggle(l)}
                 className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-400"
               />
-              {mayDecide ? "Approve this" : "Include in the ask"}
+              {mayDecide ? tr("Approve this", "Setujui ini") : tr("Include in the ask", "Sertakan dalam permintaan")}
             </label>
 
             {/* The amounts only matter once it is picked, and showing four
@@ -336,7 +354,7 @@ export default function MeetingBoardPage() {
                       min={0}
                       className="w-20 text-right"
                     />
-                    <span className="text-[11px] text-slate-400">of {formatNumber(l.qty)} {l.uom ?? ""}</span>
+                    <span className="text-[11px] text-slate-400">{tr("of", "dari")} {formatNumber(l.qty)} {l.uom ?? ""}</span>
                   </div>
                 )}
                 <MoneyInput
@@ -351,7 +369,9 @@ export default function MeetingBoardPage() {
                     amountOf(l) > l.item_total ? "text-amber-700" : "text-brand-700",
                   )}>
                     {formatIDR(Math.abs(amountOf(l) - l.item_total))}{" "}
-                    {amountOf(l) > l.item_total ? "more" : "less"} than asked
+                    {amountOf(l) > l.item_total
+                      ? tr("more than asked", "lebih dari yang diminta")
+                      : tr("less than asked", "kurang dari yang diminta")}
                   </p>
                 )}
               </>
@@ -360,7 +380,7 @@ export default function MeetingBoardPage() {
             {!on && <StatusPill kind="line" status={l.status} />}
             {l.pending_request && (
               <p className="text-[11px] text-slate-500">
-                asked {l.pending_request.sent_to_email.split("@")[0]} on chat ·{" "}
+                {tr("asked", "ditanyakan ke")} {l.pending_request.sent_to_email.split("@")[0]} {tr("on chat", "di chat")} ·{" "}
                 {new Date(l.pending_request.sent_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
@@ -375,7 +395,7 @@ export default function MeetingBoardPage() {
     instructionColumn("save"),
     {
       key: "approved",
-      header: "Approved",
+      header: tr("Approved", "Disetujui"),
       align: "right",
       render: (l) => (
         <div className="whitespace-nowrap">
@@ -392,27 +412,27 @@ export default function MeetingBoardPage() {
     },
     {
       key: "topay",
-      header: "To pay",
+      header: tr("To pay", "Harus dibayar"),
       align: "right",
       render: (l) => (
         <div className="whitespace-nowrap">
           <p className="tabular-nums font-semibold text-slate-800">{formatIDR(l.coverage.remaining)}</p>
           {l.coverage.covered > 0 && (
-            <p className="text-[11px] text-slate-500">{formatIDR(l.coverage.covered)} paid so far</p>
+            <p className="text-[11px] text-slate-500">{formatIDR(l.coverage.covered)} {tr("paid so far", "sudah dibayar")}</p>
           )}
         </div>
       ),
     },
     {
       key: "status",
-      header: "Status",
+      header: tr("Status", "Status"),
       /* One status for approved-and-unpaid, and no mention of which round the
          money came from. Cash is fungible: naming a round here would imply the
          money is being held for this line, and it is not (D126). */
       render: (l) => (
         <div className="whitespace-nowrap">
           <StatusPill kind="line" status={l.status} />
-          <p className="mt-0.5 text-[11px] text-slate-500">not paid yet</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">{tr("not paid yet", "belum dibayar")}</p>
         </div>
       ),
     },
@@ -421,12 +441,15 @@ export default function MeetingBoardPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Procurement"
-        title="Meeting board"
-        description="What is waiting to be decided, what has already been approved and not paid, and whether BCA 271 can cover it. Read in the room; the working detail lives on the requests board."
+        breadcrumb={tr("Procurement", "Pengadaan")}
+        title={tr("Meeting board", "Papan rapat")}
+        description={tr(
+          "What is waiting to be decided, what has already been approved and not paid, and whether BCA 271 can cover it. Read in the room; the working detail lives on the requests board.",
+          "Apa yang menunggu keputusan, apa yang sudah disetujui tapi belum dibayar, dan apakah BCA 271 cukup menutupinya. Dibaca di ruang rapat; detail kerjanya ada di papan permintaan.",
+        )}
         actions={
           <Link href="/procurement/pr">
-            <Button variant="outline" icon={ExternalLink}>Requests board</Button>
+            <Button variant="outline" icon={ExternalLink}>{tr("Requests board", "Papan permintaan")}</Button>
           </Link>
         }
       />
@@ -470,8 +493,11 @@ export default function MeetingBoardPage() {
                   saying who decides is how this screen got here. */}
               {approvers.status === "failed" ? (
                 <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[12px] text-amber-800">
-                  Could not read who holds the approval authorities, so this board cannot say who
-                  to ask. {stripRefs(approvers.error.message)}
+                  {tr(
+                    "Could not read who holds the approval authorities, so this board cannot say who to ask.",
+                    "Tidak bisa membaca siapa pemegang wewenang persetujuan, jadi papan ini tidak bisa menyebut siapa yang harus ditanya.",
+                  )}{" "}
+                  {stripRefs(approvers.error.message)}
                 </p>
               ) : approvers.status === "ready" ? (
                 (() => {
@@ -481,19 +507,19 @@ export default function MeetingBoardPage() {
                     <div className="mb-4 flex flex-wrap items-start gap-x-6 gap-y-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[12px] shadow-card">
                       <span className="flex items-center gap-1.5 font-medium text-slate-700">
                         <ShieldCheck className="h-3.5 w-3.5 text-brand-600" />
-                        Who decides
+                        {tr("Who decides", "Siapa yang memutuskan")}
                       </span>
                       <span className="text-slate-600">
-                        <span className="text-slate-400">goods · </span>
+                        <span className="text-slate-400">{tr("goods", "barang")} · </span>
                         {goods.length > 0
                           ? goods.map((a) => a.full_name).join(", ")
-                          : <span className="text-amber-700">nobody — nothing can be approved</span>}
+                          : <span className="text-amber-700">{tr("nobody — nothing can be approved", "tidak ada — tidak ada yang bisa disetujui")}</span>}
                       </span>
                       <span className="text-slate-600">
-                        <span className="text-slate-400">funds · </span>
+                        <span className="text-slate-400">{tr("funds", "dana")} · </span>
                         {funds.length > 0
                           ? funds.map((a) => a.full_name).join(", ")
-                          : <span className="text-amber-700">nobody</span>}
+                          : <span className="text-amber-700">{tr("nobody", "tidak ada")}</span>}
                       </span>
                       {/* An authority is granted in one place and read
                           everywhere; saying where it is granted stops this
@@ -503,7 +529,7 @@ export default function MeetingBoardPage() {
                           href="/it/pengguna"
                           className="ml-auto text-brand-700 underline-offset-2 hover:underline"
                         >
-                          Change who holds it
+                          {tr("Change who holds it", "Ubah pemegangnya")}
                         </Link>
                       )}
                     </div>
@@ -518,35 +544,52 @@ export default function MeetingBoardPage() {
                 <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-brand-300 bg-brand-50 px-4 py-3 shadow-card">
                   <p className="text-[13px] text-brand-900">
                     <span className="text-xl font-bold tabular-nums">{chosen.length}</span>{" "}
-                    item{chosen.length === 1 ? "" : "s"} picked
+                    {chosen.length === 1 ? tr("item picked", "barang dipilih") : tr("items picked", "barang dipilih")}
                   </p>
                   <p className="text-[13px] text-brand-900">
                     <span className="text-xl font-bold tabular-nums">{formatIDR(chosenTotal)}</span>{" "}
-                    to pay if this goes through
+                    {tr("to pay if this goes through", "harus dibayar jika ini disetujui")}
                     {chosenAlreadyPaid > 0 && (
                       <span className="block text-[12px] text-brand-800">
-                        {formatIDR(chosenApproved)} approved, of which{" "}
-                        <strong className="tabular-nums">{formatIDR(chosenAlreadyPaid)}</strong> has
-                        already left the account — approving it commits nothing more.
+                        {formatIDR(chosenApproved)} {tr("approved, of which", "disetujui, dan")}{" "}
+                        <strong className="tabular-nums">{formatIDR(chosenAlreadyPaid)}</strong>{" "}
+                        {tr(
+                          "has already left the account — approving it commits nothing more.",
+                          "di antaranya sudah keluar dari rekening — menyetujuinya tidak menambah pengeluaran.",
+                        )}
                       </span>
                     )}
                   </p>
                   {chosenBare.length > 0 && (
                     <p className="w-full text-[12px] text-amber-800">
                       {chosenBare.length === 1
-                        ? "One of these has no document behind it and will be refused: "
-                        : `${chosenBare.length} of these have no document behind them and will be refused: `}
-                      {chosenBare.map((l) => l.line_no_full).join(", ")}. Attach the link or the
-                      invoice on the requests board first.
+                        ? tr(
+                          "One of these has no document behind it and will be refused: ",
+                          "Salah satunya tidak punya dokumen pendukung dan akan ditolak: ",
+                        )
+                        : tr(
+                          `${chosenBare.length} of these have no document behind them and will be refused: `,
+                          `${chosenBare.length} di antaranya tidak punya dokumen pendukung dan akan ditolak: `,
+                        )}
+                      {chosenBare.map((l) => l.line_no_full).join(", ")}.{" "}
+                      {tr(
+                        "Attach the link or the invoice on the requests board first.",
+                        "Lampirkan link atau invoice di papan permintaan terlebih dulu.",
+                      )}
                     </p>
                   )}
                   <div className="ml-auto flex flex-wrap items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={() => setPicked({})} disabled={busy}>
-                      Clear
+                      {tr("Clear", "Kosongkan")}
                     </Button>
                     {mayDecide ? (
                       <Button size="sm" icon={Check} disabled={busy} onClick={() => approveSelected(chosen)}>
-                        {busy ? "Recording…" : `Approve ${chosen.length} · ${formatIDR(chosenApproved)}`}
+                        {busy
+                          ? tr("Recording…", "Mencatat…")
+                          : tr(
+                            `Approve ${chosen.length} · ${formatIDR(chosenApproved)}`,
+                            `Setujui ${chosen.length} · ${formatIDR(chosenApproved)}`,
+                          )}
                       </Button>
                     ) : (
                       <Button
@@ -556,10 +599,13 @@ export default function MeetingBoardPage() {
                         onClick={() => sendSelected(chosen)}
                       >
                         {busy
-                          ? "Sending…"
+                          ? tr("Sending…", "Mengirim…")
                           : askingWho
-                            ? `Ask ${askingWho.full_name} on Chat · ${formatIDR(chosenTotal)}`
-                            : "Nobody holds approve_goods"}
+                            ? tr(
+                              `Ask ${askingWho.full_name} on Chat · ${formatIDR(chosenTotal)}`,
+                              `Tanya ${askingWho.full_name} di Chat · ${formatIDR(chosenTotal)}`,
+                            )
+                            : tr("Nobody holds approve_goods", "Tidak ada yang memegang approve_goods")}
                       </Button>
                     )}
                   </div>
@@ -574,7 +620,7 @@ export default function MeetingBoardPage() {
                           htmlFor="ask-to"
                           className="flex flex-wrap items-center gap-2 text-[12px] text-brand-900"
                         >
-                          Ask
+                          {tr("Ask", "Tanya")}
                           <select
                             id="ask-to"
                             value={askingWho?.email ?? ""}
@@ -587,25 +633,33 @@ export default function MeetingBoardPage() {
                               </option>
                             ))}
                           </select>
-                          — more than one person holds approve_goods, so the board does not
-                          pick for you.
+                          {tr(
+                            "— more than one person holds approve_goods, so the board does not pick for you.",
+                            "— lebih dari satu orang memegang approve_goods, jadi papan ini tidak memilihkan untuk Anda.",
+                          )}
                         </label>
                       ) : askingWho ? (
                         <p className="text-[12px] text-brand-900">
-                          Going to <strong>{askingWho.full_name}</strong>{" "}
-                          <span className="text-brand-700">({askingWho.email})</span> — the only
-                          account holding approve_goods.
+                          {tr("Going to", "Dikirim ke")} <strong>{askingWho.full_name}</strong>{" "}
+                          <span className="text-brand-700">({askingWho.email})</span>{" "}
+                          {tr(
+                            "— the only account holding approve_goods.",
+                            "— satu-satunya akun yang memegang approve_goods.",
+                          )}
                         </p>
                       ) : (
                         <p className="text-[12px] text-amber-800">
-                          No active account holds approve_goods, so there is nobody this can be
-                          sent to. IT grants it in Settings → People.
+                          {tr(
+                            "No active account holds approve_goods, so there is nobody this can be sent to. IT grants it in Settings → People.",
+                            "Tidak ada akun aktif yang memegang approve_goods, jadi tidak ada penerima untuk ini. IT memberikannya di Pengaturan → Pengguna.",
+                          )}
                         </p>
                       )}
                       <p className="text-[12px] text-brand-800">
-                        You are not the approver, so this does not record a yes — it puts the
-                        list in their chat with the amounts and what BCA 271 can cover, and
-                        their answer is recorded as theirs.
+                        {tr(
+                          "You are not the approver, so this does not record a yes — it puts the list in their chat with the amounts and what BCA 271 can cover, and their answer is recorded as theirs.",
+                          "Anda bukan penyetuju, jadi ini tidak mencatat persetujuan — daftar ini dikirim ke chat mereka beserta jumlahnya dan berapa yang bisa ditutup BCA 271, lalu jawabannya dicatat atas nama mereka.",
+                        )}
                       </p>
                     </div>
                   )}
@@ -616,18 +670,30 @@ export default function MeetingBoardPage() {
                 <p className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                   <span>
-                    <strong>Money moved before anyone approved it</strong> on{" "}
-                    {paidUnapproved.length} item(s), {formatIDR(paidUnapproved.reduce((s, l) => s + l.coverage.covered, 0))} in
-                    total. They are in the first list, still waiting for a yes — paying
-                    something is not deciding it.
+                    {(() => {
+                      const n = paidUnapproved.length;
+                      const sum = formatIDR(paidUnapproved.reduce((s, l) => s + l.coverage.covered, 0));
+                      return (
+                        <>
+                          <strong>{tr("Money moved before anyone approved it", "Uang keluar sebelum ada yang menyetujui")}</strong>{" "}
+                          {tr(
+                            `on ${n} item(s), ${sum} in total. They are in the first list, still waiting for a yes — paying something is not deciding it.`,
+                            `pada ${n} barang, total ${sum}. Barang-barang itu ada di daftar pertama, masih menunggu persetujuan — membayar sesuatu bukan berarti memutuskannya.`,
+                          )}
+                        </>
+                      );
+                    })()}
                   </span>
                 </p>
               )}
 
               <Card className="mb-5">
                 <CardHeader
-                  title="Waiting for a decision"
-                  subtitle={`${waiting.length} item(s) · ${formatIDR(waitingTotal)} asked for. Nothing moves until these are decided.`}
+                  title={tr("Waiting for a decision", "Menunggu keputusan")}
+                  subtitle={tr(
+                    `${waiting.length} item(s) · ${formatIDR(waitingTotal)} asked for. Nothing moves until these are decided.`,
+                    `${waiting.length} barang · ${formatIDR(waitingTotal)} diminta. Tidak ada yang bergerak sampai ini diputuskan.`,
+                  )}
                   icon={Circle}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
@@ -642,21 +708,24 @@ export default function MeetingBoardPage() {
                   rows={waiting}
                   rowKey={(l) => l.id}
                   onRowClick={setSelected}
-                  empty="Everything has been decided."
+                  empty={tr("Everything has been decided.", "Semua sudah diputuskan.")}
                 />
               </Card>
 
               <Card>
                 <CardHeader
-                  title="Approved — not paid yet"
-                  subtitle={`${toPay.length} item(s) · ${formatIDR(payTotal)} still to pay. This is the money that has to be in BCA 271.`}
+                  title={tr("Approved — not paid yet", "Disetujui — belum dibayar")}
+                  subtitle={tr(
+                    `${toPay.length} item(s) · ${formatIDR(payTotal)} still to pay. This is the money that has to be in BCA 271.`,
+                    `${toPay.length} barang · ${formatIDR(payTotal)} masih harus dibayar. Inilah uang yang harus ada di BCA 271.`,
+                  )}
                   icon={Clock}
                 />
                 {/* The total belongs at the top: it is the answer, and the
                     rows underneath are the working. */}
                 {toPay.length > 0 && (
                   <div className="flex flex-wrap items-baseline gap-x-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
-                    <span className="text-[13px] text-slate-600">{toPay.length} item(s) to pay</span>
+                    <span className="text-[13px] text-slate-600">{tr(`${toPay.length} item(s) to pay`, `${toPay.length} barang harus dibayar`)}</span>
                     <span className="text-lg font-bold tabular-nums tracking-tight text-slate-800">
                       {formatIDR(payTotal)}
                     </span>
@@ -668,7 +737,7 @@ export default function MeetingBoardPage() {
                   rows={toPay}
                   rowKey={(l) => l.id}
                   onRowClick={setSelected}
-                  empty="Nothing is approved and unpaid."
+                  empty={tr("Nothing is approved and unpaid.", "Tidak ada yang disetujui dan belum dibayar.")}
                 />
               </Card>
             </>
@@ -683,8 +752,8 @@ export default function MeetingBoardPage() {
         onChanged={(l) => { setSelected(l); reload(); }}
         onRemove={async (l) => {
           const res = await procurement.removeLine({ line_no: l.line_no_full });
-          if (res.error) { toast("warning", "Not removed", res.error.message); return; }
-          toast("success", "Removed", `${l.line_no_full} is no longer needed.`);
+          if (res.error) { toast("warning", tr("Not removed", "Tidak dihapus"), res.error.message); return; }
+          toast("success", tr("Removed", "Dihapus"), tr(`${l.line_no_full} is no longer needed.`, `${l.line_no_full} tidak diperlukan lagi.`));
           setSelected(null);
           reload();
         }}
