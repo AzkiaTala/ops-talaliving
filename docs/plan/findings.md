@@ -7093,3 +7093,43 @@ This is F164's lesson one layer down: a type-check proves the call is
 spelled right, not that the build calls it. The route list, parity and
 schemas were all right about the files they read. The build read a
 different file.
+
+## F169 · 2026-09-28 · every upload refused by its own audit row, and no test could see it
+
+*cannot execute INSERT in a read-only transaction* was the answer to every
+upload since the route existed. Production held 326 link attachments, **zero
+files**, and every `drive_folders.folder_id` was still null. No upload had
+ever got past the route's first question.
+
+**Why.** `ops_core.drive_folder_for` (0035, 0036, 0172) was declared
+`stable`, since it only *reads* which drive a kind belongs in. But it answers
+through `ops_core.ok()` / `invalid()`, and those write the audit row (0003). PostgREST
+treats `stable` and `immutable` as a promise that nothing is written. It runs
+those functions in a **read-only transaction**, even for a POST, so the audit
+insert was refused. The smoke suite called the same function from psql in an
+ordinary read-write transaction, where a stable function may call a volatile
+one, so it passed. Only the app met the failure.
+
+The same shape was in four more seams reached from the browser:
+`ops_prod.item_trail` and `job_trail` answer through `ok()`, so they failed
+on every call. `ops_procure.item_purchases` and `ops_inv.product_stock` only
+write when they refuse, so a refusal came back as a 500 about read-only
+transactions.
+
+**The fix and the guard.** `0175` makes all five `volatile`. The new smoke
+file `175_core_upload_read_write` sweeps `pg_proc` and fails on any
+`stable`/`immutable` function in `ops_*` that `authenticated` can execute and
+that writes, either directly or through an envelope. It was tested both ways:
+with `drive_folder_for` set back to stable, it names that function and fails.
+The same file also reproduces the failure itself, an envelope inside a
+read-only transaction.
+
+The rule for a seam in this schema is short. **Every envelope writes**, so
+anything that returns one is volatile, however read-only its question looks.
+
+**On the same road (D317):** the owner asked that Supabase keep the Drive
+link. `attach_file` had recorded only the file id. Now the row also carries
+`web_view_link`, plus `drive_slug` and `drive_path`, which the database
+derives from the kind and record rather than taking from the caller. The route
+also checks Drive's own `parents` against the folder it asked for before it
+records anything (`drive_misfiled`).
