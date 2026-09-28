@@ -7397,9 +7397,9 @@ photo first (REPORTED), then `confirm_receipt`. That is the case
 hand and confirmed them. The test called the seam the way its author
 expected, not the way the screen does, as F149 said about B5.
 
-**Fixed** in `0179`: the trigger also fires on insert. New smoke
-`179_inv_stock_from_signed_receipt` fails on `0169`'s trigger and passes on
-`0179`'s. Receipts signed at insert between `0169` and `0179` stay
+**Fixed** in `0180`: the trigger also fires on insert. New smoke
+`180_inv_stock_from_signed_receipt` fails on `0169`'s trigger and passes on
+`0180`'s. Receipts signed at insert between `0169` and `0180` stay
 unstocked, following the rule `0169` wrote for everything before it (Q58).
 
 ## F177 · 2026-09-28 · a surat jalan takes goods from the home rack, wherever they actually are
@@ -7434,7 +7434,7 @@ from the screen has no item. The trigger answered *the line names no
 catalogue item* for every such receipt. **No PO receipt made from the
 screen could ever have stocked.**
 
-**Fixed** in `0179`: when the order line has no item, the trigger reads the
+**Fixed** in `0180`: when the order line has no item, the trigger reads the
 item of the request line it buys. A PO line typed by hand, with no request
 line, still stocks nothing and says so in the outbox. Both the smoke and the
 simulation now receive against a PO line the way the screen writes one.

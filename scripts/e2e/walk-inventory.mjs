@@ -13,7 +13,7 @@
  *
  *  Every step lands in `docs/sop/inventory/walk.json`, which
  *  `scripts/sop/check-knowledge.mjs inventory` compares with John Lau's
- *  knowledge (0180). Same stack and running notes as `walk-procurement.mjs`;
+ *  knowledge (0181). Same stack and running notes as `walk-procurement.mjs`;
  *  `reset.sh` seeds this walk's people and what the other modules hold
  *  before the week (`seed-inventory.sql`). The screens are walked in their
  *  default language, English (D318), so the buttons recorded are English and

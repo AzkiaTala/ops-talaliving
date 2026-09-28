@@ -1,4 +1,4 @@
--- 0179_inv_stock_from_signed_receipt.sql — a receipt signed the moment it is
+-- 0180_inv_stock_from_signed_receipt.sql — a receipt signed the moment it is
 -- recorded puts stock on the rack too (F176, B19), and so does one against an
 -- order line that names its request line but no item (F179, B22).
 --

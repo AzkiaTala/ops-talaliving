@@ -4,7 +4,7 @@
 -- `99_sim_hr_to_ledger`: every step is one person doing one thing on one
 -- screen, in the order the week before an opname actually runs, written into
 -- `sim_log`. `supabase/local/simulate.sh sim_inventory` prints it; the SOP
--- (`docs/sop/inventory/`) and John Lau's process knowledge (`0180`) were
+-- (`docs/sop/inventory/`) and John Lau's process knowledge (`0181`) were
 -- written from it.
 --
 -- Five people, with the grants the real roles carry:
@@ -247,7 +247,7 @@ begin
     case when pg_temp.on_hand('I-53001', 'BENGKEL') = 20
       then 'Masuk ke lokasi rumah barangnya (BENGKEL), dengan harga baris PR-nya.'
       else 'Penerimaan yang langsung CONFIRMED tidak menambah stok: trigger 0169 hanya membaca UPDATE status (F176, B19).' end);
-  assert pg_temp.on_hand('I-53001', 'BENGKEL') = 20, 'a receipt signed at insert is stock (0179)';
+  assert pg_temp.on_hand('I-53001', 'BENGKEL') = 20, 'a receipt signed at insert is stock (0180)';
 
   -- Against the PO line: photo and delivery note, signed at once.
   r := ops_procure.create_receipt(10, 'GOOD', jsonb_build_array(
@@ -261,7 +261,7 @@ begin
     case when pg_temp.stocked(r -> 'data' ->> 'receipt_no') = 10
       then 'Barangnya dibaca dari baris PR yang dibeli baris PO itu.'
       else 'Baris PO dari layar tidak membawa item_id; trigger menganggapnya bukan barang katalog (F179, B22).' end);
-  assert pg_temp.stocked(r -> 'data' ->> 'receipt_no') = 10, 'a PO line''s request line names the item (0179)';
+  assert pg_temp.stocked(r -> 'data' ->> 'receipt_no') = 10, 'a PO line''s request line names the item (0180)';
 
   -- Photo only: reported, not yet signed. Nothing on the rack until it is.
   r := ops_procure.create_receipt(100, 'GOOD', jsonb_build_array(

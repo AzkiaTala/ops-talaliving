@@ -1,4 +1,4 @@
--- 0180 — the third module walked: inventory, from the rack to the surat jalan.
+-- 0181 — the third module walked: inventory, from the rack to the surat jalan.
 --
 -- Written from `supabase/local/smoke/99_sim_inventory.sql`, which walks the
 -- week before an opname as five people (gudang, a reader, procurement,
@@ -8,7 +8,7 @@
 -- English by default and Indonesian on the toggle (D318), so each button is
 -- named in both: "Record difference" ("Catat selisih").
 --
--- Three doors the walks found shut are fixed in 0179 and the location panel
+-- Three doors the walks found shut are fixed in 0180 and the location panel
 -- (F176, F178, F179) and described here as they now work. One is still open
 -- and waits on the owner (F177, Q59): it is the FAQ row marked *(sementara)*,
 -- which the SOP prints under *Temuan* for as long as it stays.

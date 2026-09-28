@@ -1,5 +1,5 @@
 -- inv — a receipt recorded with its delivery note is signed at insert, and
--- that is stock too (0179, F176).
+-- that is stock too (0180, F176).
 --
 -- DERIVATIONS  photo + delivery note → CONFIRMED at insert → a receipt move on
 --              the item's home rack, priced from the line; photo only →

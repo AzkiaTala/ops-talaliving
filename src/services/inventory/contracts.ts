@@ -914,6 +914,9 @@ export interface LabelSource {
    *  not consumables like sandpaper (`ops_inv.label_categories`). Always true
    *  for assets and products. */
   labelled: boolean;
+  /** The random token the label's QR carries, which opens the public card
+   *  without signing in (`0179`, D322). */
+  token?: string | null;
   /** What this kind adds to its label: an asset's ownership, holder, serial and
    *  contract end; a product's size in millimetres. */
   extra: {
@@ -925,6 +928,31 @@ export interface LabelSource {
     model?: string;
     status?: string;
     acquired_on?: string;
+    contract_end?: string;
+    length_mm?: number;
+    width_mm?: number;
+    height_mm?: number;
+    dimension_note?: string;
+  };
+}
+
+/** What a label's QR shows to anybody holding the label, signed in or not
+ *  (`ops_inv.label_card`, `0179`, D322). Deliberately less than the screens:
+ *  what the thing is and where it belongs. Nothing priced, nothing counted,
+ *  nobody's name, no serial or plate. */
+export interface LabelCard {
+  kind: LabelKind;
+  code: string;
+  name: string;
+  name_local: string | null;
+  category: string | null;
+  uom: string | null;
+  registered_at: string | null;
+  /** Location names only. */
+  locations: string[];
+  extra: {
+    ownership?: AssetOwnership;
+    status?: string;
     contract_end?: string;
     length_mm?: number;
     width_mm?: number;
