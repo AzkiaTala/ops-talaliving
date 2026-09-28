@@ -36,9 +36,12 @@ import { useTr } from "@/lib/i18n";
  *  Print at 100%: scaling moves every label off its sticker.
  *
  *  **No preview on the screen** (owner, 2026-09-28): the list is what gets
- *  printed. The sheets are rendered for the printer only. **The QR opens the
- *  record's own screen** (`detailPath`), not the bare code, so a scan lands
- *  on the item, asset or product.
+ *  printed. The sheets are rendered for the printer only.
+ *
+ *  **The QR opens a card without signing in** (owner, D322): `/l/<token>`,
+ *  a random token per record, so holding the label is the permission and the
+ *  codes, which run in order, cannot be walked. The card links on to the
+ *  record's own screen (`detailPath`) for staff who are signed in.
  */
 
 interface Sheet {
@@ -291,7 +294,7 @@ export default function LabelPage() {
               </label>
               <label className="flex items-center gap-2 text-[12px] text-slate-600">
                 <input type="checkbox" checked={showQr} onChange={(e) => setShowQr(e.target.checked)} />
-                {tr("QR code that opens the item's page", "QR yang membuka halaman detail item")}
+                {tr("QR code: opens the item's card, no sign-in needed", "QR: membuka kartu item, tanpa login")}
               </label>
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
                 {tr(
@@ -408,7 +411,7 @@ function Label({ r, tier, location, qr }: { r: LabelSource; tier: Sheet["tier"];
       </div>
       {qr && (
         <div className="flex shrink-0 flex-col items-center justify-end">
-          <QrCode path={detailPath(r)} title={r.code} size={64} className={qrClass} />
+          <QrCode path={r.token ? `/l/${r.token}` : detailPath(r)} title={r.code} size={64} className={qrClass} />
         </div>
       )}
     </div>

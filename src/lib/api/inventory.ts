@@ -26,7 +26,7 @@ import type {
   LogCost, LogCostKind,
   ProductStockRow, ProductLedgerRow, ProductMoveInput, ProductCountInput, ProductAllocateInput, ProductOrderLine,
   AssetView, AssetCategory, AssetStatus, AssetInput, AssetService, AssetServiceInput,
-  LabelKind, LabelSource,
+  LabelKind, LabelSource, LabelCard,
 } from "@/services/inventory/contracts";
 import type { MaterialPlan } from "@/services/production/contracts";
 import { materialShort, materialStatus } from "@/services/production/contracts";
@@ -1687,4 +1687,12 @@ export async function listLabelSources(
     ...r,
     locations: (r.locations ?? []).map((l) => ({ ...l, qty: l.qty == null ? null : Number(l.qty) })),
   })));
+}
+
+/** The card a label's QR opens, for anybody holding the label: by its random
+ *  token, without a session (`ops_inv.label_card`, `0179`, D322). The browser
+ *  client with no session speaks as `anon`, which may call this one function. */
+export async function labelCard(token: string): Promise<Result<LabelCard>> {
+  const { data, error } = await db().rpc("label_card", { p_token: token });
+  return fromSeam<LabelCard>(SERVICE, data, error);
 }
