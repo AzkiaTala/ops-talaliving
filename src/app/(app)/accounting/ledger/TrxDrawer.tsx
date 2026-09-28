@@ -19,34 +19,35 @@ import { COMPLETION_DOC_KINDS, type AttachmentView } from "@/services/documents/
 import { EvidenceStrip, type CoverTarget, type EvidenceSlot } from "@/components/ui/evidence-strip";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr, type Message, type Tr } from "@/lib/i18n";
 
 /** The documents a ledger row is expected to carry (owner, 2026-09-23).
  *  Money going out is a purchase: its nota, the transfer, a photo of what
  *  came, and the paper saying it arrived. Money coming in is proven by the
  *  transfer and, when there is one, the invoice it paid. */
-const OUT_SLOTS: EvidenceSlot[] = [
-  { kind: "Receipt / Invoice / Nota", label: "Receipt / Nota" },
-  { kind: "Invoice", label: "Invoice", optional: true },
-  { kind: "Payment Proof", label: "Payment proof" },
-  { kind: "Receiving Item", label: "Item photo" },
-  { kind: "Receiving Report", label: "Receiving report", optional: true },
+const outSlots = (tr: Tr): EvidenceSlot[] => [
+  { kind: "Receipt / Invoice / Nota", label: tr("Receipt / Nota", "Kuitansi / Nota") },
+  { kind: "Invoice", label: tr("Invoice", "Faktur"), optional: true },
+  { kind: "Payment Proof", label: tr("Payment proof", "Bukti bayar") },
+  { kind: "Receiving Item", label: tr("Item photo", "Foto barang") },
+  { kind: "Receiving Report", label: tr("Receiving report", "Laporan penerimaan"), optional: true },
 ];
-const IN_SLOTS: EvidenceSlot[] = [
-  { kind: "Payment Proof", label: "Payment proof" },
-  { kind: "Invoice", label: "Invoice", optional: true },
+const inSlots = (tr: Tr): EvidenceSlot[] => [
+  { kind: "Payment Proof", label: tr("Payment proof", "Bukti bayar") },
+  { kind: "Invoice", label: tr("Invoice", "Faktur"), optional: true },
 ];
 
 /** How a History entry reads. The trail stores the seam's own verb; a person
  *  reading the row wants to know what happened to it. */
-const ACTION_LABEL: Record<string, string> = {
-  post: "Posted",
-  edit: "Edited",
-  void: "Voided",
-  complete: "Marked completed",
-  link: "Document attached",
-  attach_link: "Document attached",
-  unlink: "Document removed",
-  attach_unlink: "Document removed",
+const ACTION_LABEL: Record<string, Message> = {
+  post: { en: "Posted", id: "Diposting" },
+  edit: { en: "Edited", id: "Diedit" },
+  void: { en: "Voided", id: "Dibatalkan" },
+  complete: { en: "Marked completed", id: "Ditandai selesai" },
+  link: { en: "Document attached", id: "Dokumen dilampirkan" },
+  attach_link: { en: "Document attached", id: "Dokumen dilampirkan" },
+  unlink: { en: "Document removed", id: "Dokumen dilepas" },
+  attach_unlink: { en: "Document removed", id: "Dokumen dilepas" },
 };
 
 /** One ledger row, and everything that hangs off it.
@@ -70,6 +71,7 @@ export function TrxDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { hasAuthority } = useSession();
   const { toast } = useToast();
   const [trx, setTrx] = useState<TransactionDetail | null>(null);
@@ -146,7 +148,7 @@ export function TrxDrawer({
     })));
     setReached(groups);
     setAlsoCovers(lineNos.map((lineNo) => ({
-      entity: "pr_line" as const, entity_no: lineNo, label: `The request line ${lineNo}`,
+      entity: "pr_line" as const, entity_no: lineNo, label: tr(`The request line ${lineNo}`, `Baris permintaan ${lineNo}`),
     })));
   }
 
@@ -169,10 +171,10 @@ export function TrxDrawer({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not allocated", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not allocated", "Tidak dialokasikan"), res.error.message);
       return;
     }
-    toast("success", "Allocated", `${formatIDR(allocAmount)} → ${allocLine.trim()}`);
+    toast("success", tr("Allocated", "Dialokasikan"), `${formatIDR(allocAmount)} → ${allocLine.trim()}`);
     setAllocLine("");
     await load(trx!.trx_no);
     onChanged();
@@ -183,10 +185,10 @@ export function TrxDrawer({
     const res = await accounting.voidTransaction(trx!.trx_no, reason);
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not voided", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not voided", "Tidak dibatalkan"), res.error.message);
       return;
     }
-    toast("success", `${trx!.trx_no} voided`, "The row stays, the amount is zero, the reason is on it.");
+    toast("success", tr(`${trx!.trx_no} voided`, `${trx!.trx_no} dibatalkan`), tr("The row stays, the amount is zero, the reason is on it.", "Barisnya tetap, jumlahnya nol, alasannya tercatat di sana."));
     setVoidOpen(false);
     await load(trx!.trx_no);
     onChanged();
@@ -241,10 +243,10 @@ export function TrxDrawer({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not saved", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
       return;
     }
-    toast("success", `${trx!.trx_no} updated`, "The change and its remark are in the audit log.");
+    toast("success", tr(`${trx!.trx_no} updated`, `${trx!.trx_no} diperbarui`), tr("The change and its remark are in the audit log.", "Perubahan dan keterangannya tercatat di log audit."));
     setEditOpen(false);
     await load(trx!.trx_no);
     onChanged();
@@ -254,14 +256,14 @@ export function TrxDrawer({
     setOpeningLine(lineNo);
     const res = await procurement.getLineByNo(lineNo);
     setOpeningLine(null);
-    if (res.error) { toast("warning", "Cannot open the request", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Cannot open the request", "Tidak bisa membuka permintaan"), res.error.message); return; }
     setOpenLine(res.data);
   }
 
   async function removeLine(l: PrLineView) {
     const res = await procurement.removeLine({ line_no: l.line_no_full });
-    if (res.error) { toast("warning", "Not removed", res.error.message); return; }
-    toast("success", "Removed", `${l.line_no_full} is no longer needed.`);
+    if (res.error) { toast("warning", tr("Not removed", "Tidak dihapus"), res.error.message); return; }
+    toast("success", tr("Removed", "Dihapus"), tr(`${l.line_no_full} is no longer needed.`, `${l.line_no_full} tidak lagi diperlukan.`));
     setOpenLine(null);
     await load(trx!.trx_no);
     onChanged();
@@ -272,10 +274,10 @@ export function TrxDrawer({
     const res = await accounting.markComplete(trx!.trx_no);
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not changed", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not changed", "Tidak diubah"), res.error.message);
       return;
     }
-    toast("success", `${trx!.trx_no} completed`, "Everything about it is finished.");
+    toast("success", tr(`${trx!.trx_no} completed`, `${trx!.trx_no} selesai`), tr("Everything about it is finished.", "Semua urusannya sudah tuntas."));
     await load(trx!.trx_no);
     onChanged();
   }
@@ -298,22 +300,22 @@ export function TrxDrawer({
             onClick={() => { setEditOpen(false); setVoidOpen((v) => !v); }}
             className="mr-auto text-[12px] text-slate-400 underline decoration-dotted underline-offset-4 hover:text-rose-700"
           >
-            Something wrong with this row?
+            {tr("Something wrong with this row?", "Ada yang salah dengan baris ini?")}
           </button>
           <Button variant="outline" size="sm" icon={Pencil} disabled={busy} onClick={openEdit}>
-            Edit
+            {tr("Edit", "Edit")}
           </Button>
           {trx.status !== "COMPLETED" && !hasCompletionDoc && (
-            <span className="text-[11px] text-slate-500">Needs a nota or payment proof to complete</span>
+            <span className="text-[11px] text-slate-500">{tr("Needs a nota or payment proof to complete", "Perlu nota atau bukti bayar untuk menyelesaikan")}</span>
           )}
           {trx.status !== "COMPLETED" && (
             <Button
               variant="outline" size="sm" icon={CheckCircle2}
               disabled={busy || !hasCompletionDoc}
-              title={hasCompletionDoc ? undefined : "Attach a receipt / nota or a payment proof first"}
+              title={hasCompletionDoc ? undefined : tr("Attach a receipt / nota or a payment proof first", "Lampirkan kuitansi / nota atau bukti bayar lebih dulu")}
               onClick={complete}
             >
-              Mark completed
+              {tr("Mark completed", "Tandai selesai")}
             </Button>
           )}
         </div>
@@ -324,12 +326,12 @@ export function TrxDrawer({
           <StatusPill kind="trx" status={trx.status} />
           <Badge tone={trx.direction === "IN" ? "green" : "slate"}>{trx.direction}</Badge>
           <Badge tone="slate">{trx.type_code}</Badge>
-          {trx.has_payment_proof && <Badge tone="violet">payment proof</Badge>}
+          {trx.has_payment_proof && <Badge tone="violet">{tr("payment proof", "bukti bayar")}</Badge>}
           {/* Not a budget figure: the money is gone. This says only that a
               purchase names no request, which is the row worth asking about
               (D88). */}
           {trx.unallocated > 0 && trx.status !== "VOID" && trx.expects_allocation && (
-            <Badge tone="amber">no request behind it</Badge>
+            <Badge tone="amber">{tr("no request behind it", "tanpa permintaan di baliknya")}</Badge>
           )}
         </div>
 
@@ -342,25 +344,27 @@ export function TrxDrawer({
         {editOpen && (
           <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-3" data-testid="trx-edit">
             <p className="flex items-center gap-2 text-[13px] font-semibold text-slate-800">
-              <Pencil className="h-4 w-4" /> Edit this entry
+              <Pencil className="h-4 w-4" /> {tr("Edit this entry", "Edit entri ini")}
             </p>
             <div>
-              <label htmlFor="trx-edit-amount" className="block text-xs text-slate-600">Amount</label>
+              <label htmlFor="trx-edit-amount" className="block text-xs text-slate-600">{tr("Amount", "Jumlah")}</label>
               <MoneyInput id="trx-edit-amount" value={editAmount} onChange={setEditAmount} className="mt-1" />
               {amountChanged && (
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Was {formatIDR(trx.amount_idr)}
+                  {tr("Was", "Sebelumnya")} {formatIDR(trx.amount_idr)}
                 </p>
               )}
               {amountChanged && editAmount < trx.allocated_total && (
                 <p className="mt-1 text-[11px] text-amber-700">
-                  {formatIDR(trx.allocated_total)} of this row is already applied to requests — the new amount is
-                  {" "}{formatIDR(trx.allocated_total - editAmount)} below that. It will be saved and flagged in the audit log.
+                  {tr(
+                    `${formatIDR(trx.allocated_total)} of this row is already applied to requests — the new amount is ${formatIDR(trx.allocated_total - editAmount)} below that. It will be saved and flagged in the audit log.`,
+                    `${formatIDR(trx.allocated_total)} dari baris ini sudah dialokasikan ke permintaan — jumlah baru ${formatIDR(trx.allocated_total - editAmount)} di bawahnya. Perubahan tetap disimpan dan ditandai di log audit.`,
+                  )}
                 </p>
               )}
             </div>
             <div>
-              <label htmlFor="trx-edit-desc" className="block text-xs text-slate-600">Description</label>
+              <label htmlFor="trx-edit-desc" className="block text-xs text-slate-600">{tr("Description", "Deskripsi")}</label>
               <input
                 id="trx-edit-desc"
                 value={editDesc}
@@ -376,7 +380,7 @@ export function TrxDrawer({
                 reachable until these three fields existed. */}
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <label htmlFor="trx-edit-vendor" className="block text-xs text-slate-600">Vendor</label>
+                <label htmlFor="trx-edit-vendor" className="block text-xs text-slate-600">{tr("Vendor", "Vendor")}</label>
                 <select
                   id="trx-edit-vendor" value={editVendor}
                   onChange={(e) => setEditVendor(e.target.value)}
@@ -386,28 +390,28 @@ export function TrxDrawer({
                   {/* An explicit *no vendor*, not a blank that means unknown.
                       Choosing it clears the field; leaving the select alone
                       does not touch it. */}
-                  <option value="">— no vendor —</option>
+                  <option value="">{tr("— no vendor —", "— tanpa vendor —")}</option>
                   {refs?.vendors.map((v) => (
                     <option key={v.code} value={v.code}>{v.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="trx-edit-project" className="block text-xs text-slate-600">Project</label>
+                <label htmlFor="trx-edit-project" className="block text-xs text-slate-600">{tr("Project", "Proyek")}</label>
                 <select
                   id="trx-edit-project" value={editProject}
                   onChange={(e) => setEditProject(e.target.value)}
                   disabled={!refs}
                   className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm focus:border-brand-400 focus:outline-none disabled:bg-slate-50"
                 >
-                  <option value="">— no project —</option>
+                  <option value="">{tr("— no project —", "— tanpa proyek —")}</option>
                   {refs?.projects.map((p) => (
                     <option key={p.code} value={p.code}>{p.code} · {p.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="trx-edit-type" className="block text-xs text-slate-600">Type</label>
+                <label htmlFor="trx-edit-type" className="block text-xs text-slate-600">{tr("Type", "Jenis")}</label>
                 <select
                   id="trx-edit-type" value={editType}
                   onChange={(e) => setEditType(e.target.value)}
@@ -425,30 +429,30 @@ export function TrxDrawer({
 
             <div>
               <label htmlFor="trx-edit-reason" className="block text-xs text-slate-600">
-                Remarks {amountChanged ? <span className="text-rose-700">— required when the amount changes</span> : "(optional)"}
+                {tr("Remarks", "Keterangan")} {amountChanged ? <span className="text-rose-700">{tr("— required when the amount changes", "— wajib bila jumlah berubah")}</span> : tr("(optional)", "(opsional)")}
               </label>
               <textarea
                 id="trx-edit-reason"
                 value={editReason}
                 onChange={(e) => setEditReason(e.target.value)}
                 rows={2}
-                placeholder="e.g. the nota says Rp 600.000, the transfer was typed wrong"
+                placeholder={tr("e.g. the nota says Rp 600.000, the transfer was typed wrong", "mis. nota tertulis Rp 600.000, transfernya salah ketik")}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setEditOpen(false)} disabled={busy}>Cancel</Button>
+              <Button variant="ghost" size="sm" onClick={() => setEditOpen(false)} disabled={busy}>{tr("Cancel", "Batal")}</Button>
               <Button
                 size="sm"
                 disabled={busy || (!amountChanged && !descChanged) || editAmount <= 0 || !editDesc.trim()
                   || (amountChanged && !editReason.trim())}
                 onClick={saveEdit}
               >
-                Save changes
+                {tr("Save changes", "Simpan perubahan")}
               </Button>
             </div>
             <p className="text-[11px] text-slate-500">
-              Every edit is recorded in the audit log with the old and new values, who made it and the remark.
+              {tr("Every edit is recorded in the audit log with the old and new values, who made it and the remark.", "Setiap edit dicatat di log audit beserta nilai lama dan baru, siapa yang membuatnya, dan keterangannya.")}
             </p>
           </div>
         )}
@@ -456,42 +460,41 @@ export function TrxDrawer({
         {voidOpen && (
           <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-3">
             <p className="flex items-center gap-2 text-[13px] font-semibold text-rose-900">
-              <Ban className="h-4 w-4" /> Void this entry
+              <Ban className="h-4 w-4" /> {tr("Void this entry", "Batalkan entri ini")}
             </p>
             <p className="text-[12px] text-rose-800">
-              Only for a row that should never have existed — a double entry, a
-              wrong account. If only the amount or the description is wrong, use
-              Edit instead.
+              {tr("Only for a row that should never have existed — a double entry, a wrong account. If only the amount or the description is wrong, use Edit instead.",
+                "Hanya untuk baris yang seharusnya tidak pernah ada — entri ganda, rekening yang salah. Bila hanya jumlah atau deskripsinya yang salah, gunakan Edit.")}
             </p>
             <label htmlFor="void-reason" className="block text-xs text-rose-900">
-              Why is this being voided? Required — a row with no reason cannot be asked about later.
+              {tr("Why is this being voided? Required — a row with no reason cannot be asked about later.", "Mengapa ini dibatalkan? Wajib — baris tanpa alasan tidak bisa ditanyakan nanti.")}
             </label>
             <input
               id="void-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. entered twice, the first one is trx-26-08-29_002"
+              placeholder={tr("e.g. entered twice, the first one is trx-26-08-29_002", "mis. tercatat dua kali, yang pertama trx-26-08-29_002")}
               className="w-full rounded-lg border border-rose-200 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none"
             />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setVoidOpen(false)} disabled={busy}>Cancel</Button>
+              <Button variant="ghost" size="sm" onClick={() => setVoidOpen(false)} disabled={busy}>{tr("Cancel", "Batal")}</Button>
               <Button variant="danger" size="sm" disabled={busy || !reason.trim()} onClick={voidIt}>
-                Void this row
+                {tr("Void this row", "Batalkan baris ini")}
               </Button>
             </div>
             <p className="text-[11px] text-rose-800">
-              The row stays and the amount goes to zero. Nothing is deleted — a
-              correction is a new statement beside the old one, never an erasure.
+              {tr("The row stays and the amount goes to zero. Nothing is deleted — a correction is a new statement beside the old one, never an erasure.",
+                "Barisnya tetap dan jumlahnya menjadi nol. Tidak ada yang dihapus — koreksi adalah pernyataan baru di samping yang lama, tidak pernah penghapusan.")}
             </p>
           </div>
         )}
 
         <dl className="space-y-2.5">
           {([
-            ["Amount", formatIDR(trx.amount_idr)],
-            ["Type", trx.type_code],
-            ["Vendor", trx.vendor_name ?? "—"],
-            ["Posted", `${trx.posted_at.slice(0, 10)}`],
+            [tr("Amount", "Jumlah"), formatIDR(trx.amount_idr)],
+            [tr("Type", "Jenis"), trx.type_code],
+            [tr("Vendor", "Vendor"), trx.vendor_name ?? "—"],
+            [tr("Posted", "Diposting"), `${trx.posted_at.slice(0, 10)}`],
           ] as [string, string][]).map(([k, v]) => (
             <div key={k} className="flex justify-between gap-4 border-b border-slate-100 pb-2">
               <dt className="text-slate-500">{k}</dt>
@@ -502,7 +505,7 @@ export function TrxDrawer({
 
         {trx.lines.length > 0 && (
           <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">What it bought</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{tr("What it bought", "Apa yang dibeli")}</p>
             <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
               {trx.lines.map((l) => (
                 <li key={l.id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
@@ -521,13 +524,12 @@ export function TrxDrawer({
             the path from a bank row back to who asked for it is one hop. */}
         <section>
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <Link2 className="h-3.5 w-3.5" /> What it paid for
+            <Link2 className="h-3.5 w-3.5" /> {tr("What it paid for", "Apa yang dibayarnya")}
           </p>
           {trx.status === "VOID" && trx.allocations.length > 0 && (
             <p className="mb-2 text-[12px] text-rose-700">
-              These no longer count towards anything: the transaction is void, so
-              every line it funded is owed again. The rows stay so the history
-              still reads.
+              {tr("These no longer count towards anything: the transaction is void, so every line it funded is owed again. The rows stay so the history still reads.",
+                "Ini tidak lagi dihitung untuk apa pun: transaksinya batal, jadi setiap baris yang didanainya terutang lagi. Barisnya tetap agar riwayatnya masih terbaca.")}
             </p>
           )}
           {trx.allocations.length > 0 ? (
@@ -539,8 +541,8 @@ export function TrxDrawer({
                       <span className="block text-slate-700">{a.line_description ?? a.pr_line_no ?? a.po_no}</span>
                       <span className="block font-mono text-[10px] text-slate-400">
                         {a.pr_line_no ?? a.po_no} · {a.method}
-                        {a.superseded_by && " · superseded"}
-                        {openingLine === a.pr_line_no && " · opening…"}
+                        {a.superseded_by && tr(" · superseded", " · digantikan")}
+                        {openingLine === a.pr_line_no && tr(" · opening…", " · membuka…")}
                       </span>
                     </span>
                     <span className="tabular-nums text-slate-800">{formatIDR(a.amount)}</span>
@@ -557,7 +559,7 @@ export function TrxDrawer({
                         onClick={() => void showLine(a.pr_line_no!)}
                         disabled={!!openingLine}
                         className="w-full px-3 py-2 text-left hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
-                        title={`Open ${a.pr_line_no}`}
+                        title={tr(`Open ${a.pr_line_no}`, `Buka ${a.pr_line_no}`)}
                       >
                         {body}
                       </button>
@@ -570,9 +572,8 @@ export function TrxDrawer({
             </ul>
           ) : (
             <p className="mb-3 text-[13px] text-slate-500">
-              No request behind this one yet. Money that left with nothing asking
-              for it is exactly the row worth a question, so it is shown rather
-              than left to a report nobody runs.
+              {tr("No request behind this one yet. Money that left with nothing asking for it is exactly the row worth a question, so it is shown rather than left to a report nobody runs.",
+                "Belum ada permintaan di balik baris ini. Uang yang keluar tanpa ada yang memintanya justru baris yang layak ditanyakan, jadi ditampilkan alih-alih diserahkan ke laporan yang tidak pernah dijalankan.")}
             </p>
           )}
 
@@ -580,7 +581,7 @@ export function TrxDrawer({
             <div className="space-y-2 rounded-lg border border-dashed border-slate-300 px-3 py-3">
               <div className="grid gap-2 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="alloc-line" className="block text-xs text-slate-500">Request line</label>
+                  <label htmlFor="alloc-line" className="block text-xs text-slate-500">{tr("Request line", "Baris permintaan")}</label>
                   <input
                     id="alloc-line"
                     value={allocLine}
@@ -590,17 +591,16 @@ export function TrxDrawer({
                   />
                 </div>
                 <div>
-                  <label htmlFor="alloc-amount" className="block text-xs text-slate-500">Amount</label>
+                  <label htmlFor="alloc-amount" className="block text-xs text-slate-500">{tr("Amount", "Jumlah")}</label>
                   <MoneyInput id="alloc-amount" value={allocAmount} onChange={setAllocAmount} className="mt-1" />
                 </div>
               </div>
               <Button size="sm" className="w-full" disabled={busy || !allocLine.trim() || allocAmount <= 0} onClick={allocate}>
-                Point this money at that line
+                {tr("Point this money at that line", "Arahkan uang ini ke baris itu")}
               </Button>
               <p className="text-[11px] text-slate-500">
-                The line is checked against procurement before anything is written,
-                and what is pointed at a line can never exceed what actually left
-                the account.
+                {tr("The line is checked against procurement before anything is written, and what is pointed at a line can never exceed what actually left the account.",
+                  "Baris diperiksa terhadap pengadaan sebelum apa pun ditulis, dan yang diarahkan ke suatu baris tidak pernah bisa melebihi yang benar-benar keluar dari rekening.")}
               </p>
             </div>
           )}
@@ -613,11 +613,11 @@ export function TrxDrawer({
           entityNo={trx.trx_no}
           canEdit={mayPost && trx.status !== "VOID"}
           defaultKind="Receipt / Invoice / Nota"
-          slots={trx.direction === "IN" ? IN_SLOTS : OUT_SLOTS}
+          slots={trx.direction === "IN" ? inSlots(tr) : outSlots(tr)}
           alsoCovers={alsoCovers}
           reachedFrom={reached}
           onChanged={() => { void load(trx!.trx_no); onChanged(); }}
-          note="Attached here, to this row — the system already knows the date, the account and the amount, so it only asks what kind of document this is."
+          note={tr("Attached here, to this row — the system already knows the date, the account and the amount, so it only asks what kind of document this is.", "Dilampirkan di sini, ke baris ini — sistem sudah tahu tanggal, rekening, dan jumlahnya, jadi hanya menanyakan jenis dokumennya.")}
         />
 
         {/* What has happened to this row. Fraud and anomaly questions are
@@ -625,16 +625,16 @@ export function TrxDrawer({
             to THIS row", asked while looking at it (D84). */}
         <section>
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <History className="h-3.5 w-3.5" /> History
+            <History className="h-3.5 w-3.5" /> {tr("History", "Riwayat")}
           </p>
           {history.length === 0 ? (
-            <p className="text-[13px] text-slate-500">Nothing recorded — this row predates the trail.</p>
+            <p className="text-[13px] text-slate-500">{tr("Nothing recorded — this row predates the trail.", "Tidak ada catatan — baris ini lebih tua dari jejak audit.")}</p>
           ) : (
             <ol className="space-y-2">
               {history.map((h) => (
                 <li key={h.id} className="rounded-lg border border-slate-200 px-3 py-2 text-[12px]">
                   <p className="text-slate-700">
-                    <span className="font-medium">{ACTION_LABEL[h.action] ?? h.action}</span>
+                    <span className="font-medium">{ACTION_LABEL[h.action] ? tr(ACTION_LABEL[h.action].en, ACTION_LABEL[h.action].id) : h.action}</span>
                     {h.outcome !== "ok" && <span className="ml-1 text-rose-700">· {h.outcome}</span>}
                     <span className="text-slate-400"> · {h.actor_email} · {new Date(h.at).toLocaleString()}</span>
                   </p>
@@ -659,7 +659,7 @@ export function TrxDrawer({
           <p className="flex items-start gap-2 text-[12px] text-slate-500">
             <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              Reaches{" "}
+              {tr("Reaches", "Mencapai")}{" "}
               {trx.pr_line_nos.map((no, i) => (
                 <span key={no}>
                   {i > 0 && ", "}
@@ -672,7 +672,7 @@ export function TrxDrawer({
                   </button>
                 </span>
               ))}{" "}
-              on the requests board — same money, read from the other end.
+              {tr("on the requests board — same money, read from the other end.", "di papan permintaan — uang yang sama, dibaca dari ujung lain.")}
             </span>
           </p>
         )}

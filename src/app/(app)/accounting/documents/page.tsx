@@ -8,6 +8,7 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { cn } from "@/lib/cn";
 import { documents } from "@/demo/api";
 import { DOC_KINDS, type AttachmentView, type DocKind } from "@/services/documents/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** Every document, and what each one is attached to.
  *
@@ -23,6 +24,7 @@ import { DOC_KINDS, type AttachmentView, type DocKind } from "@/services/documen
  *  apart later; one file pointed at three records is a fact.
  */
 export default function DocumentsPage() {
+  const tr = useTr();
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<DocKind | "">("");
   const [month, setMonth] = useState("");
@@ -31,7 +33,7 @@ export default function DocumentsPage() {
   const columns: Column<AttachmentView>[] = [
     {
       key: "file",
-      header: "Document",
+      header: tr("Document", "Dokumen"),
       className: "whitespace-normal",
       render: (a) => (
         <div className="max-w-[360px] whitespace-normal break-words">
@@ -47,7 +49,7 @@ export default function DocumentsPage() {
     },
     {
       key: "kind",
-      header: "Type",
+      header: tr("Type", "Jenis"),
       render: (a) => (
         <div className="flex flex-wrap gap-1">
           {[...new Set(a.links.map((l) => l.kind))].map((k) => (
@@ -59,14 +61,14 @@ export default function DocumentsPage() {
     },
     {
       key: "covers",
-      header: "Attached to",
+      header: tr("Attached to", "Dilampirkan ke"),
       className: "whitespace-normal",
       render: (a) => a.links.length === 0
         ? (
           /* The row this screen exists for: a file nobody pointed at anything.
              It is not deleted and not hidden — it is asked about. */
           <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-amber-700">
-            <AlertTriangle className="h-3.5 w-3.5" /> nothing yet
+            <AlertTriangle className="h-3.5 w-3.5" /> {tr("nothing yet", "belum ada")}
           </span>
         )
         : (
@@ -82,7 +84,7 @@ export default function DocumentsPage() {
     },
     {
       key: "count",
-      header: "Covers",
+      header: tr("Covers", "Mencakup"),
       align: "right",
       render: (a) => (
         <span className={cn(
@@ -98,9 +100,9 @@ export default function DocumentsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accounting"
-        title="Documents"
-        description="Every file, and what it is attached to. Opening the record is still the quickest way to see its proof — this is for the other question: where did this photo end up, and which files are attached to nothing."
+        breadcrumb={tr("Accounting", "Akuntansi")}
+        title={tr("Documents", "Dokumen")}
+        description={tr("Every file, and what it is attached to. Opening the record is still the quickest way to see its proof — this is for the other question: where did this photo end up, and which files are attached to nothing.", "Setiap berkas, dan apa yang dilampirinya. Membuka catatannya tetap cara tercepat melihat buktinya — halaman ini untuk pertanyaan lain: ke mana foto ini berakhir, dan berkas mana yang tidak dilampirkan ke apa pun.")}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -110,7 +112,7 @@ export default function DocumentsPage() {
           onChange={(e) => setKind(e.target.value as DocKind | "")}
           className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-brand-400 focus:outline-none"
         >
-          <option value="">All types</option>
+          <option value="">{tr("All types", "Semua jenis")}</option>
           {DOC_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
         </select>
         <input
@@ -124,7 +126,7 @@ export default function DocumentsPage() {
           id="d-q"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Filename or record…"
+          placeholder={tr("Filename or record…", "Nama berkas atau catatan…")}
           className="ml-auto h-9 w-56 rounded-lg border border-slate-200 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
         />
       </div>
@@ -145,12 +147,12 @@ export default function DocumentsPage() {
           return (
             <Card>
               <CardHeader
-                title={`${visible.length} document(s)`}
-                subtitle={`${shared.length} cover more than one record${orphans.length ? ` · ${orphans.length} attached to nothing` : ""}`}
+                title={tr(`${visible.length} document(s)`, `${visible.length} dokumen`)}
+                subtitle={tr(`${shared.length} cover more than one record${orphans.length ? ` · ${orphans.length} attached to nothing` : ""}`, `${shared.length} mencakup lebih dari satu catatan${orphans.length ? ` · ${orphans.length} tidak dilampirkan ke apa pun` : ""}`)}
                 icon={FolderOpen}
                 action={
                   <div className="flex items-center gap-2">
-                    {orphans.length > 0 && <Badge tone="amber">{orphans.length} unattached</Badge>}
+                    {orphans.length > 0 && <Badge tone="amber">{tr(`${orphans.length} unattached`, `${orphans.length} belum dilampirkan`)}</Badge>}
                     <SourceBadge state={rows} />
                   </div>
                 }
@@ -160,7 +162,7 @@ export default function DocumentsPage() {
                 columns={columns}
                 rows={visible}
                 rowKey={(a) => a.id}
-                empty={q || kind || month ? "Nothing matches those filters." : "No documents yet."}
+                empty={q || kind || month ? tr("Nothing matches those filters.", "Tidak ada yang cocok dengan filter itu.") : tr("No documents yet.", "Belum ada dokumen.")}
               />
             </Card>
           );

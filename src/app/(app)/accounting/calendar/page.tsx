@@ -13,6 +13,7 @@ import { ComponentDrawer } from "./ComponentDrawer";
 import { MonthOverride } from "./MonthOverride";
 import { MonthDrawer } from "./MonthDrawer";
 import { DuePanel } from "./DuePanel";
+import { useTr } from "@/lib/i18n";
 
 /** Will the money last, and what is due next.
  *
@@ -26,6 +27,7 @@ import { DuePanel } from "./DuePanel";
  *  that does not reconcile to the ledger is a wish (D111).
  */
 export default function CalendarPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [plan, reload] = useLoad(() => accounting.getCashPlan(), []);
   const [editing, setEditing] = useState<CashRow["component"] | null>(null);
@@ -40,11 +42,11 @@ export default function CalendarPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Accounting"
-        title="Payment calendar"
-        description="Every recurring payment with the day it falls due, twelve months forward — planned against what actually happened."
+        breadcrumb={tr("Accounting", "Akuntansi")}
+        title={tr("Payment calendar", "Kalender pembayaran")}
+        description={tr("Every recurring payment with the day it falls due, twelve months forward — planned against what actually happened.", "Setiap pembayaran rutin beserta tanggal jatuh temponya, dua belas bulan ke depan — rencana dibandingkan dengan yang benar-benar terjadi.")}
         actions={mayEdit ? (
-          <Button icon={Plus} onClick={() => setAdding(true)}>Add a line</Button>
+          <Button icon={Plus} onClick={() => setAdding(true)}>{tr("Add a line", "Tambah baris")}</Button>
         ) : undefined}
       />
 
@@ -55,10 +57,10 @@ export default function CalendarPage() {
             <DuePanel onChanged={reload} />
             <Card className="mb-4">
               <CardHeader
-                title="Twelve months"
+                title={tr("Twelve months", "Dua belas bulan")}
                 subtitle={mayEdit
-                  ? "Planned on top, what actually happened underneath. Click a month to open it day by day, a line to change the estimate, a cell to change one month."
-                  : "Planned on top, what actually happened underneath. Click a month to open it day by day. The estimates themselves are set by leadership — everything else on this screen is yours to read."}
+                  ? tr("Planned on top, what actually happened underneath. Click a month to open it day by day, a line to change the estimate, a cell to change one month.", "Rencana di atas, yang benar-benar terjadi di bawahnya. Klik bulan untuk membukanya hari demi hari, baris untuk mengubah perkiraan, sel untuk mengubah satu bulan.")
+                  : tr("Planned on top, what actually happened underneath. Click a month to open it day by day. The estimates themselves are set by leadership — everything else on this screen is yours to read.", "Rencana di atas, yang benar-benar terjadi di bawahnya. Klik bulan untuk membukanya hari demi hari. Perkiraannya sendiri ditetapkan pimpinan — selebihnya di layar ini bisa Anda baca.")}
                 icon={CalendarDays}
                 action={<SourceBadge state={plan} />}
               />
@@ -96,6 +98,7 @@ export default function CalendarPage() {
 }
 
 function Verdict({ plan }: { plan: CashPlan }) {
+  const tr = useTr();
   const short = plan.short_month !== null;
   const plannedOut = plan.months.reduce((s, m) => s + m.planned_out, 0);
   const plannedIn = plan.months.reduce((s, m) => s + m.planned_in, 0);
@@ -107,20 +110,20 @@ function Verdict({ plan }: { plan: CashPlan }) {
     )}>
       <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
         {([
-          ["Cash today", formatIDR(plan.opening_cash), "across the accounts that pay people"],
-          ["Planned out", formatIDR(plannedOut), "twelve months of bills"],
-          ["Planned in", formatIDR(plannedIn), "transfers from leadership"],
-          [short ? "Runs out" : "Ends at",
+          [tr("Cash today", "Kas hari ini"), formatIDR(plan.opening_cash), tr("across the accounts that pay people", "di rekening-rekening yang membayar")],
+          [tr("Planned out", "Rencana keluar"), formatIDR(plannedOut), tr("twelve months of bills", "tagihan dua belas bulan")],
+          [tr("Planned in", "Rencana masuk"), formatIDR(plannedIn), tr("transfers from leadership", "transfer dari pimpinan")],
+          [short ? tr("Runs out", "Habis") : tr("Ends at", "Berakhir di"),
             short
               ? plan.months.find((m) => m.month === plan.short_month)?.label ?? "—"
               : formatIDR(plan.months[plan.months.length - 1].closing),
-            short ? `short ${formatIDR(plan.short_by)}` : "on this plan"],
-        ] as [string, string, string][]).map(([k, v, note]) => (
+            short ? tr(`short ${formatIDR(plan.short_by)}`, `kurang ${formatIDR(plan.short_by)}`) : tr("on this plan", "menurut rencana ini")],
+        ] as [string, string, string][]).map(([k, v, note], i) => (
           <div key={k} className="px-4 py-3.5">
             <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
             <dd className={cn(
               "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-              (k === "Runs out") ? "text-rose-700" : "text-slate-800",
+              (i === 3 && short) ? "text-rose-700" : "text-slate-800",
             )}>
               {v}
             </dd>
@@ -138,8 +141,8 @@ function Verdict({ plan }: { plan: CashPlan }) {
         <span>{plan.verdict}</span>
         {plan.undated_obligations > 0 && (
           <span className="text-slate-500">
-            Not counted: <strong className="tabular-nums">{formatIDR(plan.undated_obligations)}</strong>{" "}
-            owed to suppliers whose terms carry no date, so no month holds them.
+            {tr("Not counted:", "Tidak dihitung:")} <strong className="tabular-nums">{formatIDR(plan.undated_obligations)}</strong>{" "}
+            {tr("owed to suppliers whose terms carry no date, so no month holds them.", "utang ke pemasok yang terminnya tidak bertanggal, jadi tidak ada bulan yang menampungnya.")}
           </span>
         )}
       </p>
@@ -148,6 +151,7 @@ function Verdict({ plan }: { plan: CashPlan }) {
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 const CELL_TONE: Record<CashCell["state"], string> = {
   PAID: "text-emerald-700",
@@ -166,13 +170,14 @@ function Grid({
   onPickCell: (row: CashRow, cell: CashCell) => void;
   onOpenMonth: (month: string) => void;
 }) {
+  const tr = useTr();
   const money = plan.rows.filter((r) => r.component.direction === "IN");
   const bills = plan.rows.filter((r) => r.component.direction === "OUT");
 
   const head = (
     <tr className="border-b border-slate-200 bg-slate-50/70">
       <th className="sticky left-0 z-10 bg-slate-50/70 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        Line
+        {tr("Line", "Baris")}
       </th>
       {plan.months.map((m) => (
         <th key={m.month} className="whitespace-nowrap px-3 py-2.5 text-right">
@@ -182,7 +187,7 @@ function Grid({
               "text-[11px] font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-4 hover:text-brand-700",
               m.is_current ? "text-brand-700" : "text-slate-500",
             )}
-            title="Open this month day by day"
+            title={tr("Open this month day by day", "Buka bulan ini hari demi hari")}
           >
             {m.label}
           </button>
@@ -201,15 +206,15 @@ function Grid({
         <span className="block text-[13px] font-medium text-slate-800">
           {r.component.name}
           {r.component.amount_kind === "estimate" && (
-            <span className="ml-1.5 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-normal text-sky-700" title="An estimate — any matched payment settles it">estimate</span>
+            <span className="ml-1.5 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-normal text-sky-700" title={tr("An estimate — any matched payment settles it", "Perkiraan — pembayaran apa pun yang cocok melunasinya")}>{tr("estimate", "perkiraan")}</span>
           )}
         </span>
         <span className="block text-[11px] text-slate-500">
           {r.component.frequency === "weekly"
-            ? `every ${WEEKDAYS[r.component.due_weekday ?? 5]}`
+            ? tr(`every ${WEEKDAYS[r.component.due_weekday ?? 5]}`, `setiap ${WEEKDAYS_ID[r.component.due_weekday ?? 5]}`)
             : r.component.frequency === "once"
-              ? `once · ${r.component.due_date}`
-              : `day ${r.component.due_day}`}
+              ? tr(`once · ${r.component.due_date}`, `sekali · ${r.component.due_date}`)
+              : tr(`day ${r.component.due_day}`, `tanggal ${r.component.due_day}`)}
           {r.account_code && <> · {r.account_code}</>}
         </span>
       </th>
@@ -217,7 +222,7 @@ function Grid({
         <td
           key={c.month}
           className="cursor-pointer whitespace-nowrap px-3 py-2 text-right align-top hover:bg-brand-50/60"
-          title="Change just this month"
+          title={tr("Change just this month", "Ubah bulan ini saja")}
           onClick={() => onPickCell(r, c)}
         >
           {c.state === "SKIPPED" ? (
@@ -237,14 +242,14 @@ function Grid({
                     c.matched_by === "category" ? "text-slate-400" : "text-slate-500",
                   )}
                   title={c.matched_by === "category"
-                    ? `Matched by category: ${c.trx_nos.join(", ")}`
-                    : `Linked: ${c.trx_nos.join(", ")}`}
+                    ? tr(`Matched by category: ${c.trx_nos.join(", ")}`, `Dicocokkan menurut kategori: ${c.trx_nos.join(", ")}`)
+                    : tr(`Linked: ${c.trx_nos.join(", ")}`, `Ditautkan: ${c.trx_nos.join(", ")}`)}
                 >
                   {c.matched_by === "category" ? "≈ " : ""}{formatIDRCompact(c.actual)}
                 </span>
               )}
               {c.overridden && (
-                <span className="block text-[10px] text-violet-600" title={c.reason ?? undefined}>changed</span>
+                <span className="block text-[10px] text-violet-600" title={c.reason ?? undefined}>{tr("changed", "diubah")}</span>
               )}
             </>
           )}
@@ -260,7 +265,7 @@ function Grid({
         <tbody>
           <tr className="bg-emerald-50/40">
             <th className="sticky left-0 z-10 bg-emerald-50/60 px-4 py-1.5 text-left text-[11px] uppercase tracking-wide text-emerald-800">
-              Money in
+              {tr("Money in", "Uang masuk")}
             </th>
             <td colSpan={plan.months.length} />
           </tr>
@@ -268,7 +273,7 @@ function Grid({
 
           <tr className="bg-slate-50">
             <th className="sticky left-0 z-10 bg-slate-100 px-4 py-1.5 text-left text-[11px] uppercase tracking-wide text-slate-600">
-              Money out
+              {tr("Money out", "Uang keluar")}
             </th>
             <td colSpan={plan.months.length} />
           </tr>
@@ -277,8 +282,8 @@ function Grid({
           {/* The row that keeps the plan honest. */}
           <tr className="border-b border-slate-100 bg-amber-50/40">
             <th className="sticky left-0 z-10 bg-amber-50/60 px-4 py-2 text-left align-top">
-              <span className="block text-[13px] font-medium text-amber-900">Not in the plan</span>
-              <span className="block text-[11px] text-amber-700">money that left with no line for it</span>
+              <span className="block text-[13px] font-medium text-amber-900">{tr("Not in the plan", "Tidak ada di rencana")}</span>
+              <span className="block text-[11px] text-amber-700">{tr("money that left with no line for it", "uang yang keluar tanpa baris untuknya")}</span>
             </th>
             {plan.unplanned.map((u) => (
               <td key={u.month} className="px-3 py-2 text-right align-top">
@@ -296,7 +301,7 @@ function Grid({
 
           <tr className="border-t-2 border-slate-200">
             <th className="sticky left-0 z-10 bg-white px-4 py-2 text-left text-[12px] font-semibold text-slate-700">
-              Net for the month
+              {tr("Net for the month", "Neto bulan ini")}
             </th>
             {plan.months.map((m) => {
               const net = m.planned_in - m.planned_out;
@@ -312,7 +317,7 @@ function Grid({
           </tr>
           <tr className="bg-slate-50/70">
             <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2 text-left text-[12px] font-semibold text-slate-800">
-              Cash at month end
+              {tr("Cash at month end", "Kas akhir bulan")}
             </th>
             {plan.months.map((m) => (
               <td
@@ -321,7 +326,7 @@ function Grid({
                   "cursor-pointer px-3 py-2 text-right text-[13px] font-semibold tabular-nums hover:bg-brand-50/60",
                   m.closing < 0 ? "text-rose-700" : "text-slate-800",
                 )}
-                title="Open this month day by day"
+                title={tr("Open this month day by day", "Buka bulan ini hari demi hari")}
                 onClick={() => onOpenMonth(m.month)}
               >
                 {m.closing < 0 ? `− ${formatIDRCompact(Math.abs(m.closing))}` : formatIDRCompact(m.closing)}

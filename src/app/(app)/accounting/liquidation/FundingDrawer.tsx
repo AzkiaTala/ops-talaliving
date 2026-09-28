@@ -10,6 +10,7 @@ import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { accounting } from "@/demo/api";
 import type { FundingSpendGroup, FundingSpendRow } from "@/services/accounting/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** One transfer, spent down to nothing in front of you.
  *
@@ -20,17 +21,18 @@ import type { FundingSpendGroup, FundingSpendRow } from "@/services/accounting/c
  *  different fact from "the money ran out", and both matter.
  */
 export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () => void }) {
+  const tr = useTr();
   const [detail, reload] = useLoad(() => accounting.getFunding(trxNo), [trxNo]);
 
   return (
-    <Drawer open onClose={onClose} width="max-w-4xl" title={trxNo} subtitle="Where this transfer went">
+    <Drawer open onClose={onClose} width="max-w-4xl" title={trxNo} subtitle={tr("Where this transfer went", "Ke mana transfer ini pergi")}>
       <Loaded state={detail} onRetry={reload}>
         {(f) => {
           const overLimit = f.rows.filter((r) => r.over_no_approval_limit);
           const rowColumns: Column<FundingSpendRow>[] = [
             {
               key: "when",
-              header: "Date",
+              header: tr("Date", "Tanggal"),
               render: (r) => (
                 <div className="whitespace-nowrap">
                   <p className="text-[13px] text-slate-700">{r.trx_date}</p>
@@ -40,7 +42,7 @@ export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () =
             },
             {
               key: "what",
-              header: "What left",
+              header: tr("What left", "Yang keluar"),
               className: "whitespace-normal",
               render: (r) => (
                 <div className="max-w-[240px]">
@@ -55,13 +57,13 @@ export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () =
             },
             {
               key: "decided",
-              header: "Decided",
+              header: tr("Decided", "Diputuskan"),
               align: "center",
               className: "whitespace-nowrap",
               render: (r) => r.decided
                 ? (
                   <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-800">
-                    <Link2 className="h-3 w-3" /> line or order
+                    <Link2 className="h-3 w-3" /> {tr("line or order", "baris atau pesanan")}
                   </span>
                 )
                 /* Payroll and the electricity bill are not loose ends (D83). */
@@ -71,19 +73,19 @@ export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () =
                    *  Below it the row is still listed and still undecided — the
                    *  limit changes what is worth chasing, not what is true. */
                   ? r.over_no_approval_limit
-                    ? <span className="text-[11px] font-medium text-rose-700">no approval · over limit</span>
-                    : <span className="text-[11px] text-amber-700">no line or order</span>
-                  : <span className="text-[11px] text-slate-400">not expected</span>,
+                    ? <span className="text-[11px] font-medium text-rose-700">{tr("no approval · over limit", "tanpa persetujuan · di atas batas")}</span>
+                    : <span className="text-[11px] text-amber-700">{tr("no line or order", "tanpa baris atau pesanan")}</span>
+                  : <span className="text-[11px] text-slate-400">{tr("not expected", "tidak diharapkan")}</span>,
             },
             {
               key: "amount",
-              header: "Amount",
+              header: tr("Amount", "Jumlah"),
               align: "right",
               render: (r) => <span className="tabular-nums text-slate-800">{formatIDR(r.amount)}</span>,
             },
             {
               key: "left",
-              header: "Left of the transfer",
+              header: tr("Left of the transfer", "Sisa transfer"),
               align: "right",
               render: (r) => (
                 <span className={cn(
@@ -105,13 +107,13 @@ export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () =
                 { key: "label", header: "", className: "whitespace-normal", render: (g) => (
                   <span className="text-[13px] text-slate-700">{g.label}</span>
                 ) },
-                { key: "count", header: "Rows", align: "right", render: (g) => (
+                { key: "count", header: tr("Rows", "Baris"), align: "right", render: (g) => (
                   <span className="text-[12px] tabular-nums text-slate-500">{g.count}</span>
                 ) },
-                { key: "amount", header: "Amount", align: "right", render: (g) => (
+                { key: "amount", header: tr("Amount", "Jumlah"), align: "right", render: (g) => (
                   <span className="tabular-nums text-slate-800">{formatIDR(g.amount)}</span>
                 ) },
-                { key: "share", header: "Share", align: "right", render: (g) => (
+                { key: "share", header: tr("Share", "Porsi"), align: "right", render: (g) => (
                   <div className="flex items-center justify-end gap-2">
                     <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
                       <span
@@ -127,7 +129,7 @@ export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () =
               ] as Column<FundingSpendGroup>[]}
               rows={groups}
               rowKey={(g) => g.key}
-              empty="Nothing left the account in this window."
+              empty={tr("Nothing left the account in this window.", "Tidak ada yang keluar dari rekening dalam rentang ini.")}
             />
           );
 
@@ -136,45 +138,47 @@ export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () =
               {/* The sentence somebody asked for, in one place. */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5">
                 <p className="text-[13px] text-slate-700">
-                  <strong className="tabular-nums">{formatIDR(f.amount)}</strong> landed in{" "}
-                  <strong>{f.account_code}</strong> on {f.trx_date}
-                  {f.from_account_code && <> from {f.from_account_code}</>}, on top of{" "}
-                  <strong className="tabular-nums">{formatIDR(f.balance_before)}</strong> already there.
+                  <strong className="tabular-nums">{formatIDR(f.amount)}</strong> {tr("landed in", "masuk ke")}{" "}
+                  <strong>{f.account_code}</strong> {tr("on", "pada")} {f.trx_date}
+                  {f.from_account_code && <> {tr("from", "dari")} {f.from_account_code}</>}, {tr("on top of", "di atas")}{" "}
+                  <strong className="tabular-nums">{formatIDR(f.balance_before)}</strong> {tr("already there.", "yang sudah ada.")}
                 </p>
                 <p className="mt-1 text-[13px] text-slate-700">
                   {f.window_end
-                    ? <>Until the next transfer on {f.window_end}, </>
-                    : <>Since then, </>}
-                  <strong className="tabular-nums">{formatIDR(f.spent)}</strong> left the account
-                  across {f.rows.length} row(s).
+                    ? <>{tr(`Until the next transfer on ${f.window_end},`, `Sampai transfer berikutnya pada ${f.window_end},`)} </>
+                    : <>{tr("Since then,", "Sejak itu,")} </>}
+                  <strong className="tabular-nums">{formatIDR(f.spent)}</strong>{" "}
+                  {tr(`left the account across ${f.rows.length} row(s).`, `keluar dari rekening dalam ${f.rows.length} baris.`)}
                 </p>
                 <p className="mt-2 text-[13px]">
                   {f.consumed_on ? (
                     <span className="text-rose-800">
-                      Spent through on <strong>{f.consumed_on}</strong>
-                      {f.days_lasted === 0 ? " — the same day" : `, ${f.days_lasted} day(s) later`}.
+                      {tr("Spent through on", "Habis terpakai pada")} <strong>{f.consumed_on}</strong>
+                      {f.days_lasted === 0 ? tr(" — the same day", " — di hari yang sama") : tr(`, ${f.days_lasted} day(s) later`, `, ${f.days_lasted} hari kemudian`)}.
                       {f.beyond > 0 && (
-                        <> A further <strong className="tabular-nums">{formatIDR(f.beyond)}</strong> went
-                        out after that, from the balance that was already in the account.</>
+                        <> {tr("A further", "Tambahan")} <strong className="tabular-nums">{formatIDR(f.beyond)}</strong>{" "}
+                        {tr("went out after that, from the balance that was already in the account.", "keluar sesudah itu, dari saldo yang sudah ada di rekening.")}</>
                       )}
                     </span>
                   ) : (
                     <span className="text-emerald-800">
-                      <strong className="tabular-nums">{formatIDR(f.remaining)}</strong> of it
-                      {f.is_open ? " is still unspent." : " was still unspent when the next transfer arrived."}
+                      <strong className="tabular-nums">{formatIDR(f.remaining)}</strong>
+                      {f.is_open
+                        ? tr(" of it is still unspent.", " darinya masih belum terpakai.")
+                        : tr(" of it was still unspent when the next transfer arrived.", " darinya masih belum terpakai saat transfer berikutnya datang.")}
                     </span>
                   )}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge tone={f.undecided > 0 ? "amber" : "green"}>
-                    {formatIDR(f.decided)} against a line or an order
+                    {formatIDR(f.decided)} {tr("against a line or an order", "terhadap baris atau pesanan")}
                   </Badge>
                   {f.undecided > 0 && (
-                    <Badge tone="amber">{formatIDR(f.undecided)} of purchases with nothing behind them</Badge>
+                    <Badge tone="amber">{formatIDR(f.undecided)} {tr("of purchases with nothing behind them", "pembelian tanpa dasar apa pun")}</Badge>
                   )}
                   {overLimit.length > 0 && (
                     <Badge tone="red">
-                      {overLimit.length} of those above the no-approval limit
+                      {tr(`${overLimit.length} of those above the no-approval limit`, `${overLimit.length} di antaranya di atas batas tanpa persetujuan`)}
                     </Badge>
                   )}
                   {f.proof_filename && (
@@ -189,20 +193,20 @@ export function FundingDrawer({ trxNo, onClose }: { trxNo: string; onClose: () =
                 items={[
                   {
                     id: "rows",
-                    label: `Every row (${f.rows.length})`,
+                    label: tr(`Every row (${f.rows.length})`, `Semua baris (${f.rows.length})`),
                     content: (
                       <DataTable
                         dense
                         columns={rowColumns}
                         rows={f.rows}
                         rowKey={(r) => r.trx_no}
-                        empty="Nothing left the account before the next transfer."
+                        empty={tr("Nothing left the account before the next transfer.", "Tidak ada yang keluar dari rekening sebelum transfer berikutnya.")}
                       />
                     ),
                   },
-                  { id: "type", label: "By type", content: groupTable(f.by_type) },
-                  { id: "vendor", label: "By vendor", content: groupTable(f.by_vendor) },
-                  { id: "project", label: "By project", content: groupTable(f.by_project) },
+                  { id: "type", label: tr("By type", "Per jenis"), content: groupTable(f.by_type) },
+                  { id: "vendor", label: tr("By vendor", "Per vendor"), content: groupTable(f.by_vendor) },
+                  { id: "project", label: tr("By project", "Per proyek"), content: groupTable(f.by_project) },
                 ]}
               />
             </div>
