@@ -37,13 +37,28 @@ begin
    where ns.nspname like 'ops\_%'
      and p.prosecdef
      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
-     and has_function_privilege('anon', p.oid, 'EXECUTE');
+     and has_function_privilege('anon', p.oid, 'EXECUTE')
+     -- The one deliberate exception, and it is named rather than patterned so
+     -- a second one fails here (D322, 0179): the card a label's QR opens
+     -- without signing in. It takes a random token, returns what the label's
+     -- holder may see and writes nothing. Its own smoke file, 179, proves
+     -- that anon reaches nothing else through it.
+     and p.oid::regprocedure::text <> 'ops_inv.label_card(text)';
 
   assert n = 0,
     n || ' security definer function(s) in ops_* can be executed by `anon`, which is the '
     || 'key that ships in every browser bundle. A new function is executable by PUBLIC the '
     || 'moment it is created — revoke it from public in the migration that creates it, the '
     || 'way 0125 did for the 175 that existed then:' || E'\n  ' || leaked;
+end $$;
+
+-- ── 1b. the exception is granted, not leaked ─────────────────────────────
+-- `label_card` reaches anon by an explicit grant, never through PUBLIC: a
+-- PUBLIC grant would also hand it to every role created later.
+do $$
+begin
+  assert not has_function_privilege('public', 'ops_inv.label_card(text)'::regprocedure, 'EXECUTE'),
+    'ops_inv.label_card must be granted to anon by name, not through PUBLIC';
 end $$;
 
 -- ── 2. the six that are shut stay shut ───────────────────────────────────

@@ -12,7 +12,7 @@ import type {
   BoardStockView, BoardMoveView, BoardMoveKind, NotaScan, LogCostKind,
   Asset, AssetView, AssetCategory, AssetStatus, AssetInput, AssetService, AssetServiceInput,
   ProductStockRow, ProductLedgerRow, ProductMove, ProductMoveInput, ProductCountInput, ProductAllocateInput, ProductOrderLine,
-  LabelKind, LabelSource,
+  LabelKind, LabelSource, LabelCard,
 } from "@/services/inventory/contracts";
 import { ASSET_GONE, ASSET_OWNERSHIP_LABEL } from "@/services/inventory/contracts";
 import type { ItemPurchase } from "@/services/procurement/contracts";
@@ -1818,19 +1818,14 @@ const LABEL_CATEGORIES = new Set([
   "kayu", "panel",
 ]);
 
-export async function listLabelSources(
-  opts: { kind: LabelKind; since?: string | null; codes?: string[] | null; q?: string | null },
-): Promise<Result<LabelSource[]>> {
-  await latency();
-  const denied = requireModule(SERVICE, "inventory");
-  if (denied) return denied;
+/** The rows, without the module gate: the list and the public card share
+ *  them, as `label_rows` serves both in the database (`0179`). */
+function labelRowsDemo(kind: LabelKind): LabelSource[] {
   const state = getState();
-  const q = opts.q?.trim().toLowerCase() ?? "";
-  const since = opts.since ?? null;
   const locName = (code: string) => state.stock_locations.find((l) => l.code === code)?.name ?? code;
 
   let rows: LabelSource[];
-  if (opts.kind === "item") {
+  if (kind === "item") {
     rows = stockItems(state).map((r) => {
       const item = state.items.find((i) => i.code === r.item_code);
       const registered = (item as { created_at?: string } | undefined)?.created_at ?? null;
@@ -1844,7 +1839,7 @@ export async function listLabelSources(
         extra: { category_code: r.category_code },
       };
     });
-  } else if (opts.kind === "asset") {
+  } else if (kind === "asset") {
     rows = state.assets.filter((a) => !ASSET_GONE.includes(a.status)).map((a) => ({
       kind: "asset" as const, code: a.asset_no, name: a.name, name_local: null,
       category: assetView(state, a).category_name ?? a.category_code, uom: null, registered_at: a.created_at,
@@ -1876,11 +1871,65 @@ export async function listLabelSources(
       };
     });
   }
+  return rows.map((r) => ({ ...r, token: demoToken(r.kind, r.code) }));
+}
 
+async function listLabelSourcesUnchecked(kind: LabelKind): Promise<LabelSource[]> {
+  return labelRowsDemo(kind);
+}
+
+export async function listLabelSources(
+  opts: { kind: LabelKind; since?: string | null; codes?: string[] | null; q?: string | null },
+): Promise<Result<LabelSource[]>> {
+  await latency();
+  const denied = requireModule(SERVICE, "inventory");
+  if (denied) return denied;
+  const q = opts.q?.trim().toLowerCase() ?? "";
+  const since = opts.since ?? null;
+  let rows = labelRowsDemo(opts.kind);
   if (since) rows = rows.filter((r) => r.registered_at != null && r.registered_at.slice(0, 10) >= since);
   if (opts.codes?.length) rows = rows.filter((r) => opts.codes!.includes(r.code));
   if (q) rows = rows.filter((r) => `${r.code} ${r.name} ${r.name_local ?? ""}`.toLowerCase().includes(q));
   return ok(SERVICE, rows
     .sort((a, b) => (b.registered_at ?? "").localeCompare(a.registered_at ?? "") || a.code.localeCompare(b.code))
     .slice(0, 500));
+}
+
+/** The sandbox's stand-in for `label_tokens`: 32 hex characters from the kind
+ *  and code, the same every time. In the sandbox a token is not a secret;
+ *  in the database it is random (`0179`). */
+function demoToken(kind: LabelKind, code: string): string {
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  const s = `${kind}:${code}`;
+  let out = "";
+  for (let round = 0; out.length < 32; round++) {
+    for (let i = 0; i < s.length; i++) {
+      h1 = Math.imul(h1 ^ s.charCodeAt(i), 16777619) >>> 0;
+      h2 = Math.imul(h2 ^ (s.charCodeAt(i) + round), 2246822519) >>> 0;
+    }
+    out += h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
+  }
+  return out.slice(0, 32);
+}
+
+/** Anybody holding the label: no module is asked for, as in the database. */
+export async function labelCard(token: string): Promise<Result<LabelCard>> {
+  await latency();
+  for (const kind of ["item", "asset", "product"] as const) {
+    const all = await listLabelSourcesUnchecked(kind);
+    const r = all.find((x) => x.token === token);
+    if (r) {
+      return ok(SERVICE, {
+        kind: r.kind, code: r.code, name: r.name, name_local: r.name_local,
+        category: r.category, uom: r.uom, registered_at: r.registered_at,
+        locations: r.locations.map((l) => l.name ?? l.code),
+        extra: {
+          ownership: r.extra.ownership, status: r.extra.status, contract_end: r.extra.contract_end,
+          length_mm: r.extra.length_mm, width_mm: r.extra.width_mm, height_mm: r.extra.height_mm,
+          dimension_note: r.extra.dimension_note,
+        },
+      });
+    }
+  }
+  return notFound(SERVICE, "not_found", "Label ini tidak dikenal.");
 }
