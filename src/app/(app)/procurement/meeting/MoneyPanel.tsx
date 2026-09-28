@@ -7,6 +7,7 @@ import { useLoad } from "@/components/ui/loaded";
 import { accounting } from "@/demo/api";
 import type { PrLineView } from "@/services/procurement/contracts";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** The four numbers a leadership meeting is actually there to settle.
  *
@@ -31,6 +32,7 @@ import { useSession } from "@/store/session";
  *  promise, so it does not make it.
  */
 export function MoneyPanel({ lines }: { lines: PrLineView[] }) {
+  const tr = useTr();
   const { can } = useSession();
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
 
@@ -55,31 +57,40 @@ export function MoneyPanel({ lines }: { lines: PrLineView[] }) {
   const transfer = balance === undefined ? null : Math.max(toPay - balance, 0);
   const transferIfAll = balance === undefined ? null : Math.max(toPay + undecided - balance, 0);
 
-  const cells: { label: string; value: string; tone?: string; note?: string }[] = [
+  const cells: { key: string; label: string; value: string; tone?: string; note?: string }[] = [
     {
-      label: "Approved, not paid yet",
+      key: "to-pay",
+      label: tr("Approved, not paid yet", "Disetujui, belum dibayar"),
       value: formatIDR(toPay),
-      note: "a claim on the account, not a reservation",
+      note: tr("a claim on the account, not a reservation", "klaim atas rekening, bukan dana yang disisihkan"),
     },
     {
-      label: "Waiting for a decision",
+      key: "undecided",
+      label: tr("Waiting for a decision", "Menunggu keputusan"),
       value: formatIDR(undecided),
-      note: "not owed until somebody says yes",
+      note: tr("not owed until somebody says yes", "belum terutang sampai ada yang menyetujui"),
     },
     {
-      label: "BCA 271 balance",
+      key: "balance",
+      label: tr("BCA 271 balance", "Saldo BCA 271"),
       value: balance === undefined ? "—" : formatIDR(balance),
-      note: mayReadMoney ? "the account that pays suppliers" : "needs accounting access",
+      note: mayReadMoney
+        ? tr("the account that pays suppliers", "rekening untuk membayar pemasok")
+        : tr("needs accounting access", "perlu akses akuntansi"),
     },
     {
-      label: "Transfer into BCA 271",
-      value: transfer === null ? "—" : transfer > 0 ? formatIDR(transfer) : "nothing needed",
+      key: "transfer",
+      label: tr("Transfer into BCA 271", "Transfer ke BCA 271"),
+      value: transfer === null ? "—" : transfer > 0 ? formatIDR(transfer) : tr("nothing needed", "tidak perlu"),
       tone: transfer === null ? "text-slate-400" : transfer > 0 ? "text-amber-700" : "text-emerald-700",
       note: transfer === null
         ? undefined
         : transfer > 0
-          ? "what is approved cannot be paid without it"
-          : `${formatIDR((balance ?? 0) - toPay)} left after paying it all`,
+          ? tr("what is approved cannot be paid without it", "yang sudah disetujui tidak bisa dibayar tanpanya")
+          : tr(
+              `${formatIDR((balance ?? 0) - toPay)} left after paying it all`,
+              `${formatIDR((balance ?? 0) - toPay)} tersisa setelah semuanya dibayar`,
+            ),
     },
   ];
 
@@ -87,10 +98,10 @@ export function MoneyPanel({ lines }: { lines: PrLineView[] }) {
     <div className="mb-5 rounded-xl border border-slate-200 bg-white shadow-card">
       <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
         {cells.map((c) => (
-          <div key={c.label} className="px-4 py-3.5">
+          <div key={c.key} className="px-4 py-3.5">
             <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-400">
-              {c.label === "BCA 271 balance" && <Landmark className="h-3 w-3" />}
-              {c.label === "Transfer into BCA 271" && <ArrowRightLeft className="h-3 w-3" />}
+              {c.key === "balance" && <Landmark className="h-3 w-3" />}
+              {c.key === "transfer" && <ArrowRightLeft className="h-3 w-3" />}
               {c.label}
             </dt>
             <dd className={cn("mt-1 text-xl font-bold tabular-nums tracking-tight text-slate-800", c.tone)}>
@@ -105,11 +116,14 @@ export function MoneyPanel({ lines }: { lines: PrLineView[] }) {
         <p className="flex items-start gap-2 border-t border-slate-100 bg-amber-50/60 px-4 py-2.5 text-[13px] text-amber-900">
           <ArrowRightLeft className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Approve everything still waiting and{" "}
-            <strong className="tabular-nums">{formatIDR(transferIfAll)}</strong> has to be moved
-            into the paying account, not{" "}
-            <strong className="tabular-nums">{formatIDR(transfer)}</strong> — better seen now
-            than by whoever tries to make the payments.
+            {tr("Approve everything still waiting and", "Setujui semua yang masih menunggu dan")}{" "}
+            <strong className="tabular-nums">{formatIDR(transferIfAll)}</strong>{" "}
+            {tr("has to be moved into the paying account, not", "harus dipindahkan ke rekening pembayar, bukan")}{" "}
+            <strong className="tabular-nums">{formatIDR(transfer)}</strong>{" "}
+            {tr(
+              "— better seen now than by whoever tries to make the payments.",
+              "— lebih baik terlihat sekarang daripada oleh orang yang akan melakukan pembayaran.",
+            )}
           </span>
         </p>
       )}
@@ -122,10 +136,11 @@ export function MoneyPanel({ lines }: { lines: PrLineView[] }) {
         <p className="flex items-start gap-2 border-t border-slate-100 bg-rose-50/60 px-4 py-2.5 text-[13px] text-rose-900">
           <Landmark className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            <strong className="tabular-nums">{formatIDR(transfer)}</strong> of what is already
-            approved has no money behind it. Nothing here is reserved: whatever is transferred in
-            is spent by whichever payment is made first, so an approval from last week can lose its
-            funding to one made today and has to be asked for again.
+            <strong className="tabular-nums">{formatIDR(transfer)}</strong>{" "}
+            {tr(
+              "of what is already approved has no money behind it. Nothing here is reserved: whatever is transferred in is spent by whichever payment is made first, so an approval from last week can lose its funding to one made today and has to be asked for again.",
+              "dari yang sudah disetujui belum ada dananya. Tidak ada yang disisihkan di sini: dana yang masuk dipakai oleh pembayaran mana pun yang dilakukan lebih dulu, jadi persetujuan minggu lalu bisa kehilangan dananya karena persetujuan hari ini dan harus diajukan lagi.",
+            )}
           </span>
         </p>
       )}
@@ -133,7 +148,10 @@ export function MoneyPanel({ lines }: { lines: PrLineView[] }) {
       {transfer === 0 && (
         <p className="flex items-center gap-2 border-t border-slate-100 bg-emerald-50/60 px-4 py-2.5 text-[13px] text-emerald-900">
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          Everything approved can be paid out of what is already in the account.
+          {tr(
+            "Everything approved can be paid out of what is already in the account.",
+            "Semua yang disetujui bisa dibayar dari saldo yang sudah ada di rekening.",
+          )}
         </p>
       )}
     </div>

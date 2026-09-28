@@ -11,6 +11,7 @@ import { accounting, documents, procurement } from "@/demo/api";
 import type { AccountBalance, IncomingMoney } from "@/services/accounting/contracts";
 import type { RoundSummary } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Marking a round funded, and the proof that says it was.
  *
@@ -39,6 +40,7 @@ export function TransferForm({
   round: RoundSummary;
   onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [road, setRoad] = useState<"upload" | "booked">("upload");
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
@@ -67,12 +69,12 @@ export function TransferForm({
 
   /** Road one: we moved it, here is the receipt. */
   async function recordWithUpload() {
-    if (!target) { toast("critical", "No paying account", "BCA 271 is not in the account list."); return; }
-    if (!file) { toast("warning", "Proof first", "A round is funded when there is proof it was funded."); return; }
+    if (!target) { toast("critical", tr("No paying account", "Tidak ada rekening pembayar"), tr("BCA 271 is not in the account list.", "BCA 271 tidak ada di daftar rekening.")); return; }
+    if (!file) { toast("warning", tr("Proof first", "Bukti dulu"), tr("A round is funded when there is proof it was funded.", "Putaran dianggap didanai jika ada bukti pendanaannya.")); return; }
     setBusy(true);
 
     const up = await documents.upload({ file, kind: "Payment Proof" });
-    if (up.error) { setBusy(false); toast("critical", "Upload failed", up.error.message); return; }
+    if (up.error) { setBusy(false); toast("critical", tr("Upload failed", "Unggahan gagal"), up.error.message); return; }
 
     const label = `Round ${round.round_no} funding`;
     /* Out of the leadership account first: if the second leg fails, the books
@@ -91,7 +93,7 @@ export function TransferForm({
     });
     if (out.error) {
       setBusy(false);
-      toast(out.error.status === 403 ? "critical" : "warning", "Not recorded", out.error.message);
+      toast(out.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), out.error.message);
       return;
     }
 
@@ -104,7 +106,14 @@ export function TransferForm({
     });
     if (inLeg.error) {
       setBusy(false);
-      toast("critical", "Half recorded", `${out.data.trx_no} left the leadership account but the receiving leg failed: ${inLeg.error.message}`);
+      toast(
+        "critical",
+        tr("Half recorded", "Tercatat sebagian"),
+        tr(
+          `${out.data.trx_no} left the leadership account but the receiving leg failed: ${inLeg.error.message}`,
+          `${out.data.trx_no} sudah keluar dari rekening pimpinan tetapi sisi penerimaannya gagal: ${inLeg.error.message}`,
+        ),
+      );
       return;
     }
 
@@ -114,7 +123,14 @@ export function TransferForm({
   /** Road two: it is already in the ledger — point at it. */
   async function fundFromBooked(row: IncomingMoney) {
     if (!row.proof_attachment_id) {
-      toast("warning", "No proof on that row", "That money is booked but has no transfer receipt filed against it. Attach one to the transaction first.");
+      toast(
+        "warning",
+        tr("No proof on that row", "Baris itu tidak punya bukti"),
+        tr(
+          "That money is booked but has no transfer receipt filed against it. Attach one to the transaction first.",
+          "Uang itu sudah dibukukan tetapi belum ada bukti transfer yang dilampirkan. Lampirkan dulu ke transaksinya.",
+        ),
+      );
       return;
     }
     setBusy(true);
@@ -130,10 +146,14 @@ export function TransferForm({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not booked", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not booked", "Tidak dibukukan"), res.error.message);
       return;
     }
-    toast("success", `Booked as ${res.data.trx_no}`, `${formatIDR(res.data.amount_idr)} into BCA 271`);
+    toast(
+      "success",
+      tr(`Booked as ${res.data.trx_no}`, `Dibukukan sebagai ${res.data.trx_no}`),
+      tr(`${formatIDR(res.data.amount_idr)} into BCA 271`, `${formatIDR(res.data.amount_idr)} masuk ke BCA 271`),
+    );
     reloadWaiting();
     reloadIncoming();
   }
@@ -144,10 +164,18 @@ export function TransferForm({
     });
     setBusy(false);
     if (res.error) {
-      toast("warning", "Ledger written, round unchanged", `${trxNo} is posted. ${res.error.message}`);
+      toast(
+        "warning",
+        tr("Ledger written, round unchanged", "Buku besar tercatat, putaran tidak berubah"),
+        tr(`${trxNo} is posted. ${res.error.message}`, `${trxNo} sudah diposting. ${res.error.message}`),
+      );
       return;
     }
-    toast("success", `Transferred ${formatIDR(amt)}`, `${trxNo} — no item is paid by this`);
+    toast(
+      "success",
+      tr(`Transferred ${formatIDR(amt)}`, `${formatIDR(amt)} ditransfer`),
+      tr(`${trxNo} — no item is paid by this`, `${trxNo} — tidak ada barang yang lunas karena ini`),
+    );
     setFile(null);
     onDone();
   }
@@ -163,15 +191,20 @@ export function TransferForm({
     <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-3 py-3">
       {round.transfers.length > 0 && (
         <p className="mb-3 text-[13px] text-slate-600">
-          {formatIDR(round.transferred_total)} has come in already ·{" "}
-          <span className="font-medium text-amber-700">{formatIDR(round.transfer_shortfall)} still short</span>
+          {formatIDR(round.transferred_total)} {tr("has come in already", "sudah masuk")} ·{" "}
+          <span className="font-medium text-amber-700">
+            {formatIDR(round.transfer_shortfall)} {tr("still short", "masih kurang")}
+          </span>
         </p>
       )}
 
       <div className="mb-3 flex flex-wrap gap-2">
         {([
-          ["upload", "We transferred it", Upload],
-          ["booked", `Money already in${chatRows.length ? ` · ${chatRows.length} waiting` : ""}`, Inbox],
+          ["upload", tr("We transferred it", "Kami yang mentransfer"), Upload],
+          ["booked", tr(
+            `Money already in${chatRows.length ? ` · ${chatRows.length} waiting` : ""}`,
+            `Uang sudah masuk${chatRows.length ? ` · ${chatRows.length} menunggu` : ""}`,
+          ), Inbox],
         ] as [typeof road, string, typeof Upload][]).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -193,7 +226,7 @@ export function TransferForm({
         <>
           <div className="grid gap-3 sm:grid-cols-4">
             <div>
-              <label htmlFor="tf-date" className="block text-xs text-slate-500">Date</label>
+              <label htmlFor="tf-date" className="block text-xs text-slate-500">{tr("Date", "Tanggal")}</label>
               <input
                 id="tf-date" type="date" value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -201,7 +234,7 @@ export function TransferForm({
               />
             </div>
             <div>
-              <label htmlFor="tf-from" className="block text-xs text-slate-500">From</label>
+              <label htmlFor="tf-from" className="block text-xs text-slate-500">{tr("From", "Dari")}</label>
               <select
                 id="tf-from" value={fromId}
                 onChange={(e) => setFromId(e.target.value)}
@@ -213,11 +246,11 @@ export function TransferForm({
               </select>
             </div>
             <div>
-              <label htmlFor="tf-amount" className="block text-xs text-slate-500">Amount</label>
+              <label htmlFor="tf-amount" className="block text-xs text-slate-500">{tr("Amount", "Jumlah")}</label>
               <MoneyInput id="tf-amount" value={amount} onChange={setAmount} className="mt-1" />
             </div>
             <div>
-              <label className="block text-xs text-slate-500" htmlFor="tf-file">Transfer receipt</label>
+              <label className="block text-xs text-slate-500" htmlFor="tf-file">{tr("Transfer receipt", "Bukti transfer")}</label>
               <input
                 ref={fileRef} id="tf-file" type="file" className="hidden"
                 onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
@@ -227,7 +260,7 @@ export function TransferForm({
                 className="mt-1 w-full"
                 onClick={() => fileRef.current?.click()}
               >
-                <span className="truncate">{file ? file.name : "Choose the proof"}</span>
+                <span className="truncate">{file ? file.name : tr("Choose the proof", "Pilih bukti")}</span>
               </Button>
             </div>
           </div>
@@ -237,13 +270,15 @@ export function TransferForm({
             disabled={busy || !fromId || amount <= 0 || !file}
             onClick={recordWithUpload}
           >
-            {busy ? "Recording…" : `Record ${formatIDR(amount)} with its proof`}
+            {busy
+              ? tr("Recording…", "Mencatat…")
+              : tr(`Record ${formatIDR(amount)} with its proof`, `Catat ${formatIDR(amount)} beserta buktinya`)}
           </Button>
           <p className="mt-2 text-[11px] text-slate-500">
-            Writes both legs — out of the leadership account, into BCA 271 — files
-            the receipt against the receiving row, and marks the round funded. It
-            marks nothing paid: money reaching our own account is not a vendor
-            being paid.
+            {tr(
+              "Writes both legs — out of the leadership account, into BCA 271 — files the receipt against the receiving row, and marks the round funded. It marks nothing paid: money reaching our own account is not a vendor being paid.",
+              "Mencatat kedua sisi — keluar dari rekening pimpinan, masuk ke BCA 271 — melampirkan bukti ke baris penerimaan, dan menandai putaran sudah didanai. Tidak ada yang ditandai lunas: uang yang masuk ke rekening kita sendiri bukan berarti vendor sudah dibayar.",
+            )}
           </p>
         </>
       ) : (
@@ -251,7 +286,7 @@ export function TransferForm({
           {chatRows.length > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
               <p className="text-[12px] font-semibold uppercase tracking-wide text-amber-800">
-                Waiting to be booked — sent to chat
+                {tr("Waiting to be booked — sent to chat", "Menunggu dibukukan — dikirim ke chat")}
               </p>
               <ul className="mt-2 space-y-2">
                 {chatRows.map((r) => (
@@ -259,35 +294,38 @@ export function TransferForm({
                     <FileText className="h-4 w-4 shrink-0 text-slate-400" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] text-slate-700">
-                        {r.extracted.note ?? "Transfer proof"}
+                        {r.extracted.note ?? tr("Transfer proof", "Bukti transfer")}
                       </span>
                       <span className="block text-[11px] text-slate-400">
-                        {r.reported_at.slice(0, 10)} · read as {formatIDR(r.extracted.amount_idr ?? 0)}
-                        {r.extracted.confidence != null && ` · ${r.extracted.confidence}% sure`}
+                        {r.reported_at.slice(0, 10)} · {tr("read as", "terbaca")} {formatIDR(r.extracted.amount_idr ?? 0)}
+                        {r.extracted.confidence != null
+                          && tr(` · ${r.extracted.confidence}% sure`, ` · ${r.extracted.confidence}% yakin`)}
                       </span>
                     </span>
                     <Button
                       size="sm" variant="outline" icon={Check} disabled={busy}
                       onClick={() => bookFromChat(r.ref_id, r.extracted.amount_idr ?? 0)}
                     >
-                      Book as money in
+                      {tr("Book as money in", "Bukukan sebagai uang masuk")}
                     </Button>
                   </li>
                 ))}
               </ul>
               <p className="mt-2 text-[11px] text-amber-800">
-                The reading is a proposal, never a posting — booking it is a person
-                agreeing with the number.
+                {tr(
+                  "The reading is a proposal, never a posting — booking it is a person agreeing with the number.",
+                  "Hasil bacaan hanyalah usulan, bukan posting — membukukannya berarti ada orang yang menyetujui angkanya.",
+                )}
               </p>
             </div>
           )}
 
           <div>
             <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-              Booked into BCA 271
+              {tr("Booked into BCA 271", "Dibukukan ke BCA 271")}
             </p>
             {booked.length === 0 ? (
-              <p className="text-[13px] text-slate-500">Nothing has come into BCA 271 yet.</p>
+              <p className="text-[13px] text-slate-500">{tr("Nothing has come into BCA 271 yet.", "Belum ada yang masuk ke BCA 271.")}</p>
             ) : (
               <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
                 {booked.map((row) => (
@@ -302,13 +340,13 @@ export function TransferForm({
                       {formatIDR(row.amount_idr)}
                     </span>
                     {row.proof_filename
-                      ? <Badge tone="violet">proof on file</Badge>
-                      : <Badge tone="amber">no proof</Badge>}
+                      ? <Badge tone="violet">{tr("proof on file", "bukti tersimpan")}</Badge>
+                      : <Badge tone="amber">{tr("no proof", "tanpa bukti")}</Badge>}
                     <Button
                       size="sm" variant="outline" disabled={busy || !row.proof_attachment_id}
                       onClick={() => fundFromBooked(row)}
                     >
-                      Fund this round
+                      {tr("Fund this round", "Danai putaran ini")}
                     </Button>
                   </li>
                 ))}
