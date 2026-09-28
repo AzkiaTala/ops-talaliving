@@ -7093,3 +7093,50 @@ This is F164's lesson one layer down: a type-check proves the call is
 spelled right, not that the build calls it. The route list, parity and
 schemas were all right about the files they read. The build read a
 different file.
+
+## F169 · 2026-09-28 · the language check: half the app was Indonesian under an English menu
+
+**What was asked.** Check every page for mixed languages, then make every
+piece of screen copy switchable between English (default) and Indonesian
+(D317).
+
+**What the check found**, page by page, before the change:
+
+- **Indonesian body under an English menu and breadcrumb** — the commonest
+  state: HRD (berkas 201, cuti, iuran, jadwal, kontrak, lembur, payroll
+  minggu, payslip, tugas, WLKP, kinerja), accounting (tagihan, rekening
+  koran), inventory (produk, opname, material, log kayu), production (every
+  screen), projects (every screen and the box scan page), marketing, master
+  data clients, IT (audit, aktivitas, peran, pengguna, John Lau, aturan
+  gaji), settings, profile, set-password, the live sign-in form.
+- **Mixed inside one card**: attendance and its day drawer, employees and
+  their drawer, payroll run (English tiles, Indonesian columns *Pokok,
+  Tunjangan, Penyesuaian, Diterima*), purchase verification (English body,
+  Indonesian coverage panels and totals), cash calendar's *link a payment*
+  dialog (one sentence changed language half way), PO detail (Indonesian QR
+  card), PR line drawer and new PR (*untuk*, *jatuh tempo*), the pager under
+  every table (*dari*, *baris*), the evidence strip, the John Lau dock's toasts.
+- **English only**, in a module whose neighbours were Indonesian: inventory
+  assets, master data except clients, procurement meeting, rounds, tracker
+  and receiving, ledger, liquidation, documents, dashboard, demo.
+- **Shared label maps in one language**: ~50 display maps in
+  `src/services/*/contracts.ts` — some English (procurement meeting states,
+  variance reasons), most Indonesian (project, quotation, delivery,
+  installation, marketing stages, HR leave kinds, overtime stages, scheme
+  names) — so a translated screen still printed its statuses in the other
+  language.
+- **Twenty-one menu items** had no translation key and stayed English in
+  Indonesian mode.
+
+**Two things the change had to fix, not just wrap.** Several screens chose
+an icon or a colour **by comparing the label text** (`k === "Open days"`,
+`label.includes("lewat batas")`). Once the label follows the language that
+comparison is false in one of them, so those now key on an id or a
+position. One of them was already broken before: the payroll run's amber
+*Days unread* tile compared against *Open days*, a label that no longer
+existed, and never lit — left for its own change.
+
+**What stays one language, on purpose.** Data from the database, stored
+codes, business vocabulary (D224), anything written into a record, and the
+two documents that leave the company, which print both languages side by
+side (D317).
