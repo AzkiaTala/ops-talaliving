@@ -9,11 +9,26 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { cn } from "@/lib/cn";
 import { identity } from "@/demo/api";
 import {
-  SETTING_GROUP_LABEL, SETTING_REACH_LABEL,
   type AppSetting, type SettingGroup, type SettingReach,
 } from "@/services/identity/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr, type Message } from "@/lib/i18n";
+
+/* Display side of `SETTING_REACH_LABEL` / `SETTING_GROUP_LABEL`, in both
+   languages. The keys are the contract's; only the words differ. */
+const REACH_LABEL: Record<SettingReach, Message> = {
+  display: { en: "Display only", id: "Tampilan saja" },
+  forward: { en: "Applies going forward", id: "Berlaku ke depan" },
+  retroactive: { en: "Changes past figures", id: "Mengubah angka lama" },
+};
+
+const GROUP_LABEL: Record<SettingGroup, Message> = {
+  identity: { en: "Identity", id: "Identitas" },
+  format: { en: "Format & language", id: "Format & bahasa" },
+  operations: { en: "Operational thresholds", id: "Ambang batas operasional" },
+  retention: { en: "Time, retention, and rules not changed from here", id: "Waktu, retensi, dan aturan yang tidak diubah dari sini" },
+};
 
 const REACH_TONE: Record<SettingReach, "slate" | "brand" | "amber"> = {
   display: "slate", forward: "brand", retroactive: "amber",
@@ -44,13 +59,17 @@ export default function SettingsPage() {
   const { can } = useSession();
   const [rows, reload] = useLoad(() => identity.listSettings(), []);
   const mayEdit = can("settings.update");
+  const tr = useTr();
 
   return (
     <div>
       <PageHeader
-        breadcrumb="Settings"
-        title="Pengaturan"
-        description="Setiap angka dan nama di sistem ini yang mungkin Anda kira boleh diubah — beserta jawaban lurus tentang masing-masing. Yang mengubah angka lama tidak diubah dari sini, dan alasannya ditulis."
+        breadcrumb={tr("Settings", "Pengaturan")}
+        title={tr("Settings", "Pengaturan")}
+        description={tr(
+          "Every figure and name in this system you might think can be changed — with a straight answer about each. Those that change past figures are not changed from here, and the reason is written down.",
+          "Setiap angka dan nama di sistem ini yang mungkin Anda kira boleh diubah — beserta jawaban lurus tentang masing-masing. Yang mengubah angka lama tidak diubah dari sini, dan alasannya ditulis.",
+        )}
         actions={<SourceBadge state={rows} />}
       />
 
@@ -62,11 +81,11 @@ export default function SettingsPage() {
               <div className="flex flex-wrap items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-[13px] text-amber-900">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  <strong>{retro.length} dari {all.length} pengaturan mengubah angka yang sudah ada</strong>, bukan
-                  cuma yang akan datang. Itu semua dikunci di sini. Bukan karena tidak boleh diubah —
-                  sebagian memang berubah, di tempat yang bisa menyimpan versi bertanggal — tapi karena
-                  kotak isian yang terlihat sama untuk keduanya adalah cara sebuah slip gaji bulan Maret
-                  diam-diam berubah.
+                  <strong>{tr(`${retro.length} of ${all.length} settings change figures that already exist`, `${retro.length} dari ${all.length} pengaturan mengubah angka yang sudah ada`)}</strong>
+                  {tr(
+                    ", not only future ones. All of them are locked here. Not because they may not change — some do change, somewhere that can keep a dated version — but because an input box that looks the same for both is how a March payslip quietly changes.",
+                    ", bukan cuma yang akan datang. Itu semua dikunci di sini. Bukan karena tidak boleh diubah — sebagian memang berubah, di tempat yang bisa menyimpan versi bertanggal — tapi karena kotak isian yang terlihat sama untuk keduanya adalah cara sebuah slip gaji bulan Maret diam-diam berubah.",
+                  )}
                 </span>
               </div>
 
@@ -75,7 +94,7 @@ export default function SettingsPage() {
                 if (inGroup.length === 0) return null;
                 return (
                   <Card key={g}>
-                    <CardHeader title={SETTING_GROUP_LABEL[g]} icon={Settings} />
+                    <CardHeader title={tr(GROUP_LABEL[g].en, GROUP_LABEL[g].id)} icon={Settings} />
                     <ul className="divide-y divide-slate-100">
                       {inGroup.map((s) => (
                         <SettingRow key={s.key} setting={s} mayEdit={mayEdit} onSaved={reload} />
@@ -87,8 +106,9 @@ export default function SettingsPage() {
 
               {!mayEdit && (
                 <p className="text-[12px] text-slate-500">
-                  Anda membaca saja — mengubah pengaturan butuh akses <span className="font-mono">settings</span> tingkat
-                  edit.
+                  {tr("You are read-only — changing settings needs", "Anda membaca saja — mengubah pengaturan butuh akses")}{" "}
+                  <span className="font-mono">settings</span>{" "}
+                  {tr("access at edit level.", "tingkat edit.")}
                 </p>
               )}
             </div>
@@ -103,6 +123,7 @@ function SettingRow({ setting, mayEdit, onSaved }: {
   setting: AppSetting; mayEdit: boolean; onSaved: () => void;
 }) {
   const { toast } = useToast();
+  const tr = useTr();
   const [draft, setDraft] = useState(setting.value);
   const [busy, setBusy] = useState(false);
   const locked = setting.locked_reason != null;
@@ -113,7 +134,7 @@ function SettingRow({ setting, mayEdit, onSaved }: {
     const res = await identity.updateSetting({ key: setting.key, value: next });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak diubah", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not changed", "Tidak diubah"), res.error.message);
       setDraft(setting.value);
       return;
     }
@@ -127,7 +148,7 @@ function SettingRow({ setting, mayEdit, onSaved }: {
         <span className="min-w-[220px] flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-[13px] font-medium text-slate-800">{setting.label}</span>
-            <Badge tone={REACH_TONE[setting.reach]}>{SETTING_REACH_LABEL[setting.reach]}</Badge>
+            <Badge tone={REACH_TONE[setting.reach]}>{tr(REACH_LABEL[setting.reach].en, REACH_LABEL[setting.reach].id)}</Badge>
             {locked && <Lock className="h-3 w-3 text-slate-400" />}
           </span>
           <span className="mt-0.5 block text-[12px] text-slate-600">{stripRefs(setting.help)}</span>
@@ -163,13 +184,13 @@ function SettingRow({ setting, mayEdit, onSaved }: {
               {setting.unit && <span className="text-[12px] text-slate-500">{setting.unit}</span>}
               {dirty && (
                 <>
-                  <Button size="sm" disabled={busy} onClick={() => save(draft)}>Simpan</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setDraft(setting.value)}>Batal</Button>
+                  <Button size="sm" disabled={busy} onClick={() => save(draft)}>{tr("Save", "Simpan")}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setDraft(setting.value)}>{tr("Cancel", "Batal")}</Button>
                 </>
               )}
               {!dirty && mayEdit && setting.value !== setting.default_value && (
                 <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => save(setting.default_value)}>
-                  Bawaan
+                  {tr("Default", "Bawaan")}
                 </Button>
               )}
             </>
@@ -184,13 +205,13 @@ function SettingRow({ setting, mayEdit, onSaved }: {
             <>
               {" "}
               <Link href={setting.managed_at} className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
-                Diubah di sini <ExternalLink className="h-3 w-3" />
+                {tr("Changed here", "Diubah di sini")} <ExternalLink className="h-3 w-3" />
               </Link>
             </>
           )}
           {setting.affects.length > 0 && (
             <span className="mt-1 block text-[11px] text-slate-500">
-              Yang ikut berubah kalau angkanya digeser: {setting.affects.join(" · ")}.
+              {tr("What also changes if the figure moves:", "Yang ikut berubah kalau angkanya digeser:")} {setting.affects.join(" · ")}.
             </span>
           )}
         </p>
@@ -198,7 +219,7 @@ function SettingRow({ setting, mayEdit, onSaved }: {
 
       {setting.updated_at && (
         <p className="mt-1 text-[11px] text-slate-400">
-          diubah {setting.updated_by}, {setting.updated_at.slice(0, 10)} · bawaan {setting.default_value}
+          {tr("changed by", "diubah")} {setting.updated_by}, {setting.updated_at.slice(0, 10)} · {tr("default", "bawaan")} {setting.default_value}
         </p>
       )}
     </li>

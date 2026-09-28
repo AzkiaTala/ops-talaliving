@@ -5,6 +5,12 @@ import { Loaded, useLoad } from "@/components/ui/loaded";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { quotation } from "@/demo/api";
 import { useBrand } from "@/lib/brand";
+import { useTr, type Tr } from "@/lib/i18n";
+
+/** The quotation goes to a client, so it reads the same whoever prints it:
+ *  Indonesian first, English beside it — the shape its labels had before
+ *  D317. Only the on-screen hint follows the viewer's language. */
+const both: Tr = (en, id) => (en === id ? en : `${id} / ${en}`);
 
 /** The quotation as the client sees it — A4, printed to PDF by the browser,
  *  the same way the purchase order is (D133).
@@ -16,6 +22,7 @@ import { useBrand } from "@/lib/brand";
  */
 export default function QuotationPrintPage({ params }: { params: Promise<{ no: string }> }) {
   const { no } = use(params);
+  const tr = useTr();
   const quoteNo = decodeURIComponent(no);
   const brand = useBrand();
   const [detail] = useLoad(() => quotation.getQuotation(quoteNo), [quoteNo]);
@@ -37,7 +44,7 @@ export default function QuotationPrintPage({ params }: { params: Promise<{ no: s
           <>
             {q.status === "DRAFT" && (
               <p className="mb-4 rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-center text-[12px] font-semibold text-amber-800">
-                DRAFT — belum dikirim, harga masih bisa berubah
+                {both("DRAFT — not sent yet, prices may still change", "DRAFT — belum dikirim, harga masih bisa berubah")}
               </p>
             )}
             <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
@@ -52,24 +59,24 @@ export default function QuotationPrintPage({ params }: { params: Promise<{ no: s
                 </p>
                 <p className="text-[12px] text-slate-500">
                   {(q.sent_at ?? q.created_at).slice(0, 10)}
-                  {q.valid_until && <> · berlaku s/d {q.valid_until}</>}
+                  {q.valid_until && <> · {both("valid until", "berlaku s/d")} {q.valid_until}</>}
                 </p>
               </div>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-6 text-[13px]">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Kepada / To</p>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">{both("To", "Kepada")}</p>
                 <p className="font-semibold">{q.client_name ?? "—"}</p>
                 {q.client_contact && <p>{q.client_contact}</p>}
                 {q.client_address && <p className="whitespace-pre-line text-slate-600">{q.client_address}</p>}
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Proyek / Project</p>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">{both("Project", "Proyek")}</p>
                 <p className="font-semibold">{q.project_name}</p>
                 {q.location && <p className="text-slate-600">{q.location}</p>}
                 {q.max_lead_time_days != null && (
-                  <p className="mt-1 text-slate-600">Estimasi produksi: {q.max_lead_time_days} hari kerja</p>
+                  <p className="mt-1 text-slate-600">{both(`Production estimate: ${q.max_lead_time_days} working days`, `Estimasi produksi: ${q.max_lead_time_days} hari kerja`)}</p>
                 )}
               </div>
             </div>
@@ -77,12 +84,12 @@ export default function QuotationPrintPage({ params }: { params: Promise<{ no: s
             <table className="mt-6 w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-y border-slate-300 text-left">
-                  <th className="w-8 py-2 font-semibold">No</th>
-                  <th className="py-2 font-semibold">Uraian / Description</th>
-                  <th className="py-2 text-right font-semibold">Qty</th>
-                  <th className="py-2 text-right font-semibold">Produksi</th>
-                  <th className="py-2 text-right font-semibold">Harga satuan</th>
-                  <th className="py-2 text-right font-semibold">Jumlah</th>
+                  <th className="w-8 py-2 font-semibold">{both("No", "No")}</th>
+                  <th className="py-2 font-semibold">{both("Description", "Uraian")}</th>
+                  <th className="py-2 text-right font-semibold">{both("Qty", "Qty")}</th>
+                  <th className="py-2 text-right font-semibold">{both("Production", "Produksi")}</th>
+                  <th className="py-2 text-right font-semibold">{both("Unit price", "Harga satuan")}</th>
+                  <th className="py-2 text-right font-semibold">{both("Amount", "Jumlah")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -96,7 +103,7 @@ export default function QuotationPrintPage({ params }: { params: Promise<{ no: s
                     </td>
                     <td className="whitespace-nowrap py-2 text-right tabular-nums">{formatNumber(l.qty)} {l.uom}</td>
                     <td className="whitespace-nowrap py-2 text-right tabular-nums">
-                      {l.lead_time_days == null ? "—" : `${l.lead_time_days} hr`}
+                      {l.lead_time_days == null ? "—" : both(`${l.lead_time_days} d`, `${l.lead_time_days} hr`)}
                     </td>
                     <td className="whitespace-nowrap py-2 text-right tabular-nums">
                       {l.unit_price == null ? "—" : formatIDR(l.unit_price)}
@@ -109,34 +116,34 @@ export default function QuotationPrintPage({ params }: { params: Promise<{ no: s
               </tbody>
               <tfoot>
                 <tr>
-                  <td className="pt-2 text-right" colSpan={5}>Subtotal</td>
+                  <td className="pt-2 text-right" colSpan={5}>{both("Subtotal", "Subtotal")}</td>
                   <td className="pt-2 text-right tabular-nums">{q.subtotal == null ? "—" : formatIDR(q.subtotal)}</td>
                 </tr>
                 {q.vat && (
                   <tr>
-                    <td className="text-right" colSpan={5}>PPN {formatNumber(q.vat_pct)}%</td>
+                    <td className="text-right" colSpan={5}>{both("VAT (PPN)", "PPN")} {formatNumber(q.vat_pct)}%</td>
                     <td className="text-right tabular-nums">{q.vat_amount == null ? "—" : formatIDR(q.vat_amount)}</td>
                   </tr>
                 )}
                 <tr>
-                  <td className="py-2 text-right font-semibold" colSpan={5}>Total</td>
+                  <td className="py-2 text-right font-semibold" colSpan={5}>{both("Total", "Total")}</td>
                   <td className="py-2 text-right font-bold tabular-nums">{q.grand_total == null ? "—" : formatIDR(q.grand_total)}</td>
                 </tr>
               </tfoot>
             </table>
-            {!q.vat && <p className="mt-1 text-right text-[11px] text-slate-500">Harga belum termasuk PPN.</p>}
+            {!q.vat && <p className="mt-1 text-right text-[11px] text-slate-500">{both("Prices exclude VAT (PPN).", "Harga belum termasuk PPN.")}</p>}
 
             {(q.terms || q.note) && (
               <div className="mt-5 space-y-3 text-[13px]">
                 {q.terms && (
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Syarat &amp; ketentuan</p>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{both("Terms & conditions", "Syarat & ketentuan")}</p>
                     <p className="mt-1 whitespace-pre-line">{q.terms}</p>
                   </div>
                 )}
                 {q.note && (
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Catatan</p>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{both("Notes", "Catatan")}</p>
                     <p className="mt-1 whitespace-pre-line">{q.note}</p>
                   </div>
                 )}
@@ -145,17 +152,17 @@ export default function QuotationPrintPage({ params }: { params: Promise<{ no: s
 
             <div className="mt-10 grid grid-cols-2 gap-6 text-[13px]">
               <div>
-                <p className="text-slate-500">Hormat kami,</p>
+                <p className="text-slate-500">{both("Sincerely,", "Hormat kami,")}</p>
                 <div className="mt-12 border-t border-slate-400 pt-1">{brand.tagline}</div>
               </div>
               <div>
-                <p className="text-slate-500">Disetujui,</p>
+                <p className="text-slate-500">{both("Approved,", "Disetujui,")}</p>
                 <div className="mt-12 border-t border-slate-400 pt-1">{q.client_name ?? ""}</div>
               </div>
             </div>
 
             <p className="no-print mt-8 text-center text-[12px] text-slate-400">
-              Cetak tidak mulai otomatis? Pakai menu cetak browser, lalu pilih &ldquo;Save as PDF&rdquo;.
+              {tr("Printing didn't start automatically? Use the browser's print menu, then choose “Save as PDF”.", "Cetak tidak mulai otomatis? Pakai menu cetak browser, lalu pilih “Save as PDF”.")}
             </p>
           </>
         )}

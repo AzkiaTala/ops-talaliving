@@ -7,6 +7,7 @@ import { QrCode } from "@/components/ui/qr";
 import { delivery } from "@/demo/api";
 import type { BoxView } from "@/services/delivery/contracts";
 import { useBrand } from "@/lib/brand";
+import { useTr } from "@/lib/i18n";
 
 /** The labels, on A4, ready for the tape gun.
  *
@@ -37,6 +38,7 @@ import { useBrand } from "@/lib/brand";
  *  the code-only design it replaced (F83).
  */
 export default function BoxLabelPage() {
+  const tr = useTr();
   const params = useSearchParams();
   const codes = (params.get("kode") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const deliveryNo = params.get("krm");
@@ -70,7 +72,7 @@ export default function BoxLabelPage() {
           if (boxes.length === 0) {
             return (
               <p className="py-20 text-center text-sm text-slate-500">
-                Tidak ada peti untuk dicetak.
+                {tr("No boxes to print.", "Tidak ada peti untuk dicetak.")}
               </p>
             );
           }
@@ -78,8 +80,10 @@ export default function BoxLabelPage() {
           return (
             <>
               <p className="no-print mb-4 text-[12px] text-slate-500">
-                {boxes.length} label. Cetak di A4, enam per halaman. Kalau hasilnya diperkecil oleh dialog
-                cetak, QR-nya masih terbaca — tapi jangan diperkecil di bawah 50%.
+                {tr(
+                  `${boxes.length} labels. Print on A4, six per page. If the print dialog scales it down, the QR still reads — but do not scale below 50%.`,
+                  `${boxes.length} label. Cetak di A4, enam per halaman. Kalau hasilnya diperkecil oleh dialog cetak, QR-nya masih terbaca — tapi jangan diperkecil di bawah 50%.`,
+                )}
               </p>
               <div className="grid w-[194mm] grid-cols-2 gap-0">
                 {boxes.map((b) => (
@@ -96,18 +100,19 @@ export default function BoxLabelPage() {
 
 function Label({ box }: { box: BoxView }) {
   const brand = useBrand();
+  const tr = useTr();
   return (
     <div className="flex h-[88mm] w-[97mm] break-inside-avoid flex-col justify-between border border-slate-900 p-3">
       <div>
         <div className="flex items-start justify-between gap-2 border-b border-slate-300 pb-1">
           <span className="text-[10px] font-bold uppercase tracking-wide">{brand.name}</span>
-          <span className="text-[10px] font-bold">{box.position ?? "peti lepas"}</span>
+          <span className="text-[10px] font-bold">{box.position ?? tr("loose box", "peti lepas")}</span>
         </div>
 
-        <p className="mt-2 text-[9px] uppercase tracking-wide text-slate-500">Tujuan</p>
+        <p className="mt-2 text-[9px] uppercase tracking-wide text-slate-500">{tr("Destination", "Tujuan")}</p>
         <p className="text-[21px] font-bold leading-tight">{box.destination}</p>
 
-        <p className="mt-2 text-[9px] uppercase tracking-wide text-slate-500">Isi</p>
+        <p className="mt-2 text-[9px] uppercase tracking-wide text-slate-500">{tr("Contents", "Isi")}</p>
         <ul className="text-[11px] leading-snug">
           {box.lines.map((l) => (
             <li key={l.id}>{l.qty} {l.uom} · {l.description}</li>
@@ -123,7 +128,7 @@ function Label({ box }: { box: BoxView }) {
             {box.project_code} · {box.project_name}
           </p>
           <p className="text-[9px] text-slate-500">
-            Dikemas {box.packed_at.slice(0, 10)} · {box.packed_by_name}
+            {tr("Packed", "Dikemas")} {box.packed_at.slice(0, 10)} · {box.packed_by_name}
           </p>
         </div>
         <QrCode path={`/box/${encodeURIComponent(box.box_no)}`} title={box.box_no} size={120} />

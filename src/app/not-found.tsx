@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Factory, Compass } from "lucide-react";
-import { Button, Card } from "@/components/ui/primitives";
+import { Factory } from "lucide-react";
 import { BRAND } from "@/lib/brand";
+import { NotFoundCard } from "./not-found-card";
 
 export const metadata: Metadata = {
   title: `Page not found — ${BRAND.documentTitle}`,
@@ -46,31 +45,7 @@ export default function NotFound() {
           </div>
         </div>
 
-        <Card className="p-8 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-            <Compass className="h-6 w-6" />
-          </span>
-
-          {/* The number, once and plainly. `aria-hidden` because the heading
-              below already says it in words, and a screen reader announcing
-              "four zero four" ahead of the sentence helps nobody. */}
-          <p aria-hidden className="mt-5 text-4xl font-bold tracking-tight text-slate-300">404</p>
-
-          <h1 className="mt-2 text-lg font-semibold text-slate-800">Page not found</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            This address matches no screen. Either it was mistyped, or the link was made
-            before the screen behind it moved.
-          </p>
-
-          <div className="mt-6 flex flex-col gap-2">
-            <Link href="/dashboard">
-              <Button className="w-full">Back to the dashboard</Button>
-            </Link>
-            <Link href="/signin">
-              <Button variant="outline" className="w-full">Sign in as someone else</Button>
-            </Link>
-          </div>
-        </Card>
+        <NotFoundCard />
       </div>
     </div>
   );

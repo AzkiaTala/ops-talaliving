@@ -145,3 +145,27 @@ export function useTr(): Tr {
  *  built before the language changed, a label map at module level. Prefer
  *  `useTr` inside components so the screen re-renders on a switch. */
 export const trNow: Tr = (en, id) => (getActiveLang() === "id" ? id : en);
+
+/** A label map that answers in the language in force.
+ *
+ *  The service contracts hold the display names of stored codes
+ *  (`MOVE_LABEL.issue`, `LEAVE_KIND_LABEL.sick`, …) and every screen reads them
+ *  as a plain `Record<K, string>`. This keeps that shape — each value is a
+ *  getter that reads the active language — so no screen has to change how it
+ *  looks a label up, and a screen re-renders on a switch because it already
+ *  calls `useTr()`. The **key** is the stored code and never changes; only
+ *  the word shown for it does.
+ *
+ *  Not for anything that is written anywhere: a label read here is a display
+ *  string, and saving one would store whichever language the writer had on.
+ */
+export function bilingual<K extends string>(map: Record<K, Message>): Record<K, string> {
+  const out = {} as Record<K, string>;
+  for (const k of Object.keys(map) as K[]) {
+    Object.defineProperty(out, k, {
+      enumerable: true,
+      get: () => map[k][getActiveLang()],
+    });
+  }
+  return out;
+}

@@ -22,6 +22,7 @@ import {
 import { ClientDrawer } from "../../master-data/clients/ClientDrawer";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** One customer's order: who ordered, where it stands, what they ordered and
  *  when it ships — and, per line, the item code the BOM is written against
@@ -67,6 +68,7 @@ function FactsForm({
   isNew: boolean;
   disabled: boolean;
 }) {
+  const tr = useTr();
   const { can } = useSession();
   const [clients, reloadClients] = useLoad(() => procurement.listClients(), []);
   const [adding, setAdding] = useState(false);
@@ -83,40 +85,40 @@ function FactsForm({
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {isNew ? (
-        <label className="block text-xs text-slate-500">Kode proyek
+        <label className="block text-xs text-slate-500">{tr("Project code", "Kode proyek")}
           <input
             value={f.code} onChange={(e) => set({ code: e.target.value })} disabled={disabled}
-            placeholder="kosongkan — nomor berikutnya dibuat otomatis"
+            placeholder={tr("leave empty — the next number is generated", "kosongkan — nomor berikutnya dibuat otomatis")}
             className={cn(inputCls, "mt-1 font-mono")}
           />
         </label>
       ) : null}
-      {text("name", "Nama proyek", "mis. VILLA BABY ISLAND")}
+      {text("name", tr("Project name", "Nama proyek"), tr("e.g. VILLA BABY ISLAND", "mis. VILLA BABY ISLAND"))}
       <div className="sm:col-span-2">
-        <span className="block text-xs text-slate-500">Klien</span>
+        <span className="block text-xs text-slate-500">{tr("Client", "Klien")}</span>
         <div className="mt-1 flex gap-1.5">
           <select
             value={f.client_code} onChange={(e) => set({ client_code: e.target.value })} disabled={disabled}
-            aria-label="Klien" className={cn(inputCls, "bg-white")}
+            aria-label={tr("Client", "Klien")} className={cn(inputCls, "bg-white")}
           >
-            <option value="">— internal / stok, tanpa klien —</option>
+            <option value="">{tr("— internal / stock, no client —", "— internal / stok, tanpa klien —")}</option>
             {(clients.status === "ready" ? clients.data : []).map((c: ClientView) => (
               <option key={c.code} value={c.code}>{c.name} · {c.code}</option>
             ))}
           </select>
           {!disabled && can("project.create") && (
-            <Button variant="outline" icon={UserPlus} onClick={() => setAdding(true)}>Klien baru</Button>
+            <Button variant="outline" icon={UserPlus} onClick={() => setAdding(true)}>{tr("New client", "Klien baru")}</Button>
           )}
         </div>
       </div>
-      {text("location", "Lokasi", "Nusa Dua")}
-      {text("pic", "Penanggung jawab", "nama PIC internal")}
-      {text("started_on", "Mulai", undefined, "date")}
-      {text("target_date", "Jadwal kirim", undefined, "date")}
-      <label className="block text-xs text-slate-500">Nilai kontrak
+      {text("location", tr("Location", "Lokasi"), "Nusa Dua")}
+      {text("pic", tr("Person in charge", "Penanggung jawab"), tr("internal PIC name", "nama PIC internal"))}
+      {text("started_on", tr("Start", "Mulai"), undefined, "date")}
+      {text("target_date", tr("Delivery date", "Jadwal kirim"), undefined, "date")}
+      <label className="block text-xs text-slate-500">{tr("Contract value", "Nilai kontrak")}
         <MoneyInput value={f.contract_value} onChange={(v) => set({ contract_value: v })} disabled={disabled} className="mt-1" />
       </label>
-      {text("note", "Catatan", "mis. termin 3 kali, DP sudah masuk")}
+      {text("note", tr("Note", "Catatan"), tr("e.g. 3 instalments, down payment received", "mis. termin 3 kali, DP sudah masuk"))}
       {adding && (
         <ClientDrawer
           client={null}
@@ -129,6 +131,7 @@ function FactsForm({
 }
 
 function NewProject({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [f, setF] = useState<Facts>(factsOf(null));
@@ -143,26 +146,26 @@ function NewProject({ onClose, onChanged }: { onClose: () => void; onChanged: ()
       contract_value: f.contract_value > 0 ? f.contract_value : null, note: f.note || null,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Tidak tersimpan", res.error.message); return; }
-    toast("success", "Proyek dibuat", `${res.data.code} · ${res.data.name} — status Inquiry`);
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", tr("Project created", "Proyek dibuat"), `${res.data.code} · ${res.data.name} — status Inquiry`);
     onChanged();
     onClose();
   }
 
   return (
     <Drawer
-      open onClose={onClose} width="max-w-xl" title="Proyek baru"
-      subtitle="Kodenya dipakai di PR, Job Order dan ledger — sekali dibuat, tidak pernah diubah."
+      open onClose={onClose} width="max-w-xl" title={tr("New project", "Proyek baru")}
+      subtitle={tr("The code is used on PRs, Job Orders and the ledger — once created, it never changes.", "Kodenya dipakai di PR, Job Order dan ledger — sekali dibuat, tidak pernah diubah.")}
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>Batal</Button>
-          <Button icon={Save} onClick={create} disabled={busy || !f.name.trim() || !can("project.create")}>Simpan</Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
+          <Button icon={Save} onClick={create} disabled={busy || !f.name.trim() || !can("project.create")}>{tr("Save", "Simpan")}</Button>
         </div>
       }
     >
       <FactsForm f={f} set={(patch) => setF((x) => ({ ...x, ...patch }))} isNew disabled={!can("project.create")} />
       <p className="mt-3 text-[11px] text-slate-500">
-        Item yang dipesan ditambahkan setelah proyek tersimpan. Status awalnya <strong>Inquiry</strong>.
+        {tr("Ordered items are added after the project is saved. Its initial status is", "Item yang dipesan ditambahkan setelah proyek tersimpan. Status awalnya")} <strong>Inquiry</strong>.
       </p>
     </Drawer>
   );
@@ -171,6 +174,7 @@ function NewProject({ onClose, onChanged }: { onClose: () => void; onChanged: ()
 /* ── an existing project ─────────────────────────────────────────────────── */
 
 function ExistingProject({ code, onClose, onChanged }: { code: string; onClose: () => void; onChanged: () => void }) {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [project, reloadProject] = useLoad(() => procurement.getProject(code), [code]);
@@ -192,8 +196,8 @@ function ExistingProject({ code, onClose, onChanged }: { code: string; onClose: 
       contract_value: f.contract_value > 0 ? f.contract_value : null, note: f.note || null,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Tidak tersimpan", res.error.message); return; }
-    toast("success", "Proyek diperbarui", res.data.name);
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", tr("Project updated", "Proyek diperbarui"), res.data.name);
     setEditing(false);
     reloadAll();
   }
@@ -203,7 +207,7 @@ function ExistingProject({ code, onClose, onChanged }: { code: string; onClose: 
       open onClose={onClose} width="max-w-5xl"
       title={project.status === "ready" ? project.data.name : code}
       subtitle={project.status === "ready"
-        ? `${code}${project.data.client_display ? ` · ${project.data.client_display}` : " · internal"}`
+        ? `${code}${project.data.client_display ? ` · ${project.data.client_display}` : ` · ${tr("internal", "internal")}`}`
         : code}
     >
       <Loaded state={project} onRetry={reloadProject}>
@@ -216,20 +220,20 @@ function ExistingProject({ code, onClose, onChanged }: { code: string; onClose: 
                 <>
                   <FactsForm f={f} set={(patch) => setF((x) => ({ ...x, ...patch }))} isNew={false} disabled={busy} />
                   <div className="mt-3 flex justify-end gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>Batal</Button>
-                    <Button size="sm" icon={Save} onClick={saveFacts} disabled={busy || !f.name.trim()}>Simpan</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>{tr("Cancel", "Batal")}</Button>
+                    <Button size="sm" icon={Save} onClick={saveFacts} disabled={busy || !f.name.trim()}>{tr("Save", "Simpan")}</Button>
                   </div>
                 </>
               ) : (
                 <div className="flex flex-wrap items-start gap-x-8 gap-y-2 text-[13px]">
                   {([
-                    ["Klien", p.client_display ?? "internal / stok"],
-                    ["Kontak", [p.client_contact, p.client_phone].filter(Boolean).join(" · ") || "—"],
-                    ["Lokasi", p.location ?? "—"],
+                    [tr("Client", "Klien"), p.client_display ?? tr("internal / stock", "internal / stok")],
+                    [tr("Contact", "Kontak"), [p.client_contact, p.client_phone].filter(Boolean).join(" · ") || "—"],
+                    [tr("Location", "Lokasi"), p.location ?? "—"],
                     ["PIC", p.pic ?? "—"],
-                    ["Mulai", p.started_on ?? "—"],
-                    ["Jadwal kirim", p.target_date ?? "—"],
-                    ["Nilai kontrak", p.contract_value == null ? "—" : formatIDR(p.contract_value)],
+                    [tr("Start", "Mulai"), p.started_on ?? "—"],
+                    [tr("Delivery date", "Jadwal kirim"), p.target_date ?? "—"],
+                    [tr("Contract value", "Nilai kontrak"), p.contract_value == null ? "—" : formatIDR(p.contract_value)],
                   ] as [string, string][]).map(([k, v]) => (
                     <div key={k}>
                       <span className="block text-[11px] uppercase tracking-wide text-slate-400">{k}</span>
@@ -239,7 +243,7 @@ function ExistingProject({ code, onClose, onChanged }: { code: string; onClose: 
                   {mayEdit && (
                     <Button size="sm" variant="ghost" icon={Pencil} className="ml-auto"
                       onClick={() => { setF(factsOf(p)); setEditing(true); }}>
-                      Ubah
+                      {tr("Edit", "Ubah")}
                     </Button>
                   )}
                   {p.note && <p className="w-full text-[12px] text-slate-500">{p.note}</p>}
@@ -257,7 +261,7 @@ function ExistingProject({ code, onClose, onChanged }: { code: string; onClose: 
               {(h) => h.length === 0 ? null : (
                 <details className="rounded-xl border border-slate-200 px-4 py-2.5 text-[12px] text-slate-600">
                   <summary className="flex cursor-pointer select-none items-center gap-1.5 text-slate-700">
-                    <History className="h-3.5 w-3.5 text-slate-400" /> Riwayat status ({h.length})
+                    <History className="h-3.5 w-3.5 text-slate-400" /> {tr(`Status history (${h.length})`, `Riwayat status (${h.length})`)}
                   </summary>
                   <ul className="mt-2 space-y-1">
                     {h.map((c, i) => (
@@ -286,6 +290,7 @@ function ExistingProject({ code, onClose, onChanged }: { code: string; onClose: 
  *  from the released BOMs and, once the client accepts, becomes the lines
  *  below (0133). */
 function Quotations({ code }: { code: string }) {
+  const tr = useTr();
   const { can } = useSession();
   const [rows] = useLoad(() => quotation.listQuotations({ project_code: code }), [code]);
   const list = rows.status === "ready" ? rows.data : [];
@@ -294,7 +299,7 @@ function Quotations({ code }: { code: string }) {
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-[13px]">
       <FileSignature className="h-4 w-4 text-slate-400" />
       <span className="font-semibold text-slate-800">Quotation</span>
-      {list.length === 0 && <span className="text-[12px] text-slate-400">belum ada</span>}
+      {list.length === 0 && <span className="text-[12px] text-slate-400">{tr("none yet", "belum ada")}</span>}
       {list.map((x) => {
         const st = QUOTATION_STATUSES.find((s) => s.code === x.status)!;
         return (
@@ -310,7 +315,7 @@ function Quotations({ code }: { code: string }) {
       {can("project.create") && (
         <Link href={draft ? `/proyek/quotation/${encodeURIComponent(draft.quote_no)}` : `/proyek/quotation?project=${encodeURIComponent(code)}`}
           className="ml-auto">
-          <Button size="sm" variant="outline" icon={draft ? Pencil : Plus}>{draft ? "Lanjutkan draft" : "Buat quotation"}</Button>
+          <Button size="sm" variant="outline" icon={draft ? Pencil : Plus}>{draft ? tr("Continue draft", "Lanjutkan draft") : tr("Create quotation", "Buat quotation")}</Button>
         </Link>
       )}
     </div>
@@ -320,6 +325,7 @@ function Quotations({ code }: { code: string }) {
 /* ── where the order stands ──────────────────────────────────────────────── */
 
 function StatusBar({ p, mayEdit, onChanged }: { p: ProjectView; mayEdit: boolean; onChanged: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -330,8 +336,8 @@ function StatusBar({ p, mayEdit, onChanged }: { p: ProjectView; mayEdit: boolean
     setBusy(true);
     const res = await procurement.setProjectStatus({ code: p.code, status, reason: why ?? null });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Status tidak berubah", res.error.message); return; }
-    toast("success", "Status diperbarui", PROJECT_STATUS_LABEL(status));
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Status not changed", "Status tidak berubah"), res.error.message); return; }
+    toast("success", tr("Status updated", "Status diperbarui"), PROJECT_STATUS_LABEL(status));
     setCancelling(false); setReason("");
     onChanged();
   }
@@ -346,7 +352,7 @@ function StatusBar({ p, mayEdit, onChanged }: { p: ProjectView; mayEdit: boolean
           <button
             key={s.code} disabled={!mayEdit || busy || s.code === current}
             onClick={() => move(s.code)}
-            title={mayEdit ? `Pindah ke ${s.label}` : undefined}
+            title={mayEdit ? tr(`Move to ${s.label}`, `Pindah ke ${s.label}`) : undefined}
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-medium ring-1 ring-inset transition-colors",
               s.code === current ? "bg-brand-600 text-white ring-brand-600"
@@ -361,25 +367,25 @@ function StatusBar({ p, mayEdit, onChanged }: { p: ProjectView; mayEdit: boolean
         ))}
         <span className="flex-1" />
         {current === "CANCELLED" ? (
-          <Badge tone="red">Batal</Badge>
+          <Badge tone="red">{tr("Cancelled", "Batal")}</Badge>
         ) : mayEdit && (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setCancelling((v) => !v)}>Batalkan…</Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setCancelling((v) => !v)}>{tr("Cancel…", "Batalkan…")}</Button>
         )}
       </div>
       {cancelling && (
         <div className="mt-2 flex gap-1.5">
           <input
             autoFocus value={reason} onChange={(e) => setReason(e.target.value)}
-            placeholder="Kenapa dibatalkan? — dibaca orang yang nanti bertanya"
-            aria-label="Alasan pembatalan" className={inputCls}
+            placeholder={tr("Why was it cancelled? — read by whoever asks later", "Kenapa dibatalkan? — dibaca orang yang nanti bertanya")}
+            aria-label={tr("Cancellation reason", "Alasan pembatalan")} className={inputCls}
           />
           <Button size="sm" variant="danger" disabled={busy || !reason.trim()} onClick={() => move("CANCELLED", reason)}>
-            Batalkan proyek
+            {tr("Cancel project", "Batalkan proyek")}
           </Button>
         </div>
       )}
       <p className="mt-1.5 text-[11px] text-slate-500">
-        Klik status untuk memindahkan — maju atau mundur. Setiap perpindahan tercatat di riwayat.
+        {tr("Click a status to move there — forward or back. Every move is recorded in the history.", "Klik status untuk memindahkan — maju atau mundur. Setiap perpindahan tercatat di riwayat.")}
       </p>
     </div>
   );
@@ -406,6 +412,7 @@ function OrderLines({
   mayEdit: boolean;
   onChanged: () => void;
 }) {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [products] = useLoad(() => production.listProducts({ include_inactive: true }), []);
@@ -434,8 +441,8 @@ function OrderLines({
       project_line_id: l.id, item_name: "", uom: "", qty: job.qty, due_date: job.due, route: job.route,
     }, `jo:${l.id}:${job.qty}:${job.due}`);
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Job Order tidak dibuat", res.error.message); return; }
-    toast("success", "Job Order dibuat", `${res.data.wo_no} · ${formatNumber(res.data.qty)} ${res.data.uom} · jatuh tempo ${res.data.due_date}`);
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Job Order not created", "Job Order tidak dibuat"), res.error.message); return; }
+    toast("success", tr("Job Order created", "Job Order dibuat"), tr(`${res.data.wo_no} · ${formatNumber(res.data.qty)} ${res.data.uom} · due ${res.data.due_date}`, `${res.data.wo_no} · ${formatNumber(res.data.qty)} ${res.data.uom} · jatuh tempo ${res.data.due_date}`));
     setJobbing(null);
     onChanged();
   }
@@ -449,19 +456,19 @@ function OrderLines({
       note: d.note || null,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Tidak tersimpan", res.error.message); return; }
-    toast("success", lineId ? "Item diperbarui" : "Item ditambahkan", `${d.description} · ${formatNumber(d.qty)} ${d.uom}`);
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", lineId ? tr("Item updated", "Item diperbarui") : tr("Item added", "Item ditambahkan"), `${d.description} · ${formatNumber(d.qty)} ${d.uom}`);
     setEditing(null);
     onChanged();
   }
 
   async function remove(l: ProjectLineView) {
-    if (!window.confirm(`Hapus “${l.description}” dari pesanan?`)) return;
+    if (!window.confirm(tr(`Remove “${l.description}” from the order?`, `Hapus “${l.description}” dari pesanan?`))) return;
     setBusy(true);
     const res = await procurement.removeProjectLine({ project_code: p.code, line_id: l.id });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak dihapus", res.error.message); return; }
-    toast("success", "Item dihapus", l.description);
+    if (res.error) { toast("warning", tr("Not removed", "Tidak dihapus"), res.error.message); return; }
+    toast("success", tr("Item removed", "Item dihapus"), l.description);
     onChanged();
   }
 
@@ -471,9 +478,9 @@ function OrderLines({
       project_code: p.code, line_id: l.id, product_code: newCode,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Item code tidak dibuat", res.error.message); return; }
-    toast("success", res.data.existing ? "Ditautkan ke item code yang ada" : "Item code dibuat",
-      `${res.data.product_code} — BOM-nya bisa disusun sekarang`);
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Item code not created", "Item code tidak dibuat"), res.error.message); return; }
+    toast("success", res.data.existing ? tr("Linked to the existing item code", "Ditautkan ke item code yang ada") : tr("Item code created", "Item code dibuat"),
+      tr(`${res.data.product_code} — its BOM can be written now`, `${res.data.product_code} — BOM-nya bisa disusun sekarang`));
     setCoding(null); setNewCode("");
     onChanged();
   }
@@ -486,17 +493,17 @@ function OrderLines({
     <tr className="border-b border-slate-100 bg-brand-50/40 align-top">
       <td className="px-3 py-2">
         <input autoFocus value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })}
-          placeholder="Barangnya — sesuai bahasa klien" aria-label="Deskripsi" className={cn(inputCls, "h-8")} />
+          placeholder={tr("The item — in the client's words", "Barangnya — sesuai bahasa klien")} aria-label={tr("Description", "Deskripsi")} className={cn(inputCls, "h-8")} />
         <input value={d.product_code} onChange={(e) => setD({ ...d, product_code: e.target.value.toUpperCase() })}
-          list="order-products" placeholder="item code (opsional)" aria-label="Item code"
+          list="order-products" placeholder={tr("item code (optional)", "item code (opsional)")} aria-label="Item code"
           className={cn(inputCls, "mt-1 h-7 font-mono text-[12px]")} />
         <input value={d.note} onChange={(e) => setD({ ...d, note: e.target.value })}
-          placeholder="catatan (opsional)" aria-label="Catatan" className={cn(inputCls, "mt-1 h-7 text-[12px]")} />
+          placeholder={tr("note (optional)", "catatan (opsional)")} aria-label={tr("Note", "Catatan")} className={cn(inputCls, "mt-1 h-7 text-[12px]")} />
       </td>
       <td className="px-3 py-2">
         <div className="flex justify-end gap-1">
           <NumberInput size="sm" value={d.qty} min={0} max={999_999} step={0.01} onChange={(v) => setD({ ...d, qty: v })} className="!w-20" />
-          <select value={d.uom} onChange={(e) => setD({ ...d, uom: e.target.value })} aria-label="Satuan"
+          <select value={d.uom} onChange={(e) => setD({ ...d, uom: e.target.value })} aria-label={tr("Unit", "Satuan")}
             className="h-8 rounded-lg border border-slate-200 bg-white px-1 text-[12px]">
             <UomOptions current={d.uom} />
           </select>
@@ -507,15 +514,15 @@ function OrderLines({
       </td>
       <td className="px-3 py-2">
         <input type="date" value={d.delivery_date} onChange={(e) => setD({ ...d, delivery_date: e.target.value })}
-          aria-label="Tanggal kirim" className="h-8 rounded-lg border border-slate-200 px-1.5 text-[12px]" />
+          aria-label={tr("Delivery date", "Tanggal kirim")} className="h-8 rounded-lg border border-slate-200 px-1.5 text-[12px]" />
       </td>
       <td />
       <td className="whitespace-nowrap px-2 py-2 text-right">
         <button onClick={() => save(lineId)} disabled={busy || !d.description.trim() || d.qty <= 0}
-          aria-label="Simpan" className="rounded p-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
+          aria-label={tr("Save", "Simpan")} className="rounded p-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
           <Check className="h-4 w-4" />
         </button>
-        <button onClick={() => setEditing(null)} aria-label="Batal" className="rounded p-1 text-slate-400 hover:bg-slate-100">
+        <button onClick={() => setEditing(null)} aria-label={tr("Cancel", "Batal")} className="rounded p-1 text-slate-400 hover:bg-slate-100">
           <X className="h-4 w-4" />
         </button>
       </td>
@@ -529,14 +536,14 @@ function OrderLines({
       </datalist>
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5">
         <Package className="h-4 w-4 text-slate-400" />
-        <p className="text-[13px] font-semibold text-slate-800">Item dipesan</p>
+        <p className="text-[13px] font-semibold text-slate-800">{tr("Ordered items", "Item dipesan")}</p>
         <span className="text-[12px] text-slate-400">
-          {rows.length} baris
-          {p.lines_without_item_code > 0 && ` · ${p.lines_without_item_code} belum punya item code`}
+          {tr(`${rows.length} lines`, `${rows.length} baris`)}
+          {p.lines_without_item_code > 0 && tr(` · ${p.lines_without_item_code} without an item code yet`, ` · ${p.lines_without_item_code} belum punya item code`)}
         </span>
         {mayEdit && editing === null && (
           <Button size="sm" icon={Plus} className="ml-auto" onClick={() => { setD(draftOf(null, p)); setEditing("new"); }}>
-            Tambah item
+            {tr("Add item", "Tambah item")}
           </Button>
         )}
       </div>
@@ -544,11 +551,11 @@ function OrderLines({
         <table className="w-full min-w-[820px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="px-3 py-2 text-left">Item</th>
-              <th className="px-3 py-2 text-right">Jumlah</th>
-              <th className="px-3 py-2 text-right">Harga jual / unit</th>
-              <th className="px-3 py-2 text-left">Kirim</th>
-              <th className="px-3 py-2 text-left">Item code &amp; BOM</th>
+              <th className="px-3 py-2 text-left">{tr("Item", "Item")}</th>
+              <th className="px-3 py-2 text-right">{tr("Quantity", "Jumlah")}</th>
+              <th className="px-3 py-2 text-right">{tr("Selling price / unit", "Harga jual / unit")}</th>
+              <th className="px-3 py-2 text-left">{tr("Delivery", "Kirim")}</th>
+              <th className="px-3 py-2 text-left">{tr("Item code & BOM", "Item code & BOM")}</th>
               {mayEdit && <th className="w-16" />}
             </tr>
           </thead>
@@ -576,16 +583,16 @@ function OrderLines({
                         <ListTree className="h-3.5 w-3.5" />{l.product_code}
                       </Link>
                       <span className="block text-[11px] text-slate-500">
-                        {!l.product_exists ? <span className="text-amber-700">belum ada di katalog produk</span>
-                          : l.product_current_rev == null && l.product_draft_rev == null ? <span className="text-amber-700">belum ada BOM</span>
-                            : l.product_production_cost == null ? <span className="text-amber-700">BOM belum lengkap</span>
-                              : <>biaya {formatIDR(l.product_production_cost)} / {l.uom}{l.product_draft_rev != null && " · draft"}</>}
+                        {!l.product_exists ? <span className="text-amber-700">{tr("not in the product catalog yet", "belum ada di katalog produk")}</span>
+                          : l.product_current_rev == null && l.product_draft_rev == null ? <span className="text-amber-700">{tr("no BOM yet", "belum ada BOM")}</span>
+                            : l.product_production_cost == null ? <span className="text-amber-700">{tr("BOM incomplete", "BOM belum lengkap")}</span>
+                              : <>{tr("cost", "biaya")} {formatIDR(l.product_production_cost)} / {l.uom}{l.product_draft_rev != null && " · draft"}</>}
                       </span>
                       {l.job_order_count > 0 && (
                         <Link href={`/produksi/jadwal?project=${encodeURIComponent(p.code)}`}
                           className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-slate-600 hover:underline">
                           <Hammer className="h-3 w-3" />
-                          {l.job_order_count} Job Order · {formatNumber(l.job_order_qty)} unit · {formatNumber(l.job_order_completed)} selesai
+                          {tr(`${l.job_order_count} Job Order · ${formatNumber(l.job_order_qty)} units · ${formatNumber(l.job_order_completed)} done`, `${l.job_order_count} Job Order · ${formatNumber(l.job_order_qty)} unit · ${formatNumber(l.job_order_completed)} selesai`)}
                         </Link>
                       )}
                       {l.product_exists && can("production.create") && (jobbing === l.id ? (
@@ -593,42 +600,42 @@ function OrderLines({
                           <NumberInput size="sm" value={job.qty} min={0} max={999_999} step={1}
                             onChange={(v) => setJob({ ...job, qty: v })} className="!w-16" />
                           <input type="date" value={job.due} onChange={(e) => setJob({ ...job, due: e.target.value })}
-                            aria-label="Jatuh tempo Job Order" className="h-8 rounded-lg border border-slate-200 px-1.5 text-[12px]" />
+                            aria-label={tr("Job Order due date", "Jatuh tempo Job Order")} className="h-8 rounded-lg border border-slate-200 px-1.5 text-[12px]" />
                           <select value={job.route} onChange={(e) => setJob({ ...job, route: e.target.value as "IN_HOUSE" | "SUBCON" })}
-                            aria-label="Rute" className="h-8 rounded-lg border border-slate-200 bg-white px-1 text-[12px]">
-                            <option value="IN_HOUSE">Bengkel sendiri</option>
-                            <option value="SUBCON">Lewat vendor</option>
+                            aria-label={tr("Route", "Rute")} className="h-8 rounded-lg border border-slate-200 bg-white px-1 text-[12px]">
+                            <option value="IN_HOUSE">{tr("Own workshop", "Bengkel sendiri")}</option>
+                            <option value="SUBCON">{tr("Via vendor", "Lewat vendor")}</option>
                           </select>
-                          <Button size="sm" disabled={busy || job.qty <= 0 || !job.due} onClick={() => makeJob(l)}>Buat</Button>
-                          <button onClick={() => setJobbing(null)} aria-label="Batal" className="rounded p-1 text-slate-400"><X className="h-4 w-4" /></button>
+                          <Button size="sm" disabled={busy || job.qty <= 0 || !job.due} onClick={() => makeJob(l)}>{tr("Create", "Buat")}</Button>
+                          <button onClick={() => setJobbing(null)} aria-label={tr("Cancel", "Batal")} className="rounded p-1 text-slate-400"><X className="h-4 w-4" /></button>
                         </div>
                       ) : l.job_order_qty < l.qty ? (
                         <Button size="sm" variant="outline" className="mt-1" disabled={busy} onClick={() => startJob(l)}>
-                          {l.job_order_count > 0 ? `Job Order untuk sisa ${formatNumber(l.qty - l.job_order_qty)}` : "Buat Job Order"}
+                          {l.job_order_count > 0 ? tr(`Job Order for the remaining ${formatNumber(l.qty - l.job_order_qty)}`, `Job Order untuk sisa ${formatNumber(l.qty - l.job_order_qty)}`) : tr("Create Job Order", "Buat Job Order")}
                         </Button>
                       ) : null)}
                     </>
                   ) : coding === l.id ? (
                     <div className="flex gap-1">
                       <input autoFocus value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-                        list="order-products" placeholder="mis. SG-01A" aria-label="Item code baru"
+                        list="order-products" placeholder={tr("e.g. SG-01A", "mis. SG-01A")} aria-label={tr("New item code", "Item code baru")}
                         className={cn(inputCls, "h-8 w-28 font-mono text-[12px]")} />
                       <Button size="sm" disabled={busy || !newCode.trim()} onClick={() => makeCode(l)}>OK</Button>
-                      <button onClick={() => setCoding(null)} aria-label="Batal" className="rounded p-1 text-slate-400"><X className="h-4 w-4" /></button>
+                      <button onClick={() => setCoding(null)} aria-label={tr("Cancel", "Batal")} className="rounded p-1 text-slate-400"><X className="h-4 w-4" /></button>
                     </div>
                   ) : can("production.create") ? (
                     <Button size="sm" variant="outline" disabled={busy} onClick={() => { setCoding(l.id); setNewCode(""); }}>
-                      Jadikan item code
+                      {tr("Make item code", "Jadikan item code")}
                     </Button>
                   ) : (
-                    <span className="text-[11px] text-slate-400">belum ada item code</span>
+                    <span className="text-[11px] text-slate-400">{tr("no item code yet", "belum ada item code")}</span>
                   )}
                 </td>
                 {mayEdit && (
                   <td className="whitespace-nowrap px-2 py-2 text-right">
-                    <button onClick={() => { setD(draftOf(l, p)); setEditing(l.id); }} disabled={busy} aria-label="Ubah"
+                    <button onClick={() => { setD(draftOf(l, p)); setEditing(l.id); }} disabled={busy} aria-label={tr("Edit", "Ubah")}
                       className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><Pencil className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => remove(l)} disabled={busy} aria-label="Hapus"
+                    <button onClick={() => remove(l)} disabled={busy} aria-label={tr("Remove", "Hapus")}
                       className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-700"><Trash2 className="h-3.5 w-3.5" /></button>
                   </td>
                 )}
@@ -636,7 +643,7 @@ function OrderLines({
             ))}
             {rows.length === 0 && editing !== "new" && (
               <tr><td colSpan={mayEdit ? 6 : 5} className="px-3 py-8 text-center text-[13px] text-slate-500">
-                Belum ada item. Tambahkan apa saja yang dipesan klien — tiap baris nanti bisa dijadikan item code untuk BOM.
+                {tr("No items yet. Add whatever the client ordered — each line can later become an item code for a BOM.", "Belum ada item. Tambahkan apa saja yang dipesan klien — tiap baris nanti bisa dijadikan item code untuk BOM.")}
               </td></tr>
             )}
           </tbody>
@@ -644,15 +651,15 @@ function OrderLines({
       </div>
       <div className="flex flex-wrap justify-end gap-x-8 gap-y-1 border-t border-slate-100 px-4 py-2.5 text-[12px] text-slate-600">
         <span>
-          Nilai pesanan{" "}
+          {tr("Order value", "Nilai pesanan")}{" "}
           <strong className="tabular-nums text-slate-800">{p.order_value == null ? "—" : formatIDR(p.order_value)}</strong>
-          {p.unpriced_lines > 0 && <span className="text-amber-700"> · {p.unpriced_lines} tanpa harga</span>}
+          {p.unpriced_lines > 0 && <span className="text-amber-700">{tr(` · ${p.unpriced_lines} without a price`, ` · ${p.unpriced_lines} tanpa harga`)}</span>}
         </span>
         <span>
-          Biaya produksi (dari BOM){" "}
+          {tr("Production cost (from BOM)", "Biaya produksi (dari BOM)")}{" "}
           <strong className="tabular-nums text-slate-800">{withCost.length === 0 ? "—" : formatIDR(costTotal)}</strong>
           {withCost.length > 0 && withCost.length < rows.length && (
-            <span className="text-amber-700"> · baru {withCost.length} dari {rows.length} item</span>
+            <span className="text-amber-700">{tr(` · only ${withCost.length} of ${rows.length} items`, ` · baru ${withCost.length} dari ${rows.length} item`)}</span>
           )}
         </span>
       </div>

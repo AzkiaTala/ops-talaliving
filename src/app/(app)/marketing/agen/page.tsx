@@ -15,6 +15,7 @@ import {
 } from "@/services/marketing/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** The agents who said yes, and what the business owes them (D185, D186).
  *
@@ -29,6 +30,7 @@ import { useToast } from "@/store/toast";
  *  somebody would eventually quote back at us.
  */
 export default function RepsPage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [reps, reload] = useLoad(() => marketing.listReps(), []);
@@ -46,8 +48,8 @@ export default function RepsPage() {
       unit: draft.unit || null, phone: draft.phone || null,
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak tersimpan", res.error.message); return; }
-    toast("success", `${res.data.referral_no} tercatat`, draft.owner_name);
+    if (res.error) { toast("warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", tr(`${res.data.referral_no} recorded`, `${res.data.referral_no} tercatat`), draft.owner_name);
     setDraft({ owner_name: "", unit: "", phone: "" });
     setAdding(null);
     reload();
@@ -60,7 +62,7 @@ export default function RepsPage() {
     if (res.error) {
       /* WON is refused without a project and a value — that refusal is the
          point, so it is shown rather than swallowed. */
-      toast("warning", "Belum bisa", res.error.message);
+      toast("warning", tr("Not yet possible", "Belum bisa"), res.error.message);
       if (status === "WON") setWinning(referralNo);
       return;
     }
@@ -75,8 +77,8 @@ export default function RepsPage() {
       project_code: win.project_code, contract_value: win.contract_value,
     });
     setBusy(false);
-    if (res.error) { toast("warning", "Belum bisa", res.error.message); return; }
-    toast("success", "Jadi proyek", `${win.project_code} · ${formatIDR(win.contract_value)}`);
+    if (res.error) { toast("warning", tr("Not yet possible", "Belum bisa"), res.error.message); return; }
+    toast("success", tr("Became a project", "Jadi proyek"), `${win.project_code} · ${formatIDR(win.contract_value)}`);
     setWinning(null);
     setWin({ project_code: "", contract_value: 0 });
     reload();
@@ -85,9 +87,9 @@ export default function RepsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Marketing"
-        title="Representative & komisi"
-        description="Agen yang sudah setuju, pemilik unit yang mereka bawa, dan komisi yang terutang. Komisi hanya dihitung dari kontrak yang benar-benar ada."
+        breadcrumb={tr("Marketing", "Marketing")}
+        title={tr("Representatives & commission", "Representative & komisi")}
+        description={tr("Agents who have agreed, the unit owners they brought in, and the commission owed. Commission is only calculated from contracts that actually exist.", "Agen yang sudah setuju, pemilik unit yang mereka bawa, dan komisi yang terutang. Komisi hanya dihitung dari kontrak yang benar-benar ada.")}
         actions={<SourceBadge state={reps} />}
       />
 
@@ -102,16 +104,16 @@ export default function RepsPage() {
               <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
                 <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                   {([
-                    ["Representative", String(all.length), "agen yang sudah setuju"],
-                    ["Kontak masuk", String(leads), "pemilik unit yang dibawa"],
-                    ["Nilai proyek dari agen", formatIDR(wonValue), "kontrak yang sudah jadi"],
-                    ["Komisi belum dibayar", formatIDR(unpaid), unpaid > 0 ? "utang ke agen" : "tidak ada"],
+                    [tr("Representatives", "Representative"), String(all.length), tr("agents who have agreed", "agen yang sudah setuju")],
+                    [tr("Leads in", "Kontak masuk"), String(leads), tr("unit owners brought in", "pemilik unit yang dibawa")],
+                    [tr("Project value from agents", "Nilai proyek dari agen"), formatIDR(wonValue), tr("contracts already signed", "kontrak yang sudah jadi")],
+                    [tr("Unpaid commission", "Komisi belum dibayar"), formatIDR(unpaid), unpaid > 0 ? tr("owed to agents", "utang ke agen") : tr("none", "tidak ada")],
                   ] as [string, string, string][]).map(([k, v, note]) => (
                     <div key={k} className="px-4 py-3.5">
                       <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                       <dd className={cn(
                         "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                        k === "Komisi belum dibayar" && unpaid > 0 ? "text-amber-700" : "text-slate-800",
+                        k === tr("Unpaid commission", "Komisi belum dibayar") && unpaid > 0 ? "text-amber-700" : "text-slate-800",
                       )}>
                         {v}
                       </dd>
@@ -120,16 +122,21 @@ export default function RepsPage() {
                   ))}
                 </dl>
                 <p className="border-t border-slate-100 px-4 py-2 text-[12px] text-slate-500">
-                  <strong className="text-slate-700">Komisi dibayar lewat ledger</strong>, seperti
-                  uang keluar lainnya — layar ini mencatat berapa yang terutang, bukan membayarnya.
+                  <strong className="text-slate-700">{tr("Commission is paid through the ledger", "Komisi dibayar lewat ledger")}</strong>
+                  {tr(
+                    ", like any other money going out — this screen records how much is owed, it does not pay it.",
+                    ", seperti uang keluar lainnya — layar ini mencatat berapa yang terutang, bukan membayarnya.",
+                  )}
                 </p>
               </div>
 
               {all.length === 0 && (
                 <Card>
                   <p className="px-5 py-8 text-[13px] text-slate-500">
-                    Belum ada agen yang setuju. Onboarding dilakukan dari layar pipeline, pada agen
-                    yang sudah membalas.
+                    {tr(
+                      "No agents have agreed yet. Onboarding is done from the pipeline screen, on agents who have replied.",
+                      "Belum ada agen yang setuju. Onboarding dilakukan dari layar pipeline, pada agen yang sudah membalas.",
+                    )}
                   </p>
                 </Card>
               )}
@@ -175,20 +182,21 @@ function RepCard({
   setWin: (v: { project_code: string; contract_value: number }) => void;
   onWin: (referralNo: string) => void;
 }) {
+  const tr = useTr();
   return (
     <Card>
       <CardHeader
         title={`${rep.name}${rep.agency ? ` · ${rep.agency}` : ""}`}
-        subtitle={`${rep.rep_no} · ${rep.market?.label ?? "lintas pasar"} · komisi ${formatNumber(rep.commission_percent)}% · onboarding ${rep.onboarded_on}${rep.from_properties.length ? ` · dari ${rep.from_properties.join(", ")}` : ""}`}
+        subtitle={`${rep.rep_no} · ${rep.market?.label ?? tr("cross-market", "lintas pasar")} · ${tr("commission", "komisi")} ${formatNumber(rep.commission_percent)}% · onboarding ${rep.onboarded_on}${rep.from_properties.length ? ` · ${tr("from", "dari")} ${rep.from_properties.join(", ")}` : ""}`}
         icon={UserCheck}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={rep.commission_unpaid > 0 ? "amber" : "green"}>
-              {rep.commission_unpaid > 0 ? `${formatIDR(rep.commission_unpaid)} terutang` : "tidak ada utang"}
+              {rep.commission_unpaid > 0 ? tr(`${formatIDR(rep.commission_unpaid)} owed`, `${formatIDR(rep.commission_unpaid)} terutang`) : tr("nothing owed", "tidak ada utang")}
             </Badge>
             {mayEdit && (
               <Button size="sm" variant="outline" icon={Plus} onClick={onAdd}>
-                {adding ? "Tutup" : "Kontak baru"}
+                {adding ? tr("Close", "Tutup") : tr("New lead", "Kontak baru")}
               </Button>
             )}
           </div>
@@ -197,10 +205,10 @@ function RepCard({
 
       <dl className="grid divide-y divide-slate-100 border-t border-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
         {([
-          ["Kontak", String(rep.leads), "dibawa agen ini"],
-          ["Jadi proyek", String(rep.won), `dari ${rep.leads}`],
-          ["Nilai kontrak", formatIDR(rep.won_value), "yang sudah jadi"],
-          ["Komisi", formatIDR(rep.commission_earned), `${formatNumber(rep.commission_percent)}% dari nilai kontrak`],
+          [tr("Leads", "Kontak"), String(rep.leads), tr("brought in by this agent", "dibawa agen ini")],
+          [tr("Became projects", "Jadi proyek"), String(rep.won), tr(`of ${rep.leads}`, `dari ${rep.leads}`)],
+          [tr("Contract value", "Nilai kontrak"), formatIDR(rep.won_value), tr("already signed", "yang sudah jadi")],
+          [tr("Commission", "Komisi"), formatIDR(rep.commission_earned), tr(`${formatNumber(rep.commission_percent)}% of contract value`, `${formatNumber(rep.commission_percent)}% dari nilai kontrak`)],
         ] as [string, string, string][]).map(([k, v, note]) => (
           <div key={k} className="px-4 py-2.5">
             <dt className="text-[10px] uppercase tracking-wide text-slate-400">{k}</dt>
@@ -214,24 +222,24 @@ function RepCard({
         <div className="grid gap-2 border-t border-slate-100 px-5 py-3 sm:grid-cols-[1fr_130px_150px_auto]">
           <input
             value={draft.owner_name} onChange={(e) => setDraft({ ...draft, owner_name: e.target.value })}
-            placeholder="Nama pemilik unit" aria-label="Nama pemilik"
+            placeholder={tr("Unit owner name", "Nama pemilik unit")} aria-label={tr("Owner name", "Nama pemilik")}
             className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
           <input
             value={draft.unit} onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-            placeholder="Unit" aria-label="Unit"
+            placeholder={tr("Unit", "Unit")} aria-label={tr("Unit", "Unit")}
             className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
           <input
             value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-            placeholder="Telepon" aria-label="Telepon"
+            placeholder={tr("Phone", "Telepon")} aria-label={tr("Phone", "Telepon")}
             className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
-          <Button size="sm" disabled={busy || !draft.owner_name.trim()} onClick={onSubmit}>Simpan</Button>
+          <Button size="sm" disabled={busy || !draft.owner_name.trim()} onClick={onSubmit}>{tr("Save", "Simpan")}</Button>
         </div>
       )}
 
-      <Paged rows={rep.referrals} pageSize={10} unit="kontak">
+      <Paged rows={rep.referrals} pageSize={10} unit={tr("leads", "kontak")}>
         {(page) => (
           <ul className="divide-y divide-slate-100 border-t border-slate-100">
             {page.map((r) => (
@@ -248,8 +256,8 @@ function RepCard({
                     <span className="text-[12px] text-slate-600">
                       {r.project_code} · {formatIDR(r.contract_value ?? 0)}
                       <span className="ml-2 text-slate-400">
-                        komisi {formatIDR(Math.round((r.contract_value ?? 0) * rep.commission_percent / 100))}
-                        {r.commission_trx_no ? ` · dibayar ${r.commission_trx_no}` : " · belum dibayar"}
+                        {tr("commission", "komisi")} {formatIDR(Math.round((r.contract_value ?? 0) * rep.commission_percent / 100))}
+                        {r.commission_trx_no ? tr(` · paid ${r.commission_trx_no}`, ` · dibayar ${r.commission_trx_no}`) : tr(" · unpaid", " · belum dibayar")}
                       </span>
                     </span>
                   )}
@@ -263,15 +271,15 @@ function RepCard({
                     <div className="mt-2 grid gap-2 sm:grid-cols-[140px_180px_auto_auto]">
                       <input
                         value={win.project_code} onChange={(e) => setWin({ ...win, project_code: e.target.value })}
-                        placeholder="Kode proyek" aria-label="Kode proyek"
+                        placeholder={tr("Project code", "Kode proyek")} aria-label={tr("Project code", "Kode proyek")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       />
                       <MoneyInput value={win.contract_value} onChange={(v) => setWin({ ...win, contract_value: v })} />
                       <Button size="sm" icon={Check} disabled={busy || !win.project_code.trim() || win.contract_value <= 0}
                         onClick={() => onWin(r.referral_no)}>
-                        Catat proyek
+                        {tr("Record project", "Catat proyek")}
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setWinning(null)}>Batal</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setWinning(null)}>{tr("Cancel", "Batal")}</Button>
                     </div>
                   ) : (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -281,7 +289,7 @@ function RepCard({
                         </Button>
                       ))}
                       <Button size="sm" icon={HandCoins} disabled={busy} onClick={() => setWinning(r.referral_no)}>
-                        Jadi proyek
+                        {tr("Became a project", "Jadi proyek")}
                       </Button>
                     </div>
                   )
@@ -289,7 +297,7 @@ function RepCard({
               </li>
             ))}
             {rep.referrals.length === 0 && (
-              <li className="px-5 py-5 text-[13px] text-slate-500">Belum ada kontak dari agen ini.</li>
+              <li className="px-5 py-5 text-[13px] text-slate-500">{tr("No leads from this agent yet.", "Belum ada kontak dari agen ini.")}</li>
             )}
           </ul>
         )}
