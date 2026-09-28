@@ -41,10 +41,20 @@ export function driveOpenUrl(a: DriveRef): string | null {
   return id ? `https://drive.google.com/file/d/${id}/view` : null;
 }
 
-/** Drive's own thumbnail of the file: the picture, not the viewer page. */
+/** Drive's own thumbnail URL. The browser can only load it with a Google
+ *  session that reaches the shared drive, so screens use `thumbProxyUrl`
+ *  instead (F175). */
 export function driveThumbUrl(a: DriveRef, width = 400): string | null {
   const id = driveFileId(a);
   return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w${width}` : null;
+}
+
+/** The picture of an attachment, through this application: the server checks
+ *  the person may read the attachment and fetches the thumbnail as the
+ *  service account (`/api/documents/thumb/[id]`, F175). Null when the
+ *  attachment has no Drive file behind it. */
+export function thumbProxyUrl(a: DriveRef & { id: string }, width = 400): string | null {
+  return driveFileId(a) ? `/api/documents/thumb/${encodeURIComponent(a.id)}?w=${width}` : null;
 }
 
 export function isImageFile(a: DriveRef): boolean {

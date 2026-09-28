@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ExternalLink, ImageOff } from "lucide-react";
-import { driveOpenUrl, driveThumbUrl } from "@/lib/drive-links";
+import { driveOpenUrl, thumbProxyUrl } from "@/lib/drive-links";
 import { useTr } from "@/lib/i18n";
 
 /** The pictures on a record as tiles, each one opening in Google Drive (F174).
@@ -12,11 +12,13 @@ import { useTr } from "@/lib/i18n";
  *  this, the documents list was text, and an uploaded file could not be
  *  clicked at all.
  *
- *  The thumbnail is Drive's own, loaded with the viewer's Google session. A
- *  viewer who is not a member of that shared drive, a file Drive has not
- *  thumbnailed yet, or a sandbox file with no Drive id at all gets a plain
- *  tile with the name instead of a broken-image icon. Where there is a link,
- *  that tile still opens it.
+ *  The picture comes through this application (`/api/documents/thumb`,
+ *  F175): the server checks the person may read the attachment, then fetches
+ *  Drive's thumbnail as the service account. It no longer depends on which
+ *  Google account the browser is signed into, which is what broke the first
+ *  tiles. A sandbox file with no Drive id at all, or one Drive refuses, gets
+ *  a plain tile with the name instead of a broken-image icon. Where there is
+ *  a link, that tile still opens it.
  */
 export interface TileFile {
   id: string;
@@ -42,7 +44,7 @@ function Tile({ f }: { f: TileFile }) {
   const tr = useTr();
   const [failed, setFailed] = useState(false);
   const open = driveOpenUrl(f);
-  const thumb = driveThumbUrl(f);
+  const thumb = thumbProxyUrl(f);
 
   const picture = thumb && !failed ? (
     // eslint-disable-next-line @next/next/no-img-element

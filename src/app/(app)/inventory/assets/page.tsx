@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MonitorSmartphone, Plus, Pencil, Trash2, History, ShieldAlert, Wrench, Package, FileClock, Tags } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader, StatCard, type Tone } from "@/components/ui/primitives";
@@ -87,6 +88,15 @@ export default function AssetsPage() {
   const catList = cats.status === "ready" ? cats.data : [];
 
   const [selected, setSelected] = useState<AssetView | null>(null);
+  /* `?asset=AST-0001`: where a label's QR lands (D321), opened on the asset. */
+  const params = useSearchParams();
+  const linked = params.get("asset");
+  useEffect(() => {
+    if (!linked) return;
+    let live = true;
+    void inventory.getAsset(linked).then((r) => { if (live && r.data) setSelected(r.data); });
+    return () => { live = false; };
+  }, [linked]);
   const [history, setHistory] = useState<AuditRow[]>([]);
   const [form, setForm] = useState<Form | null>(null);
   const [statusForm, setStatusForm] = useState<{ status: AssetStatus; note: string } | null>(null);

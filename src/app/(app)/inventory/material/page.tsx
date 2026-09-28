@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Boxes, AlertTriangle, Search, PackageMinus, PackagePlus, Camera, Tags } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
@@ -42,6 +43,10 @@ export default function StockPage() {
   const [group, setGroup] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  /* `?item=I-00012`: where a label's QR lands (D321), opened on the item. */
+  const params = useSearchParams();
+  const linked = params.get("item");
+  useEffect(() => { if (linked) setOpen(linked); }, [linked]);
   const [registering, setRegistering] = useState(false);
   /* The item just registered, so its label is one click away (D321). */
   const [justRegistered, setJustRegistered] = useState<string | null>(null);
