@@ -14,6 +14,7 @@ import {
 } from "@/services/inventory/contracts";
 import { useToast } from "@/store/toast";
 import { matchVendor, shrinkImage } from "./notaFile";
+import { useTr } from "@/lib/i18n";
 
 /** Reading a nota kayu — and deciding first that it *is* one.
  *
@@ -53,6 +54,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
   loads: { purchase_no: string; label: string }[];
   onCreated: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<Mode>("kayu");
@@ -84,7 +86,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
       ? await inventory.readNotaImage(await shrinkImage(file))
       : await inventory.readNota(text);
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak terbaca", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Could not be read", "Tidak terbaca"), res.error.message); return; }
     const s = res.data;
     setScan(s);
     setConfirmed(false);
@@ -117,7 +119,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
     if (!file) return null;
     const up = await documents.upload({ file, kind: "Receipt / Invoice / Nota" });
     if (up.error) {
-      toast("warning", "Foto nota tidak tersimpan", `${up.error.message} Data tetap dicatat; notanya bisa dilampirkan nanti.`);
+      toast("warning", tr("Nota photo not saved", "Foto nota tidak tersimpan"), tr(`${up.error.message} The data is still recorded; the nota can be attached later.`, `${up.error.message} Data tetap dicatat; notanya bisa dilampirkan nanti.`));
       return null;
     }
     return up.data.id;
@@ -140,7 +142,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
       logs: rows.filter((l) => l.kind === "log").flatMap((l) =>
         Array.from({ length: l.qty }, () => ({ diameter_cm: l.diameter_cm!, length_cm: l.length_cm! }))),
     });
-    if (res.error) { setBusy(false); toast("warning", "Tidak tersimpan", res.error.message); return; }
+    if (res.error) { setBusy(false); toast("warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
 
     /* Charges on the same paper are the load's costs, paid to the same seller. */
     let filedCosts = 0;
@@ -150,13 +152,16 @@ export function NotaImport({ vendors, loads, onCreated }: {
         incurred_on: receivedOn, payee: vendor?.name ?? null, vendor_id: vendorId || null,
         note: c.raw,
       });
-      if (cr.error) toast("warning", `Biaya ${LOG_COST_LABEL[c.kind]} tidak tersimpan`, cr.error.message);
+      if (cr.error) toast("warning", tr(`${LOG_COST_LABEL[c.kind]} cost not saved`, `Biaya ${LOG_COST_LABEL[c.kind]} tidak tersimpan`), cr.error.message);
       else filedCosts += 1;
     }
     setBusy(false);
-    toast("success", `Kiriman ${res.data.purchase_no}`,
-      `${rows.length} baris ${mode === "manual" ? "diisi manual" : "nota"} masuk sebagai kayu, bukan sebagai transaksi`
-      + (filedCosts > 0 ? `, dan ${filedCosts} biaya di luar kayu.` : "."));
+    toast("success", tr(`Load ${res.data.purchase_no}`, `Kiriman ${res.data.purchase_no}`),
+      tr(
+        `${rows.length} ${mode === "manual" ? "manually entered" : "nota"} rows came in as timber, not as transactions`,
+        `${rows.length} baris ${mode === "manual" ? "diisi manual" : "nota"} masuk sebagai kayu, bukan sebagai transaksi`,
+      )
+      + (filedCosts > 0 ? tr(`, and ${filedCosts} costs besides the wood.`, `, dan ${filedCosts} biaya di luar kayu.`) : "."));
     reset();
     onCreated();
   }
@@ -171,12 +176,12 @@ export function NotaImport({ vendors, loads, onCreated }: {
         payee: payee.trim() || null, nota_attachment_id: notaId,
         note: c.raw === "total nota" ? null : c.raw,
       });
-      if (res.error) { toast("warning", "Tidak tersimpan", res.error.message); continue; }
+      if (res.error) { toast("warning", tr("Not saved", "Tidak tersimpan"), res.error.message); continue; }
       filed += 1;
     }
     setBusy(false);
     if (filed === 0) return;
-    toast("success", `${filed} biaya tercatat`, `Untuk kiriman ${purchaseNo} — di samping nilai kayunya, tidak menambah nota kayu.`);
+    toast("success", tr(`${filed} costs recorded`, `${filed} biaya tercatat`), tr(`For load ${purchaseNo} — beside its wood value, not added to the timber nota.`, `Untuk kiriman ${purchaseNo} — di samping nilai kayunya, tidak menambah nota kayu.`));
     reset();
     onCreated();
   }
@@ -200,16 +205,16 @@ export function NotaImport({ vendors, loads, onCreated }: {
   return (
     <Card>
       <CardHeader
-        title="Masukkan dari nota"
-        subtitle="Foto atau PDF nota dibaca dulu, lalu diperiksa baris per baris sebelum disimpan. Nota kayu dan nota biaya (angkut, potong) dicatat terpisah — atau isi langsung kalau notanya tidak ada."
+        title={tr("Enter from a nota", "Masukkan dari nota")}
+        subtitle={tr("A photo or PDF of the nota is read first, then checked row by row before saving. Timber notas and cost notas (transport, sawing) are recorded separately — or fill it in directly if there is no nota.", "Foto atau PDF nota dibaca dulu, lalu diperiksa baris per baris sebelum disimpan. Nota kayu dan nota biaya (angkut, potong) dicatat terpisah — atau isi langsung kalau notanya tidak ada.")}
         icon={FileSearch}
       />
       <div className="space-y-3 px-5 py-4">
         <div className="flex flex-wrap gap-1.5">
           {([
-            ["kayu", "Nota kayu", TreePine],
-            ["biaya", "Nota biaya (angkut, potong, …)", Truck],
-            ["manual", "Tanpa nota", Plus],
+            ["kayu", tr("Timber nota", "Nota kayu"), TreePine],
+            ["biaya", tr("Cost nota (transport, sawing, …)", "Nota biaya (angkut, potong, …)"), Truck],
+            ["manual", tr("No nota", "Tanpa nota"), Plus],
           ] as const).map(([m, label, icon]) => (
             <Button key={m} size="sm" icon={icon} variant={mode === m ? "primary" : "outline"}
               onClick={() => { setMode(m); reset(); }}>
@@ -237,18 +242,18 @@ export function NotaImport({ vendors, loads, onCreated }: {
                   {file ? (
                     <>
                       <span className="max-w-full truncate font-medium">{file.name}</span>
-                      <span className="text-[11px] text-slate-500">ketuk untuk ganti</span>
+                      <span className="text-[11px] text-slate-500">{tr("tap to change", "ketuk untuk ganti")}</span>
                     </>
                   ) : (
                     <>
-                      <span className="font-medium">Foto / PDF nota</span>
-                      <span className="text-[11px]">dibaca oleh model bahasa</span>
+                      <span className="font-medium">{tr("Nota photo / PDF", "Foto / PDF nota")}</span>
+                      <span className="text-[11px]">{tr("read by a language model", "dibaca oleh model bahasa")}</span>
                     </>
                   )}
                 </button>
               </div>
               <label className="block text-[12px] text-slate-500">
-                …atau tempel isi nota
+                {tr("…or paste the nota's text", "…atau tempel isi nota")}
                 <textarea
                   value={text} onChange={(e) => { setText(e.target.value); setScan(null); }}
                   rows={6} disabled={!!file}
@@ -262,17 +267,19 @@ export function NotaImport({ vendors, loads, onCreated }: {
 
             <div className="flex gap-2">
               <Button size="sm" icon={FileSearch} disabled={busy || (!file && !text.trim())} onClick={read}>
-                {busy && !scan ? "Membaca…" : "Baca notanya"}
+                {busy && !scan ? tr("Reading…", "Membaca…") : tr("Read the nota", "Baca notanya")}
               </Button>
-              {(scan || file) && <Button size="sm" variant="ghost" onClick={reset}>Ulangi</Button>}
+              {(scan || file) && <Button size="sm" variant="ghost" onClick={reset}>{tr("Start over", "Ulangi")}</Button>}
             </div>
           </>
         )}
 
         {mode === "manual" && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-            Tanpa nota berarti tidak ada kertas untuk dicocokkan nanti — pastikan jumlah dan ukurannya
-            benar-benar dari yang diukur di lapangan, bukan tebakan.
+            {tr(
+              "No nota means no paper to check against later — make sure the quantities and sizes really come from what was measured on site, not a guess.",
+              "Tanpa nota berarti tidak ada kertas untuk dicocokkan nanti — pastikan jumlah dan ukurannya benar-benar dari yang diukur di lapangan, bukan tebakan.",
+            )}
           </p>
         )}
 
@@ -281,11 +288,11 @@ export function NotaImport({ vendors, loads, onCreated }: {
             {mode !== "manual" && scan && (
               <div className="flex flex-wrap items-center gap-2">
                 {mode === "kayu" && (scan.is_timber ? (
-                  <Badge tone="green"><Check className="mr-1 inline h-3 w-3" />Terbaca sebagai nota kayu</Badge>
+                  <Badge tone="green"><Check className="mr-1 inline h-3 w-3" />{tr("Read as a timber nota", "Terbaca sebagai nota kayu")}</Badge>
                 ) : (
-                  <Badge tone="slate"><X className="mr-1 inline h-3 w-3" />Belum yakin ini nota kayu</Badge>
+                  <Badge tone="slate"><X className="mr-1 inline h-3 w-3" />{tr("Not yet sure this is a timber nota", "Belum yakin ini nota kayu")}</Badge>
                 ))}
-                <Badge tone="slate">{scan.source === "image" ? "dibaca dari foto" : "dibaca dari teks"}</Badge>
+                <Badge tone="slate">{scan.source === "image" ? tr("read from a photo", "dibaca dari foto") : tr("read from text", "dibaca dari teks")}</Badge>
                 {scan.species_guess && <Badge tone="brand">{scan.species_guess}</Badge>}
                 {scan.vendor_guess && <span className="text-[11px] text-slate-500">{scan.vendor_guess}</span>}
               </div>
@@ -293,8 +300,8 @@ export function NotaImport({ vendors, loads, onCreated }: {
 
             {mode === "manual" && (
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" icon={Plus} onClick={() => addRow("log")}>Baris log</Button>
-                <Button size="sm" variant="outline" icon={Plus} onClick={() => addRow("board")}>Baris papan</Button>
+                <Button size="sm" variant="outline" icon={Plus} onClick={() => addRow("log")}>{tr("Log row", "Baris log")}</Button>
+                <Button size="sm" variant="outline" icon={Plus} onClick={() => addRow("board")}>{tr("Board row", "Baris papan")}</Button>
               </div>
             )}
 
@@ -305,17 +312,17 @@ export function NotaImport({ vendors, loads, onCreated }: {
             {mode === "kayu" && (
               <div className="grid gap-2 text-[12px] sm:grid-cols-2">
                 <div>
-                  <p className="mb-0.5 text-[11px] uppercase tracking-wide text-slate-400">Alasannya</p>
+                  <p className="mb-0.5 text-[11px] uppercase tracking-wide text-slate-400">{tr("Why", "Alasannya")}</p>
                   <ul className="space-y-0.5 text-emerald-800">
                     {scan!.signals.map((s) => <li key={s}>· {s}</li>)}
-                    {scan!.signals.length === 0 && <li className="text-slate-400">tidak ada</li>}
+                    {scan!.signals.length === 0 && <li className="text-slate-400">{tr("none", "tidak ada")}</li>}
                   </ul>
                 </div>
                 <div>
-                  <p className="mb-0.5 text-[11px] uppercase tracking-wide text-slate-400">Yang melemahkan</p>
+                  <p className="mb-0.5 text-[11px] uppercase tracking-wide text-slate-400">{tr("Against it", "Yang melemahkan")}</p>
                   <ul className="space-y-0.5 text-slate-600">
                     {scan!.against.map((s) => <li key={s}>· {s}</li>)}
-                    {scan!.against.length === 0 && <li className="text-slate-400">tidak ada</li>}
+                    {scan!.against.length === 0 && <li className="text-slate-400">{tr("none", "tidak ada")}</li>}
                   </ul>
                 </div>
               </div>
@@ -324,9 +331,9 @@ export function NotaImport({ vendors, loads, onCreated }: {
             {mode === "kayu" && !scan!.is_timber && rows.length === 0 && scan!.costs.length > 0 && (
               <p className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-[12px] text-slate-700">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                Ini terbaca seperti nota biaya, bukan nota kayu.
+                {tr("This reads like a cost nota, not a timber nota.", "Ini terbaca seperti nota biaya, bukan nota kayu.")}
                 <Button size="sm" variant="outline" icon={Truck} onClick={() => { setMode("biaya"); setScan(null); }}>
-                  Catat sebagai nota biaya
+                  {tr("Record as a cost nota", "Catat sebagai nota biaya")}
                 </Button>
               </p>
             )}
@@ -335,15 +342,17 @@ export function NotaImport({ vendors, loads, onCreated }: {
               <label className="flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-[12px] text-slate-700">
                 <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5" />
                 <span>
-                  Saya sudah mencocokkan baris di bawah dengan notanya — ini memang nota kayu, dan tiap baris
-                  ukuran adalah kayu, bukan barang terpisah.
+                  {tr(
+                    "I have checked the rows below against the nota — this really is a timber nota, and each size row is wood, not a separate item.",
+                    "Saya sudah mencocokkan baris di bawah dengan notanya — ini memang nota kayu, dan tiap baris ukuran adalah kayu, bukan barang terpisah.",
+                  )}
                 </span>
               </label>
             )}
 
             {scan && scan.unread.length > 0 && (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-                {scan.unread.length} baris tidak terbaca dan tidak dibuang — periksa di notanya:{" "}
+                {tr(`${scan.unread.length} rows could not be read and were not dropped — check them on the nota:`, `${scan.unread.length} baris tidak terbaca dan tidak dibuang — periksa di notanya:`)}{" "}
                 <span className="font-mono text-[11px]">{scan.unread.slice(0, 4).join(" · ")}</span>
                 {scan.unread.length > 4 && " …"}
               </p>
@@ -354,9 +363,9 @@ export function NotaImport({ vendors, loads, onCreated }: {
                 <table className="w-full min-w-[560px] border-collapse text-[12px]">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/70 text-[10px] uppercase tracking-wide text-slate-500">
-                      <th className="px-3 py-1.5 text-left">{mode === "manual" ? "Ditambahkan" : "Baris di nota"}</th>
-                      <th className="px-2 py-1.5 text-left">Dibaca sebagai</th>
-                      <th className="px-2 py-1.5 text-right">Jml</th>
+                      <th className="px-3 py-1.5 text-left">{mode === "manual" ? tr("Added", "Ditambahkan") : tr("Row on the nota", "Baris di nota")}</th>
+                      <th className="px-2 py-1.5 text-left">{tr("Read as", "Dibaca sebagai")}</th>
+                      <th className="px-2 py-1.5 text-right">{tr("Qty", "Jml")}</th>
                       <th className="w-8" />
                     </tr>
                   </thead>
@@ -367,7 +376,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
                         <td className="px-2 py-1">
                           {l.kind === "board" ? (
                             <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                              <span>Papan</span>
+                              <span>{tr("Board", "Papan")}</span>
                               <NumberInput size="sm" value={l.thickness_mm!} min={1} max={300} onChange={(v) => patch(l.key, { thickness_mm: v })} />
                               <span>×</span>
                               <NumberInput size="sm" value={l.width_mm!} min={1} max={2000} onChange={(v) => patch(l.key, { width_mm: v })} />
@@ -379,7 +388,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
                             <div className="flex items-center gap-1 text-[11px] text-slate-500">
                               <span>Log Ø</span>
                               <NumberInput size="sm" value={l.diameter_cm!} min={1} max={300} onChange={(v) => patch(l.key, { diameter_cm: v })} />
-                              <span>× p</span>
+                              <span>{tr("× l", "× p")}</span>
                               <NumberInput size="sm" value={l.length_cm!} min={1} max={2000} onChange={(v) => patch(l.key, { length_cm: v })} />
                               <span>cm</span>
                             </div>
@@ -389,7 +398,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
                           <NumberInput size="sm" value={l.qty} min={1} max={9999} onChange={(v) => patch(l.key, { qty: v })} />
                         </td>
                         <td className="px-1 py-1">
-                          <button type="button" aria-label="Buang baris" onClick={() => setRows(rows.filter((r) => r.key !== l.key))}
+                          <button type="button" aria-label={tr("Remove row", "Buang baris")} onClick={() => setRows(rows.filter((r) => r.key !== l.key))}
                             className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -405,7 +414,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
             {(mode === "biaya" || mode === "manual" || costs.length > 0) && (
               <div className="rounded-lg border border-slate-200 bg-white">
                 <p className="border-b border-slate-100 px-3 py-1.5 text-[11px] uppercase tracking-wide text-slate-400">
-                  {mode === "biaya" ? "Biaya pada nota ini" : "Biaya di luar kayu (angkut, potong, …)"}
+                  {mode === "biaya" ? tr("Costs on this nota", "Biaya pada nota ini") : tr("Costs besides the wood (transport, sawing, …)", "Biaya di luar kayu (angkut, potong, …)")}
                 </p>
                 <ul className="divide-y divide-slate-100">
                   {costs.map((c) => (
@@ -413,7 +422,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
                       <span className="truncate font-mono text-[11px] text-slate-500">{c.raw}</span>
                       <select
                         value={c.kind} onChange={(e) => patchCost(c.key, { kind: e.target.value as LogCostKind })}
-                        aria-label="Jenis biaya"
+                        aria-label={tr("Cost kind", "Jenis biaya")}
                         className="h-8 rounded-lg border border-slate-200 px-2 text-[12px] focus:border-brand-400 focus:outline-none"
                       >
                         {(Object.keys(LOG_COST_LABEL) as LogCostKind[]).map((k) => (
@@ -421,7 +430,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
                         ))}
                       </select>
                       <MoneyInput size="sm" value={c.amount} onChange={(v) => patchCost(c.key, { amount: v })} />
-                      <button type="button" aria-label="Buang biaya" onClick={() => setCosts(costs.filter((x) => x.key !== c.key))}
+                      <button type="button" aria-label={tr("Remove cost", "Buang biaya")} onClick={() => setCosts(costs.filter((x) => x.key !== c.key))}
                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -431,7 +440,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
                 <div className="flex items-center justify-between px-3 py-1.5">
                   <Button size="sm" variant="ghost" icon={Plus}
                     onClick={() => setCosts([...costs, { raw: "ditambahkan manual", kind: "angkut", amount: 0, key: key() }])}>
-                    Baris biaya
+                    {tr("Cost row", "Baris biaya")}
                   </Button>
                   {costTotal > 0 && <span className="text-[12px] tabular-nums text-slate-600">{formatIDR(costTotal)}</span>}
                 </div>
@@ -442,64 +451,66 @@ export function NotaImport({ vendors, loads, onCreated }: {
               <>
                 <div className="grid gap-2 sm:grid-cols-4">
                   <label className="text-[11px] text-slate-500">
-                    Vendor kayu
+                    {tr("Timber vendor", "Vendor kayu")}
                     <select
                       value={vendorId} onChange={(e) => setVendorId(e.target.value)}
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     >
-                      <option value="">— pilih —</option>
+                      <option value="">{tr("— choose —", "— pilih —")}</option>
                       {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
                   </label>
                   <label className="text-[11px] text-slate-500">
-                    Jenis kayu
+                    {tr("Species", "Jenis kayu")}
                     <input
                       value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="Jati, Mahoni, …"
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     />
                   </label>
                   <label className="text-[11px] text-slate-500">
-                    Tanggal terima
+                    {tr("Date received", "Tanggal terima")}
                     <input
                       type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)}
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     />
                   </label>
                   <label className="text-[11px] text-slate-500">
-                    Nilai kayu (tanpa biaya)
+                    {tr("Wood value (without costs)", "Nilai kayu (tanpa biaya)")}
                     <MoneyInput value={total} onChange={setTotal} />
                   </label>
                 </div>
                 {scan?.total_guess != null && costTotal > 0 && (
                   <p className="text-[11px] text-slate-500">
-                    Total tercetak {formatIDR(scan.total_guess)}; biaya di luar kayu {formatIDR(costTotal)} dicatat
-                    terpisah. Kalau biaya itu tidak termasuk dalam total nota, betulkan nilai kayunya.
+                    {tr(
+                      `Printed total ${formatIDR(scan.total_guess)}; costs besides the wood ${formatIDR(costTotal)} are recorded separately. If those costs are not included in the nota total, correct the wood value.`,
+                      `Total tercetak ${formatIDR(scan.total_guess)}; biaya di luar kayu ${formatIDR(costTotal)} dicatat terpisah. Kalau biaya itu tidak termasuk dalam total nota, betulkan nilai kayunya.`,
+                    )}
                   </p>
                 )}
                 {!vendorId && scan?.vendor_guess && (
                   <p className="text-[11px] text-amber-800">
-                    “{scan.vendor_guess}” tidak cocok dengan vendor mana pun — pilih manual, atau daftarkan dulu di master vendor.
+                    “{scan.vendor_guess}” {tr("does not match any vendor — choose one manually, or register it first in the vendor master.", "tidak cocok dengan vendor mana pun — pilih manual, atau daftarkan dulu di master vendor.")}
                   </p>
                 )}
 
                 <div className="flex flex-wrap items-center gap-2">
                   <Button size="sm" disabled={busy || !mayFileTimber} onClick={fileTimber}>
-                    {busy ? "Menyimpan…" : `Catat ${rows.length} baris sebagai kayu`}
+                    {busy ? tr("Saving…", "Menyimpan…") : tr(`Record ${rows.length} rows as timber`, `Catat ${rows.length} baris sebagai kayu`)}
                   </Button>
                   <span className="text-[11px] text-slate-500">
                     {total > 0 && boards.length > 0 && (
                       <>
-                        {formatIDR(total + costTotal)} untuk {formatNumber(boardM3)} m³ · {formatNumber(boardM2)} m² papan
+                        {formatIDR(total + costTotal)} {tr("for", "untuk")} {formatNumber(boardM3)} m³ · {formatNumber(boardM2)} m² {tr("of board", "papan")}
                         {" "}≈ {formatIDR(Math.round((total + costTotal) / boardM3))}/m³ ·{" "}
                         {formatIDR(Math.round((total + costTotal) / boardM2))}/m²
                       </>
                     )}
-                    {logs.length > 0 && ` · ${logs.reduce((a, l) => a + l.qty, 0)} batang log`}
+                    {logs.length > 0 && tr(` · ${logs.reduce((a, l) => a + l.qty, 0)} logs`, ` · ${logs.reduce((a, l) => a + l.qty, 0)} batang log`)}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Yang masuk ke akunting tetap <strong className="font-medium">satu angka</strong> — nilai notanya.
-                  Baris ukuran tidak pernah menjadi baris transaksi.
+                  {tr("What goes to accounting is still", "Yang masuk ke akunting tetap")} <strong className="font-medium">{tr("one figure", "satu angka")}</strong>{" "}
+                  {tr("— the nota's value. Size rows never become transaction rows.", "— nilai notanya. Baris ukuran tidak pernah menjadi baris transaksi.")}
                 </p>
               </>
             )}
@@ -508,24 +519,24 @@ export function NotaImport({ vendors, loads, onCreated }: {
               <>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <label className="text-[11px] text-slate-500">
-                    Untuk kiriman
+                    {tr("For load", "Untuk kiriman")}
                     <select
                       value={purchaseNo} onChange={(e) => setPurchaseNo(e.target.value)}
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     >
-                      <option value="">— pilih kiriman —</option>
+                      <option value="">{tr("— choose a load —", "— pilih kiriman —")}</option>
                       {loads.map((l) => <option key={l.purchase_no} value={l.purchase_no}>{l.label}</option>)}
                     </select>
                   </label>
                   <label className="text-[11px] text-slate-500">
-                    Dibayar ke
+                    {tr("Paid to", "Dibayar ke")}
                     <input
-                      value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Pak Darto (truk), Sawmill …"
+                      value={payee} onChange={(e) => setPayee(e.target.value)} placeholder={tr("Pak Darto (truck), Sawmill …", "Pak Darto (truk), Sawmill …")}
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                     />
                   </label>
                   <label className="text-[11px] text-slate-500">
-                    Tanggal
+                    {tr("Date", "Tanggal")}
                     <input
                       type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)}
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
@@ -533,7 +544,7 @@ export function NotaImport({ vendors, loads, onCreated }: {
                   </label>
                 </div>
                 <Button size="sm" disabled={busy || !mayFileCosts} onClick={fileCosts}>
-                  {busy ? "Menyimpan…" : `Catat ${formatIDR(costTotal)} sebagai biaya kiriman`}
+                  {busy ? tr("Saving…", "Menyimpan…") : tr(`Record ${formatIDR(costTotal)} as load costs`, `Catat ${formatIDR(costTotal)} sebagai biaya kiriman`)}
                 </Button>
               </>
             )}

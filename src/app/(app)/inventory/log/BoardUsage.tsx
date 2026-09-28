@@ -6,6 +6,7 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Paged } from "@/components/ui/pager";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { inventory } from "@/demo/api";
+import { useTr } from "@/lib/i18n";
 import { BOARD_MOVE_LABEL, type BoardMoveKind } from "@/services/inventory/contracts";
 
 const TONE: Record<BoardMoveKind, "green" | "brand" | "slate" | "amber" | "red"> = {
@@ -20,6 +21,7 @@ const TONE: Record<BoardMoveKind, "green" | "brand" | "slate" | "amber" | "red">
  *  from the sawing reports, which is why they cannot drift from the rendemen.
  */
 export function BoardUsage({ reloadKey }: { reloadKey: number }) {
+  const tr = useTr();
   const [moves, reload] = useLoad(() => inventory.listBoardMoves({}), [reloadKey]);
 
   return (
@@ -33,26 +35,26 @@ export function BoardUsage({ reloadKey }: { reloadKey: number }) {
         return (
           <Card>
             <CardHeader
-              title={`${rows.length} pergerakan`}
-              subtitle={`${formatNumber(m3Out)} m³ papan sudah dipakai${
-                estimated > 0 ? ` · ${estimated} pengeluaran dinilai pakai harga termahal` : ""}${
-                blind > 0 ? ` · ${blind} pengeluaran tanpa asal kiriman, jadi nilainya kosong` : ""}`}
+              title={tr(`${rows.length} movements`, `${rows.length} pergerakan`)}
+              subtitle={tr(`${formatNumber(m3Out)} m³ of board used`, `${formatNumber(m3Out)} m³ papan sudah dipakai`)
+                + (estimated > 0 ? tr(` · ${estimated} issues valued at the dearest price`, ` · ${estimated} pengeluaran dinilai pakai harga termahal`) : "")
+                + (blind > 0 ? tr(` · ${blind} issues with no source load, so their value is empty`, ` · ${blind} pengeluaran tanpa asal kiriman, jadi nilainya kosong`) : "")}
               icon={History}
               action={<SourceBadge state={moves} />}
             />
             <div className="overflow-x-auto">
-              <Paged rows={rows} pageSize={25} unit="pergerakan">
+              <Paged rows={rows} pageSize={25} unit={tr("movements", "pergerakan")}>
                 {(page) => (
                   <table className="w-full min-w-[900px] border-collapse text-[13px]">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                        <th className="px-4 py-2 text-left">Tanggal</th>
-                        <th className="px-4 py-2 text-left">Kejadian</th>
-                        <th className="px-4 py-2 text-left">Jenis · ukuran</th>
-                        <th className="px-4 py-2 text-right">Lembar</th>
+                        <th className="px-4 py-2 text-left">{tr("Date", "Tanggal")}</th>
+                        <th className="px-4 py-2 text-left">{tr("Event", "Kejadian")}</th>
+                        <th className="px-4 py-2 text-left">{tr("Species · size", "Jenis · ukuran")}</th>
+                        <th className="px-4 py-2 text-right">{tr("Pieces", "Lembar")}</th>
                         <th className="px-4 py-2 text-right">m³</th>
-                        <th className="px-4 py-2 text-left">Tujuan / asal</th>
-                        <th className="px-4 py-2 text-right">Nilai</th>
+                        <th className="px-4 py-2 text-left">{tr("Destination / source", "Tujuan / asal")}</th>
+                        <th className="px-4 py-2 text-right">{tr("Value", "Nilai")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -70,11 +72,11 @@ export function BoardUsage({ reloadKey }: { reloadKey: number }) {
                           <td className="px-4 py-2 text-[12px] text-slate-600">
                             {m.ref_no && <span className="block font-mono text-[11px] text-slate-700">{m.ref_no}</span>}
                             {m.purchase_no
-                              ? <span className="block font-mono text-[10px] text-slate-400">dari {m.purchase_no}</span>
+                              ? <span className="block font-mono text-[10px] text-slate-400">{tr("from", "dari")} {m.purchase_no}</span>
                               : m.kind !== "sawn" && (
                                 <span className="block text-[10px] text-amber-700">
-                                  kiriman asal tidak diketahui
-                                  {m.value_basis === "dearest" && " — dinilai pakai harga termahal"}
+                                  {tr("source load unknown", "kiriman asal tidak diketahui")}
+                                  {m.value_basis === "dearest" && tr(" — valued at the dearest price", " — dinilai pakai harga termahal")}
                                 </span>
                               )}
                             {m.reason && <span className="block text-[11px] text-slate-500">{m.reason}</span>}
@@ -96,11 +98,16 @@ export function BoardUsage({ reloadKey }: { reloadKey: number }) {
               </Paged>
             </div>
             <p className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500">
-              Baris <em>hasil gergajian</em> tidak dicatat di sini — ia dihitung dari laporan
-              gergajiannya, supaya isi rak dan rendemen tidak pernah bisa berbeda. Pengeluaran yang
-              tidak menyebut kiriman asalnya tetap pasti jumlahnya; nilainya diambil dari harga
-              termahal jenis kayu itu dan ditandai <span className="text-amber-700">±</span> —
-              kalau jenis itu belum pernah punya harga sama sekali, nilainya dibiarkan kosong.
+              {tr("Rows", "Baris")} <em>{tr("sawn output", "hasil gergajian")}</em>{" "}
+              {tr(
+                "are not recorded here — they are computed from the sawing report, so the rack and the yield can never disagree. An issue that does not name its source load still has a certain quantity; its value is taken from the dearest price of that species and marked",
+                "tidak dicatat di sini — ia dihitung dari laporan gergajiannya, supaya isi rak dan rendemen tidak pernah bisa berbeda. Pengeluaran yang tidak menyebut kiriman asalnya tetap pasti jumlahnya; nilainya diambil dari harga termahal jenis kayu itu dan ditandai",
+              )}{" "}
+              <span className="text-amber-700">±</span>{" "}
+              {tr(
+                "— if that species has never had a price at all, the value is left empty.",
+                "— kalau jenis itu belum pernah punya harga sama sekali, nilainya dibiarkan kosong.",
+              )}
             </p>
           </Card>
         );

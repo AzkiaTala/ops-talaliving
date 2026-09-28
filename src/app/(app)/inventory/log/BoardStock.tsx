@@ -12,6 +12,7 @@ import { inventory } from "@/demo/api";
 import { BOARD_MOVE_LABEL, type BoardMoveKind, type BoardStockView } from "@/services/inventory/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
+import { useTr } from "@/lib/i18n";
 
 /** The rack, and what leaves it.
  *
@@ -27,6 +28,7 @@ import { useSession } from "@/store/session";
  *  nobody priced it (D172, D204).
  */
 export function BoardStock({ onUsed }: { onUsed: () => void }) {
+  const tr = useTr();
   const [stock, reload] = useLoad(() => inventory.listBoardStock(), []);
   const [open, setOpen] = useState<BoardStockView | null>(null);
 
@@ -43,26 +45,26 @@ export function BoardStock({ onUsed }: { onUsed: () => void }) {
           return (
             <Card>
               <CardHeader
-                title={`${onHand.length} ukuran di rak`}
-                subtitle={`${formatNumber(totalM3)} m³ · senilai ${formatIDR(totalValue)}${
-                  estimated > 0 ? ` · ${estimated} lembar dinilai pakai harga termahal` : ""}${
-                  unpriced > 0 ? ` · ${unpriced} lembar terhitung tapi belum berharga` : ""}`}
+                title={tr(`${onHand.length} sizes on the rack`, `${onHand.length} ukuran di rak`)}
+                subtitle={tr(`${formatNumber(totalM3)} m³ · worth ${formatIDR(totalValue)}`, `${formatNumber(totalM3)} m³ · senilai ${formatIDR(totalValue)}`)
+                  + (estimated > 0 ? tr(` · ${estimated} pieces valued at the dearest price`, ` · ${estimated} lembar dinilai pakai harga termahal`) : "")
+                  + (unpriced > 0 ? tr(` · ${unpriced} pieces counted but not yet priced`, ` · ${unpriced} lembar terhitung tapi belum berharga`) : "")}
                 icon={Layers}
                 action={<SourceBadge state={stock} />}
               />
               <div className="overflow-x-auto">
-                <Paged rows={onHand} pageSize={20} unit="ukuran">
+                <Paged rows={onHand} pageSize={20} unit={tr("sizes", "ukuran")}>
                   {(page) => (
                     <table className="w-full min-w-[880px] border-collapse text-[13px]">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                          <th className="px-4 py-2 text-left">Jenis · ukuran</th>
-                          <th className="px-4 py-2 text-right">Di rak</th>
-                          <th className="px-4 py-2 text-right">Digergaji</th>
-                          <th className="px-4 py-2 text-right">Dipakai</th>
+                          <th className="px-4 py-2 text-left">{tr("Species · size", "Jenis · ukuran")}</th>
+                          <th className="px-4 py-2 text-right">{tr("On the rack", "Di rak")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Sawn", "Digergaji")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Used", "Dipakai")}</th>
                           <th className="px-4 py-2 text-right">m³</th>
-                          <th className="px-4 py-2 text-right">Rp / m³ papan</th>
-                          <th className="px-4 py-2 text-right">Nilai</th>
+                          <th className="px-4 py-2 text-right">{tr("Rp / m³ board", "Rp / m³ papan")}</th>
+                          <th className="px-4 py-2 text-right">{tr("Value", "Nilai")}</th>
                           <th className="px-4 py-2" />
                         </tr>
                       </thead>
@@ -78,13 +80,15 @@ export function BoardStock({ onUsed }: { onUsed: () => void }) {
                                   memang tidak punya tarif apa pun. */}
                               {r.estimated_qty > 0 && r.estimate_per_m3 != null && (
                                 <span className="block text-[11px] text-amber-700">
-                                  {r.estimated_qty} lembar tanpa asal kiriman — dinilai pakai harga
-                                  termahal {formatIDR(r.estimate_per_m3)}/m³
+                                  {tr(
+                                    `${r.estimated_qty} pieces with no source load — valued at the dearest price ${formatIDR(r.estimate_per_m3)}/m³`,
+                                    `${r.estimated_qty} lembar tanpa asal kiriman — dinilai pakai harga termahal ${formatIDR(r.estimate_per_m3)}/m³`,
+                                  )}
                                 </span>
                               )}
                               {r.unpriced_qty > 0 && (
                                 <span className="block text-[11px] text-amber-700">
-                                  {r.unpriced_qty} lembar tanpa asal kiriman — dihitung, tidak dinilai
+                                  {tr(`${r.unpriced_qty} pieces with no source load — counted, not valued`, `${r.unpriced_qty} lembar tanpa asal kiriman — dihitung, tidak dinilai`)}
                                 </span>
                               )}
                             </td>
@@ -94,7 +98,7 @@ export function BoardStock({ onUsed }: { onUsed: () => void }) {
                             <td className="px-4 py-2 text-right tabular-nums text-slate-500">
                               {r.issued_total}
                               {r.scrapped_total > 0 && (
-                                <span className="block text-[10px] text-slate-400">{r.scrapped_total} rusak</span>
+                                <span className="block text-[10px] text-slate-400">{tr(`${r.scrapped_total} damaged`, `${r.scrapped_total} rusak`)}</span>
                               )}
                             </td>
                             <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatNumber(r.m3)}</td>
@@ -106,7 +110,7 @@ export function BoardStock({ onUsed }: { onUsed: () => void }) {
                             </td>
                             <td className="px-4 py-2 text-right">
                               <Button size="sm" variant="outline" icon={ArrowDownToLine} onClick={() => setOpen(r)}>
-                                Catat
+                                {tr("Record", "Catat")}
                               </Button>
                             </td>
                           </tr>
@@ -117,10 +121,10 @@ export function BoardStock({ onUsed }: { onUsed: () => void }) {
                 </Paged>
               </div>
               <p className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500">
-                Isi rak dihitung dari laporan gergajian dikurangi pemakaian — tidak ada angka stok
-                yang disimpan, jadi rak tidak bisa berbeda dengan rendemennya. Nilai memakai harga
-                per m³ papan dari kiriman asalnya; lembar yang asal kirimannya tidak diketahui tetap
-                dihitung dan tidak dinilai.
+                {tr(
+                  "The rack is computed from the sawing reports minus usage — no stock figure is stored, so the rack cannot disagree with its yield. The value uses the price per m³ of board from its source load; pieces whose source load is unknown are still counted and not valued.",
+                  "Isi rak dihitung dari laporan gergajian dikurangi pemakaian — tidak ada angka stok yang disimpan, jadi rak tidak bisa berbeda dengan rendemennya. Nilai memakai harga per m³ papan dari kiriman asalnya; lembar yang asal kirimannya tidak diketahui tetap dihitung dan tidak dinilai.",
+                )}
               </p>
             </Card>
           );
@@ -143,6 +147,7 @@ const KINDS: BoardMoveKind[] = ["issue", "return", "scrap", "adjust"];
 function MoveDrawer({ stack, onClose, onDone }: {
   stack: BoardStockView; onClose: () => void; onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const { can } = useSession();
   const [kind, setKind] = useState<BoardMoveKind>("issue");
@@ -160,8 +165,8 @@ function MoveDrawer({ stack, onClose, onDone }: {
       ref_no: ref || null, reason: reason || null, purchase_no: purchase || null,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 409 ? "critical" : "warning", "Tidak dicatat", res.error.message); return; }
-    toast("success", BOARD_MOVE_LABEL[kind], `${qty} lembar ${stack.species} ${stack.size}`);
+    if (res.error) { toast(res.error.status === 409 ? "critical" : "warning", tr("Not recorded", "Tidak dicatat"), res.error.message); return; }
+    toast("success", BOARD_MOVE_LABEL[kind], tr(`${qty} pieces ${stack.species} ${stack.size}`, `${qty} lembar ${stack.species} ${stack.size}`));
     onDone();
   }
 
@@ -173,7 +178,7 @@ function MoveDrawer({ stack, onClose, onDone }: {
       <div className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-[15px] font-semibold text-slate-900">{stack.species} · {stack.size}</h2>
         <p className="mb-4 text-[12px] text-slate-500">
-          {stack.qty} lembar di rak · {formatNumber(stack.m3)} m³
+          {tr(`${stack.qty} pieces on the rack`, `${stack.qty} lembar di rak`)} · {formatNumber(stack.m3)} m³
         </p>
 
         <div className="mb-3 flex flex-wrap gap-1.5">
@@ -191,13 +196,13 @@ function MoveDrawer({ stack, onClose, onDone }: {
 
         <div className="space-y-3">
           <label className="block text-[12px] text-slate-500">
-            Berapa lembar
+            {tr("How many pieces", "Berapa lembar")}
             <NumberInput value={qty} onChange={setQty} />
           </label>
 
           {kind === "issue" && (
             <label className="block text-[12px] text-slate-500">
-              Untuk pekerjaan (Job Order)
+              {tr("For the job (Job Order)", "Untuk pekerjaan (Job Order)")}
               <input
                 value={ref} onChange={(e) => setRef(e.target.value)}
                 placeholder="spk-26-09-…"
@@ -207,24 +212,26 @@ function MoveDrawer({ stack, onClose, onDone }: {
           )}
 
           <label className="block text-[12px] text-slate-500">
-            Dari kiriman mana <span className="text-slate-400">— kosongkan kalau tumpukannya campur</span>
+            {tr("From which load", "Dari kiriman mana")} <span className="text-slate-400">{tr("— leave empty if the stack is mixed", "— kosongkan kalau tumpukannya campur")}</span>
             <input
               value={purchase} onChange={(e) => setPurchase(e.target.value)}
               placeholder="kyu-26-…"
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
             <span className="mt-0.5 block text-[11px] text-slate-400">
-              Menentukan harga papan ini. Dikosongkan berarti jumlahnya tetap pasti dan nilainya
-              dibiarkan kosong — bukan ditebak.
+              {tr(
+                "Decides the price of these boards. Left empty, the quantity stays certain and the value is left empty — not guessed.",
+                "Menentukan harga papan ini. Dikosongkan berarti jumlahnya tetap pasti dan nilainya dibiarkan kosong — bukan ditebak.",
+              )}
             </span>
           </label>
 
           {(kind === "adjust" || kind === "scrap") && (
             <label className="block text-[12px] text-slate-500">
-              Alasan
+              {tr("Reason", "Alasan")}
               <input
                 value={reason} onChange={(e) => setReason(e.target.value)}
-                placeholder={kind === "adjust" ? "Hasil opname — fisik sekian, tercatat sekian" : "Melengkung, pecah, salah potong"}
+                placeholder={kind === "adjust" ? tr("Opname result — physically so many, recorded so many", "Hasil opname — fisik sekian, tercatat sekian") : tr("Warped, split, cut wrong", "Melengkung, pecah, salah potong")}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
               />
             </label>
@@ -233,16 +240,18 @@ function MoveDrawer({ stack, onClose, onDone }: {
           {over && (
             <p className="flex items-start gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-[12px] text-rose-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Di rak cuma ada {stack.qty}. Kalau fisiknya memang lebih, catat sebagai penyesuaian
-              opname dengan alasannya — rak yang minus tidak bisa dipakai siapa pun lagi.
+              {tr(
+                `There are only ${stack.qty} on the rack. If there really are more, record an opname adjustment with its reason — a negative rack is no use to anyone.`,
+                `Di rak cuma ada ${stack.qty}. Kalau fisiknya memang lebih, catat sebagai penyesuaian opname dengan alasannya — rak yang minus tidak bisa dipakai siapa pun lagi.`,
+              )}
             </p>
           )}
 
           <div className="flex gap-2 pt-1">
             <Button disabled={busy || qty <= 0 || over} onClick={submit}>
-              {busy ? "Menyimpan…" : "Catat"}
+              {busy ? tr("Saving…", "Menyimpan…") : tr("Record", "Catat")}
             </Button>
-            <Button variant="ghost" onClick={onClose}>Batal</Button>
+            <Button variant="ghost" onClick={onClose}>{tr("Cancel", "Batal")}</Button>
           </div>
         </div>
       </div>

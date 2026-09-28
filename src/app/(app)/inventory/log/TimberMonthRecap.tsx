@@ -5,6 +5,7 @@ import { Card, CardHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { inventory } from "@/demo/api";
+import { useLang, useTr } from "@/lib/i18n";
 
 /** How much timber cost, month by month — for reporting to leadership rather
  *  than for choosing a vendor (`0157`).
@@ -21,13 +22,15 @@ import { inventory } from "@/demo/api";
  *  a page reload; a plain `useLoad(..., [])` would go stale the moment a load
  *  was filed and stay stale until somebody navigated away and back. */
 export function TimberMonthRecap({ reloadKey }: { reloadKey: number }) {
+  const tr = useTr();
+  const lang = useLang();
   const [months] = useLoad(() => inventory.timberByMonth(), [reloadKey]);
 
   return (
     <Card className="mb-4">
       <CardHeader
-        title="Rekap bulanan"
-        subtitle="Total per bulan — untuk laporan, bukan untuk membandingkan vendor. Harga per m³/m² ada di tabel per vendor di bawah."
+        title={tr("Monthly recap", "Rekap bulanan")}
+        subtitle={tr("Totals per month — for reporting, not for comparing vendors. The price per m³/m² is in the per-vendor table below.", "Total per bulan — untuk laporan, bukan untuk membandingkan vendor. Harga per m³/m² ada di tabel per vendor di bawah.")}
         icon={Calendar}
         action={<SourceBadge state={months} />}
       />
@@ -37,21 +40,21 @@ export function TimberMonthRecap({ reloadKey }: { reloadKey: number }) {
             <table className="w-full min-w-[720px] border-collapse whitespace-nowrap text-[13px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-2 text-left">Bulan</th>
-                  <th className="px-3 py-2 text-right">Kiriman</th>
-                  <th className="px-3 py-2 text-right">Vendor · spesies</th>
-                  <th className="px-3 py-2 text-right">Log m³</th>
-                  <th className="px-3 py-2 text-right">Papan</th>
-                  <th className="px-3 py-2 text-right">Nilai kayu</th>
-                  <th className="px-3 py-2 text-right">Biaya lain</th>
-                  <th className="px-4 py-2 text-right">Total (landed)</th>
+                  <th className="px-4 py-2 text-left">{tr("Month", "Bulan")}</th>
+                  <th className="px-3 py-2 text-right">{tr("Loads", "Kiriman")}</th>
+                  <th className="px-3 py-2 text-right">{tr("Vendors · species", "Vendor · spesies")}</th>
+                  <th className="px-3 py-2 text-right">{tr("Log m³", "Log m³")}</th>
+                  <th className="px-3 py-2 text-right">{tr("Boards", "Papan")}</th>
+                  <th className="px-3 py-2 text-right">{tr("Wood value", "Nilai kayu")}</th>
+                  <th className="px-3 py-2 text-right">{tr("Other costs", "Biaya lain")}</th>
+                  <th className="px-4 py-2 text-right">{tr("Total (landed)", "Total (landed)")}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((m) => (
                   <tr key={m.month} className="border-b border-slate-100">
                     <td className="px-4 py-2 font-medium text-slate-800">
-                      {new Date(m.month).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}
+                      {new Date(m.month).toLocaleDateString(lang === "id" ? "id-ID" : "en-GB", { month: "long", year: "numeric" })}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-slate-700">{m.loads}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-slate-500">
@@ -76,7 +79,7 @@ export function TimberMonthRecap({ reloadKey }: { reloadKey: number }) {
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-[13px] text-slate-500">
-                      Belum ada kiriman kayu untuk direkap.
+                      {tr("No timber loads to recap yet.", "Belum ada kiriman kayu untuk direkap.")}
                     </td>
                   </tr>
                 )}

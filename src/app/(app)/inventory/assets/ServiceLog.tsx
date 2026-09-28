@@ -12,6 +12,7 @@ import {
   ASSET_SERVICE_KIND_LABEL, type AssetService, type AssetServiceKind, type AssetView,
 } from "@/services/inventory/contracts";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** What has been done to an asset, and when the next one is due (`0121`).
  *  The audit trail below it records edits to the record; this records work
@@ -26,6 +27,7 @@ type Form = {
 };
 
 export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; canEdit: boolean; onChanged: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [rows, setRows] = useState<AssetService[] | null>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -49,17 +51,17 @@ export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; ca
       next_due: form.next_due || null,
     });
     setSaving(false);
-    if (res.error) { toast("warning", "Not logged", res.error.message); return; }
-    toast("success", "Logged", `${ASSET_SERVICE_KIND_LABEL[res.data.kind]} on ${res.data.service_date}.`);
+    if (res.error) { toast("warning", tr("Not logged", "Tidak tercatat"), res.error.message); return; }
+    toast("success", tr("Logged", "Tercatat"), tr(`${ASSET_SERVICE_KIND_LABEL[res.data.kind]} on ${res.data.service_date}.`, `${ASSET_SERVICE_KIND_LABEL[res.data.kind]} pada ${res.data.service_date}.`));
     setForm(null);
     load();
     onChanged();
   }
 
   async function remove(s: AssetService) {
-    if (!window.confirm(`Delete "${s.description}" (${s.service_date})? Only for an entry made by mistake.`)) return;
+    if (!window.confirm(tr(`Delete "${s.description}" (${s.service_date})? Only for an entry made by mistake.`, `Hapus "${s.description}" (${s.service_date})? Hanya untuk entri yang dibuat keliru.`))) return;
     const res = await inventory.deleteAssetService(s.id, "Entered by mistake");
-    if (res.error) { toast("warning", "Not deleted", res.error.message); return; }
+    if (res.error) { toast("warning", tr("Not deleted", "Tidak terhapus"), res.error.message); return; }
     load();
     onChanged();
   }
@@ -68,9 +70,9 @@ export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; ca
     <section data-testid="asset-service-log">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <Wrench className="h-3.5 w-3.5" /> Service &amp; repairs
+          <Wrench className="h-3.5 w-3.5" /> {tr("Service & repairs", "Servis & perbaikan")}
           {asset.next_service_due && (
-            <Badge tone={asset.service_due ? "amber" : "slate"}>next due {asset.next_service_due}</Badge>
+            <Badge tone={asset.service_due ? "amber" : "slate"}>{tr("next due", "jatuh tempo berikutnya")} {asset.next_service_due}</Badge>
           )}
         </p>
         {canEdit && !form && (
@@ -81,7 +83,7 @@ export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; ca
               description: "", cost: 0, vendor_code: "", trx_no: "", next_due: "",
             })}
           >
-            Log a service
+            {tr("Log a service", "Catat servis")}
           </Button>
         )}
       </div>
@@ -90,12 +92,12 @@ export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; ca
         <div className="mb-2 space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-slate-600">
-              Done on
+              {tr("Done on", "Dikerjakan pada")}
               <input id="sv-date" type="date" value={form.service_date} max={officeToday()}
                 onChange={(e) => setForm({ ...form, service_date: e.target.value })} className={inputClass} />
             </label>
             <label className="text-xs text-slate-600">
-              Kind
+              {tr("Kind", "Jenis")}
               <select id="sv-kind" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as AssetServiceKind })}
                 className={inputClass + " bg-white"}>
                 {(Object.keys(ASSET_SERVICE_KIND_LABEL) as AssetServiceKind[]).map((k) => (
@@ -104,43 +106,43 @@ export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; ca
               </select>
             </label>
             <label className="col-span-2 text-xs text-slate-600">
-              What was done
+              {tr("What was done", "Apa yang dikerjakan")}
               <input id="sv-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="e.g. Ganti oli + filter" className={inputClass} />
+                placeholder={tr("e.g. Oil + filter change", "mis. Ganti oli + filter")} className={inputClass} />
             </label>
             <label className="text-xs text-slate-600">
-              Cost
+              {tr("Cost", "Biaya")}
               <MoneyInput id="sv-cost" value={form.cost} onChange={(v) => setForm({ ...form, cost: v })} className="mt-1" />
             </label>
             <label className="text-xs text-slate-600">
-              Next due <span className="text-slate-400">(if it recurs)</span>
+              {tr("Next due", "Jatuh tempo berikutnya")} <span className="text-slate-400">{tr("(if it recurs)", "(jika berulang)")}</span>
               <input id="sv-next" type="date" value={form.next_due} min={form.service_date}
                 onChange={(e) => setForm({ ...form, next_due: e.target.value })} className={inputClass} />
             </label>
             <label className="text-xs text-slate-600">
-              Done by (supplier code)
+              {tr("Done by (supplier code)", "Dikerjakan oleh (kode pemasok)")}
               <input id="sv-vendor" value={form.vendor_code} onChange={(e) => setForm({ ...form, vendor_code: e.target.value })}
-                placeholder="optional" className={inputClass + " font-mono"} />
+                placeholder={tr("optional", "opsional")} className={inputClass + " font-mono"} />
             </label>
             <label className="text-xs text-slate-600">
-              Ledger row
+              {tr("Ledger row", "Baris buku besar")}
               <input id="sv-trx" value={form.trx_no} onChange={(e) => setForm({ ...form, trx_no: e.target.value })}
-                placeholder="trx-… (optional)" className={inputClass + " font-mono"} />
+                placeholder={tr("trx-… (optional)", "trx-… (opsional)")} className={inputClass + " font-mono"} />
             </label>
           </div>
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+            <Button size="sm" variant="ghost" onClick={() => setForm(null)}>{tr("Cancel", "Batal")}</Button>
             <Button size="sm" onClick={save} disabled={saving || !form.description.trim() || !form.service_date}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? tr("Saving…", "Menyimpan…") : tr("Save", "Simpan")}
             </Button>
           </div>
         </div>
       )}
 
       {rows === null ? (
-        <p className="text-[13px] text-slate-400">Loading…</p>
+        <p className="text-[13px] text-slate-400">{tr("Loading…", "Memuat…")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-[13px] text-slate-500">No service or repair logged yet.</p>
+        <p className="text-[13px] text-slate-500">{tr("No service or repair logged yet.", "Belum ada servis atau perbaikan tercatat.")}</p>
       ) : (
         <ol className="divide-y divide-slate-100 rounded-lg border border-slate-200">
           {rows.map((s) => (
@@ -156,13 +158,13 @@ export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; ca
                   {s.trx_no && (
                     <> · <Link href={`/accounting/ledger?trx=${encodeURIComponent(s.trx_no)}`} className="text-brand-700 hover:underline">{s.trx_no}</Link></>
                   )}
-                  {s.next_due ? ` · next ${s.next_due}` : ""}
+                  {s.next_due ? tr(` · next ${s.next_due}`, ` · berikutnya ${s.next_due}`) : ""}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1">
                 <span className="tabular-nums text-slate-700">{s.cost != null ? formatIDR(s.cost) : "—"}</span>
                 {canEdit && (
-                  <button type="button" aria-label={`Delete ${s.description}`} onClick={() => remove(s)}
+                  <button type="button" aria-label={tr(`Delete ${s.description}`, `Hapus ${s.description}`)} onClick={() => remove(s)}
                     className="rounded p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-600">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -174,7 +176,10 @@ export function ServiceLog({ asset, canEdit, onChanged }: { asset: AssetView; ca
       )}
       {rows && rows.length > 0 && (
         <p className="mt-1 text-[11px] text-slate-500">
-          {rows.length} job{rows.length === 1 ? "" : "s"} · {formatIDR(rows.reduce((t, s) => t + (s.cost ?? 0), 0))} in total
+          {tr(
+            `${rows.length} job${rows.length === 1 ? "" : "s"} · ${formatIDR(rows.reduce((t, s) => t + (s.cost ?? 0), 0))} in total`,
+            `${rows.length} pekerjaan · total ${formatIDR(rows.reduce((t, s) => t + (s.cost ?? 0), 0))}`,
+          )}
         </p>
       )}
     </section>
