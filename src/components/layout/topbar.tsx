@@ -68,7 +68,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 
         <div className="ml-auto flex items-center gap-2">
           {/* The viewer's own language, one click, remembered in this browser
-              (D317). English is the default (D247). */}
+              (D318). English is the default (D247). */}
           <div
             role="group"
             aria-label={tr("Language", "Bahasa")}

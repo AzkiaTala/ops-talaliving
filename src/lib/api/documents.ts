@@ -68,6 +68,8 @@ interface AttachmentRow {
   source: "web" | "chat" | "api" | "import";
   duplicate_suspect: boolean;
   covers_count: number;
+  web_view_link: string | null;
+  filed_in: string | null;
 }
 
 interface LinkRow {
@@ -93,6 +95,8 @@ function toView(a: AttachmentRow, links: AttachmentLink[]): AttachmentView {
     uploaded_at: a.uploaded_at,
     source: a.source,
     duplicate_suspect: a.duplicate_suspect,
+    web_view_link: a.web_view_link,
+    filed_in: a.filed_in,
     links,
     /* The view's count, not `links.length`. They agree today and would stop
        agreeing the moment a caller passed a filtered subset — and the number

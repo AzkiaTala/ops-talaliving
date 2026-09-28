@@ -8,7 +8,7 @@ import { useBrand } from "@/lib/brand";
 import { useTr, type Tr } from "@/lib/i18n";
 
 /** The document goes to a vendor, so it reads the same whoever prints it:
- *  Indonesian first, English beside it — the shape it had before D317. Only
+ *  Indonesian first, English beside it — the shape it had before D318. Only
  *  the on-screen hint follows the viewer's language. */
 const both: Tr = (en, id) => (en === id ? en : `${id} / ${en}`);
 

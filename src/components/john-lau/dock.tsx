@@ -11,6 +11,7 @@ import { Badge, Button } from "@/components/ui/primitives";
 import { cn } from "@/lib/cn";
 import { assistant } from "@/demo/api";
 import type { AssistantTurn } from "@/services/assistant/contracts";
+import type { ApiError } from "@/services/_shared/envelope";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { useT, useLang, useTr } from "@/lib/i18n";
@@ -210,12 +211,18 @@ function Turn({ turn, pathname, current, onNavigate, onChanged }: {
     Object.fromEntries((turn.draft?.fields ?? []).map((f) => [f.key, f.value.startsWith("—") ? "" : f.value])),
   );
   const [busy, setBusy] = useState(false);
+  /** What the seam said the last time Confirm did not write (D317). Kept on
+   *  the card rather than only in a toast: the person is about to fix a field,
+   *  and the sentence that says which one should still be there while they do. */
+  const [said, setSaid] = useState<ApiError | null>(null);
+  const saidField = said?.detail && typeof said.detail.field === "string" ? said.detail.field : null;
 
   async function confirm() {
     setBusy(true);
     const res = await assistant.confirmDraft({ turn_id: turn.id, fields });
     setBusy(false);
-    if (res.error) { toast("warning", tr("Not written", "Tidak jadi ditulis"), res.error.message); return; }
+    if (res.error) { setSaid(res.error); toast("warning", tr("Not written", "Tidak jadi ditulis"), res.error.message); return; }
+    setSaid(null);
     toast("success", t(MESSAGES.johnLau.savedAs), res.data.produced_ref ?? tr("Draft confirmed", "Rancangan dikonfirmasi"));
     onChanged(res.data);
   }
@@ -316,17 +323,39 @@ function Turn({ turn, pathname, current, onNavigate, onChanged }: {
           <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
             <p className="text-[12px] font-medium text-amber-900">{turn.draft.headline}</p>
             <div className="mt-1.5 space-y-1.5">
-              {turn.draft.fields.map((f) => (
+              {turn.draft.fields.map((f) => {
+                const named = !!saidField && (saidField === f.key || saidField === f.param);
+                return (
                 <label key={f.key} className="block text-[11px] text-slate-600">
                   {f.label}
                   <input
                     value={fields[f.key] ?? ""} onChange={(e) => setFields({ ...fields, [f.key]: e.target.value })}
                     placeholder={f.value}
-                    className="mt-0.5 h-8 w-full rounded-lg border border-slate-200 px-2 text-[12px] focus:border-brand-400 focus:outline-none"
+                    aria-invalid={named || undefined}
+                    className={cn(
+                      "mt-0.5 h-8 w-full rounded-lg border px-2 text-[12px] focus:border-brand-400 focus:outline-none",
+                      named ? "border-rose-400 bg-rose-50" : "border-slate-200",
+                    )}
                   />
                 </label>
-              ))}
+                );
+              })}
             </div>
+            {/* The seam's own answer, as it came back: which kind of no, its
+                sentence, and its code — so *kode negara dua huruf* is read on
+                the card, next to the field it is about (D317). */}
+            {said && (
+              <div data-seam-said={said.outcome} className="mt-2 rounded-lg border border-rose-200 bg-white px-2 py-1.5">
+                <p className="text-[11px] font-medium text-rose-800">
+                  {t(said.status === 422 ? MESSAGES.johnLau.seamInvalid
+                    : said.status === 409 ? MESSAGES.johnLau.seamConflict
+                      : said.status === 404 ? MESSAGES.johnLau.seamNotFound
+                        : MESSAGES.johnLau.seamRefused)}
+                </p>
+                <p className="text-[12px] text-slate-700">{stripRefs(said.message)}</p>
+                <p className="font-mono text-[10px] text-slate-400">{said.code}</p>
+              </div>
+            )}
             {turn.draft.warnings.map((w) => (
               <p key={w} className="mt-1.5 text-[11px] text-amber-900">{w}</p>
             ))}

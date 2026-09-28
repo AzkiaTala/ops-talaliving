@@ -3,7 +3,7 @@
 /** `@/demo/provider` in a live build.
  *
  *  `useBrand()` reads the brand from `app_settings` here (the language is the
- *  viewer's own choice since D317, kept in the browser). In a live build those have
+ *  viewer's own choice since D318, kept in the browser). In a live build those have
  *  always come from the fixture defaults — the store is never hydrated from
  *  the database — so this hands over exactly those defaults and nothing else,
  *  and the screens read the same values they did before the demo was cut out.

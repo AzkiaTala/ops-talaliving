@@ -24,6 +24,8 @@ export interface PreviewDoc {
   mime: string;
   bytes: number;
   url: string | null;
+  /** An uploaded file's Google Drive link (`web_view_link`, 0175). */
+  drive_link?: string | null;
   uploaded_at: string;
   uploaded_by_name?: string;
   kind?: string | null;
@@ -58,7 +60,13 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
   const isLink = doc.mime === "text/uri-list" || (doc.url != null && !doc.mime.startsWith("image/"));
   const isImage = doc.mime.startsWith("image/");
   const [imgFailed, setImgFailed] = useState(false);
-  const imgSrc = doc.url ? (driveThumbnailUrl(doc.url) ?? doc.url) : null;
+  /* An uploaded file has no `url` — it is not an address — but it has the
+     Drive link recorded beside it (0175), which the same thumbnail trick
+     reads. Where to go for full size is whichever of the two there is. */
+  const openAt = doc.url ?? doc.drive_link ?? null;
+  const imgSrc = doc.url
+    ? (driveThumbnailUrl(doc.url) ?? doc.url)
+    : doc.drive_link ? driveThumbnailUrl(doc.drive_link) : null;
 
   if (isLink) {
     return (
@@ -104,8 +112,8 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
         style={{ height }}
       />
     );
-    return doc.url ? (
-      <a href={doc.url} target="_blank" rel="noreferrer" title={tr("Open full size in Google Drive", "Buka ukuran penuh di Google Drive")}>
+    return openAt ? (
+      <a href={openAt} target="_blank" rel="noreferrer" title={tr("Open full size in Google Drive", "Buka ukuran penuh di Google Drive")}>
         {img}
       </a>
     ) : img;
@@ -153,6 +161,14 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
 
         <div className="border-t border-dashed border-slate-200 pt-2">
           <p className="truncate font-mono text-[10px] text-slate-500">{doc.filename}</p>
+          {doc.drive_link && (
+            <a
+              href={doc.drive_link} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline"
+            >
+              {tr("Open in Google Drive", "Buka di Google Drive")} <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
           <p className="text-[10px] text-slate-400">
             {(doc.bytes / 1024).toFixed(0)} KB · {tr("uploaded", "diunggah")} {doc.uploaded_at.slice(0, 10)}
             {doc.uploaded_by_name && tr(` by ${doc.uploaded_by_name}`, ` oleh ${doc.uploaded_by_name}`)}

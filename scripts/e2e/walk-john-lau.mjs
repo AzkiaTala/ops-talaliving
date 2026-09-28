@@ -9,12 +9,18 @@
  *  "Ya, tulis" turns into a row — and that a model inventing an argument or a
  *  link has it dropped. The conversation must still be there after a reload.
  *
+ *  Stage 5 walks a **declared** write (D317, 0176): a market, which has no
+ *  screen, drafted from the catalogue row alone — Confirm writes, Cancel does
+ *  not, and a grant taken away between the draft and the yes is refused at the
+ *  yes.
+ *
  *  Same stack as `walk-procurement.mjs`, with the app started with
  *    ASSISTANT_LLM_PROVIDER=openai ASSISTANT_LLM_API_KEY=mock
  *    ASSISTANT_LLM_BASE_URL=http://127.0.0.1:54340
  */
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
 
 const require = createRequire(process.env.NODE_PATH ? process.env.NODE_PATH + "/" : import.meta.url);
 const { chromium } = require("playwright-core");
@@ -200,6 +206,97 @@ const mArgs = sql(`select args::text from ops_asst.drafts order by created_at de
 expect("a sentence the router does not know → the model picks the leave draft; its invented field and malformed date are dropped",
   t[0] === "draft" && t[2] === "hr.draft_leave,ai.openai" && mArgs.includes("B-0102") && !mArgs.includes("4500000")
   && !mArgs.includes("minggu depan") && !mArgs.includes("invented"), `${t.join("|")} ${mArgs}`);
+
+/* ═════ Stage 5: a declared write — no screen, one catalogue row (D317) ═════
+   `marketing.draft_market` is declared in `ops_asst.tool_seams` (0176) over
+   `ops_mkt.create_market`, which no screen calls. Nothing in the dock knows
+   it: the card is drawn from the catalogue, the Confirm calls the seam as the
+   person. Three things must hold — Confirm writes, Cancel writes nothing, and
+   a person whose grant went between the draft and the yes is refused at the
+   yes, with the seam's and the gate's own sentences read out on the card. */
+const SARI = sql(`select id from ops_core.users where email = 'sari@talaliving.com'`);
+const setMarketing = (level) => sql(`insert into ops_core.user_modules (user_id, module, level)
+  values ('${SARI}', 'marketing', '${level}') on conflict (user_id, module) do update set level = excluded.level`);
+setMarketing("write");
+const markets = () => sql(`select count(*) from ops_mkt.markets`);
+const card = () => page.locator("[data-dock='john-lau']");
+async function fill(label, value) {
+  await card().locator("label", { hasText: label }).last().locator("input").fill(value);
+}
+/* Both languages, as the stages above do: the card follows the language in force. */
+const L = {
+  code: /Kode pasar|Market code/, country_code: /Kode negara|Country code/, country: /^(Negara|Country) \*/,
+  region: /Wilayah|Region/, city: /^(Kota|City)/, area: /^Area/, currency: /Mata uang|Currency/,
+  timezone: /Zona waktu|Time zone/, language: /Bahasa|Outreach language/,
+};
+const yes = () => card().getByRole("button", { name: /Ya, tulis|Yes, write it/ }).last().click();
+
+const m0 = markets();
+await ask("tolong buat pasar baru untuk Gold Coast");
+t = lastTurnOf("sari@talaliving.com").split("|");
+const mkArgs = sql(`select args::text from ops_asst.drafts order by created_at desc limit 1`);
+expect("\"buat pasar baru\" → a declared draft of ops_mkt.create_market, nothing written",
+  t[0] === "draft" && t[2] === "marketing.draft_market" && markets() === m0 && mkArgs.includes('"language": "en"'), `${t.join("|")} ${mkArgs}`);
+const shown = await card().locator("label").allInnerTexts();
+expect("the card is drawn from the catalogue: all nine declared fields, editable",
+  [L.code, L.country_code, L.country, L.region, L.city, L.area, L.currency, L.timezone, L.language].every((l) => shown.some((x) => l.test(x))),
+  shown.join(" / "));
+
+/* A wrong field first: the seam's own refusal, read out on the card. */
+await fill(L.code, "AU-QLD-GOLDCOAST-SPNORTH");
+await fill(L.country_code, "AUS");
+await fill(L.country, "Australia");
+await fill(L.region, "Queensland");
+await fill(L.city, "Gold Coast");
+await fill(L.area, "SP NORTH");
+await fill(L.currency, "AUD");
+await fill(L.timezone, "Australia/Brisbane");
+await yes();
+await page.waitForTimeout(2000);
+const said1 = await card().locator("[data-seam-said]").last().innerText().catch(() => "");
+expect("an invalid field → the seam's sentence and code on the card, nothing written",
+  /dua huruf/.test(said1) && said1.includes("bad_country_code") && markets() === m0, said1 || "no envelope shown");
+if (SHOT) {
+  mkdirSync(`${ROOT}/docs/sop/marketing`, { recursive: true });
+  await page.screenshot({ path: `${ROOT}/docs/sop/marketing/01-john-lau-pasar.jpg`, type: "jpeg", quality: 75 });
+}
+
+await fill(L.country_code, "AU");
+await yes();
+await page.waitForTimeout(2500);
+const made = sql(`select count(*) || '|' || coalesce(max(code), '-') || '|' || coalesce(max(timezone), '-') from ops_mkt.markets where code = 'AU-QLD-GOLDCOAST-SPNORTH'`);
+const settled = sql(`select outcome || '|' || coalesce(produced_ref, '-') from ops_asst.drafts order by created_at desc limit 1`);
+expect("\"Ya, tulis\" writes the market as Sari, through create_market, and the draft names it",
+  made === "1|AU-QLD-GOLDCOAST-SPNORTH|Australia/Brisbane" && settled === "confirmed|AU-QLD-GOLDCOAST-SPNORTH", `${made} ${settled}`);
+
+/* Cancel. */
+const m1 = markets();
+await ask("tambah pasar Seminyak");
+await fill(L.code, "ID-BALI-BADUNG-SEMINYAK");
+await card().getByRole("button", { name: /^(Batal|Cancel)$/ }).last().click();
+await page.waitForTimeout(1500);
+const cancelled = sql(`select outcome from ops_asst.drafts order by created_at desc limit 1`);
+expect("Batal abandons the draft and writes nothing", cancelled === "abandoned" && markets() === m1, `${cancelled} ${markets()}`);
+
+/* The grant goes between the draft and the yes. */
+await ask("buat pasar baru Dubai");
+t = lastTurnOf("sari@talaliving.com").split("|");
+expect("a writer drafts the next market", t[0] === "draft" && t[2] === "marketing.draft_market", t.join("|"));
+setMarketing("read");
+await fill(L.code, "AE-DUBAI-MARINA");
+await fill(L.country_code, "AE");
+await fill(L.country, "Uni Emirat Arab");
+await fill(L.city, "Dubai");
+await fill(L.area, "Marina");
+await fill(L.currency, "AED");
+await fill(L.timezone, "Asia/Dubai");
+await yes();
+await page.waitForTimeout(2000);
+const said2 = await card().locator("[data-seam-said]").last().innerText().catch(() => "");
+const open3 = sql(`select coalesce(outcome::text, 'open') from ops_asst.drafts order by created_at desc limit 1`);
+expect("once the grant is gone the yes is refused — by the gate, read out — and nothing is written",
+  /Ditolak|Refused/.test(said2) && /marketing/.test(said2) && markets() === m1 && open3 === "open", `${said2 || "no envelope shown"} ${open3}`);
+setMarketing("write");
 
 await browser.close();
 if (failures.length) { console.error(`\n${failures.length} failure(s)`); process.exitCode = 1; }

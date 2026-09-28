@@ -9,7 +9,7 @@ import { useTr, type Tr } from "@/lib/i18n";
 
 /** The quotation goes to a client, so it reads the same whoever prints it:
  *  Indonesian first, English beside it — the shape its labels had before
- *  D317. Only the on-screen hint follows the viewer's language. */
+ *  D318. Only the on-screen hint follows the viewer's language. */
 const both: Tr = (en, id) => (en === id ? en : `${id} / ${en}`);
 
 /** The quotation as the client sees it — A4, printed to PDF by the browser,

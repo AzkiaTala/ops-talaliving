@@ -16,7 +16,7 @@
  *  the whole app is navigated by — and **all of John Lau**, including his
  *  guidance, his refusals and the reasons behind them.
  *
- *  **Translated since D317**: the bodies of the screens too — every heading,
+ *  **Translated since D318**: the bodies of the screens too — every heading,
  *  label, button, help line, empty state and toast, through `useTr()`.
  *  Content that comes out of the database (names, remarks, a vendor's own
  *  words, setting labels) is shown as stored.
@@ -51,7 +51,7 @@ export function pick(m: Message, lang: Lang): string {
   return m[lang];
 }
 
-/** The language is a **viewer's** choice, not the company's (D317).
+/** The language is a **viewer's** choice, not the company's (D318).
  *
  *  It used to be one row in `app_settings`, which made the language of every
  *  screen a company-wide setting: one person switching to Indonesian switched
