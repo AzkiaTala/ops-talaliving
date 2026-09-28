@@ -7323,3 +7323,27 @@ Drive connector available here acts as a person (it@), so a folder it made
 would be as invisible to `drive.file` as the hand-made OPS. That connector
 also sees only DRAFTING's OPS folder. The folder has to be made by the app,
 so IT runs the screen after the deploy.
+
+## F174 · 2026-09-28 · a photo on the record, and no way to see it
+
+The owner: the pictures should be visible without opening each one, as a
+tile per picture, and clicking one should open it in Drive. They remembered
+the original design having tiles. It did not: `docs/plan/04-frontend.md`
+describes *thumbnails* on the attach block, and the block was built as a
+text list. In that list a pasted link was clickable, but an **uploaded file
+was plain text**. The Drive link was not stored until `0175`, and the list
+never learned to build one from `storage_path`, which has held the Drive
+file id all along.
+
+**Fixed:** `src/lib/drive-links.ts` finds the id wherever it sits
+(`web_view_link`, a Drive `url`, or the bare id in `storage_path`), so
+uploads from before `0175` open too. `<ImageTiles>` shows every picture on
+the record as a square tile with Drive's own thumbnail, and each tile opens
+the file in Drive. The filenames in the list below are links now. The preview
+modal and the verification screen fall back to `storage_path` the same way.
+
+The thumbnail loads with the viewer's own Google session. A viewer outside
+that shared drive, or a file Drive has not thumbnailed yet, gets a tile with
+the name instead of a broken image, and it still opens Drive, which asks for
+access. The sandbox's files have no Drive id, so there they are always name
+tiles.

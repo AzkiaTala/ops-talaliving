@@ -1,5 +1,6 @@
 "use client";
 
+import { driveOpenUrl } from "@/lib/drive-links";
 import { useState } from "react";
 import { FileText, ImageOff } from "lucide-react";
 import { Modal } from "./drawer";
@@ -78,7 +79,7 @@ function EvidenceBody({ id }: { id: string }) {
             mime: a.mime,
             bytes: a.bytes,
             url: a.url,
-            drive_link: a.web_view_link ?? null,
+            drive_link: a.url ? null : driveOpenUrl(a),
             uploaded_at: a.uploaded_at,
             kind: a.links[0]?.kind ?? null,
           } as PreviewDoc}

@@ -10,6 +10,8 @@ import {
   type DocKind, type LinkEntity, type AttachmentView,
 } from "@/services/documents/contracts";
 import { useToast } from "@/store/toast";
+import { ImageTiles } from "./image-tiles";
+import { driveOpenUrl, isImageFile } from "@/lib/drive-links";
 import { useTr } from "@/lib/i18n";
 
 /** Attaching a document, from the record it belongs to.
@@ -230,6 +232,15 @@ export function EvidenceStrip({
         </ul>
       )}
 
+      {/* The pictures first, as tiles: seen without opening each one, and a
+          click opens it in Drive (F174). The list below keeps the details
+          and the actions (remove, also covers). */}
+      <ImageTiles
+        files={rows.filter((a) => !a.url || a.mime.startsWith("image/")).filter(isImageFile).map((a) => ({
+          ...a, caption: [...new Set(a.links.map((l) => l.kind))].join(", "),
+        }))}
+      />
+
       {rows.length > 0 ? (
         <ul className="mb-3 divide-y divide-slate-100 rounded-lg border border-slate-200">
           {rows.map((a) => {
@@ -242,14 +253,15 @@ export function EvidenceStrip({
                     ? <Link2 className="h-4 w-4 shrink-0 text-slate-400" />
                     : <FileText className="h-4 w-4 shrink-0 text-slate-400" />}
                   <span className="min-w-0 flex-1">
-                    {/* A link is worth nothing filed if nobody can open it. */}
-                    {a.url ? (
+                    {/* A document is worth nothing filed if nobody can open it:
+                        a link opens itself, an uploaded file opens in Drive. */}
+                    {driveOpenUrl(a) ? (
                       <a
-                        href={a.url}
+                        href={driveOpenUrl(a)!}
                         target="_blank"
                         rel="noreferrer noopener"
                         className="block truncate text-[13px] text-brand-700 underline"
-                        title={a.url}
+                        title={a.url ?? tr("Open in Google Drive", "Buka di Google Drive")}
                       >
                         {a.filename}
                       </a>
@@ -338,7 +350,12 @@ export function EvidenceStrip({
             {group.attachments.map((a) => (
               <li key={a.id} className="flex items-center gap-2 text-[13px] text-slate-600">
                 <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                <span className="min-w-0 flex-1 truncate">{a.filename}</span>
+                {driveOpenUrl(a) ? (
+                  <a href={driveOpenUrl(a)!} target="_blank" rel="noreferrer noopener"
+                     className="min-w-0 flex-1 truncate text-brand-700 underline">{a.filename}</a>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate">{a.filename}</span>
+                )}
                 <span className="text-[11px] text-slate-400">
                   {[...new Set(a.links.map((l) => l.kind))].join(", ")}
                 </span>
