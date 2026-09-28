@@ -78,6 +78,7 @@ function EvidenceBody({ id }: { id: string }) {
             mime: a.mime,
             bytes: a.bytes,
             url: a.url,
+            drive_link: a.web_view_link ?? null,
             uploaded_at: a.uploaded_at,
             kind: a.links[0]?.kind ?? null,
           } as PreviewDoc}
