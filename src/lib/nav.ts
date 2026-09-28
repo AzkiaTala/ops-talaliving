@@ -65,13 +65,13 @@ export const NAV: NavSection[] = [
       { label: "Attendance", labelKey: "attendance", href: "/hrd/absensi", icon: CalendarCheck, permission: "hrd.read" },
       { label: "Overtime", labelKey: "overtime", href: "/hrd/lembur", icon: Clock, permission: "hrd.read", badge: "new" },
       { label: "Employee Files", labelKey: "employeeFiles", href: "/hrd/berkas-201", icon: FileBadge, permission: "hrd.read", badge: "new" },
-      { label: "Employment contracts", href: "/hrd/kontrak", icon: ScrollText, permission: "hrd.read", badge: "new" },
+      { label: "Employment contracts", labelKey: "contracts", href: "/hrd/kontrak", icon: ScrollText, permission: "hrd.read", badge: "new" },
       { label: "Leave & Permits", labelKey: "leave", href: "/hrd/cuti", icon: CalendarClock, permission: "hrd.read", badge: "new" },
       { label: "Payroll", labelKey: "payroll", href: "/hrd/payroll", icon: Wallet, permission: "payroll.read" },
       { label: "Gajian mingguan", labelKey: "payrollWeek", href: "/hrd/payroll/minggu", icon: CalendarRange, permission: "payroll.read", badge: "new" },
       { label: "Statutory contributions", labelKey: "contributions", href: "/hrd/iuran", icon: ShieldCheck, permission: "payroll.read", orPermission: "accounting.read", badge: "new" },
-      { label: "Task monitoring", href: "/hrd/tugas", icon: ListChecks, permission: "hrd.read", badge: "new" },
-      { label: "Wajib Lapor (WLKP)", href: "/hrd/wlkp", icon: ClipboardList, permission: "hrd.read", orPermission: "payroll.read", badge: "new" },
+      { label: "Task monitoring", labelKey: "taskMonitoring", href: "/hrd/tugas", icon: ListChecks, permission: "hrd.read", badge: "new" },
+      { label: "Wajib Lapor (WLKP)", labelKey: "wlkp", href: "/hrd/wlkp", icon: ClipboardList, permission: "hrd.read", orPermission: "payroll.read", badge: "new" },
       { label: "Performance & tasks", labelKey: "performance", href: "/hrd/kinerja", icon: Gauge, permission: "payroll.read", orPermission: "hrd.read", badge: "new" },
       /* Under Payroll, not under IT. Its gate has always been `payroll.read`
        * — HRD owns the rule book — and once the IT heading means "IT and
@@ -87,11 +87,11 @@ export const NAV: NavSection[] = [
     icon: ShoppingCart,
     items: [
       { label: "Requests", labelKey: "requests", href: "/procurement/pr", icon: ClipboardList, permission: "procurement.read", badge: "core" },
-      { label: "Meeting board", href: "/procurement/meeting", icon: Users, permission: "procurement.read" },
+      { label: "Meeting board", labelKey: "meetingBoard", href: "/procurement/meeting", icon: Users, permission: "procurement.read" },
       { label: "Payment rounds", labelKey: "rounds", href: "/procurement/rounds", icon: HandCoins, permission: "procurement.read" },
-      { label: "Purchase Tracker", href: "/procurement/tracker", icon: Route, permission: "procurement.read", badge: "new" },
-      { label: "Purchase Order", href: "/procurement/po", icon: FileText, permission: "procurement.read" },
-      { label: "Receiving Report", href: "/procurement/penerimaan", icon: PackageCheck, permission: "procurement.read" },
+      { label: "Purchase Tracker", labelKey: "purchaseTracker", href: "/procurement/tracker", icon: Route, permission: "procurement.read", badge: "new" },
+      { label: "Purchase Order", labelKey: "purchaseOrder", href: "/procurement/po", icon: FileText, permission: "procurement.read" },
+      { label: "Receiving Report", labelKey: "receivingReport", href: "/procurement/penerimaan", icon: PackageCheck, permission: "procurement.read" },
     ],
   },
   {
@@ -104,9 +104,9 @@ export const NAV: NavSection[] = [
        * recorded (D202, D203). */
       { label: "Timber", labelKey: "timber", href: "/inventory/log", icon: TreePine, permission: "inventory.read", badge: "core" },
       { label: "Materials & Hardware", labelKey: "materials", href: "/inventory/material", icon: Boxes, permission: "inventory.read", badge: "new" },
-      { label: "Finished Goods", href: "/inventory/produk", icon: PackageCheck, permission: "inventory.read", badge: "new" },
+      { label: "Finished Goods", labelKey: "finishedGoods", href: "/inventory/produk", icon: PackageCheck, permission: "inventory.read", badge: "new" },
       { label: "Stock Adjustments", labelKey: "adjustments", href: "/inventory/penyesuaian", icon: Wrench, permission: "inventory.adjust", badge: "new" },
-      { label: "Assets", href: "/inventory/assets", icon: MonitorSmartphone, permission: "inventory.read", badge: "new" },
+      { label: "Assets", labelKey: "assets", href: "/inventory/assets", icon: MonitorSmartphone, permission: "inventory.read", badge: "new" },
     ],
   },
   {
@@ -120,7 +120,7 @@ export const NAV: NavSection[] = [
       { label: "Payment Calendar", labelKey: "calendar", href: "/accounting/calendar", icon: PiggyBank, permission: "accounting.read", badge: "new" },
       { label: "Monthly bills", labelKey: "monthlyBills", href: "/accounting/tagihan", icon: CalendarClock, permission: "accounting.read", badge: "new" },
       { label: "Documents", labelKey: "documents", href: "/accounting/documents", icon: FileBadge, permission: "accounting.read" },
-      { label: "Purchase Verification", href: "/accounting/verifikasi", icon: Receipt, permission: "accounting.read", badge: "core" },
+      { label: "Purchase Verification", labelKey: "verification", href: "/accounting/verifikasi", icon: Receipt, permission: "accounting.read", badge: "core" },
     ],
   },
   {
@@ -129,16 +129,17 @@ export const NAV: NavSection[] = [
      * page is still gated by the module that owns the data (owner,
      * 2026-09-23) — no separate master-data role. */
     title: "Master Data",
+    titleKey: "masterData",
     icon: Database,
     items: [
       { label: "Suppliers", labelKey: "suppliers", href: "/master-data/suppliers", icon: Truck, permission: "procurement.read" },
-      { label: "Items", href: "/master-data/items", icon: Boxes, permission: "procurement.read" },
-      { label: "Item categories", href: "/master-data/categories", icon: FolderTree, permission: "procurement.read" },
-      { label: "Units", href: "/master-data/units", icon: Ruler, permission: "procurement.read" },
-      { label: "Accounts", href: "/master-data/accounts", icon: Landmark, permission: "accounting.read", badge: "new" },
-      { label: "Transaction types", href: "/master-data/transaction-types", icon: Tags, permission: "accounting.read", badge: "new" },
-      { label: "Asset categories", href: "/master-data/asset-categories", icon: MonitorSmartphone, permission: "inventory.read", badge: "new" },
-      { label: "Clients", href: "/master-data/clients", icon: Building2, permission: "project.read", badge: "new" },
+      { label: "Items", labelKey: "items", href: "/master-data/items", icon: Boxes, permission: "procurement.read" },
+      { label: "Item categories", labelKey: "itemCategories", href: "/master-data/categories", icon: FolderTree, permission: "procurement.read" },
+      { label: "Units", labelKey: "units", href: "/master-data/units", icon: Ruler, permission: "procurement.read" },
+      { label: "Accounts", labelKey: "accounts", href: "/master-data/accounts", icon: Landmark, permission: "accounting.read", badge: "new" },
+      { label: "Transaction types", labelKey: "transactionTypes", href: "/master-data/transaction-types", icon: Tags, permission: "accounting.read", badge: "new" },
+      { label: "Asset categories", labelKey: "assetCategories", href: "/master-data/asset-categories", icon: MonitorSmartphone, permission: "inventory.read", badge: "new" },
+      { label: "Clients", labelKey: "clients", href: "/master-data/clients", icon: Building2, permission: "project.read", badge: "new" },
     ],
   },
   {
@@ -177,7 +178,7 @@ export const NAV: NavSection[] = [
       { label: "Goods at vendors", labelKey: "vendorWork", href: "/produksi/vendor", icon: Factory, permission: "production.read", badge: "new" },
       { label: "Products & BOM", labelKey: "bom", href: "/produksi/bom", icon: ListTree, permission: "production.read", badge: "core" },
       { label: "Job Orders", labelKey: "schedule", href: "/produksi/jadwal", icon: CalendarClock, permission: "production.read", badge: "new" },
-      { label: "Job trail", href: "/produksi/jejak", icon: Route, permission: "production.read", badge: "new" },
+      { label: "Job trail", labelKey: "jobTrail", href: "/produksi/jejak", icon: Route, permission: "production.read", badge: "new" },
     ],
   },
   {
@@ -211,8 +212,8 @@ export const NAV: NavSection[] = [
     titleKey: "demo",
     icon: FlaskConical,
     items: [
-      { label: "Diagnostics", href: "/demo", icon: FlaskConical, permission: "dashboard.read", badge: "new" },
-      { label: "Google Chat (simulated)", href: "/demo/chat", icon: MessagesSquare, permission: "dashboard.read" },
+      { label: "Diagnostics", labelKey: "diagnostics", href: "/demo", icon: FlaskConical, permission: "dashboard.read", badge: "new" },
+      { label: "Google Chat (simulated)", labelKey: "chatSimulated", href: "/demo/chat", icon: MessagesSquare, permission: "dashboard.read" },
     ],
   },
   {

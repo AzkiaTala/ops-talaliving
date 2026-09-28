@@ -3,6 +3,7 @@
 import { CheckCircle2, Info, AlertTriangle, XCircle, X } from "lucide-react";
 import { useToast, type ToastLevel } from "@/store/toast";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 
 const config: Record<ToastLevel, { icon: typeof Info; ring: string; iconColor: string }> = {
   info: { icon: Info, ring: "border-brand-200", iconColor: "text-brand-600" },
@@ -13,6 +14,7 @@ const config: Record<ToastLevel, { icon: typeof Info; ring: string; iconColor: s
 
 export function Toaster() {
   const { toasts, dismissToast } = useToast();
+  const tr = useTr();
   return (
     <div className="pointer-events-none fixed bottom-6 right-6 z-[60] flex w-full max-w-sm flex-col gap-3">
       {toasts.map((t) => {
@@ -34,7 +36,7 @@ export function Toaster() {
             <button
               onClick={() => dismissToast(t.id)}
               className="text-slate-400 hover:text-slate-600"
-              aria-label="Dismiss notification"
+              aria-label={tr("Dismiss notification", "Tutup notifikasi")}
             >
               <X className="h-4 w-4" />
             </button>

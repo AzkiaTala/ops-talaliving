@@ -6,6 +6,7 @@ import { documents } from "@/demo/api";
 import type { DocKind } from "@/services/documents/contracts";
 import { useToast } from "@/store/toast";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 
 /** One file, uploaded the moment it is picked, and its id handed back.
  *
@@ -25,6 +26,7 @@ export function FileEvidence({
   className?: string;
 }) {
   const { toast } = useToast();
+  const tr = useTr();
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
@@ -34,7 +36,7 @@ export function FileEvidence({
     const up = await documents.upload({ file: f, kind });
     setBusy(false);
     if (ref.current) ref.current.value = "";
-    if (up.error) { toast("critical", "Upload gagal", up.error.message); return; }
+    if (up.error) { toast("critical", tr("Upload failed", "Upload gagal"), up.error.message); return; }
     onChange({ id: up.data.id, name: f.name });
   }
 
@@ -46,13 +48,13 @@ export function FileEvidence({
         <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-emerald-800">
           <Paperclip className="h-3 w-3" />
           <span className="max-w-[180px] truncate">{value.name}</span>
-          <button type="button" onClick={() => onChange(null)} aria-label={`Hapus ${label}`}><X className="h-3 w-3" /></button>
+          <button type="button" onClick={() => onChange(null)} aria-label={tr(`Remove ${label}`, `Hapus ${label}`)}><X className="h-3 w-3" /></button>
         </span>
       ) : (
         <button type="button" disabled={busy} onClick={() => ref.current?.click()}
           className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-1 text-slate-600 hover:border-brand-400 hover:text-brand-700 disabled:opacity-50">
           <Paperclip className="h-3 w-3" />
-          {busy ? "Mengunggah…" : label}
+          {busy ? tr("Uploading…", "Mengunggah…") : label}
         </button>
       )}
     </span>

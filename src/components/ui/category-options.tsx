@@ -1,6 +1,7 @@
 "use client";
 
 import type { ItemCategory } from "@/services/procurement/contracts";
+import { useTr } from "@/lib/i18n";
 
 /** The category tree as a flat, ordered list: each top-level category
  *  followed by its item types, read as "Packing › Foam Sheet". "Not yet
@@ -26,6 +27,7 @@ export function CategoryOptions({
    *  where it is. */
   current?: string;
 }) {
+  const tr = useTr();
   return (
     <>
       {categoryTree(categories).map(({ top, types }) => (
@@ -34,7 +36,7 @@ export function CategoryOptions({
         ) : (
           <optgroup key={top.code} label={top.name}>
             {(!typesOnlyWhereAvailable || current === top.code) && (
-              <option value={top.code}>{top.name} (category only)</option>
+              <option value={top.code}>{top.name} {tr("(category only)", "(kategori saja)")}</option>
             )}
             {types.map((t) => (
               <option key={t.code} value={t.code}>{top.name} › {t.name}</option>
