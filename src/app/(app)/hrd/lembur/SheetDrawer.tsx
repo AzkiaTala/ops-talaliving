@@ -15,6 +15,7 @@ import { STAGE_NAME } from "@/services/production/contracts";
 import { ImportForm } from "./ImportForm";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** One sheet, in full — and the one place the two kinds visibly differ.
  *
@@ -37,6 +38,7 @@ export function SheetDrawer({
 }) {
   const { can, hasAuthority } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
   const [sheet, reload] = useLoad(() => hr.getOvertimeSheet(sheetNo), [sheetNo]);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
@@ -55,11 +57,11 @@ export function SheetDrawer({
   async function attach(f: File, kind: string) {
     setBusy(true);
     const up = await documents.upload({ file: f, kind: "Laporan Lembur" });
-    if (up.error) { setBusy(false); toast("critical", "Upload gagal", up.error.message); return; }
+    if (up.error) { setBusy(false); toast("critical", tr("Upload failed", "Upload gagal"), up.error.message); return; }
     const res = await hr.attachOvertimeDoc({ sheet_no: sheetNo, attachment_id: up.data.id });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak terlampir", res.error.message); return; }
-    after(`${kind} terlampir`, f.name);
+    if (res.error) { toast("warning", tr("Not attached", "Tidak terlampir"), res.error.message); return; }
+    after(tr(`${kind} attached`, `${kind} terlampir`), f.name);
   }
 
   /** Signing a production sheet also reports the work.
@@ -91,15 +93,19 @@ export function SheetDrawer({
       if (res.error) failed.push(`${p.wo_no} · ${STAGE_NAME(p.stage)}: ${res.error.message}`);
     }
     if (failed.length > 0) {
-      toast("warning", "Sebagian tidak masuk papan produksi", failed[0]);
+      toast("warning", tr("Some did not reach the production board", "Sebagian tidak masuk papan produksi"), failed[0]);
     } else {
-      toast("success", `${byStage.size} laporan masuk papan produksi`, "Tanda tangan ini sekaligus laporan produksinya.");
+      toast(
+        "success",
+        tr(`${byStage.size} reports on the production board`, `${byStage.size} laporan masuk papan produksi`),
+        tr("This signature is also the production report.", "Tanda tangan ini sekaligus laporan produksinya."),
+      );
     }
   }
 
   async function decide(s: OvertimeSheetView, step: "hrd" | "leader", approved: boolean) {
     if (!approved && !reason.trim()) {
-      toast("warning", "Butuh alasan", "Menolak lembur yang sudah dikerjakan butuh satu kalimat.");
+      toast("warning", tr("Reason needed", "Butuh alasan"), tr("Refusing overtime that was already worked needs one sentence.", "Menolak lembur yang sudah dikerjakan butuh satu kalimat."));
       return;
     }
     setBusy(true);
@@ -108,15 +114,17 @@ export function SheetDrawer({
     });
     if (res.error) {
       setBusy(false);
-      toast(res.error.status === 403 ? "critical" : "warning", "Belum diputuskan", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not decided", "Belum diputuskan"), res.error.message);
       return;
     }
     if (approved && step === "leader" && s.kind === "production") await postProduction(res.data);
     setBusy(false);
     setReason("");
     after(
-      approved ? (step === "hrd" ? "Diperiksa HRD" : "Ditandatangani pimpinan") : "Tidak dibayar",
-      `${sheetNo} · ${formatNumber(s.total_hours)} jam`,
+      approved
+        ? (step === "hrd" ? tr("Checked by HRD", "Diperiksa HRD") : tr("Signed by leadership", "Ditandatangani pimpinan"))
+        : tr("Not paid", "Tidak dibayar"),
+      tr(`${sheetNo} · ${formatNumber(s.total_hours)} hours`, `${sheetNo} · ${formatNumber(s.total_hours)} jam`),
     );
   }
 
@@ -136,19 +144,19 @@ export function SheetDrawer({
                 {OVERTIME_STAGE_LABEL[s.stage]}
               </Badge>
               <span className="text-[12px] text-slate-500">
-                {s.lines.length} orang · {formatNumber(s.total_hours)} jam
-                {s.payable ? " · masuk payslip" : " · belum masuk payslip"}
+                {tr(`${s.lines.length} people · ${formatNumber(s.total_hours)} hours`, `${s.lines.length} orang · ${formatNumber(s.total_hours)} jam`)}
+                {s.payable ? tr(" · on the payslip", " · masuk payslip") : tr(" · not yet on the payslip", " · belum masuk payslip")}
               </span>
             </div>
 
             {s.unpaid_reason && (
               <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[12px] text-slate-700">
-                <strong>Tidak dibayar.</strong> {s.unpaid_reason}
+                <strong>{tr("Not paid.", "Tidak dibayar.")}</strong> {s.unpaid_reason}
               </p>
             )}
             {s.declined_reason && (
               <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-900">
-                <strong>Ditolak.</strong> {s.declined_reason}
+                <strong>{tr("Declined.", "Ditolak.")}</strong> {s.declined_reason}
               </p>
             )}
 
@@ -157,11 +165,11 @@ export function SheetDrawer({
               <table className="w-full border-collapse text-[13px]">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2 text-left">Nama</th>
-                    <th className="px-3 py-2 text-right">Jam</th>
-                    <th className="px-3 py-2 text-right">Gaji (form)</th>
-                    <th className="px-3 py-2 text-left">Pekerjaan</th>
-                    {s.kind === "production" && <th className="px-3 py-2 text-left">Item · proses · jumlah</th>}
+                    <th className="px-3 py-2 text-left">{tr("Name", "Nama")}</th>
+                    <th className="px-3 py-2 text-right">{tr("Hours", "Jam")}</th>
+                    <th className="px-3 py-2 text-right">{tr("Pay (form)", "Gaji (form)")}</th>
+                    <th className="px-3 py-2 text-left">{tr("Work", "Pekerjaan")}</th>
+                    {s.kind === "production" && <th className="px-3 py-2 text-left">{tr("Item · process · qty", "Item · proses · jumlah")}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -176,7 +184,7 @@ export function SheetDrawer({
                           there, it is what payroll pays (D154). */}
                       <td className="px-3 py-2 text-right tabular-nums text-slate-700">
                         {l.form_amount == null
-                          ? <span className="text-slate-300" title="Tidak ada angka di form — dibayar tarif jam biasa">—</span>
+                          ? <span className="text-slate-300" title={tr("No figure on the form — paid at the normal hourly rate", "Tidak ada angka di form — dibayar tarif jam biasa")}>—</span>
                           : formatIDR(l.form_amount)}
                       </td>
                       <td className="px-3 py-2 text-slate-600">{l.task}</td>
@@ -189,11 +197,13 @@ export function SheetDrawer({
                               </Link>
                               <span className="block text-[11px] text-slate-500">
                                 {l.stage ? STAGE_NAME(l.stage) : "—"}
-                                {l.qty_done ? ` · ${formatNumber(l.qty_done)} unit` : " · tidak ada unit selesai"}
+                                {l.qty_done
+                                  ? tr(` · ${formatNumber(l.qty_done)} units`, ` · ${formatNumber(l.qty_done)} unit`)
+                                  : tr(" · no units finished", " · tidak ada unit selesai")}
                               </span>
                             </>
                           ) : (
-                            <span className="text-[11px] text-slate-400">tidak terkait pesanan</span>
+                            <span className="text-[11px] text-slate-400">{tr("not tied to an order", "tidak terkait pesanan")}</span>
                           )}
                         </td>
                       )}
@@ -207,15 +217,15 @@ export function SheetDrawer({
             <div className="rounded-xl border border-slate-200 px-4 py-3">
               <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
                 <FileText className="h-4 w-4 text-slate-400" />
-                {s.kind === "production" ? "Surat lembur (tanda tangan)" : "Laporan pekerjaan (screenshot)"}
+                {s.kind === "production" ? tr("Surat lembur (signed)", "Surat lembur (tanda tangan)") : tr("Work report (screenshot)", "Laporan pekerjaan (screenshot)")}
               </p>
               {s.evidence ? (
                 <p className="mt-0.5 text-[12px] text-slate-600">{s.evidence.filename} · {s.evidence.kind}</p>
               ) : (
                 <p className="mt-0.5 text-[12px] text-amber-800">
                   {s.kind === "production"
-                    ? "Belum ada. Pimpinan tidak bisa menandatangani sebelum suratnya dilampirkan."
-                    : "Belum ada. Laporan adalah bukti sesi ini — lampirkan screenshot pekerjaannya."}
+                    ? tr("None yet. Leadership cannot sign before the surat is attached.", "Belum ada. Pimpinan tidak bisa menandatangani sebelum suratnya dilampirkan.")
+                    : tr("None yet. The report is the evidence for this session — attach a screenshot of the work.", "Belum ada. Laporan adalah bukti sesi ini — lampirkan screenshot pekerjaannya.")}
                 </p>
               )}
               {mayHrd && !s.evidence && (
@@ -224,12 +234,12 @@ export function SheetDrawer({
                     ref={fileRef} type="file" className="hidden" accept="application/pdf,image/*"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) void attach(f, s.kind === "production" ? "Surat lembur" : "Laporan");
+                      if (f) void attach(f, s.kind === "production" ? tr("Surat lembur", "Surat lembur") : tr("Report", "Laporan"));
                     }}
                   />
                   <Button size="sm" variant="outline" icon={Paperclip} className="mt-2" disabled={busy}
                     onClick={() => fileRef.current?.click()}>
-                    Lampirkan
+                    {tr("Attach", "Lampirkan")}
                   </Button>
                 </>
               )}
@@ -239,16 +249,17 @@ export function SheetDrawer({
             {mayHrd && s.kind === "production" && !s.hrd_checked_at && (
               <div className="rounded-xl border border-slate-200 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-slate-800">
-                  <Upload className="h-4 w-4 text-slate-400" /> Isi lembar dari form lembur
+                  <Upload className="h-4 w-4 text-slate-400" /> {tr("Fill the sheet from the overtime form", "Isi lembar dari form lembur")}
                 </p>
                 <p className="mt-0.5 text-[12px] text-slate-500">
-                  Form kertas PT Talahome — NO · NAMA · DESCRIPTION · GAJI · JAM — di-export
-                  sebagai CSV, lalu dibaca ke sini. Nama dicocokkan dengan data karyawan; yang
-                  tidak dikenal dilaporkan, bukan dibuat.
+                  {tr(
+                    "The PT Talahome paper form — NO · NAMA · DESCRIPTION · GAJI · JAM — exported as CSV, then read in here. Names are matched against the employee records; unknown ones are reported, not created.",
+                    "Form kertas PT Talahome — NO · NAMA · DESCRIPTION · GAJI · JAM — di-export sebagai CSV, lalu dibaca ke sini. Nama dicocokkan dengan data karyawan; yang tidak dikenal dilaporkan, bukan dibuat.",
+                  )}
                 </p>
                 <Button size="sm" variant="outline" icon={Upload} className="mt-2"
                   onClick={() => setImporting(true)}>
-                  Upload form
+                  {tr("Upload form", "Upload form")}
                 </Button>
               </div>
             )}
@@ -260,19 +271,19 @@ export function SheetDrawer({
                   {s.hrd_checked_at
                     ? <Check className="h-3.5 w-3.5 text-emerald-600" />
                     : <span className="h-3.5 w-3.5 rounded-full border border-dashed border-slate-300" />}
-                  HRD {s.hrd_checked_at ? "sudah memeriksa" : "belum memeriksa"}
+                  {s.hrd_checked_at ? tr("HRD has checked", "HRD sudah memeriksa") : tr("HRD has not checked", "HRD belum memeriksa")}
                 </span>
                 {s.kind === "production" && (
                   <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1">
                     {s.leader_approved_at
                       ? <Check className="h-3.5 w-3.5 text-emerald-600" />
                       : <span className="h-3.5 w-3.5 rounded-full border border-dashed border-slate-300" />}
-                    Pimpinan {s.leader_approved_at ? "sudah menandatangani" : "belum menandatangani"}
+                    {s.leader_approved_at ? tr("Leadership has signed", "Pimpinan sudah menandatangani") : tr("Leadership has not signed", "Pimpinan belum menandatangani")}
                   </span>
                 )}
                 {s.kind === "staff" && (
                   <span className="text-[11px] text-slate-500">
-                    Lembur staff tidak perlu tanda tangan pimpinan.
+                    {tr("Staff overtime does not need leadership's signature.", "Lembur staff tidak perlu tanda tangan pimpinan.")}
                   </span>
                 )}
               </div>
@@ -281,7 +292,7 @@ export function SheetDrawer({
                 <div className="rounded-xl border border-slate-200 px-4 py-3">
                   <input
                     value={reason} onChange={(e) => setReason(e.target.value)}
-                    placeholder="Alasan — hanya perlu kalau tidak dibayar / ditolak."
+                    placeholder={tr("Reason — only needed if not paid / declined.", "Alasan — hanya perlu kalau tidak dibayar / ditolak.")}
                     className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                   <div className="mt-2 flex flex-wrap justify-end gap-2">
@@ -289,17 +300,17 @@ export function SheetDrawer({
                       <>
                         <Button size="sm" variant="ghost" icon={X} disabled={busy}
                           onClick={() => decide(s, "hrd", false)}>
-                          {s.kind === "staff" ? "Tidak dibayar" : "Tolak"}
+                          {s.kind === "staff" ? tr("Not paid", "Tidak dibayar") : tr("Decline", "Tolak")}
                         </Button>
                         <Button size="sm" disabled={busy} onClick={() => decide(s, "hrd", true)}>
-                          {s.kind === "staff" ? "Tinjau — tetap dibayar" : "Periksa & teruskan"}
+                          {s.kind === "staff" ? tr("Review — still paid", "Tinjau — tetap dibayar") : tr("Check & pass on", "Periksa & teruskan")}
                         </Button>
                       </>
                     )}
                     {mayHrd && s.kind === "staff" && s.hrd_checked_at && (
                       <Button size="sm" variant="ghost" disabled
-                        title={`Sudah diputuskan: ${s.paid ? "dibayar" : "tidak dibayar"}`}>
-                        Sudah diputuskan HRD
+                        title={s.paid ? tr("Decided: paid", "Sudah diputuskan: dibayar") : tr("Decided: not paid", "Sudah diputuskan: tidak dibayar")}>
+                        {tr("Already decided by HRD", "Sudah diputuskan HRD")}
                       </Button>
                     )}
                     {s.kind === "production" && s.hrd_checked_at && !s.leader_approved_at && (
@@ -307,28 +318,30 @@ export function SheetDrawer({
                         <>
                           <Button size="sm" variant="ghost" icon={X} disabled={busy}
                             onClick={() => decide(s, "leader", false)}>
-                            Tolak
+                            {tr("Decline", "Tolak")}
                           </Button>
                           <Button
                             size="sm" icon={Factory}
                             disabled={busy || !s.evidence}
-                            title={s.evidence ? "" : "Surat lembur belum dilampirkan"}
+                            title={s.evidence ? "" : tr("Surat lembur not attached yet", "Surat lembur belum dilampirkan")}
                             onClick={() => decide(s, "leader", true)}
                           >
-                            Tanda tangani &amp; laporkan produksi
+                            {tr("Sign & report production", "Tanda tangani & laporkan produksi")}
                           </Button>
                         </>
                       ) : (
                         <span className="text-[11px] text-slate-500">
-                          {s.evidence ? "menunggu tanda tangan pimpinan" : "menunggu surat lembur"}
+                          {s.evidence ? tr("waiting for leadership's signature", "menunggu tanda tangan pimpinan") : tr("waiting for the surat lembur", "menunggu surat lembur")}
                         </span>
                       )
                     )}
                   </div>
                   {s.kind === "production" && !s.leader_approved_at && s.lines.some((l) => l.wo_no && l.qty_done) && (
                     <p className="mt-1 text-[11px] text-slate-500">
-                      Tanda tangan pimpinan juga mencatat{" "}
-                      {formatNumber(s.lines.reduce((a, l) => a + (l.qty_done ?? 0), 0))} unit ke papan produksi.
+                      {tr(
+                        `Leadership's signature also records ${formatNumber(s.lines.reduce((a, l) => a + (l.qty_done ?? 0), 0))} units on the production board.`,
+                        `Tanda tangan pimpinan juga mencatat ${formatNumber(s.lines.reduce((a, l) => a + (l.qty_done ?? 0), 0))} unit ke papan produksi.`,
+                      )}
                     </p>
                   )}
                 </div>

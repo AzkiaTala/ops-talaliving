@@ -11,6 +11,7 @@ import { hr } from "@/demo/api";
 import { ADJUSTMENT_LABEL, type AdjustmentKind } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** What HRD adds to or takes off a payslip, by hand, with a reason.
  *
@@ -34,6 +35,7 @@ export function Adjustments({
 }) {
   const { can } = useSession();
   const { toast } = useToast();
+  const tr = useTr();
   const [rows, reload] = useLoad(() => hr.listAdjustments(runNo), [runNo]);
   const [people] = useLoad(() => hr.listEmployees(), []);
   const [draft, setDraft] = useState<{ employee_no: string; kind: AdjustmentKind; amount: number; reason: string }>({
@@ -58,10 +60,10 @@ export function Adjustments({
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak tersimpan", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
       return;
     }
-    toast("success", "Penyesuaian tersimpan", `${ADJUSTMENT_LABEL[draft.kind]} · ${formatIDR(Math.abs(draft.amount))}`);
+    toast("success", tr("Adjustment saved", "Penyesuaian tersimpan"), `${ADJUSTMENT_LABEL[draft.kind]} · ${formatIDR(Math.abs(draft.amount))}`);
     setDraft({ ...draft, amount: 0, reason: "" });
     reload(); onChanged();
   }
@@ -70,16 +72,19 @@ export function Adjustments({
     setBusy(true);
     const res = await hr.removeAdjustment({ run_no: runNo, adjustment_id: id });
     setBusy(false);
-    if (res.error) { toast("warning", "Tidak dihapus", res.error.message); return; }
-    toast("success", "Penyesuaian dihapus", label);
+    if (res.error) { toast("warning", tr("Not removed", "Tidak dihapus"), res.error.message); return; }
+    toast("success", tr("Adjustment removed", "Penyesuaian dihapus"), label);
     reload(); onChanged();
   }
 
   return (
     <Card className="mb-4">
       <CardHeader
-        title="Potongan &amp; tambahan"
-        subtitle="Keterlambatan, SP, kasbon, dan selisih dari periode sebelumnya — masing-masing dengan alasannya, dan semuanya tercetak di slip."
+        title={tr("Deductions & additions", "Potongan & tambahan")}
+        subtitle={tr(
+          "Lateness, SP, kasbon, and differences from the previous period — each with its reason, and all of them printed on the slip.",
+          "Keterlambatan, SP, kasbon, dan selisih dari periode sebelumnya — masing-masing dengan alasannya, dan semuanya tercetak di slip.",
+        )}
         icon={Scale}
       />
       <Loaded state={rows} onRetry={reload} skeletonRows={2}>
@@ -88,7 +93,7 @@ export function Adjustments({
             <ul className="divide-y divide-slate-100">
               {all.length === 0 && (
                 <li className="px-5 py-4 text-[13px] text-slate-500">
-                  Belum ada potongan atau tambahan di periode ini.
+                  {tr("No deductions or additions in this period yet.", "Belum ada potongan atau tambahan di periode ini.")}
                 </li>
               )}
               {all.map((a) => (
@@ -108,7 +113,7 @@ export function Adjustments({
                   {mayEdit && (
                     <Button size="sm" variant="ghost" icon={Trash2} disabled={busy}
                       onClick={() => remove(a.id, `${a.full_name} · ${ADJUSTMENT_LABEL[a.kind]}`)}>
-                      <span className="sr-only">Hapus</span>
+                      <span className="sr-only">{tr("Remove", "Hapus")}</span>
                     </Button>
                   )}
                 </li>
@@ -123,10 +128,10 @@ export function Adjustments({
                       <select
                         value={draft.employee_no}
                         onChange={(e) => setDraft({ ...draft, employee_no: e.target.value })}
-                        aria-label="Karyawan"
+                        aria-label={tr("Employee", "Karyawan")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       >
-                        <option value="">Pilih karyawan…</option>
+                        <option value="">{tr("Choose employee…", "Pilih karyawan…")}</option>
                         {emps.map((e) => (
                           <option key={e.employee_no} value={e.employee_no}>
                             {e.full_name} · {e.employee_no}
@@ -136,7 +141,7 @@ export function Adjustments({
                       <select
                         value={draft.kind}
                         onChange={(e) => setDraft({ ...draft, kind: e.target.value as AdjustmentKind })}
-                        aria-label="Jenis"
+                        aria-label={tr("Kind", "Jenis")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       >
                         {(Object.keys(ADJUSTMENT_LABEL) as AdjustmentKind[]).map((k) => (
@@ -149,19 +154,19 @@ export function Adjustments({
                       <input
                         value={draft.reason}
                         onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
-                        placeholder="Alasan — dicetak apa adanya di slip gaji karyawan"
+                        placeholder={tr("Reason — printed as written on the employee's payslip", "Alasan — dicetak apa adanya di slip gaji karyawan")}
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       />
                       <Button size="sm" icon={Plus} onClick={save}
                         disabled={busy || !draft.employee_no || draft.amount <= 0 || !draft.reason.trim()}>
-                        {adds ? "Tambahkan" : "Potong"}
+                        {adds ? tr("Add", "Tambahkan") : tr("Deduct", "Potong")}
                       </Button>
                     </div>
                     <p className="mt-1 text-[11px] text-slate-500">
-                      Masukkan angka positif — {adds ? "ini menambah" : "ini memotong"} karena
-                      jenisnya {ADJUSTMENT_LABEL[draft.kind].toLowerCase()}. Sistem tidak pernah
-                      menghitung sendiri berapa potongan keterlambatan atau SP: itu keputusan, dan
-                      keputusan butuh nama serta kalimat.
+                      {tr(
+                        `Enter a positive number — ${adds ? "this adds" : "this deducts"} because the kind is ${ADJUSTMENT_LABEL[draft.kind].toLowerCase()}. The system never works out a lateness or SP deduction by itself: that is a decision, and a decision needs a name and a sentence.`,
+                        `Masukkan angka positif — ${adds ? "ini menambah" : "ini memotong"} karena jenisnya ${ADJUSTMENT_LABEL[draft.kind].toLowerCase()}. Sistem tidak pernah menghitung sendiri berapa potongan keterlambatan atau SP: itu keputusan, dan keputusan butuh nama serta kalimat.`,
+                      )}
                     </p>
                   </div>
                 )}
