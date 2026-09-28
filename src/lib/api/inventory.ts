@@ -26,6 +26,7 @@ import type {
   LogCost, LogCostKind,
   ProductStockRow, ProductLedgerRow, ProductMoveInput, ProductCountInput, ProductAllocateInput, ProductOrderLine,
   AssetView, AssetCategory, AssetStatus, AssetInput, AssetService, AssetServiceInput,
+  LabelKind, LabelSource,
 } from "@/services/inventory/contracts";
 import type { MaterialPlan } from "@/services/production/contracts";
 import { materialShort, materialStatus } from "@/services/production/contracts";
@@ -1666,4 +1667,24 @@ export async function materialForWorkOrder(woNo: string): Promise<Result<Materia
     completed,
     ordered: qty,
   });
+}
+
+/** What labels print, for one kind: items, assets or finished goods
+ *  (`ops_inv.label_sources`, `0178`, D321). `since` keeps what was registered
+ *  from that day; `codes` asks for exact records. Newest first. */
+export async function listLabelSources(
+  opts: { kind: LabelKind; since?: string | null; codes?: string[] | null; q?: string | null },
+): Promise<Result<LabelSource[]>> {
+  const { data, error } = await db().rpc("label_sources", {
+    p_kind: opts.kind,
+    p_since: opts.since || null,
+    p_codes: opts.codes?.length ? opts.codes : null,
+    p_q: opts.q?.trim() || null,
+  });
+  const res = fromSeam<LabelSource[]>(SERVICE, data, error);
+  if (res.error) return res;
+  return ok(SERVICE, res.data.map((r) => ({
+    ...r,
+    locations: (r.locations ?? []).map((l) => ({ ...l, qty: l.qty == null ? null : Number(l.qty) })),
+  })));
 }

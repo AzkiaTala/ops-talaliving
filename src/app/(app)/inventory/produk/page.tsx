@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PackageCheck, PackagePlus, Search, History } from "lucide-react";
+import Link from "next/link";
+import { PackageCheck, PackagePlus, Search, History, Tags } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Paged } from "@/components/ui/pager";
@@ -47,6 +48,9 @@ export default function FinishedGoodsPage() {
         description={tr("Products made by production that are still in the warehouse — per client order, including overproduction. Deliveries are taken from the surat jalan, never recorded twice.", "Produk hasil produksi yang masih di gudang — per pesanan klien, termasuk kelebihan produksi. Pengiriman diambil dari surat jalan, tidak dicatat dua kali.")}
         actions={
           <div className="flex items-center gap-2">
+            <Link href="/inventory/label?kind=product">
+              <Button size="sm" variant="secondary" icon={Tags}>{tr("Print labels", "Cetak label")}</Button>
+            </Link>
             {mayWrite && !recording && (
               <Button size="sm" icon={PackagePlus} onClick={() => setRecording(true)}>{tr("Record a finished-goods move", "Catat gerak barang jadi")}</Button>
             )}
