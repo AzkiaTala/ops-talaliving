@@ -7127,7 +7127,7 @@ read-only transaction.
 The rule for a seam in this schema is short. **Every envelope writes**, so
 anything that returns one is volatile, however read-only its question looks.
 
-**On the same road (D317):** the owner asked that Supabase keep the Drive
+**On the same road (D319):** the owner asked that Supabase keep the Drive
 link. `attach_file` had recorded only the file id. Now the row also carries
 `web_view_link`, plus `drive_slug` and `drive_path`, which the database
 derives from the kind and record rather than taking from the caller. The route

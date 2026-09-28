@@ -1,5 +1,5 @@
 -- core — an upload survives PostgREST, and the row says where the file went
--- (0175, F169, D317).
+-- (0175, F169, D319).
 --
 -- GUARD        no `stable`/`immutable` function a browser can call writes
 --              anything. PostgREST runs those in a read-only transaction, so

@@ -1,5 +1,5 @@
 -- 0175_core_upload_read_write.sql — every upload failed with
--- `cannot execute INSERT in a read-only transaction` (F169, D317).
+-- `cannot execute INSERT in a read-only transaction` (F169, D319).
 --
 -- ── Why ───────────────────────────────────────────────────────────────────
 --
