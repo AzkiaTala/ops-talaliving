@@ -38,23 +38,76 @@ const UPLOAD_URL =
   "https://www.googleapis.com/upload/drive/v3/files"
   + "?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,parents,driveId";
 
-/** The scope, and only this one. `drive.file` lets the service account touch
- *  files **it created** and nothing else — so a mistake here cannot reach the
- *  1.412 documents already in those drives. The broader `drive` scope would let
- *  it read and delete all of them, and nothing about filing an upload needs
- *  that.
+/** The scope uploads use. `drive.file` lets the service account touch files
+ *  **it created** and nothing else — so a mistake here cannot reach the 1.412
+ *  documents already in those drives. The broader `drive` scope would let it
+ *  read and delete all of them, and nothing about filing an upload needs that.
  *
- *  **What this costs, stated rather than discovered:** the account cannot
- *  *see* a folder a person made. So `findOrCreateOpsFolder` searching for an
- *  existing hand-made `ops` will come back empty and make its own. That is the
- *  right trade here — nobody has made one yet, the app creating it is the plan,
- *  and a duplicate folder is a tidying job where a `drive` scope would be a
- *  standing risk to years of documents.
- *
- *  If an upload ever fails with Google saying the parent cannot be written,
- *  that is this line to revisit, and the error will say so in Google's own
- *  words rather than being swallowed. */
+ *  **What it costs:** the account cannot see a folder a person made. The OPS
+ *  folders the owner made by hand (D313) answered *File not found* to the
+ *  first real upload (F173). The owner kept `drive.file` and had the app make
+ *  its own folder instead: `ops-talaliving`, at the root of each shared drive
+ *  (D320). Everything the app files lives under it. */
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
+
+/** Read-only, and used for one thing: finding which shared drive a recorded
+ *  folder is in. That folder was made by a person, so `drive.file` cannot see
+ *  it. `drive.readonly` can, for a member, and it cannot write anything.
+ *  Uploads never use it. */
+const PROBE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+
+/** The app's own folder, at the root of each module's shared drive (D320).
+ *  Made by the app, so `drive.file` sees it; every task folder
+ *  (`INVENTORY/ITEMS`, …) goes inside it. */
+export const APP_FOLDER = "ops-talaliving";
+
+/** A refusal from Google, kept whole rather than flattened into a string.
+ *
+ *  The route turns it into a sentence a person can act on, and keeps
+ *  Google's own answer in the audit row's detail. Before this, both were one
+ *  string, so the toast showed a JSON blob and the log showed nothing (F173). */
+export class DriveError extends Error {
+  constructor(
+    /** Which step: `token`, `drive` (finding the shared drive),
+     *  `app_folder` (`ops-talaliving`), `folder` (a task folder), `upload`. */
+    readonly stage: "token" | "drive" | "app_folder" | "folder" | "upload",
+    /** Google's HTTP status. */
+    readonly status: number,
+    /** Google's message, e.g. *File not found: 16btMm…*. */
+    readonly googleMessage: string,
+    /** Google's reason, e.g. `notFound`, `insufficientFilePermissions`,
+     *  `invalid_grant`. */
+    readonly googleReason: string | null,
+  ) {
+    super(`${stage}: ${status} ${googleMessage}`);
+  }
+}
+
+async function driveError(stage: DriveError["stage"], res: Response): Promise<DriveError> {
+  const text = await res.text();
+  let message = text;
+  let reason: string | null = null;
+  try {
+    const body = JSON.parse(text) as {
+      error?: string | { message?: string; errors?: { reason?: string }[] };
+      error_description?: string;
+    };
+    if (typeof body.error === "string") {
+      /* The token endpoint's shape: `{ error: "invalid_grant", error_description }`. */
+      reason = body.error;
+      message = body.error_description ?? body.error;
+    } else if (body.error) {
+      message = body.error.message ?? text;
+      reason = body.error.errors?.[0]?.reason ?? null;
+    }
+  } catch { /* not JSON — keep the text */ }
+  return new DriveError(stage, res.status, message, reason);
+}
+
+/** The service account's address, for sentences that tell IT who to add. */
+export function serviceAccountEmail(): string {
+  return process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "(not set)";
+}
 
 export interface DriveFile {
   id: string;
@@ -127,13 +180,13 @@ async function importKey(pem: string): Promise<CryptoKey> {
  *  waiting on. If uploads ever become frequent enough to matter, cache it
  *  somewhere with an expiry rather than in a module variable.
  */
-async function accessToken(): Promise<string> {
+async function accessToken(scope: string = SCOPE): Promise<string> {
   const { email, privateKey } = credentials();
   const now = Math.floor(Date.now() / 1000);
 
   const claim = {
     iss: email,
-    scope: SCOPE,
+    scope,
     aud: TOKEN_URL,
     exp: now + 3600,
     iat: now,
@@ -160,7 +213,7 @@ async function accessToken(): Promise<string> {
        worth knowing — `invalid_grant` means the clock or the key, and
        `unauthorized_client` means domain-wide delegation, and they need
        different fixes. */
-    throw new Error(`Google refused the service account: ${res.status} ${await res.text()}`);
+    throw await driveError("token", res);
   }
   return ((await res.json()) as { access_token: string }).access_token;
 }
@@ -203,7 +256,7 @@ export async function uploadToDrive(
     body: payload,
   });
   if (!res.ok) {
-    throw new Error(`Drive refused the upload: ${res.status} ${await res.text()}`);
+    throw await driveError("upload", res);
   }
   const out = (await res.json()) as {
     id: string; name: string; webViewLink?: string; parents?: string[]; driveId?: string;
@@ -219,55 +272,62 @@ export async function uploadToDrive(
   };
 }
 
-/** The `OPS` folder of a module — the recorded folder itself, or one inside it.
+/** Which shared drive a recorded folder is in.
  *
- *  `0036` read the ids the owner handed over (2026-09-21) as the **module
- *  folders** and made this function create an `ops` folder inside each. The
- *  ids are the `OPS` folders themselves: DRAFTING's is a folder named `OPS`,
- *  and the owner confirmed it for procurement (2026-09-25, *harusnya di folder
- *  OPS shared drive Procurement*). Nesting would have filed everything in
- *  `OPS/ops`. Nothing was uploaded before this was caught — every
- *  `drive_folders.folder_id` was still null in production.
- *
- *  So the recorded folder is asked its own name first: **named OPS (any case)
- *  → it is the target**. Only a folder named anything else gets an `OPS`
- *  folder found or made inside it, the case `0036` was written for. Resolved
- *  by name, once, and written back to `ops_core.drive_folders` — a name is
- *  checkable; an id is not.
- *
- *  `trashed = false` matters: a folder somebody deleted last month still
- *  answers a search, and uploading into the bin loses the file quietly.
- */
-export async function findOrCreateOpsFolder(parentFolderId: string): Promise<string> {
-  const token = await accessToken();
-
-  const self = await fetch(
-    `${FILES_URL}/${encodeURIComponent(parentFolderId)}?supportsAllDrives=true&fields=id,name,trashed`,
+ *  `drive_folders.parent_folder_id` holds a folder the owner made in each
+ *  module's shared drive (the hand-made OPS, D313). It is used here only to
+ *  find the drive; nothing is filed in it any more (D320). Asked with
+ *  `drive.readonly`, because `drive.file` cannot see a folder a person made.
+ *  A 404 here means the service account is not a member of that shared drive,
+ *  or the id is wrong. */
+export async function driveOf(folderId: string): Promise<{ driveId: string; driveName: string | null }> {
+  const token = await accessToken(PROBE_SCOPE);
+  const res = await fetch(
+    `${FILES_URL}/${encodeURIComponent(folderId)}?supportsAllDrives=true&fields=id,name,driveId`,
     { headers: { authorization: `Bearer ${token}` } },
   );
-  if (!self.ok) {
-    throw new Error(`Drive refused to read the recorded folder: ${self.status} ${await self.text()}`);
+  if (!res.ok) throw await driveError("drive", res);
+  const f = (await res.json()) as { driveId?: string; name?: string };
+  if (!f.driveId) {
+    throw new DriveError("drive", 422,
+      `The recorded folder "${f.name ?? folderId}" is in somebody's My Drive, not in a shared drive.`, "notInSharedDrive");
   }
-  const me = (await self.json()) as { id: string; name: string; trashed?: boolean };
-  if (me.trashed) {
-    throw new Error(`The recorded folder "${me.name}" is in the bin. IT records the right one in ops_core.drive_folders.`);
-  }
-  if (isOpsName(me.name)) return me.id;
-  return findOrCreateFolder(parentFolderId, "OPS", token);
+  return { driveId: f.driveId, driveName: await driveName(f.driveId, token) };
 }
 
-/** A folder by name inside another — found (ignoring case, because people
- *  make these by hand), or made. */
+async function driveName(driveId: string, token: string): Promise<string | null> {
+  const d = await fetch(`https://www.googleapis.com/drive/v3/drives/${encodeURIComponent(driveId)}?fields=name`,
+    { headers: { authorization: `Bearer ${token}` } });
+  return d.ok ? ((await d.json()) as { name?: string }).name ?? null : null;
+}
+
+/** `ops-talaliving` at the root of a shared drive, found or made by the app.
+ *
+ *  Found only if the app made it: `drive.file` does not see a folder with the
+ *  same name that a person made, and makes its own beside it. */
+export async function findOrCreateAppFolder(driveId: string): Promise<{ id: string; created: boolean }> {
+  const token = await accessToken();
+  return findOrMakeFolder(driveId, APP_FOLDER, token, "app_folder");
+}
+
+/** A folder by name inside another, found (ignoring case) or made. */
 export async function findOrCreateFolder(parentFolderId: string, name: string, token?: string): Promise<string> {
-  const bearer = token ?? await accessToken();
+  return (await findOrMakeFolder(parentFolderId, name, token ?? await accessToken(), "folder")).id;
+}
+
+async function findOrMakeFolder(
+  parentFolderId: string, name: string, bearer: string, stage: DriveError["stage"],
+): Promise<{ id: string; created: boolean }> {
   const wanted = name.trim();
   const q = [
     /* `contains` on a name is a case-insensitive prefix match; the exact
-       comparison is done below, so `Inventory` made by hand is reused rather
-       than duplicated as `INVENTORY`. */
+       comparison is done below, so `Inventory` is reused rather than
+       duplicated as `INVENTORY`. */
     `name contains '${wanted.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`,
     "mimeType = 'application/vnd.google-apps.folder'",
     `'${parentFolderId}' in parents`,
+    /* A folder somebody binned last month still answers a search, and
+       uploading into the bin loses the file quietly. */
     "trashed = false",
   ].join(" and ");
 
@@ -277,17 +337,14 @@ export async function findOrCreateFolder(parentFolderId: string, name: string, t
   search.searchParams.set("supportsAllDrives", "true");
   search.searchParams.set("includeItemsFromAllDrives", "true");
   /* Without this the search is scoped to My Drive and answers nothing for a
-     folder that is plainly there — the same trap as `supportsAllDrives` on the
-     upload, one call earlier. */
+     folder that is plainly there — the same trap as `supportsAllDrives`. */
   search.searchParams.set("corpora", "allDrives");
 
   const found = await fetch(search, { headers: { authorization: `Bearer ${bearer}` } });
-  if (!found.ok) {
-    throw new Error(`Drive refused the folder search: ${found.status} ${await found.text()}`);
-  }
+  if (!found.ok) throw await driveError(stage, found);
   const hits = ((await found.json()) as { files?: { id: string; name: string }[] }).files ?? [];
   const hit = hits.find((f) => f.name.trim().toLowerCase() === wanted.toLowerCase());
-  if (hit) return hit.id;
+  if (hit) return { id: hit.id, created: false };
 
   const made = await fetch(`${FILES_URL}?supportsAllDrives=true&fields=id`, {
     method: "POST",
@@ -298,28 +355,22 @@ export async function findOrCreateFolder(parentFolderId: string, name: string, t
       parents: [parentFolderId],
     }),
   });
-  if (!made.ok) {
-    throw new Error(`Drive refused to create the folder "${wanted}": ${made.status} ${await made.text()}`);
-  }
-  return ((await made.json()) as { id: string }).id;
+  if (!made.ok) throw await driveError(stage, made);
+  return { id: ((await made.json()) as { id: string }).id, created: true };
 }
 
-/** The task folder under OPS (`ops_core.drive_paths`, 0172): each segment of
- *  `INVENTORY/FINISHED GOODS` found or made in turn. Two uploads racing on a
- *  brand-new folder can each make one; the next upload reuses the first found,
- *  and IT merges the pair by hand — rare, visible, and harmless to the files. */
-export async function findOrCreatePath(opsFolderId: string, path: string): Promise<string> {
+/** The task folder under `ops-talaliving` (`ops_core.drive_paths`, 0172):
+ *  each segment of `INVENTORY/FINISHED GOODS` found or made in turn. Two
+ *  uploads racing on a brand-new folder can each make one; the next upload
+ *  reuses the first found, and IT merges the pair by hand — rare, visible, and
+ *  harmless to the files. */
+export async function findOrCreatePath(appFolderId: string, path: string): Promise<string> {
   const token = await accessToken();
-  let at = opsFolderId;
+  let at = appFolderId;
   for (const segment of path.split("/").map((x) => x.trim()).filter(Boolean)) {
     at = await findOrCreateFolder(at, segment, token);
   }
   return at;
-}
-
-/** `OPS`, `ops`, ` Ops ` — the owner's folders are typed by hand. */
-export function isOpsName(name: string): boolean {
-  return name.trim().toLowerCase() === "ops";
 }
 
 /** Is this deployment able to reach Drive at all?
@@ -330,4 +381,71 @@ export function isOpsName(name: string): boolean {
  */
 export function driveConfigured(): boolean {
   return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY);
+}
+
+/** What IT → Google Drive shows for one shared drive (read-only).
+ *
+ *  - `drive`: the shared drive as a member sees it (`drive.readonly`),
+ *    found through the recorded drive id or the recorded folder. A 404 means
+ *    not a member, or a wrong id. `canAddChildren` false means Viewer or
+ *    Commenter, which cannot file.
+ *  - `appFolder`: the app's `ops-talaliving` folder as uploads see it
+ *    (`drive.file`), when one is recorded.
+ */
+export interface DriveProbe {
+  drive: {
+    ok: boolean; status: number; message: string | null;
+    driveId: string | null; driveName: string | null; canAddChildren: boolean | null;
+  };
+  appFolder: { ok: boolean; status: number; message: string | null; name: string | null; trashed: boolean } | null;
+}
+
+export async function probeDrive(rec: {
+  drive_id: string | null; parent_folder_id: string | null; folder_id: string | null;
+}): Promise<DriveProbe> {
+  const ro = await accessToken(PROBE_SCOPE);
+  let driveId = rec.drive_id;
+  let drive: DriveProbe["drive"] = { ok: false, status: 0, message: null, driveId: null, driveName: null, canAddChildren: null };
+
+  if (!driveId && rec.parent_folder_id) {
+    const f = await fetch(
+      `${FILES_URL}/${encodeURIComponent(rec.parent_folder_id)}?supportsAllDrives=true&fields=driveId`,
+      { headers: { authorization: `Bearer ${ro}` } });
+    if (f.ok) {
+      driveId = ((await f.json()) as { driveId?: string }).driveId ?? null;
+      if (!driveId) drive = { ...drive, status: 422, message: "The recorded folder is not in a shared drive." };
+    } else {
+      const e = await driveError("drive", f);
+      drive = { ...drive, status: e.status, message: e.googleMessage };
+    }
+  }
+  if (driveId) {
+    const d = await fetch(
+      `https://www.googleapis.com/drive/v3/drives/${encodeURIComponent(driveId)}?fields=id,name,capabilities(canAddChildren)`,
+      { headers: { authorization: `Bearer ${ro}` } });
+    if (d.ok) {
+      const j = (await d.json()) as { name?: string; capabilities?: { canAddChildren?: boolean } };
+      drive = { ok: true, status: 200, message: null, driveId, driveName: j.name ?? null,
+                canAddChildren: j.capabilities?.canAddChildren ?? null };
+    } else {
+      const e = await driveError("drive", d);
+      drive = { ...drive, status: e.status, message: e.googleMessage, driveId };
+    }
+  }
+
+  let appFolder: DriveProbe["appFolder"] = null;
+  if (rec.folder_id) {
+    const up = await accessToken();
+    const a = await fetch(
+      `${FILES_URL}/${encodeURIComponent(rec.folder_id)}?supportsAllDrives=true&fields=id,name,trashed`,
+      { headers: { authorization: `Bearer ${up}` } });
+    if (a.ok) {
+      const j = (await a.json()) as { name?: string; trashed?: boolean };
+      appFolder = { ok: true, status: 200, message: null, name: j.name ?? null, trashed: j.trashed ?? false };
+    } else {
+      const e = await driveError("app_folder", a);
+      appFolder = { ok: false, status: e.status, message: e.googleMessage, name: null, trashed: false };
+    }
+  }
+  return { drive, appFolder };
 }

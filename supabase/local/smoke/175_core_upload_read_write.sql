@@ -65,7 +65,7 @@ begin
   select * into v from ops_core.v_attachment where id = r->'data'->>'attachment_id';
   assert v.web_view_link = 'https://drive.google.com/file/d/1AbCdriveFileId/view?usp=drivesdk',
     'the link is kept, got ' || coalesce(v.web_view_link, 'null');
-  assert v.filed_in like '% / OPS / INVENTORY/ITEMS', 'filed_in in words, got ' || coalesce(v.filed_in, 'null');
+  assert v.filed_in like '% / ops-talaliving / INVENTORY/ITEMS', 'filed_in in words, got ' || coalesce(v.filed_in, 'null');
 
   -- The drive follows the kind, not the screen: a KTP is HRD's.
   r := ops_core.attach_file('1KtpId', 'ktp.jpg', 'image/jpeg', 1000, null, 'web', null,
@@ -96,7 +96,8 @@ set local transaction_read_only = on;
 
 do $$
 begin
-  perform ops_core.drive_folder_for('foto', 'item');
+  -- A refusal writes its audit row (0177 stopped the *answer* writing one).
+  perform ops_core.drive_folder_for('kapal');
   raise exception 'a read-only transaction should refuse the audit write';
 exception when read_only_sql_transaction then null;
 end $$;

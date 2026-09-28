@@ -16,6 +16,7 @@
  */
 import type {
   AttachmentView, AttachmentLink, DocKind, LinkEntity,
+  DriveCheckReport, DriveSetUp,
 } from "@/services/documents/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromSeam, notFound, ok, type Result } from "./_kit";
@@ -346,4 +347,48 @@ export async function unlink(linkId: string): Promise<Result<{ removed: string }
   const res = fromSeam<{ link_id: string }>(SERVICE, data, error);
   if (res.error) return res;
   return ok(SERVICE, { removed: res.data.link_id });
+}
+
+/** A call to one of this module's two server routes, answered in the same
+ *  envelope as everything else. */
+async function viaRoute<T>(url: string, init?: RequestInit): Promise<Result<T>> {
+  try {
+    const res = await fetch(url, { credentials: "same-origin", ...init });
+    const body = await res.json() as { data?: T; error?: Result<never>["error"] };
+    if (!res.ok || body.error) {
+      return {
+        error: body.error ?? {
+          code: "request_failed", message: `Request failed (${res.status}).`,
+          outcome: "refused", status: res.status as never,
+        },
+        meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+      } as Result<never>;
+    }
+    return ok(SERVICE, body.data as T);
+  } catch (e) {
+    return {
+      error: {
+        code: "request_interrupted", message: `The request did not complete. (${String((e as Error).message)})`,
+        outcome: "refused", status: 500,
+      },
+      meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+    };
+  }
+}
+
+/** IT → Google Drive: every shared drive's recorded OPS folder, looked at as
+ *  a member and as uploads look (read-only). `/api/documents/drive-check`,
+ *  because it needs the service account key (F173). */
+export async function checkDrives(): Promise<Result<DriveCheckReport>> {
+  return viaRoute<DriveCheckReport>("/api/documents/drive-check");
+}
+
+/** Make (or find) the app's `ops-talaliving` folder in one shared drive, or
+ *  in every one when `slug` is left out, and record it. `it.manage_drives`. */
+export async function setUpDrives(slug?: string): Promise<Result<DriveSetUp[]>> {
+  return viaRoute<DriveSetUp[]>("/api/documents/drive-check", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ slug: slug ?? null }),
+  });
 }

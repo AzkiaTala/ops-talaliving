@@ -7271,3 +7271,55 @@ string that no longer matches anything. Found while translating the screen
 whatever it likes in either language. Checked in a browser on
 `pyr-26-09-06_01`: 14 unread days amber in English and Indonesian, overtime
 waiting 0 h stays grey.
+
+## F173 · 2026-09-28 · the audit log said `file ok` for an upload that failed, and the toast said nothing a person could use
+
+`0175` let uploads reach Drive. Three of them failed at Google with *File not
+found: 16btMm…*, which is the Procurement OPS folder. Two things the owner
+saw made that unreadable.
+
+**The audit log recorded the wrong event.** IT → Audit log showed three rows
+reading `file · ok · documents · attachment`, with no document, no reason and
+no detail. Those rows were `drive_folder_for` answering *which drive and
+folder does a Foto go in*. That function speaks through `ok()`, and every
+envelope writes an audit row. The failure itself happened in Google, after the
+database had answered, and nothing wrote it down. So the log recorded a
+question as a success and left out the actual event. `0177` stops the answer
+writing a row (asking changes nothing; refusals are still logged). The route
+now writes a failed upload as `upload · refused`, naming the file, with a
+sentence as the reason and Google's answer in `detail`. A filed document's row
+names the file and says `kursi.jpg → PROCUREMENT / OPS / INVENTORY/ITEMS`.
+
+**The toast was Google's JSON.** It was true, but it did not say whose problem
+it was. *File not found* for a folder that plainly exists has two causes with
+different owners:
+
+1. The service account is not a member of that shared drive. IT fixes this in
+   Drive.
+2. The folder was made by a person, and `drive.file`, the scope chosen in
+   `src/lib/drive.ts` so a mistake could not reach the 1,412 existing
+   documents, only sees what the app made. This is a decision about the
+   app's permission.
+
+The comment on `SCOPE` had predicted the cost, but wrongly: it said a search
+for a hand-made folder "will come back empty and make its own". In fact the
+recorded id itself answers 404, because D313 made the recorded id the owner's
+own OPS folder. Two correct decisions (D313: file into the owner's OPS folder;
+`drive.file`: see only what the app made) cannot both hold. Nothing checked
+them against each other until a file tried.
+
+**What the owner chose (D320).** Keep `drive.file`, and have the app make
+its own folder: `ops-talaliving`, at the root of each shared drive. Task
+folders go inside it. The hand-made OPS folder now only tells the app which
+shared drive it is. That lookup uses `drive.readonly`, which can see a folder
+a person made but cannot write anything. `drive_folders.drive_id` and
+`folder_id` are filled by the app. The upload route does this on a drive's
+first upload. IT → Google Drive (`/it/drive`, `/api/documents/drive-check`)
+does it for every drive at once and shows, per drive, whether the app can
+reach it and why not.
+
+This session could not run it. The key lives only on the Worker, and the
+Drive connector available here acts as a person (it@), so a folder it made
+would be as invisible to `drive.file` as the hand-made OPS. That connector
+also sees only DRAFTING's OPS folder. The folder has to be made by the app,
+so IT runs the screen after the deploy.

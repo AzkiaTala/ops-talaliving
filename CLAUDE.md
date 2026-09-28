@@ -7,20 +7,28 @@ stand) and `docs/plan/07-ways-of-working.md` (the loop). Decisions are in
 
 ## Standing rules from the owner — apply in every session
 
-### File storage: everything in the OPS folder, one folder per task (D313, 2026-09-25)
+### File storage: everything in the app's `ops-talaliving` folder, one folder per task (D313, D320)
 
 > *folder OPS untuk menampung semua file yang dipakai di web apps
-> ops.talaliving, dan harus buat per folder untuk tugas tertentu.*
+> ops.talaliving, dan harus buat per folder untuk tugas tertentu.* (D313,
+> 2026-09-25)
+>
+> *silahkan buat folder drive nya ops-talaliving* (D320, 2026-09-28)
 
-- Every file this app stores goes to the **`OPS` folder of the module's shared
-  drive** (PROCUREMENT, ACCOUNTING, HRD, DRAFTING, PRODUCTION, PROJECT MANAGER,
-  IT). The id in `ops_core.drive_folders.parent_folder_id` **is** that OPS
-  folder — never create an `ops` folder inside it.
-- **Never loose in OPS**: each file goes in a folder for its task, e.g. in the
-  Procurement drive:
+- Every file this app stores goes to the **`ops-talaliving` folder at the
+  root of the module's shared drive** (PROCUREMENT, ACCOUNTING, HRD, DRAFTING,
+  PRODUCTION, PROJECT MANAGER, IT). **The app makes that folder itself**,
+  because uploads use the `drive.file` permission, which sees only what the
+  app made. The owner's hand-made OPS folders answered *File not found* for
+  that reason (F173). Its id is `ops_core.drive_folders.folder_id`, and the
+  shared drive's is `drive_id`. `parent_folder_id` (the hand-made OPS) only
+  says which drive it is. IT → Google Drive (`/it/drive`) makes the folder
+  for every drive and shows which drives the app cannot reach.
+- **Never loose in `ops-talaliving`**: each file goes in a folder for its
+  task, e.g. in the Procurement drive:
 
   ```
-  OPS
+  ops-talaliving
   ├── INVENTORY
   │   ├── ITEMS            (item photos, D309)
   │   └── FINISHED GOODS   (finished product photos, D311)
@@ -29,9 +37,10 @@ stand) and `docs/plan/07-ways-of-working.md` (the loop). Decisions are in
 
 - The folder is decided by the database, not the screen:
   `ops_core.drive_paths` (kind + the record the file is filed against → path
-  under OPS); no row = the kind's own name in capitals (`purchase_order` →
-  `PURCHASE ORDER`). The upload route (`src/app/api/documents/upload/route.ts`)
-  finds or creates each folder level (`src/lib/drive.ts`).
+  under `ops-talaliving`); no row = the kind's own name in capitals
+  (`purchase_order` → `PURCHASE ORDER`). The upload route
+  (`src/app/api/documents/upload/route.ts`) finds or creates each folder level
+  (`src/lib/drive.ts`).
 - **A new feature that stores files must** pass `entity` to
   `documents.upload(...)` and, when its files need their own folder, add a
   `drive_paths` row in its migration. The drive itself is still chosen only by

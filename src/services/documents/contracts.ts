@@ -231,3 +231,65 @@ export interface AttachmentView extends Attachment {
    *  normal case here, not the parked-file problem it is today. */
   covers_count: number;
 }
+
+/* ── IT → Google Drive (F173, D320) ───────────────────────────────────── */
+
+/** The state of one shared drive, as far as filing goes.
+ *
+ *  - `ready`: the app's `ops-talaliving` folder exists and uploads can see it.
+ *  - `not_set_up`: the drive is reachable, and the folder is not made yet.
+ *    *Create ops-talaliving* makes it, and so does the first upload.
+ *  - `not_member_or_wrong_id`: Google cannot find the recorded folder or drive
+ *    for the app's account, so the account is not a member of that shared
+ *    drive, or the id is wrong.
+ *  - `read_only_member`: in the drive as Viewer or Commenter, cannot file.
+ *  - `app_folder_missing`: a folder was recorded, but uploads can no longer
+ *    open it (moved, binned or deleted). *Create ops-talaliving* makes another.
+ *  - `not_configured`: nothing records which shared drive this is.
+ *  - `check_failed`: the check itself could not run (see `note`).
+ */
+export type DriveVerdict =
+  | "ready" | "not_set_up" | "not_member_or_wrong_id" | "read_only_member"
+  | "app_folder_missing" | "not_configured" | "check_failed";
+
+export interface DriveCheck {
+  slug: string;
+  label: string;
+  /** The folder a person made in the drive; says which drive it is. */
+  recorded_folder_id: string | null;
+  drive_id: string | null;
+  /** The app's `ops-talaliving` folder, once made. */
+  folder_id: string | null;
+  /** The shared drive as a member sees it (read-only look). */
+  drive: {
+    ok: boolean; status: number; message: string | null;
+    name: string | null; can_add: boolean | null;
+  } | null;
+  /** The app's folder as uploads see it (`drive.file`). */
+  app_folder: { ok: boolean; status: number; message: string | null; name: string | null; trashed: boolean } | null;
+  verdict: DriveVerdict;
+  note: string | null;
+}
+
+/** One drive's result from *Create ops-talaliving*. */
+export interface DriveSetUp {
+  slug: string;
+  label: string;
+  ok: boolean;
+  drive_id: string | null;
+  drive_name: string | null;
+  folder_id: string | null;
+  /** True when made just now; false when the app's folder was already there. */
+  created: boolean;
+  code: string | null;
+  message: string | null;
+}
+
+export interface DriveCheckReport {
+  service_account: string;
+  /** The permission uploads use. */
+  upload_scope: string;
+  /** The folder the app files into, in every drive. */
+  app_folder: string;
+  drives: DriveCheck[];
+}

@@ -1,6 +1,10 @@
 import { cookies } from "next/headers";
 import { supabaseServer } from "@/lib/supabase/server";
-import { uploadToDrive, findOrCreateOpsFolder, findOrCreatePath, driveConfigured } from "@/lib/drive";
+import {
+  uploadToDrive, driveOf, findOrCreateAppFolder, findOrCreatePath, driveConfigured,
+  DriveError, serviceAccountEmail,
+} from "@/lib/drive";
+import { explainDriveFailure } from "@/lib/drive-errors";
 
 /** `POST /api/documents/upload` — the one server route this application has.
  *
@@ -98,7 +102,7 @@ export async function POST(request: Request): Promise<Response> {
   const file = form.get("file");
   const kind = String(form.get("kind") ?? "").trim();
   /* The record the file will be filed against, where the screen knows it: it
-     picks the task folder under OPS (a photo of an item is not a photo of a
+     picks the task folder under ops-talaliving (a photo of an item is not a photo of a
      finished product). Optional — without it the kind's own folder is used. */
   const entity = String(form.get("entity") ?? "").trim() || null;
   if (!(file instanceof File)) {
@@ -116,7 +120,7 @@ export async function POST(request: Request): Promise<Response> {
   /* **The database decides the folder**, and it decides as this person: a kind
      they may not file is refused by the same policies the rest of the app
      obeys. The refusal is relayed whole, because it names the thing to do —
-     *the HRD shared drive has no `ops` folder recorded yet*. */
+     *nothing records which shared drive is HRD*. */
   const { data: where, error: whereErr } = await sb
     .schema("ops_core").rpc("drive_folder_for", { p_kind: kind, p_entity: entity });
   if (whereErr) {
@@ -131,52 +135,86 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
   const folder = resolved.data as {
-    folder_id: string | null;
-    parent_folder_id: string | null;
+    /** The app's own `ops-talaliving` folder, once made (D320). */
+    folder_id?: string | null;
+    /** The shared drive, once found. */
+    drive_id?: string | null;
+    /** A folder a person made in the drive, used only to find the drive. */
+    parent_folder_id?: string | null;
     label: string;
     slug: string;
-    /** The task folder under OPS (0172), e.g. `INVENTORY/ITEMS`. */
+    /** The task folder under `ops-talaliving` (0172), e.g. `INVENTORY/ITEMS`. */
     path: string;
   };
 
-  /* **The `OPS` folder, located once per drive.**
+  /* **A refusal from Drive, said so a person can act on it.** Google's JSON
+     used to be the toast (F173). Now the toast says what happened and who
+     fixes it; Google's own answer goes to the audit log's detail, and the
+     failure is written there at all, which it was not before: the log's only
+     row for a failed upload was the folder question, reading `ok`. */
+  const failed = async (e: unknown, stage: DriveError["stage"]): Promise<Response> => {
+    const x = explainDriveFailure(e, stage, {
+      label: folder.label, path: folder.path,
+      folderId: folder.folder_id ?? folder.parent_folder_id ?? null,
+    });
+    const detail = {
+      slug: folder.slug, label: folder.label, path: folder.path,
+      folder_id: folder.folder_id ?? folder.parent_folder_id,
+      service_account: serviceAccountEmail(),
+      google: e instanceof DriveError
+        ? { status: e.status, message: e.googleMessage, reason: e.googleReason }
+        : { message: String((e as Error)?.message ?? e) },
+    };
+    /* Best-effort: a log that cannot be written must not hide the refusal. */
+    await sb.schema("ops_core").rpc("record_upload_failure", {
+      p_filename: file.name, p_kind: kind, p_stage: x.stage,
+      p_code: x.code, p_message: x.message, p_detail: detail,
+    });
+    return refuse(x.status, x.code, x.message, detail);
+  };
+
+  /* **The app's own folder, made once per drive (D320).**
    *
-   * The id recorded for each drive is the owner's `OPS` folder itself (D313 —
-   * `0036` had read it as a parent and would have filed into `OPS/ops`).
-   * `findOrCreateOpsFolder` checks the name: a folder named OPS is the target;
-   * anything else gets an `OPS` found or made inside it. Written down after,
-   * so the next upload does not ask again.
+   * `drive.file` cannot see a folder a person made, so the owner's hand-made
+   * OPS folders answered *File not found* (F173). The app makes its own
+   * `ops-talaliving` at the root of the shared drive instead, and files
+   * everything under it. The recorded folder only says which drive that is.
+   * Both ids are written back, so the next upload asks Google nothing. IT →
+   * Google Drive does the same for every drive at once.
    */
-  let folderId = folder.folder_id;
+  let folderId = folder.folder_id ?? null;
   if (!folderId) {
-    if (!folder.parent_folder_id) {
-      return refuse(501, "drive_not_configured",
-        `The ${folder.label} shared drive has no folder recorded yet.`);
+    let driveId = folder.drive_id ?? null;
+    if (!driveId) {
+      if (!folder.parent_folder_id) {
+        return refuse(501, "drive_not_configured",
+          `Nothing records which shared drive is ${folder.label}. IT records it in ops_core.drive_folders.`);
+      }
+      try {
+        driveId = (await driveOf(folder.parent_folder_id)).driveId;
+      } catch (e) {
+        return failed(e, "drive");
+      }
     }
     try {
-      folderId = await findOrCreateOpsFolder(folder.parent_folder_id);
+      folderId = (await findOrCreateAppFolder(driveId)).id;
     } catch (e) {
-      return refuse(502, "drive_folder_failed",
-        `Could not find or create the \`ops\` folder in ${folder.label}. `
-        + String((e as Error).message),
-        { slug: folder.slug });
+      return failed(e, "app_folder");
     }
     /* Written back so the next upload does not search again. A failure here is
        not worth refusing an upload over — the folder exists, the file can go in
        it, and the only cost is one more search next time. */
     await sb.schema("ops_core").rpc("record_ops_folder", {
-      p_slug: folder.slug, p_folder_id: folderId,
+      p_slug: folder.slug, p_folder_id: folderId, p_drive_id: driveId,
     });
   }
 
-  /* Never loose in OPS: every file goes in the folder for its task (D313). */
+  /* Never loose in ops-talaliving: every file goes in its task's folder. */
   let targetId: string;
   try {
     targetId = await findOrCreatePath(folderId, folder.path);
   } catch (e) {
-    return refuse(502, "drive_folder_failed",
-      `Could not find or create OPS/${folder.path} in ${folder.label}. ` + String((e as Error).message),
-      { slug: folder.slug, path: folder.path });
+    return failed(e, "folder");
   }
 
   const bytes = await file.arrayBuffer();
@@ -196,13 +234,8 @@ export async function POST(request: Request): Promise<Response> {
       { name: file.name, type: file.type, bytes }, targetId,
     );
   } catch (e) {
-    /* Nothing has been written to the database, so there is nothing to undo.
-       Google's own words are relayed because they distinguish a wrong key from
-       a folder the service account was never added to, and those have different
-       fixes. */
-    return refuse(502, "drive_upload_failed",
-      `The file did not reach the ${folder.label} shared drive. ${String((e as Error).message)}`,
-      { slug: folder.slug });
+    /* Nothing has been written to the database, so there is nothing to undo. */
+    return failed(e, "upload");
   }
 
   /* **Did it land where it was sent?** Drive says which folder the file is
@@ -210,10 +243,14 @@ export async function POST(request: Request): Promise<Response> {
      decided, and recording it would put a wrong answer to *which drive* in
      the database. Refused with the id so IT can find it and move it. */
   if (!uploaded.parents.includes(targetId)) {
-    return refuse(502, "drive_misfiled",
-      `${uploaded.name} reached Drive but not the ${folder.label} / OPS/${folder.path} folder `
-      + `it was sent to, so it was not recorded. IT can find it by its id.`,
-      { drive_file_id: uploaded.id, expected_folder: targetId, parents: uploaded.parents });
+    const message = `${uploaded.name} reached Google Drive, but not the ${folder.label} / ops-talaliving / ${folder.path} `
+      + `folder it was sent to, so it was not recorded. IT can find it by its Drive id, ${uploaded.id}.`;
+    const detail = { drive_file_id: uploaded.id, expected_folder: targetId, parents: uploaded.parents };
+    await sb.schema("ops_core").rpc("record_upload_failure", {
+      p_filename: file.name, p_kind: kind, p_stage: "upload",
+      p_code: "drive_misfiled", p_message: message, p_detail: detail,
+    });
+    return refuse(502, "drive_misfiled", message, detail);
   }
 
   /* `storage_path` holds the Drive file id — the file's identity. Beside it
@@ -256,7 +293,7 @@ export async function POST(request: Request): Promise<Response> {
       attachment_id: attachmentId,
       drive_file_id: uploaded.id,
       web_view_link: uploaded.webViewLink,
-      filed_in: `${folder.label} / OPS / ${folder.path}`,
+      filed_in: `${folder.label} / ops-talaliving / ${folder.path}`,
       sha256,
     },
     meta: { request_id: "", service: "documents", version: "1", outcome: "ok" },
