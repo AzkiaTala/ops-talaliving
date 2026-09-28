@@ -10,6 +10,7 @@ import { useDemoReset } from "@/demo/provider";
 import { consumeResetNotice } from "@/demo/store";
 import { useToast } from "@/store/toast";
 import { isLiveMode } from "@/lib/live";
+import { LANGS, setLang, useLang, useTr } from "@/lib/i18n";
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const { session, signOut } = useSession();
@@ -17,6 +18,8 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const reset = useDemoReset();
   const { toast } = useToast();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const lang = useLang();
+  const tr = useTr();
 
   /* Said once, because otherwise somebody's demo edits vanish with no
      explanation and the app looks broken rather than updated (F24). */
@@ -24,8 +27,8 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
     if (consumeResetNotice()) {
       toast(
         "info",
-        "Demo data refreshed",
-        "The fixtures changed since your last visit, so the sandbox started over.",
+        tr("Demo data refreshed", "Data demo diperbarui"),
+        tr("The fixtures changed since your last visit, so the sandbox started over.", "Data contoh berubah sejak kunjungan terakhir Anda, jadi sandbox dimulai dari awal."),
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,7 +46,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         <button
           onClick={onMenuClick}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
-          aria-label="Open menu"
+          aria-label={tr("Open menu", "Buka menu")}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -59,11 +62,36 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
             to change is real. So it is asked, not assumed. */}
         {!live && (
           <span className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-inset ring-amber-200">
-            Demo · data is not real
+            {tr("Demo · data is not real", "Demo · data tidak nyata")}
           </span>
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          {/* The viewer's own language, one click, remembered in this browser
+              (D317). English is the default (D247). */}
+          <div
+            role="group"
+            aria-label={tr("Language", "Bahasa")}
+            className="flex shrink-0 overflow-hidden rounded-lg ring-1 ring-inset ring-slate-200"
+          >
+            {LANGS.map((l) => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={() => setLang(l.code)}
+                aria-pressed={lang === l.code}
+                title={l.label}
+                className={
+                  lang === l.code
+                    ? "bg-brand-600 px-2 py-1 text-[11px] font-semibold uppercase text-white"
+                    : "px-2 py-1 text-[11px] font-semibold uppercase text-slate-500 hover:bg-slate-100"
+                }
+              >
+                {l.code}
+              </button>
+            ))}
+          </div>
+
           {/* Both of these are the sandbox's own controls and neither belongs in
               front of a database. `Reset` restores fixtures nothing is reading,
               which is merely confusing; the persona picker offers to become
@@ -79,7 +107,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                 icon={RotateCcw}
                 onClick={() => {
                   reset();
-                  toast("info", "Demo data reset", "The sandbox is back to its starting state.");
+                  toast("info", tr("Demo data reset", "Data demo direset"), tr("The sandbox is back to its starting state.", "Sandbox kembali ke keadaan awal."));
                 }}
               >
                 <span className="hidden md:inline">Reset</span>
@@ -100,7 +128,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               onClick={() => void signOut()}
               title={session?.user.email}
             >
-              <span className="hidden md:inline">Keluar</span>
+              <span className="hidden md:inline">{tr("Sign out", "Keluar")}</span>
             </Button>
           )}
 
@@ -113,7 +141,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               anybody may be granted or refused. */}
           <Link
             href="/profil"
-            title={session ? `${session.user.full_name} — profil saya` : "Profil saya"}
+            title={session ? `${session.user.full_name} — ${tr("my profile", "profil saya")}` : tr("My profile", "Profil saya")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-200"
           >
             {session?.user.full_name.charAt(0) ?? "?"}

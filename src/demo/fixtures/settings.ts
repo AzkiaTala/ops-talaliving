@@ -39,7 +39,7 @@ export const APP_SETTINGS: AppSetting[] = [
 
   {
     key: "format.language", group: "format", label: "Bahasa",
-    help: "Menerjemahkan menu, kata-kata umum, dan seluruh John Lau — termasuk panduan dan alasan penolakannya. Isi tiap layar tetap seperti sekarang, dan kosakata perusahaan (MSG SENT, SP NORTH, PKWT, kode akun, status) tidak pernah diterjemahkan: itu nama, bukan kata.",
+    help: "Bahasa bawaan untuk browser yang belum memilih. Tiap orang memilih bahasanya sendiri lewat tombol EN/ID di bilah atas, dan pilihan itu diingat di browsernya. Seluruh teks layar diterjemahkan; isi dari database (nama, catatan, keterangan) dan kosakata perusahaan (MSG SENT, SP NORTH, PKWT, kode akun, status) tidak: itu nama, bukan kata.",
     kind: "choice", value: "en", default_value: "en",
     unit: null, choices: ["en", "id"], reach: "display",
     locked_reason: null, managed_at: null, affects: [],
