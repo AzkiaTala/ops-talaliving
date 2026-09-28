@@ -22,6 +22,7 @@
  *  open, no cycles, freeze on release. This file passes the arguments and
  *  re-reads the product, so a screen always redraws from what was stored.
  */
+import { trNow } from "@/lib/i18n";
 import type {
   BomDiff, BomDiffLine, BomDiffShape, BomKind, BomLineView, BomRevisionView,
   ProductDrawing, ProductDrawingEntry, ProductView, RateSource, WorkOrderRef,
@@ -290,14 +291,14 @@ async function views(
     const labourLines = components.filter((c) => c.kind === "labour");
     const warnings: string[] = [];
     if (components.length === 0) {
-      warnings.push("Belum ada bill of material — biaya produksinya belum bisa dihitung.");
+      warnings.push(trNow("No bill of material yet — the production cost cannot be worked out yet.", "Belum ada bill of material — biaya produksinya belum bisa dihitung."));
     }
-    if (broken_refs > 0) warnings.push(`${broken_refs} komponen menunjuk kode yang tidak ada di katalog.`);
+    if (broken_refs > 0) warnings.push(trNow(`${broken_refs} component(s) point at a code that is not in the catalogue.`, `${broken_refs} komponen menunjuk kode yang tidak ada di katalog.`));
     if (unpriced > broken_refs) {
-      warnings.push(`${unpriced - broken_refs} komponen belum punya rate — biaya produksi belum lengkap.`);
+      warnings.push(trNow(`${unpriced - broken_refs} component(s) have no rate yet — the production cost is incomplete.`, `${unpriced - broken_refs} komponen belum punya rate — biaya produksi belum lengkap.`));
     }
     if (components.length > 0 && labourLines.length === 0) {
-      warnings.push("Belum ada baris tenaga kerja — biaya produksi baru berisi bahan.");
+      warnings.push(trNow("No labour lines yet — the production cost holds materials only.", "Belum ada baris tenaga kerja — biaya produksi baru berisi bahan."));
     }
 
     const sumOf = (ls: BomLineView[]) => ls.reduce((a, l) => a + (l.subtotal ?? 0), 0);

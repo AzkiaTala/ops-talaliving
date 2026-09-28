@@ -16,6 +16,7 @@
  *  the inbox row moving in the same transaction as the posting, so a
  *  document cannot end up booked and still queued.
  */
+import { trNow } from "@/lib/i18n";
 import type {
   Account, AccountBalance, TransactionView, TransactionDetail,
   TransactionType, Direction, AllocMethod, InboxStatus, InboxHealth,
@@ -1371,8 +1372,8 @@ async function readPlan(from?: string): Promise<Result<CashPlan>> {
   const months: CashMonth[] = plan.months.map((m) => ({ ...m, label: monthLabel(m.month) }));
   const last = months[months.length - 1];
   const verdict = plan.short_month
-    ? `On this plan the money runs out in ${monthLabel(plan.short_month)} — ${formatIDRCompact(plan.short_by)} short.`
-    : `The plan holds through ${last.label}, ending at ${formatIDRCompact(last.closing)}.`;
+    ? trNow(`On this plan the money runs out in ${monthLabel(plan.short_month)} — ${formatIDRCompact(plan.short_by)} short.`, `Dengan rencana ini uangnya habis di ${monthLabel(plan.short_month)} — kurang ${formatIDRCompact(plan.short_by)}.`)
+    : trNow(`The plan holds through ${last.label}, ending at ${formatIDRCompact(last.closing)}.`, `Rencana ini aman sampai ${last.label}, berakhir di ${formatIDRCompact(last.closing)}.`);
 
   return ok(SERVICE, { ...plan, months, verdict });
 }

@@ -5,6 +5,7 @@
  *  stage, the totals and the warnings cannot disagree between the two (F75's
  *  rule, the same arrangement `production/work-order-view.ts` makes).
  */
+import { trNow } from "@/lib/i18n";
 import type {
   BoxStatus, DeliveryStatus, FulfilmentLine, FulfilmentStage, FulfilmentView, Handover,
 } from "./contracts";
@@ -58,29 +59,29 @@ export function buildFulfilment(
   const warnings: string[] = [];
   for (const l of goods) {
     if (l.made != null && l.made > l.ordered) {
-      warnings.push(`Baris ${l.line_no}: dibuat ${l.made} ${l.uom}, dipesan ${l.ordered} — kelebihan ${l.made - l.ordered} perlu dijelaskan.`);
+      warnings.push(trNow(`Line ${l.line_no}: made ${l.made} ${l.uom}, ordered ${l.ordered} — the extra ${l.made - l.ordered} needs explaining.`, `Baris ${l.line_no}: dibuat ${l.made} ${l.uom}, dipesan ${l.ordered} — kelebihan ${l.made - l.ordered} perlu dijelaskan.`));
     }
     if (l.delivered > l.ordered) {
-      warnings.push(`Baris ${l.line_no}: terkirim ${l.delivered} ${l.uom} dari pesanan ${l.ordered}.`);
+      warnings.push(trNow(`Line ${l.line_no}: delivered ${l.delivered} ${l.uom} against an order of ${l.ordered}.`, `Baris ${l.line_no}: terkirim ${l.delivered} ${l.uom} dari pesanan ${l.ordered}.`));
     }
     /* Shipped more than the floor reported finishing: usually the last stage
        nobody reported, and the one gap that makes every other number on the
        row unreadable. */
     if (l.made != null && l.delivered > l.made) {
-      warnings.push(`Baris ${l.line_no}: terkirim ${l.delivered} ${l.uom} tapi produksi baru melaporkan ${l.made} selesai. Biasanya tahap terakhirnya yang belum dilaporkan, bukan barangnya yang tidak ada.`);
+      warnings.push(trNow(`Line ${l.line_no}: delivered ${l.delivered} ${l.uom} but production has only reported ${l.made} finished. Usually the last stage has not been reported, not that the goods are missing.`, `Baris ${l.line_no}: terkirim ${l.delivered} ${l.uom} tapi produksi baru melaporkan ${l.made} selesai. Biasanya tahap terakhirnya yang belum dilaporkan, bukan barangnya yang tidak ada.`));
     }
     /* A finished job's missing Job Order is history, not a task (F51). */
     if (l.made == null && !handover) {
       warnings.push(l.product_code
-        ? `Baris ${l.line_no} belum punya Job Order, jadi jumlah yang sudah dibuat tidak diketahui — bukan nol.`
-        : `Baris ${l.line_no} tidak punya item code, jadi jumlah yang sudah dibuat tidak bisa dicocokkan ke Job Order mana pun.`);
+        ? trNow(`Line ${l.line_no} has no Job Order yet, so how many have been made is unknown — not zero.`, `Baris ${l.line_no} belum punya Job Order, jadi jumlah yang sudah dibuat tidak diketahui — bukan nol.`)
+        : trNow(`Line ${l.line_no} has no item code, so how many have been made cannot be matched to any Job Order.`, `Baris ${l.line_no} tidak punya item code, jadi jumlah yang sudah dibuat tidak bisa dicocokkan ke Job Order mana pun.`));
     }
   }
   if (handover && handover.open_snags_at_handover > 0) {
-    warnings.push(`Diserahterimakan dengan ${handover.open_snags_at_handover} catatan masih terbuka.`);
+    warnings.push(trNow(`Handed over with ${handover.open_snags_at_handover} snag(s) still open.`, `Diserahterimakan dengan ${handover.open_snags_at_handover} catatan masih terbuka.`));
   }
   if (!handover && project.target_date && project.target_date < today) {
-    warnings.push(`Lewat tanggal janji ${project.target_date} dan belum serah terima.`);
+    warnings.push(trNow(`Past the promised date ${project.target_date} and not yet handed over.`, `Lewat tanggal janji ${project.target_date} dan belum serah terima.`));
   }
 
   return {
@@ -118,11 +119,11 @@ export function deliveryWarnings(
   lineCount: number, today: string,
 ): string[] {
   const w: string[] = [];
-  if (d.status === "ARRIVED" && !d.surat_jalan_attachment_id) w.push("Sampai tapi surat jalannya belum dilampirkan.");
+  if (d.status === "ARRIVED" && !d.surat_jalan_attachment_id) w.push(trNow("Arrived, but its surat jalan is not attached yet.", "Sampai tapi surat jalannya belum dilampirkan."));
   if (d.status === "IN_TRANSIT" && daysBetween(d.dispatched_on, today) >= 3) {
-    w.push(`Berangkat ${daysBetween(d.dispatched_on, today)} hari lalu dan belum tercatat sampai.`);
+    w.push(trNow(`Left ${daysBetween(d.dispatched_on, today)} day(s) ago and not yet recorded as arrived.`, `Berangkat ${daysBetween(d.dispatched_on, today)} hari lalu dan belum tercatat sampai.`));
   }
-  if (lineCount === 0) w.push("Tidak ada barang di surat jalan ini.");
+  if (lineCount === 0) w.push(trNow("There are no goods on this surat jalan.", "Tidak ada barang di surat jalan ini."));
   return w;
 }
 
@@ -133,13 +134,13 @@ export function boxWarnings(
   lineCount: number, delivery: { status: DeliveryStatus } | null,
 ): string[] {
   const w: string[] = [];
-  if (lineCount === 0) w.push("Peti ini tercatat tanpa isi.");
+  if (lineCount === 0) w.push(trNow("This crate is recorded with nothing in it.", "Peti ini tercatat tanpa isi."));
   if ((b.status === "ON_SITE" || b.status === "INSTALLED") && !delivery) {
-    w.push("Tercatat sampai di site, tapi tidak menempel pada pengiriman mana pun.");
+    w.push(trNow("Recorded as on site, but not attached to any delivery.", "Tercatat sampai di site, tapi tidak menempel pada pengiriman mana pun."));
   }
   if (delivery && delivery.status === "ARRIVED" && b.scanned_at == null) {
-    w.push("Pengirimannya sudah tercatat sampai, tapi peti ini belum ada yang scan.");
+    w.push(trNow("The delivery is recorded as arrived, but nobody has scanned this crate yet.", "Pengirimannya sudah tercatat sampai, tapi peti ini belum ada yang scan."));
   }
-  if (b.status === "PROBLEM" && !b.problem_note) w.push("Ditandai bermasalah tanpa keterangan.");
+  if (b.status === "PROBLEM" && !b.problem_note) w.push(trNow("Marked as a problem with no explanation.", "Ditandai bermasalah tanpa keterangan."));
   return w;
 }

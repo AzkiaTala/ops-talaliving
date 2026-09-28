@@ -23,6 +23,7 @@
  *  `variance_delta`; the screens read `line.variance.delta`. That is a
  *  renaming, not a calculation, and it is the only work here.
  */
+import { trNow } from "@/lib/i18n";
 import type {
   Vendor, VendorView, Item, ItemView, Uom, UomConversion, UomDimension, ItemCategory, ItemPurchase, Project,
   ItemGroupSuggestion,
@@ -1724,12 +1725,12 @@ function formatShort(n: number): string {
  */
 function headlineFor(j: Omit<VendorJourney, "headline">): string {
   if (j.billable_now > 0) {
-    return `${formatShort(j.billable_now)} can be invoiced now — goods have arrived that nobody has paid for`;
+    return trNow(`${formatShort(j.billable_now)} can be invoiced now — goods have arrived that nobody has paid for`, `${formatShort(j.billable_now)} bisa ditagihkan sekarang — ada barang yang sudah datang tapi belum dibayar`);
   }
   if (j.outstanding > 0) {
-    return `${formatShort(j.outstanding)} still contracted, and nothing is billable until more arrives`;
+    return trNow(`${formatShort(j.outstanding)} still contracted, and nothing is billable until more arrives`, `${formatShort(j.outstanding)} masih terkontrak, dan belum ada yang bisa ditagihkan sampai barang berikutnya datang`);
   }
-  return "Fully settled — every order paid against what has arrived";
+  return trNow("Fully settled — every order paid against what has arrived", "Lunas — setiap pesanan sudah dibayar sesuai barang yang datang");
 }
 
 export async function listVendorJourneys(): Promise<Result<VendorJourney[]>> {

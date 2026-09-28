@@ -10,6 +10,7 @@
  *  been written down anywhere as a single definition. Read it as the money
  *  rules, not as helper code.
  */
+import { trNow } from "@/lib/i18n";
 import type { DemoState } from "./state";
 import type {
   ReceiptCondition, ReceiptStatus,
@@ -533,10 +534,10 @@ export function vendorJourney(state: DemoState, vendorId: string): VendorJourney
   /* One sentence rather than four numbers to compare — the reader is standing
    * in front of a supplier, not reading a report. */
   const headline = billable_now > 0
-    ? `${formatShort(billable_now)} can be invoiced now — goods have arrived that nobody has paid for`
+    ? trNow(`${formatShort(billable_now)} can be invoiced now — goods have arrived that nobody has paid for`, `${formatShort(billable_now)} bisa ditagihkan sekarang — ada barang yang sudah datang tapi belum dibayar`)
     : outstanding > 0
-      ? `${formatShort(outstanding)} still contracted, and nothing is billable until more arrives`
-      : "Fully settled — every order paid against what has arrived";
+      ? trNow(`${formatShort(outstanding)} still contracted, and nothing is billable until more arrives`, `${formatShort(outstanding)} masih terkontrak, dan belum ada yang bisa ditagihkan sampai barang berikutnya datang`)
+      : trNow("Fully settled — every order paid against what has arrived", "Lunas — setiap pesanan sudah dibayar sesuai barang yang datang");
 
   return {
     vendor_id: vendorId,
@@ -995,10 +996,10 @@ export function fundingView(state: DemoState, trx: Transaction, all?: Transactio
   );
 
   const headline = consumed_on
-    ? `Spent through in ${days_lasted} day(s)${spent > trx.amount_idr ? `, and ${formatShort(spent - trx.amount_idr)} beyond it` : ""}`
+    ? trNow(`Spent through in ${days_lasted} day(s)${spent > trx.amount_idr ? `, and ${formatShort(spent - trx.amount_idr)} beyond it` : ""}`, `Habis terpakai dalam ${days_lasted} hari${spent > trx.amount_idr ? `, dan lebih ${formatShort(spent - trx.amount_idr)} darinya` : ""}`)
     : is_open
-      ? `${formatShort(trx.amount_idr - spent)} of it still unspent`
-      : `${formatShort(trx.amount_idr - spent)} was still unspent when the next transfer arrived`;
+      ? trNow(`${formatShort(trx.amount_idr - spent)} of it still unspent`, `${formatShort(trx.amount_idr - spent)} darinya masih belum terpakai`)
+      : trNow(`${formatShort(trx.amount_idr - spent)} was still unspent when the next transfer arrived`, `${formatShort(trx.amount_idr - spent)} masih belum terpakai saat transfer berikutnya datang`);
 
   return {
     trx_no: trx.trx_no,
@@ -1359,8 +1360,8 @@ export function cashPlan(state: DemoState, now = new Date(), windowFrom = now): 
     .reduce((s, v) => s + vendorJourney(state, v.id).outstanding, 0);
 
   const verdict = short
-    ? `On this plan the money runs out in ${short.label} — ${formatShort(Math.abs(short.closing))} short.`
-    : `The plan holds through ${monthViews[monthViews.length - 1].label}, ending at ${formatShort(monthViews[monthViews.length - 1].closing)}.`;
+    ? trNow(`On this plan the money runs out in ${short.label} — ${formatShort(Math.abs(short.closing))} short.`, `Dengan rencana ini uangnya habis di ${short.label} — kurang ${formatShort(Math.abs(short.closing))}.`)
+    : trNow(`The plan holds through ${monthViews[monthViews.length - 1].label}, ending at ${formatShort(monthViews[monthViews.length - 1].closing)}.`, `Rencana ini aman sampai ${monthViews[monthViews.length - 1].label}, berakhir di ${formatShort(monthViews[monthViews.length - 1].closing)}.`);
 
   return {
     generated_for: today,
@@ -2216,23 +2217,47 @@ export function contributionAudit(
     const difference = expected === null ? null : paid - expected;
     const unusual = difference !== null && Math.abs(difference) > tolerance;
 
-    const names = g.schemes.map((s) => SCHEME_LABELS[s].id).join(", ");
+    const names = g.schemes.map((s) => SCHEME_LABELS[s].en).join(", ");
+    const namesId = g.schemes.map((s) => SCHEME_LABELS[s].id).join(", ");
     let verdict: string;
     if (anyUnknown) {
-      const missing = rolls.filter((r) => r.rate === null).map((r) => SCHEME_LABELS[r.scheme].id).join(", ");
-      verdict = `Tarif ${missing} untuk bulan ini belum ada, jadi total tagihan ini tidak bisa dihitung. Bukan nol — belum diketahui.`;
+      const unknownRolls = rolls.filter((r) => r.rate === null);
+      const missing = unknownRolls.map((r) => SCHEME_LABELS[r.scheme].en).join(", ");
+      const missingId = unknownRolls.map((r) => SCHEME_LABELS[r.scheme].id).join(", ");
+      verdict = trNow(
+        `The ${missing} rate for this month is not set yet, so this bill's total cannot be worked out. Not zero — not yet known.`,
+        `Tarif ${missingId} untuk bulan ini belum ada, jadi total tagihan ini tidak bisa dihitung. Bukan nol — belum diketahui.`,
+      );
     } else if (headcount === 0) {
-      verdict = `Belum ada satu nama pun terdaftar di ${names}. Selama daftarnya kosong, tagihan apa pun tidak punya pembanding.`;
+      verdict = trNow(
+        `Not one name is enrolled in ${names} yet. While the list is empty, no bill has anything to compare against.`,
+        `Belum ada satu nama pun terdaftar di ${namesId}. Selama daftarnya kosong, tagihan apa pun tidak punya pembanding.`,
+      );
     } else if (!component) {
-      verdict = `${headcount} orang terdaftar, seharusnya ${formatRupiah(expected!)}. Belum ada baris kalender kas untuk ${names}, jadi yang dibayar belum bisa ditarik.`;
+      verdict = trNow(
+        `${headcount} people enrolled, expected ${formatRupiah(expected!)}. There is no cash-calendar line for ${names} yet, so what was paid cannot be drawn in.`,
+        `${headcount} orang terdaftar, seharusnya ${formatRupiah(expected!)}. Belum ada baris kalender kas untuk ${namesId}, jadi yang dibayar belum bisa ditarik.`,
+      );
     } else if (paid === 0) {
-      verdict = `${headcount} orang terdaftar, seharusnya ${formatRupiah(expected!)}. Belum ada pembayaran tercatat bulan ini.`;
+      verdict = trNow(
+        `${headcount} people enrolled, expected ${formatRupiah(expected!)}. No payment recorded this month yet.`,
+        `${headcount} orang terdaftar, seharusnya ${formatRupiah(expected!)}. Belum ada pembayaran tercatat bulan ini.`,
+      );
     } else if (difference! > tolerance) {
-      verdict = `Dibayar ${formatRupiah(paid)} untuk ${headcount} orang yang seharusnya ${formatRupiah(expected!)} — lebih ${formatRupiah(difference!)}. Ini bentuk kebocoran yang dimaksud: tagihan yang lebih besar dari daftar namanya.`;
+      verdict = trNow(
+        `Paid ${formatRupiah(paid)} for ${headcount} people who should cost ${formatRupiah(expected!)} — ${formatRupiah(difference!)} over. This is the leak it is here to catch: a bill larger than its list of names.`,
+        `Dibayar ${formatRupiah(paid)} untuk ${headcount} orang yang seharusnya ${formatRupiah(expected!)} — lebih ${formatRupiah(difference!)}. Ini bentuk kebocoran yang dimaksud: tagihan yang lebih besar dari daftar namanya.`,
+      );
     } else if (difference! < -tolerance) {
-      verdict = `Dibayar ${formatRupiah(paid)}, kurang ${formatRupiah(-difference!)} dari yang seharusnya. Kurang bayar iuran menimbulkan denda.`;
+      verdict = trNow(
+        `Paid ${formatRupiah(paid)}, ${formatRupiah(-difference!)} less than expected. Underpaying contributions brings a penalty.`,
+        `Dibayar ${formatRupiah(paid)}, kurang ${formatRupiah(-difference!)} dari yang seharusnya. Kurang bayar iuran menimbulkan denda.`,
+      );
     } else {
-      verdict = `Cocok: ${headcount} orang, ${formatRupiah(paid)} dibayar terhadap ${formatRupiah(expected!)} yang diharapkan.`;
+      verdict = trNow(
+        `Matches: ${headcount} people, ${formatRupiah(paid)} paid against ${formatRupiah(expected!)} expected.`,
+        `Cocok: ${headcount} orang, ${formatRupiah(paid)} dibayar terhadap ${formatRupiah(expected!)} yang diharapkan.`,
+      );
     }
 
     return {

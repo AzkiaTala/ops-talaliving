@@ -7,6 +7,7 @@
  *  stopped matching its boards is exactly the number somebody would quote from
  *  (D153).
  */
+import { trNow } from "@/lib/i18n";
 import type { DemoState } from "./state";
 import type {
   LogPurchase, LogPurchaseView, LogPieceView, SawnBoardView, LogMeasure, LogCost,
@@ -95,18 +96,18 @@ export function logPurchaseView(state: DemoState, p: LogPurchase): LogPurchaseVi
 
   const warnings: string[] = [];
   if (logs.length === 0 && boards.length === 0) {
-    warnings.push("Belum ada batang yang diukur — kubikasi dan harga per m³ belum bisa dihitung.");
+    warnings.push(trNow("No logs measured yet — the cubic volume and the price per m³ cannot be worked out yet.", "Belum ada batang yang diukur — kubikasi dan harga per m³ belum bisa dihitung."));
   }
   if (log_m3 > 0 && sawn_m3 === 0) {
-    warnings.push("Belum ada papan yang dilaporkan — angka rendemen dan harga per m³ papan belum ada.");
+    warnings.push(trNow("No boards reported yet — there is no yield figure or board price per m³ yet.", "Belum ada papan yang dilaporkan — angka rendemen dan harga per m³ papan belum ada."));
   }
   if (unsawn_m3 > 0 && sawn_m3 > 0) {
-    warnings.push(`${unsawn_m3} m³ belum digergaji — rendemen dan harga per m³ papan dihitung hanya dari batang yang sudah.`);
+    warnings.push(trNow(`${unsawn_m3} m³ not sawn yet — the yield and the board price per m³ count only the logs that have been.`, `${unsawn_m3} m³ belum digergaji — rendemen dan harga per m³ papan dihitung hanya dari batang yang sudah.`));
   }
   if (yield_percent != null && yield_percent > 100) {
-    warnings.push(`Papan ${sawn_m3} m³ melebihi log ${log_m3} m³ — salah ukur, atau ada papan dari log lain masuk ke sini.`);
+    warnings.push(trNow(`Boards ${sawn_m3} m³ exceed the logs ${log_m3} m³ — a measuring mistake, or boards from another load were entered here.`, `Papan ${sawn_m3} m³ melebihi log ${log_m3} m³ — salah ukur, atau ada papan dari log lain masuk ke sini.`));
   } else if (yield_percent != null && yield_percent < settingNumber(state, "ops.low_yield_percent", 45)) {
-    warnings.push(`Rendemen ${yield_percent}% — di bawah yang biasa. Layak ditanyakan ke pemilik sawmill.`);
+    warnings.push(trNow(`Yield ${yield_percent}% — below the usual. Worth asking the sawmill owner.`, `Rendemen ${yield_percent}% — di bawah yang biasa. Layak ditanyakan ke pemilik sawmill.`));
   }
 
   /* Ours against the seller's. Kept as a fact, not a correction: the number to
@@ -118,8 +119,8 @@ export function logPurchaseView(state: DemoState, p: LogPurchase): LogPurchaseVi
   if (measure_gap_m3 != null && Math.abs(measure_gap_m3) >= 0.05) {
     warnings.push(
       measure_gap_m3 < 0
-        ? `Ukuran kita ${Math.abs(measure_gap_m3)} m³ LEBIH KECIL dari yang ditagih (${p.claimed_m3} m³).`
-        : `Ukuran kita ${measure_gap_m3} m³ lebih besar dari yang ditagih (${p.claimed_m3} m³).`,
+        ? trNow(`Our measure is ${Math.abs(measure_gap_m3)} m³ SMALLER than what was billed (${p.claimed_m3} m³).`, `Ukuran kita ${Math.abs(measure_gap_m3)} m³ LEBIH KECIL dari yang ditagih (${p.claimed_m3} m³).`)
+        : trNow(`Our measure is ${measure_gap_m3} m³ larger than what was billed (${p.claimed_m3} m³).`, `Ukuran kita ${measure_gap_m3} m³ lebih besar dari yang ditagih (${p.claimed_m3} m³).`),
     );
   }
 
