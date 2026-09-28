@@ -18,6 +18,8 @@
 /** How somebody is paid. Both exist here: staff on a monthly salary, and
  *  workshop people paid for the days they actually worked (owner). */
 import type { ScheduleShape, ScheduleHoursShape } from "./schedule-rules";
+import { bilingual, trNow, type Message } from "@/lib/i18n";
+import { CADENCE_LABELS } from "./task-periods";
 
 export type PayBasis = "monthly" | "daily" | "hourly";
 
@@ -107,14 +109,15 @@ import that brought it in, so a re-upload is a no-op rather than a
 export const SCAN_SLOTS = ["in", "break_out", "break_in", "out", "ot_start", "ot_end"] as const;
 export type ScanSlot = (typeof SCAN_SLOTS)[number];
 
-export const SLOT_LABEL: Record<ScanSlot, string> = {
-  in: "Masuk",
-  break_out: "Istirahat keluar",
-  break_in: "Istirahat masuk",
-  out: "Pulang",
-  ot_start: "Lembur mulai",
-  ot_end: "Lembur selesai",
+export const SLOT_LABELS: Record<ScanSlot, Message> = {
+  in: { en: "In", id: "Masuk" },
+  break_out: { en: "Break out", id: "Istirahat keluar" },
+  break_in: { en: "Break in", id: "Istirahat masuk" },
+  out: { en: "Out", id: "Pulang" },
+  ot_start: { en: "Overtime start", id: "Lembur mulai" },
+  ot_end: { en: "Overtime end", id: "Lembur selesai" },
 };
+export const SLOT_LABEL = bilingual(SLOT_LABELS);
 
 /** What HRD says about a day, when the machine alone cannot say it.
  *
@@ -131,24 +134,26 @@ export type DayMarkKind =
   | "leave"       // cuti
   | "permit";     // izin
 
-export const DAY_MARK_LABEL: Record<DayMarkKind, string> = {
-  holiday: "Tanggal merah",
-  half_day: "Setengah hari",
-  absent: "Tidak masuk",
-  sick: "Sakit",
-  leave: "Cuti",
-  permit: "Izin",
+export const DAY_MARK_LABELS: Record<DayMarkKind, Message> = {
+  holiday: { en: "Public holiday", id: "Tanggal merah" },
+  half_day: { en: "Half day", id: "Setengah hari" },
+  absent: { en: "Absent", id: "Tidak masuk" },
+  sick: { en: "Sick", id: "Sakit" },
+  leave: { en: "Leave", id: "Cuti" },
+  permit: { en: "Permit", id: "Izin" },
 };
+export const DAY_MARK_LABEL = bilingual(DAY_MARK_LABELS);
 
 /** The same six, short enough for a cell in a grid forty people wide. */
-export const DAY_MARK_SHORT: Record<DayMarkKind, string> = {
-  holiday: "merah",
-  half_day: "½ hari",
-  absent: "absen",
-  sick: "sakit",
-  leave: "cuti",
-  permit: "izin",
+export const DAY_MARK_SHORTS: Record<DayMarkKind, Message> = {
+  holiday: { en: "holiday", id: "merah" },
+  half_day: { en: "½ day", id: "½ hari" },
+  absent: { en: "absent", id: "absen" },
+  sick: { en: "sick", id: "sakit" },
+  leave: { en: "leave", id: "cuti" },
+  permit: { en: "permit", id: "izin" },
 };
+export const DAY_MARK_SHORT = bilingual(DAY_MARK_SHORTS);
 
 export interface DayMark {
   id: string;
@@ -246,10 +251,11 @@ export interface TimesheetDay {
  */
 export type OvertimeKind = "production" | "staff";
 
-export const OVERTIME_KIND_LABEL: Record<OvertimeKind, string> = {
-  production: "Lembur produksi",
-  staff: "Lembur staff",
+export const OVERTIME_KIND_LABELS: Record<OvertimeKind, Message> = {
+  production: { en: "Production overtime", id: "Lembur produksi" },
+  staff: { en: "Staff overtime", id: "Lembur staff" },
 };
+export const OVERTIME_KIND_LABEL = bilingual(OVERTIME_KIND_LABELS);
 
 export interface OvertimeSheet {
   id: string;
@@ -343,37 +349,54 @@ export type Citizenship = "WNI" | "WNA";
 
 export type MaritalStatus = "BELUM_KAWIN" | "KAWIN" | "CERAI_HIDUP" | "CERAI_MATI";
 
-export const SEX_LABEL: Record<Sex, string> = { L: "Laki-laki", P: "Perempuan" };
-
-export const EDUCATION_LABEL: Record<Education, string> = {
-  TIDAK_TAMAT_SD: "Tidak tamat SD", SD: "SD", SMP: "SMP", SMA: "SMA", SMK: "SMK",
-  D1: "D1", D2: "D2", D3: "D3", D4: "D4", S1: "S1", S2: "S2", S3: "S3",
+export const SEX_LABELS: Record<Sex, Message> = {
+  L: { en: "Male", id: "Laki-laki" }, P: { en: "Female", id: "Perempuan" },
 };
+export const SEX_LABEL = bilingual(SEX_LABELS);
 
-export const MARITAL_LABEL: Record<MaritalStatus, string> = {
-  BELUM_KAWIN: "Belum kawin", KAWIN: "Kawin",
-  CERAI_HIDUP: "Cerai hidup", CERAI_MATI: "Cerai mati",
+/** School levels are the Indonesian system's own names (SD, SMP, D3, S1…) and
+ *  stay as they are in both languages; only the one sentence is translated. */
+export const EDUCATION_LABELS: Record<Education, Message> = {
+  TIDAK_TAMAT_SD: { en: "Did not finish SD", id: "Tidak tamat SD" },
+  SD: { en: "SD", id: "SD" }, SMP: { en: "SMP", id: "SMP" }, SMA: { en: "SMA", id: "SMA" },
+  SMK: { en: "SMK", id: "SMK" }, D1: { en: "D1", id: "D1" }, D2: { en: "D2", id: "D2" },
+  D3: { en: "D3", id: "D3" }, D4: { en: "D4", id: "D4" }, S1: { en: "S1", id: "S1" },
+  S2: { en: "S2", id: "S2" }, S3: { en: "S3", id: "S3" },
 };
+export const EDUCATION_LABEL = bilingual(EDUCATION_LABELS);
+
+export const MARITAL_LABELS: Record<MaritalStatus, Message> = {
+  BELUM_KAWIN: { en: "Single", id: "Belum kawin" }, KAWIN: { en: "Married", id: "Kawin" },
+  CERAI_HIDUP: { en: "Divorced", id: "Cerai hidup" }, CERAI_MATI: { en: "Widowed", id: "Cerai mati" },
+};
+export const MARITAL_LABEL = bilingual(MARITAL_LABELS);
 
 /** The age bands the form asks for. Keys match `ops_hr.age_band()` exactly —
  *  two copies of a boundary is how somebody aged exactly 25 gets counted
  *  twice, so the boundaries live in SQL and only the words live here. */
-export const AGE_BAND_LABEL: Record<string, string> = {
-  di_bawah_18: "Di bawah 18", "18_24": "18–24", "25_34": "25–34",
-  "35_44": "35–44", "45_54": "45–54", "55_ke_atas": "55 ke atas",
-  tidak_diketahui: "Belum diisi",
+export const AGE_BAND_LABELS: Record<string, Message> = {
+  di_bawah_18: { en: "Under 18", id: "Di bawah 18" },
+  "18_24": { en: "18–24", id: "18–24" }, "25_34": { en: "25–34", id: "25–34" },
+  "35_44": { en: "35–44", id: "35–44" }, "45_54": { en: "45–54", id: "45–54" },
+  "55_ke_atas": { en: "55 and over", id: "55 ke atas" },
+  tidak_diketahui: { en: "Not filled in", id: "Belum diisi" },
 };
+export const AGE_BAND_LABEL: Record<string, string> = bilingual(AGE_BAND_LABELS);
 
 /** Which of the six a person is still missing. Field names, never values. */
 export type IdentityField =
   | "tanggal_lahir" | "jenis_kelamin" | "pendidikan"
   | "kewarganegaraan" | "disabilitas" | "status_kawin";
 
-export const IDENTITY_FIELD_LABEL: Record<IdentityField, string> = {
-  tanggal_lahir: "Tanggal lahir", jenis_kelamin: "Jenis kelamin",
-  pendidikan: "Pendidikan", kewarganegaraan: "Kewarganegaraan",
-  disabilitas: "Disabilitas", status_kawin: "Status kawin",
+export const IDENTITY_FIELD_LABELS: Record<IdentityField, Message> = {
+  tanggal_lahir: { en: "Date of birth", id: "Tanggal lahir" },
+  jenis_kelamin: { en: "Sex", id: "Jenis kelamin" },
+  pendidikan: { en: "Education", id: "Pendidikan" },
+  kewarganegaraan: { en: "Citizenship", id: "Kewarganegaraan" },
+  disabilitas: { en: "Disability", id: "Disabilitas" },
+  status_kawin: { en: "Marital status", id: "Status kawin" },
 };
+export const IDENTITY_FIELD_LABEL = bilingual(IDENTITY_FIELD_LABELS);
 
 /** The stored half — one row per person, no history. A date of birth does not
  *  change, and the three that can (education, marital status, citizenship) are
@@ -749,14 +772,18 @@ export type ContributionScheme =
   | "JKM"
   | "PPH21";
 
-export const SCHEME_LABEL: Record<ContributionScheme, string> = {
-  BPJS_KESEHATAN: "BPJS Kesehatan",
-  JHT: "BPJS TK — Jaminan Hari Tua",
-  JP: "BPJS TK — Jaminan Pensiun",
-  JKK: "BPJS TK — Jaminan Kecelakaan Kerja",
-  JKM: "BPJS TK — Jaminan Kematian",
-  PPH21: "PPh 21",
+/** The programme names (BPJS Kesehatan, BPJS TK, PPh 21) are names and stay;
+ *  what each BPJS TK programme covers is said in the reader's language. The
+ *  `BPJS TK — ` prefix is kept on both sides: the cash calendar strips it. */
+export const SCHEME_LABELS: Record<ContributionScheme, Message> = {
+  BPJS_KESEHATAN: { en: "BPJS Kesehatan", id: "BPJS Kesehatan" },
+  JHT: { en: "BPJS TK — Old-age savings (JHT)", id: "BPJS TK — Jaminan Hari Tua" },
+  JP: { en: "BPJS TK — Pension (JP)", id: "BPJS TK — Jaminan Pensiun" },
+  JKK: { en: "BPJS TK — Work accident cover (JKK)", id: "BPJS TK — Jaminan Kecelakaan Kerja" },
+  JKM: { en: "BPJS TK — Death benefit (JKM)", id: "BPJS TK — Jaminan Kematian" },
+  PPH21: { en: "PPh 21", id: "PPh 21" },
 };
+export const SCHEME_LABEL = bilingual(SCHEME_LABELS);
 
 /** Schemes whose contribution this system will compute. `PPH21` is not one of
  *  them, and the screens say so rather than showing a blank column. */
@@ -903,14 +930,15 @@ export interface ContributionAuditGroup {
  */
 export type AdjustmentKind = "late" | "sp" | "carry_over" | "advance" | "bonus" | "other";
 
-export const ADJUSTMENT_LABEL: Record<AdjustmentKind, string> = {
-  late: "Keterlambatan",
-  sp: "Surat peringatan",
-  carry_over: "Selisih periode lalu",
-  advance: "Kasbon / potongan pinjaman",
-  bonus: "Tambahan",
-  other: "Lain-lain",
+export const ADJUSTMENT_LABELS: Record<AdjustmentKind, Message> = {
+  late: { en: "Lateness", id: "Keterlambatan" },
+  sp: { en: "Warning letter", id: "Surat peringatan" },
+  carry_over: { en: "Carry-over from last period", id: "Selisih periode lalu" },
+  advance: { en: "Cash advance / loan repayment", id: "Kasbon / potongan pinjaman" },
+  bonus: { en: "Addition", id: "Tambahan" },
+  other: { en: "Other", id: "Lain-lain" },
 };
+export const ADJUSTMENT_LABEL = bilingual(ADJUSTMENT_LABELS);
 
 export interface PayrollAdjustment {
   id: string;
@@ -943,16 +971,17 @@ export type OvertimeStage =
   | "unpaid"           // staff: HRD looked and said no, with a reason
   | "declined";
 
-export const OVERTIME_STAGE_LABEL: Record<OvertimeStage, string> = {
-  waiting_hrd: "Menunggu HRD",
-  waiting_surat: "Menunggu surat lembur",
-  waiting_leader: "Menunggu pimpinan",
-  approved: "Disetujui pimpinan",
-  paid_default: "Dibayar — belum ditinjau",
-  paid_checked: "Dibayar — ditinjau HRD",
-  unpaid: "Tidak dibayar",
-  declined: "Ditolak",
+export const OVERTIME_STAGE_LABELS: Record<OvertimeStage, Message> = {
+  waiting_hrd: { en: "Waiting for HRD", id: "Menunggu HRD" },
+  waiting_surat: { en: "Waiting for the overtime letter", id: "Menunggu surat lembur" },
+  waiting_leader: { en: "Waiting for leadership", id: "Menunggu pimpinan" },
+  approved: { en: "Approved by leadership", id: "Disetujui pimpinan" },
+  paid_default: { en: "Paid — not reviewed", id: "Dibayar — belum ditinjau" },
+  paid_checked: { en: "Paid — reviewed by HRD", id: "Dibayar — ditinjau HRD" },
+  unpaid: { en: "Not paid", id: "Tidak dibayar" },
+  declined: { en: "Declined", id: "Ditolak" },
 };
+export const OVERTIME_STAGE_LABEL = bilingual(OVERTIME_STAGE_LABELS);
 
 export interface OvertimeLineView extends OvertimeLine {
   employee_no: string;
@@ -1008,35 +1037,36 @@ export type EmployeeDocKind =
   | "ktp" | "kartu_keluarga" | "ijazah" | "cv" | "kontrak_kerja"
   | "npwp" | "bpjs_kesehatan" | "bpjs_tk" | "foto" | "sertifikat" | "sp" | "lainnya";
 
-export const EMPLOYEE_DOC_LABEL: Record<EmployeeDocKind, string> = {
-  ktp: "KTP",
-  kartu_keluarga: "Kartu Keluarga",
-  ijazah: "Ijazah",
-  cv: "CV / riwayat kerja",
-  kontrak_kerja: "Kontrak kerja",
-  npwp: "NPWP",
-  bpjs_kesehatan: "BPJS Kesehatan",
-  bpjs_tk: "BPJS Ketenagakerjaan",
-  foto: "Pas foto",
-  sertifikat: "Sertifikat / pelatihan",
-  sp: "Surat peringatan",
-  lainnya: "Lain-lain",
+export const EMPLOYEE_DOC_LABELS: Record<EmployeeDocKind, Message> = {
+  ktp: { en: "KTP", id: "KTP" },
+  kartu_keluarga: { en: "Kartu Keluarga", id: "Kartu Keluarga" },
+  ijazah: { en: "Diploma (ijazah)", id: "Ijazah" },
+  cv: { en: "CV / work history", id: "CV / riwayat kerja" },
+  kontrak_kerja: { en: "Employment contract", id: "Kontrak kerja" },
+  npwp: { en: "NPWP", id: "NPWP" },
+  bpjs_kesehatan: { en: "BPJS Kesehatan", id: "BPJS Kesehatan" },
+  bpjs_tk: { en: "BPJS Ketenagakerjaan", id: "BPJS Ketenagakerjaan" },
+  foto: { en: "Passport photo", id: "Pas foto" },
+  sertifikat: { en: "Certificate / training", id: "Sertifikat / pelatihan" },
+  sp: { en: "Warning letter", id: "Surat peringatan" },
+  lainnya: { en: "Other", id: "Lain-lain" },
 };
+export const EMPLOYEE_DOC_LABEL = bilingual(EMPLOYEE_DOC_LABELS);
 
 /** What a complete file is. `required` is the list HRD is asked about; the rest
  *  are kept when they exist and never nagged for. */
 export const EMPLOYEE_DOC_CHECKLIST: { kind: EmployeeDocKind; required: boolean; note: string }[] = [
-  { kind: "ktp", required: true, note: "Identitas dasar — dipakai di kontrak dan BPJS." },
-  { kind: "kartu_keluarga", required: true, note: "Untuk BPJS Kesehatan dan tunjangan." },
-  { kind: "kontrak_kerja", required: true, note: "Yang ditandatangani. PKWT punya tanggal berakhir." },
-  { kind: "foto", required: true, note: "Untuk ID dan berkas." },
-  { kind: "ijazah", required: false, note: "Kalau posisinya mensyaratkan." },
+  { kind: "ktp", required: true, get note() { return trNow("Basic identity — used in the contract and for BPJS.", "Identitas dasar — dipakai di kontrak dan BPJS."); } },
+  { kind: "kartu_keluarga", required: true, get note() { return trNow("For BPJS Kesehatan and allowances.", "Untuk BPJS Kesehatan dan tunjangan."); } },
+  { kind: "kontrak_kerja", required: true, get note() { return trNow("The signed one. A PKWT has an end date.", "Yang ditandatangani. PKWT punya tanggal berakhir."); } },
+  { kind: "foto", required: true, get note() { return trNow("For the ID card and the file.", "Untuk ID dan berkas."); } },
+  { kind: "ijazah", required: false, get note() { return trNow("If the position requires it.", "Kalau posisinya mensyaratkan."); } },
   { kind: "cv", required: false, note: "" },
-  { kind: "npwp", required: false, note: "Kalau punya." },
-  { kind: "bpjs_kesehatan", required: false, note: "Nomor kepesertaan." },
-  { kind: "bpjs_tk", required: false, note: "Nomor kepesertaan." },
-  { kind: "sertifikat", required: false, note: "K3, las, forklift — yang ada masa berlakunya." },
-  { kind: "sp", required: false, note: "Surat peringatan yang pernah diterbitkan." },
+  { kind: "npwp", required: false, get note() { return trNow("If they have one.", "Kalau punya."); } },
+  { kind: "bpjs_kesehatan", required: false, get note() { return trNow("Membership number.", "Nomor kepesertaan."); } },
+  { kind: "bpjs_tk", required: false, get note() { return trNow("Membership number.", "Nomor kepesertaan."); } },
+  { kind: "sertifikat", required: false, get note() { return trNow("K3, welding, forklift — the ones that expire.", "K3, las, forklift — yang ada masa berlakunya."); } },
+  { kind: "sp", required: false, get note() { return trNow("Warning letters issued in the past.", "Surat peringatan yang pernah diterbitkan."); } },
 ];
 
 /** The kinds whose number is an **identity number**, and the only ones masked.
@@ -1075,11 +1105,12 @@ export type DocNoSource =
   /** The scan is filed and the number has not been read from it yet. */
   | "pending";
 
-export const DOC_NO_SOURCE_LABEL: Record<DocNoSource, string> = {
-  extracted: "terbaca dari berkas",
-  typed: "diketik",
-  pending: "menunggu dibaca",
+export const DOC_NO_SOURCE_LABELS: Record<DocNoSource, Message> = {
+  extracted: { en: "read from the file", id: "terbaca dari berkas" },
+  typed: { en: "typed", id: "diketik" },
+  pending: { en: "waiting to be read", id: "menunggu dibaca" },
 };
+export const DOC_NO_SOURCE_LABEL = bilingual(DOC_NO_SOURCE_LABELS);
 
 /** Every character of a number, replaced — separators kept so the shape and
  *  the **length** survive. Length is the one thing worth showing: it says
@@ -1201,23 +1232,24 @@ export type ClauseKind =
   | "masa_percobaan" | "keterlambatan" | "potongan" | "lembur" | "pemutusan"
   | "bpjs" | "kerahasiaan" | "fasilitas" | "penempatan" | "lainnya";
 
-export const CLAUSE_LABEL: Record<ClauseKind, string> = {
-  gaji_pokok: "Gaji pokok",
-  tunjangan: "Tunjangan",
-  jam_kerja: "Jam kerja",
-  cuti: "Cuti",
-  jangka_waktu: "Jangka waktu",
-  masa_percobaan: "Masa percobaan",
-  keterlambatan: "Keterlambatan",
-  potongan: "Potongan",
-  lembur: "Lembur",
-  pemutusan: "Pemutusan hubungan kerja",
-  bpjs: "BPJS",
-  kerahasiaan: "Kerahasiaan",
-  fasilitas: "Fasilitas",
-  penempatan: "Penempatan",
-  lainnya: "Lain-lain",
+export const CLAUSE_LABELS: Record<ClauseKind, Message> = {
+  gaji_pokok: { en: "Base pay", id: "Gaji pokok" },
+  tunjangan: { en: "Allowance", id: "Tunjangan" },
+  jam_kerja: { en: "Working hours", id: "Jam kerja" },
+  cuti: { en: "Leave", id: "Cuti" },
+  jangka_waktu: { en: "Term", id: "Jangka waktu" },
+  masa_percobaan: { en: "Probation", id: "Masa percobaan" },
+  keterlambatan: { en: "Lateness", id: "Keterlambatan" },
+  potongan: { en: "Deductions", id: "Potongan" },
+  lembur: { en: "Overtime", id: "Lembur" },
+  pemutusan: { en: "Termination of employment", id: "Pemutusan hubungan kerja" },
+  bpjs: { en: "BPJS", id: "BPJS" },
+  kerahasiaan: { en: "Confidentiality", id: "Kerahasiaan" },
+  fasilitas: { en: "Facilities", id: "Fasilitas" },
+  penempatan: { en: "Placement", id: "Penempatan" },
+  lainnya: { en: "Other", id: "Lain-lain" },
 };
+export const CLAUSE_LABEL = bilingual(CLAUSE_LABELS);
 
 /** Bentuk jawaban tiap poin, dan satu-satunya tempat bentuk itu hidup di sisi
  *  TypeScript.
@@ -1247,51 +1279,51 @@ export type ClauseField =
  *  karangan adalah yang diisi asal-asalan supaya tombolnya menyala. */
 export const CLAUSE_FIELDS: Record<ClauseKind, readonly ClauseField[]> = {
   gaji_pokok: [
-    { key: "amount", label: "Jumlah", input: "digits", positive: true, unit: "Rp", placeholder: "180000" },
-    { key: "per", label: "Per", input: "choice", options: [
-      { value: "month", label: "bulan" }, { value: "day", label: "hari" }, { value: "hour", label: "jam" },
+    { key: "amount", get label() { return trNow("Amount", "Jumlah"); }, input: "digits", positive: true, unit: "Rp", placeholder: "180000" },
+    { key: "per", get label() { return trNow("Per", "Per"); }, input: "choice", options: [
+      { value: "month", get label() { return trNow("month", "bulan"); } }, { value: "day", get label() { return trNow("day", "hari"); } }, { value: "hour", get label() { return trNow("hour", "jam"); } },
     ] },
   ],
   tunjangan: [
-    { key: "amount", label: "Jumlah", input: "digits", unit: "Rp", placeholder: "25000" },
-    { key: "per", label: "Per", input: "choice", options: [
-      { value: "day", label: "hari" }, { value: "month", label: "bulan" },
+    { key: "amount", get label() { return trNow("Amount", "Jumlah"); }, input: "digits", unit: "Rp", placeholder: "25000" },
+    { key: "per", get label() { return trNow("Per", "Per"); }, input: "choice", options: [
+      { value: "day", get label() { return trNow("day", "hari"); } }, { value: "month", get label() { return trNow("month", "bulan"); } },
     ] },
   ],
   jam_kerja: [
-    { key: "schedule_code", label: "Jadwal kerja", input: "schedule" },
+    { key: "schedule_code", get label() { return trNow("Work schedule", "Jadwal kerja"); }, input: "schedule" },
   ],
   cuti: [
-    { key: "days", label: "Hari per tahun", input: "digits", unit: "hari", placeholder: "12" },
+    { key: "days", get label() { return trNow("Days per year", "Hari per tahun"); }, input: "digits", get unit() { return trNow("days", "hari"); }, placeholder: "12" },
   ],
   jangka_waktu: [
-    { key: "kind", label: "Jenis", input: "choice", options: [
-      { value: "PKWT", label: "PKWT — ada tanggal berakhirnya" },
-      { value: "PKWTT", label: "PKWTT — tidak berakhir" },
+    { key: "kind", get label() { return trNow("Kind", "Jenis"); }, input: "choice", options: [
+      { value: "PKWT", get label() { return trNow("PKWT — has an end date", "PKWT — ada tanggal berakhirnya"); } },
+      { value: "PKWTT", get label() { return trNow("PKWTT — does not end", "PKWTT — tidak berakhir"); } },
     ] },
   ],
   masa_percobaan: [
-    { key: "months", label: "Lama", input: "digits", unit: "bulan", placeholder: "3" },
+    { key: "months", get label() { return trNow("Length", "Lama"); }, input: "digits", get unit() { return trNow("months", "bulan"); }, placeholder: "3" },
   ],
   keterlambatan: [
-    { key: "mode", label: "Cara menghitung", input: "choice", options: [
-      { value: "none", label: "tidak ada potongan karena terlambat" },
-      { value: "manual", label: "diputuskan orang, per kejadian" },
-      { value: "pro_rata", label: "pro rata atas menit yang hilang" },
+    { key: "mode", get label() { return trNow("How it is calculated", "Cara menghitung"); }, input: "choice", options: [
+      { value: "none", get label() { return trNow("no deduction for lateness", "tidak ada potongan karena terlambat"); } },
+      { value: "manual", get label() { return trNow("decided by a person, case by case", "diputuskan orang, per kejadian"); } },
+      { value: "pro_rata", get label() { return trNow("pro rata on the minutes lost", "pro rata atas menit yang hilang"); } },
     ] },
   ],
   potongan: [
-    { key: "mode", label: "Cara menghitung", input: "choice", options: [
-      { value: "off", label: "tidak ada potongan" },
-      { value: "hourly", label: "per jam yang tidak dikerjakan" },
-      { value: "half_day_step", label: "kelipatan setengah hari" },
+    { key: "mode", get label() { return trNow("How it is calculated", "Cara menghitung"); }, input: "choice", options: [
+      { value: "off", get label() { return trNow("no deduction", "tidak ada potongan"); } },
+      { value: "hourly", get label() { return trNow("per hour not worked", "per jam yang tidak dikerjakan"); } },
+      { value: "half_day_step", get label() { return trNow("in half-day steps", "kelipatan setengah hari"); } },
     ] },
   ],
   lembur: [
-    { key: "mode", label: "Cara menghitung", input: "choice", options: [
-      { value: "none", label: "tidak dibayar terpisah" },
-      { value: "statutory", label: "tarif pemerintah (1,5× lalu 2×)" },
-      { value: "flat", label: "tarif tetap per jam" },
+    { key: "mode", get label() { return trNow("How it is calculated", "Cara menghitung"); }, input: "choice", options: [
+      { value: "none", get label() { return trNow("not paid separately", "tidak dibayar terpisah"); } },
+      { value: "statutory", get label() { return trNow("government rate (1.5× then 2×)", "tarif pemerintah (1,5× lalu 2×)"); } },
+      { value: "flat", get label() { return trNow("flat hourly rate", "tarif tetap per jam"); } },
     ] },
   ],
   pemutusan: [],
@@ -1442,11 +1474,18 @@ export interface ContractDetail extends ContractView {
  */
 export type LeaveKind = "cuti" | "izin" | "sakit";
 
-export const LEAVE_KIND_LABEL: Record<LeaveKind, string> = {
-  cuti: "Cuti",
-  izin: "Izin",
-  sakit: "Sakit",
+export const LEAVE_KIND_LABELS: Record<LeaveKind, Message> = {
+  cuti: { en: "Leave", id: "Cuti" },
+  izin: { en: "Permit", id: "Izin" },
+  sakit: { en: "Sick", id: "Sakit" },
 };
+export const LEAVE_KIND_LABEL = bilingual(LEAVE_KIND_LABELS);
+
+/** What each cadence is called on a screen. The words live in
+ *  `task-periods.ts` (which may import nothing, for its parity gate); the
+ *  language-following map lives here. */
+export { CADENCE_LABELS };
+export const CADENCE_LABEL = bilingual(CADENCE_LABELS);
 
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 

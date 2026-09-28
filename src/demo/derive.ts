@@ -43,7 +43,7 @@ import { officeToday, officeDay } from "@/lib/office";
    **derived roll** rather than its rows (ADR-004). */
 import { contributionRoll } from "./hr-derive";
 import type { ContributionScheme, ContributionAuditGroup } from "@/services/hr/contracts";
-import { SCHEME_LABEL, COMPUTED_SCHEMES } from "@/services/hr/contracts";
+import { SCHEME_LABELS, COMPUTED_SCHEMES } from "@/services/hr/contracts";
 import { settingNumber } from "./settings";
 
 /** One definition, read from settings — never a literal repeated in three
@@ -2216,10 +2216,10 @@ export function contributionAudit(
     const difference = expected === null ? null : paid - expected;
     const unusual = difference !== null && Math.abs(difference) > tolerance;
 
-    const names = g.schemes.map((s) => SCHEME_LABEL[s]).join(", ");
+    const names = g.schemes.map((s) => SCHEME_LABELS[s].id).join(", ");
     let verdict: string;
     if (anyUnknown) {
-      const missing = rolls.filter((r) => r.rate === null).map((r) => SCHEME_LABEL[r.scheme]).join(", ");
+      const missing = rolls.filter((r) => r.rate === null).map((r) => SCHEME_LABELS[r.scheme].id).join(", ");
       verdict = `Tarif ${missing} untuk bulan ini belum ada, jadi total tagihan ini tidak bisa dihitung. Bukan nol — belum diketahui.`;
     } else if (headcount === 0) {
       verdict = `Belum ada satu nama pun terdaftar di ${names}. Selama daftarnya kosong, tagihan apa pun tidak punya pembanding.`;
