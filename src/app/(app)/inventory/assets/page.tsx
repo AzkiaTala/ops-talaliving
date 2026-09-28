@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MonitorSmartphone, Plus, Pencil, Trash2, History, ShieldAlert, Wrench, Package, FileClock } from "lucide-react";
+import Link from "next/link";
+import { MonitorSmartphone, Plus, Pencil, Trash2, History, ShieldAlert, Wrench, Package, FileClock, Tags } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader, StatCard, type Tone } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Drawer, Modal } from "@/components/ui/drawer";
@@ -252,11 +253,18 @@ export default function AssetsPage() {
         breadcrumb={tr("Inventory", "Persediaan")}
         title={tr("Assets", "Aset")}
         description={tr("What the company owns and uses rather than sells: CCTV, PCs, vehicles, tools. Each has a tag for a sticker on the thing itself.", "Apa yang dimiliki dan dipakai perusahaan, bukan dijual: CCTV, PC, kendaraan, perkakas. Masing-masing punya tag untuk stiker di barangnya sendiri.")}
-        actions={mayCreate && (
-          <Button icon={Plus} onClick={() => setForm({ ...emptyForm, category_code: catList.find((c) => c.is_active)?.code ?? "" })}>
-            {tr("Register asset", "Daftarkan aset")}
-          </Button>
-        )}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link href="/inventory/label?kind=asset">
+              <Button variant="secondary" icon={Tags}>{tr("Print labels", "Cetak label")}</Button>
+            </Link>
+            {mayCreate && (
+              <Button icon={Plus} onClick={() => setForm({ ...emptyForm, category_code: catList.find((c) => c.is_active)?.code ?? "" })}>
+                {tr("Register asset", "Daftarkan aset")}
+              </Button>
+            )}
+          </div>
+        }
       />
 
       <Loaded state={state} onRetry={reload}>

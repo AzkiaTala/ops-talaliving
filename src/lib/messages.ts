@@ -43,6 +43,7 @@ export const MESSAGES = {
     timber: m("Timber", "Kayu"),
     materials: m("Materials & hardware", "Bahan & perangkat keras"),
     adjustments: m("Stock adjustments", "Penyesuaian stok"),
+    labels: m("Labels", "Label"),
 
     accounting: m("Accounting", "Akuntansi"),
     ledger: m("Ledger", "Buku besar"),

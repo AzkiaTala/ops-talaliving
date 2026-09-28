@@ -579,6 +579,8 @@ export interface StockItemView {
   /** Live photos on the item. Zero is a gap for the 800-odd items catalogued
    *  before photos existed; anything registered at the rack has one to four. */
   photo_count: number;
+  /** The day the item was recorded in the catalogue (`0178`, D321). */
+  registered_at?: string | null;
 }
 
 export interface StockItemDetail extends StockItemView {
@@ -883,4 +885,50 @@ export interface AssetInput {
   rent_due_day?: number | null;
   contract_start?: string | null;
   contract_end?: string | null;
+}
+
+/* ── Labels (D321) ────────────────────────────────────────────────────── */
+
+/** What gets a label: a catalogued item (raw or half-finished material), an
+ *  asset (rented ones included), or a finished product. */
+export type LabelKind = "item" | "asset" | "product";
+
+/** Everything one label prints, in one shape for the three kinds
+ *  (`ops_inv.label_sources`, `0178`). */
+export interface LabelSource {
+  kind: LabelKind;
+  /** `I-00012`, `AST-0001`, the product code. */
+  code: string;
+  name: string;
+  /** The floor's name (*papan jati 2cm*), items only. */
+  name_local: string | null;
+  category: string | null;
+  uom: string | null;
+  /** The day it was recorded. This is the date on the label. */
+  registered_at: string | null;
+  /** Where it is now: racks holding stock, most first; the home rack when
+   *  there is no stock; an asset's own location. `qty` is null when it is
+   *  not a count. */
+  locations: { code: string; name: string | null; qty: number | null }[];
+  /** In the label screen's default selection: raw and half-finished material,
+   *  not consumables like sandpaper (`ops_inv.label_categories`). Always true
+   *  for assets and products. */
+  labelled: boolean;
+  /** What this kind adds to its label: an asset's ownership, holder, serial and
+   *  contract end; a product's size in millimetres. */
+  extra: {
+    category_code?: string;
+    ownership?: AssetOwnership;
+    holder?: string;
+    identifier?: string;
+    brand?: string;
+    model?: string;
+    status?: string;
+    acquired_on?: string;
+    contract_end?: string;
+    length_mm?: number;
+    width_mm?: number;
+    height_mm?: number;
+    dimension_note?: string;
+  };
 }
