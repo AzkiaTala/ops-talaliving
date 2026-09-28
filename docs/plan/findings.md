@@ -7289,14 +7289,18 @@ own OPS folder. Two correct decisions (D313: file into the owner's OPS folder;
 `drive.file`: see only what the app made) cannot both hold. Nothing checked
 them against each other until a file tried.
 
-**What now tells them apart.** IT → Google Drive (`/it/drive`,
-`/api/documents/drive-check`) looks at every recorded OPS folder twice. The
-first look is as a member (`drive.readonly`), the second is as uploads do
-(`drive.file`). The difference names the cause per drive. *Test creating a
-folder* (IT admin) answers the owner's question, *can the app make the
-folders itself or must a person?*, by trying. It makes a `_ops_app_test_…`
-folder under each permission and bins each one it made.
+**What the owner chose (D320).** Keep `drive.file`, and have the app make
+its own folder: `ops-talaliving`, at the root of each shared drive. Task
+folders go inside it. The hand-made OPS folder now only tells the app which
+shared drive it is. That lookup uses `drive.readonly`, which can see a folder
+a person made but cannot write anything. `drive_folders.drive_id` and
+`folder_id` are filled by the app. The upload route does this on a drive's
+first upload. IT → Google Drive (`/it/drive`, `/api/documents/drive-check`)
+does it for every drive at once and shows, per drive, whether the app can
+reach it and why not.
 
-This session could not run it: the key lives only on the Worker, and the
-Drive connector available here sees only DRAFTING's OPS folder. The screen is
-the check, and the owner or IT runs it.
+This session could not run it. The key lives only on the Worker, and the
+Drive connector available here acts as a person (it@), so a folder it made
+would be as invisible to `drive.file` as the hand-made OPS. That connector
+also sees only DRAFTING's OPS folder. The folder has to be made by the app,
+so IT runs the screen after the deploy.

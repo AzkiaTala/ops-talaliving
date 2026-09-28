@@ -1,6 +1,7 @@
 -- core — the audit log tells the truth about an upload (0177, F172).
 --
--- DERIVATIONS  asking which folder a file goes in writes no audit row; a
+-- DERIVATIONS  asking which folder a file goes in writes no audit row; the
+--              app's ops-talaliving folder and its drive are recorded once; a
 --              filed document's row names the file and says where it went;
 --              a failed upload is a `refused` row with its reason and
 --              Google's answer in detail
@@ -40,6 +41,17 @@ begin
          jsonb_build_object('google', jsonb_build_object('status', 404)));
   assert r->>'outcome' = 'refused' and r->'error'->>'code' = 'drive_folder_unreachable',
     'the failure is a refusal: ' || r::text;
+
+  -- The app's own folder and its drive, written back by an uploader (D320).
+  r := ops_core.record_ops_folder('procurement', '1appFolder', '0AprocDrive');
+  assert ops_core.said_ok(r), 'record the app folder: ' || r::text;
+  r := ops_core.drive_folder_for('foto', 'item');
+  assert r->'data'->>'folder_id' = '1appFolder' and r->'data'->>'drive_id' = '0AprocDrive',
+    'the next upload asks Google nothing: ' || r::text;
+  -- An uploader cannot repoint a located drive.
+  r := ops_core.record_ops_folder('procurement', '1elsewhere', '0Aelsewhere');
+  assert r->>'outcome' = 'noop', 'no overwrite: ' || r::text;
+  assert (ops_core.drive_folder_for('foto'))->'data'->>'folder_id' = '1appFolder', 'still the first';
 end $$;
 
 reset role;
@@ -58,7 +70,7 @@ begin
 
   select * into a from ops_core.audit_log where actor_id = me and action = 'attach_file';
   assert a.entity_no = 'kursi.jpg', 'the row names the file, got ' || coalesce(a.entity_no, 'null');
-  assert a.reason like 'kursi.jpg → % / OPS / INVENTORY/ITEMS', 'the row says where, got ' || coalesce(a.reason, 'null');
+  assert a.reason like 'kursi.jpg → % / ops-talaliving / INVENTORY/ITEMS', 'the row says where, got ' || coalesce(a.reason, 'null');
   assert a.detail->>'drive_file_id' = '1FileId', 'detail keeps the Drive id';
 
   select * into a from ops_core.audit_log where actor_id = me and action = 'upload';

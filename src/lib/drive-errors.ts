@@ -1,5 +1,5 @@
 import "server-only";
-import { DriveError, serviceAccountEmail } from "./drive";
+import { APP_FOLDER, DriveError, serviceAccountEmail } from "./drive";
 
 /** A Drive refusal, turned into a sentence that says what happened and who
  *  fixes it (F172).
@@ -22,7 +22,7 @@ export function explainDriveFailure(
   at: { label: string; path: string; folderId: string | null },
 ): DriveFailure {
   const who = serviceAccountEmail();
-  const where = `${at.label} / OPS / ${at.path}`;
+  const where = `${at.label} / ${APP_FOLDER} / ${at.path}`;
 
   if (!(e instanceof DriveError)) {
     return {
@@ -39,22 +39,20 @@ export function explainDriveFailure(
     };
   }
 
-  if (e.status === 404 && e.stage === "ops_folder") {
+  if (e.stage === "drive" && e.status === 404) {
     return {
-      status: 502, code: "drive_folder_unreachable", stage: e.stage,
-      message: `The app cannot open the OPS folder recorded for ${at.label} `
-        + `(id ${at.folderId ?? "?"}). Google says "not found" to ${who}. There are two possible reasons. `
-        + `Either that account is not a member of the ${at.label} shared drive, or the OPS folder `
-        + "was made by a person and the app's Drive permission (drive.file) only lets it see folders it made itself. "
-        + "IT → Google Drive checks which one.",
+      status: 502, code: "drive_not_member", stage: e.stage,
+      message: `The app cannot reach the ${at.label} shared drive. Google says the recorded folder `
+        + `(id ${at.folderId ?? "?"}) does not exist for ${who}, so that account is not a member of `
+        + `the ${at.label} shared drive, or the id is wrong. Add ${who} to the ${at.label} shared drive `
+        + "as Content manager. IT → Google Drive shows every drive's state.",
     };
   }
 
-  if (e.status === 404) {
+  if (e.stage === "drive") {
     return {
-      status: 502, code: "drive_folder_unreachable", stage: e.stage,
-      message: `The app cannot open a folder inside ${at.label} / OPS to file this in ${where}. `
-        + `Google says "not found" to ${who}. IT → Google Drive checks why.`,
+      status: 502, code: "drive_not_shared", stage: e.stage,
+      message: `The app cannot find which shared drive ${at.label} is: ${e.googleMessage}`,
     };
   }
 
@@ -66,11 +64,11 @@ export function explainDriveFailure(
     };
   }
 
-  if (e.status === 410 || e.googleReason === "trashed") {
+  if (e.status === 404) {
     return {
-      status: 502, code: "drive_folder_trashed", stage: e.stage,
-      message: `The OPS folder recorded for ${at.label} is in the Drive bin. Restore it, `
-        + "or IT records the right folder.",
+      status: 502, code: "drive_app_folder_missing", stage: e.stage,
+      message: `The app's ${APP_FOLDER} folder in ${at.label} can no longer be opened. It may have been `
+        + `moved or deleted. IT → Google Drive → "Create ${APP_FOLDER}" makes a new one.`,
     };
   }
 

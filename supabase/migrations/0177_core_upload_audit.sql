@@ -26,7 +26,14 @@
 --    reason, and keeps Google's own answer in `detail`.
 -- 3. **A filed document says what and where.** `attach_file`'s row names the
 --    file (not a uuid) and gives its reason as
---    `kursi.jpg → PROCUREMENT / OPS / INVENTORY/ITEMS`.
+--    `kursi.jpg → PROCUREMENT / ops-talaliving / INVENTORY/ITEMS`.
+-- 4. **The app files into a folder it made itself (D320).** The Drive failure
+--    was the hand-made OPS folder: uploads use `drive.file`, which sees only
+--    what the app made, so the owner's folder answered *File not found*. The
+--    owner kept `drive.file` and asked for the app's own folder, named
+--    `ops-talaliving`, at the root of each shared drive. `parent_folder_id`
+--    now only says which drive; `drive_id` and `folder_id` are filled by the
+--    app (`record_ops_folder`, which now records the drive too).
 
 -- ── 1. the question, unlogged when answered ───────────────────────────────
 
@@ -65,7 +72,7 @@ begin
   if f.parent_folder_id is null and f.folder_id is null then
     return ops_core.invalid('documents','attachment', null,'resolve_folder',
       'drive_not_configured',
-      format('The %s shared drive has no OPS folder recorded yet, so a %s cannot be filed. IT sets it in ops_core.drive_folders.',
+      format('Nothing records which shared drive is %s, so a %s cannot be filed. IT sets it in ops_core.drive_folders.',
              f.label, v_kind),
       jsonb_build_object('field','kind','slug', f.slug, 'label', f.label));
   end if;
@@ -197,7 +204,7 @@ begin
     jsonb_build_object('attachment_id', v_id, 'kind', coalesce(v_kind::text, 'file'),
                        'bytes', p_bytes, 'drive', v_slug, 'path', v_path));
 
-  select concat_ws(' / ', df.label, 'OPS', v_path) into v_where
+  select concat_ws(' / ', df.label, 'ops-talaliving', v_path) into v_where
     from ops_core.drive_folders df where df.slug = v_slug;
 
   res := ops_core.say('documents','attachment', btrim(p_filename),'attach_file','ok',200,
@@ -210,3 +217,95 @@ begin
                        'web_view_link', v_link, 'bytes', p_bytes)));
   return ops_core.idem_remember('documents','attach_file', p_key, res);
 end $$;
+
+-- ── 4. the app's own folder (D320) ────────────────────────────────────────
+
+-- Also records which shared drive, so later uploads (and IT → Google Drive)
+-- need not ask Google. Blanks only, as before: changing a recorded folder
+-- would let any uploader redirect a whole drive, so that stays with IT
+-- (`it.manage_drives`, which may update the row directly).
+drop function if exists ops_core.record_ops_folder(text, text);
+create or replace function ops_core.record_ops_folder(p_slug text, p_folder_id text, p_drive_id text default null)
+returns jsonb
+language plpgsql security definer set search_path = ops_core, pg_temp as $$
+declare f ops_core.drive_folders;
+begin
+  if coalesce(btrim(p_folder_id), '') = '' then
+    return ops_core.invalid('documents','drive_folder', p_slug,'record_folder',
+      'folder_required','A folder id is required.', jsonb_build_object('field','folder_id'));
+  end if;
+
+  select * into f from ops_core.drive_folders where slug = p_slug;
+  if not found then
+    return ops_core.not_found('documents','drive_folder', p_slug,'record_folder',
+      format('There is no shared drive %s.', p_slug));
+  end if;
+
+  if f.folder_id is not null and (f.drive_id is not null or nullif(btrim(p_drive_id), '') is null) then
+    -- Already located. Not an error and not an overwrite: two uploads racing
+    -- on the first file of the day is exactly how this happens.
+    return ops_core.noop('documents','drive_folder', p_slug,'record_folder',
+      'already located', jsonb_build_object('slug', p_slug, 'folder_id', f.folder_id));
+  end if;
+
+  update ops_core.drive_folders
+     set folder_id  = coalesce(folder_id, btrim(p_folder_id)),
+         drive_id   = coalesce(drive_id, nullif(btrim(p_drive_id), '')),
+         updated_at = now(), updated_by = auth.uid()
+   where slug = p_slug;
+
+  return ops_core.ok('documents','drive_folder', p_slug,'record_folder',
+    jsonb_build_object('slug', p_slug, 'folder_id', coalesce(f.folder_id, btrim(p_folder_id)),
+                       'drive_id', coalesce(f.drive_id, nullif(btrim(p_drive_id), ''))),
+    jsonb_build_object('folder_id', f.folder_id, 'drive_id', f.drive_id),
+    jsonb_build_object('folder_id', coalesce(f.folder_id, btrim(p_folder_id)),
+                       'drive_id', coalesce(f.drive_id, nullif(btrim(p_drive_id), ''))));
+end $$;
+
+revoke all on function ops_core.record_ops_folder(text, text, text) from public;
+grant execute on function ops_core.record_ops_folder(text, text, text) to authenticated;
+
+comment on function ops_core.record_ops_folder(text, text, text) is
+  'Writes down the app''s ops-talaliving folder and its shared drive, found or made by the upload '
+  'route. Fills blanks only — changing a set one stays it.manage_drives. (0036, 0177)';
+
+comment on column ops_core.drive_folders.parent_folder_id is
+  'A folder the owner made in the module''s shared drive (the hand-made OPS, D313). Since D320 it '
+  'only says which shared drive this is; nothing is filed in it. (0036, 0172, 0177)';
+comment on column ops_core.drive_folders.drive_id is
+  'The shared drive itself (its 0A… id), found from parent_folder_id by the app. (0177)';
+comment on column ops_core.drive_folders.folder_id is
+  'The app''s own ops-talaliving folder at the root of the shared drive, made by the app so its '
+  'drive.file permission can see it (D320). Every task folder is inside it. (0036, 0177)';
+
+-- `filed_in` names the app's folder (0175 said OPS).
+create or replace view ops_core.v_attachment as
+  select a.id::text                          as id,
+         coalesce(a.storage_path, '')        as storage_path,
+         a.url,
+         a.filename,
+         coalesce(a.sha256, '')              as sha256,
+         coalesce(a.mime, '')                as mime,
+         coalesce(a.bytes, 0)                as bytes,
+         coalesce(u.email, 'system')         as uploaded_by,
+         a.uploaded_at,
+         a.source,
+         (a.sha256 is not null and exists (
+            select 1 from ops_core.attachments d
+             where d.sha256 = a.sha256
+               and (d.uploaded_at, d.id) < (a.uploaded_at, a.id)))  as duplicate_suspect,
+         coalesce(c.n, 0)                    as covers_count,
+         a.web_view_link,
+         case when a.drive_slug is not null
+              then concat_ws(' / ', df.label, 'ops-talaliving', a.drive_path) end as filed_in
+    from ops_core.attachments a
+    left join ops_core.users u on u.id = a.uploaded_by
+    left join ops_core.drive_folders df on df.slug = a.drive_slug
+    left join (
+      select attachment_id, count(*) as n
+        from ops_core.attachment_links
+       where unlinked_at is null
+       group by attachment_id
+    ) c on c.attachment_id = a.id;
+
+alter view ops_core.v_attachment set (security_invoker = on);

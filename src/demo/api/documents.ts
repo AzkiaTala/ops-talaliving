@@ -7,7 +7,7 @@
 import { ok, invalid, notFound, refused, type Result } from "@/services/_shared/envelope";
 import type {
   Attachment, AttachmentLink, AttachmentView, DocKind, LinkEntity,
-  DriveCheckReport, DriveFolderTest,
+  DriveCheckReport, DriveSetUp,
 } from "@/services/documents/contracts";
 import { ITEM_PHOTO_MAX, ITEM_PHOTO_MIN } from "@/services/documents/contracts";
 import { getState, apply, newId, writeAudit, writeOutbox } from "../store";
@@ -353,7 +353,7 @@ export async function checkDrives(): Promise<Result<DriveCheckReport>> {
     "The sandbox has no Google Drive. This check runs against the real shared drives only.");
 }
 
-export async function testDriveFolder(_slug: string): Promise<Result<DriveFolderTest>> {
+export async function setUpDrives(_slug?: string): Promise<Result<DriveSetUp[]>> {
   await latency();
   return refused(SERVICE, "drive_not_configured",
     "The sandbox has no Google Drive. This check runs against the real shared drives only.");

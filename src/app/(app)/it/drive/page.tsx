@@ -1,73 +1,59 @@
 "use client";
 
 import { useState } from "react";
-import { HardDrive, FolderCheck, FlaskConical, ExternalLink } from "lucide-react";
+import { HardDrive, FolderCheck, FolderPlus, ExternalLink } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader, type Tone } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { documents } from "@/demo/api";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
-import type { DriveCheck, DriveFolderTest, DriveVerdict } from "@/services/documents/contracts";
+import type { DriveCheck, DriveSetUp, DriveVerdict } from "@/services/documents/contracts";
 
-/** IT → Google Drive: can uploads reach each shared drive's OPS folder, and
- *  if not, why (F172).
+/** IT → Google Drive: can the app file into each shared drive (F172, D320).
  *
- *  The first real upload failed with *File not found* for the Procurement
- *  OPS folder. That answer has two causes with two different fixes. One is an
- *  account that is not a member of the shared drive, and IT fixes it in Drive.
- *  The other is a folder a person made, which the app's `drive.file`
- *  permission cannot see, and fixing that is a decision about the app's
- *  permission. This screen asks Google both ways and says which it is, per
- *  drive.
+ *  Uploads use `drive.file`, which sees only what the app itself made. The
+ *  owner's hand-made OPS folders were invisible to it, and the first real
+ *  upload failed with *File not found*. The owner kept that permission and
+ *  chose the app's own folder instead: `ops-talaliving`, at the root of each
+ *  shared drive, made by the app.
  *
- *  **Looking is read-only.** *Test creating a folder* is the one write, and it
- *  is IT admin's (`it.manage_drives`). It makes a `_ops_app_test_…` folder in
- *  the OPS folder, once as uploads work today and once with full Drive access,
- *  and moves each one it made to the bin. It is the owner's question, *can the
- *  app make the folders itself or must a person?*, answered by trying.
+ *  This screen shows each drive's state and makes that folder, for every
+ *  drive at once or one at a time (IT admin, `it.manage_drives`). Looking is
+ *  read-only. The one write is making `ops-talaliving` and recording its id.
+ *  A drive the app cannot reach says why, and what IT changes in Google Drive.
  */
 
 const VERDICT: Record<DriveVerdict, { tone: Tone; en: [string, string]; id: [string, string] }> = {
   ready: {
     tone: "green",
-    en: ["Ready", "Uploads can use this OPS folder as it is."],
-    id: ["Siap", "Upload bisa memakai folder OPS ini apa adanya."],
+    en: ["Ready", "Uploads go into this drive's ops-talaliving folder."],
+    id: ["Siap", "Upload masuk ke folder ops-talaliving di drive ini."],
   },
-  not_configured: {
-    tone: "slate",
-    en: ["No folder", "No OPS folder id is recorded for this drive."],
-    id: ["Belum ada folder", "Belum ada id folder OPS yang dicatat untuk drive ini."],
+  not_set_up: {
+    tone: "amber",
+    en: ["Not set up", "The app can reach this drive, but its ops-talaliving folder is not made yet. Create it here, or the first upload will."],
+    id: ["Belum disiapkan", "Aplikasi bisa menjangkau drive ini, tapi folder ops-talaliving belum dibuat. Buat di sini, atau upload pertama yang akan membuatnya."],
   },
   not_member_or_wrong_id: {
     tone: "red",
-    en: ["Not reachable", "Google cannot find this folder even for a member. Either the app's account is not a member of this shared drive, or the id is wrong. Add the account below as Content manager, then check again."],
-    id: ["Tidak terjangkau", "Google tidak menemukan folder ini bahkan untuk anggota. Akun aplikasi belum menjadi anggota shared drive ini, atau id-nya salah. Tambahkan akun di atas sebagai Content manager, lalu cek lagi."],
-  },
-  hidden_by_drive_file: {
-    tone: "amber",
-    en: ["Hidden from uploads", "The account is a member and can see the folder, but uploads cannot. The folder was made by a person, and the app's drive.file permission only sees folders the app made itself. Test creating a folder to see what would work."],
-    id: ["Tersembunyi dari upload", "Akun sudah menjadi anggota dan bisa melihat folder ini, tapi upload tidak bisa. Folder dibuat oleh orang, sedangkan izin drive.file aplikasi hanya melihat folder yang dibuat aplikasi sendiri. Coba \"Uji buat folder\" untuk melihat yang bisa jalan."],
+    en: ["Not reachable", "Google says the recorded folder does not exist for the app's account. Either the account is not a member of this shared drive, or the recorded id is wrong. Add the account above to the shared drive as Content manager, then check again."],
+    id: ["Tidak bisa diakses", "Google bilang folder yang dicatat tidak ada untuk akun aplikasi. Akun itu belum menjadi anggota shared drive ini, atau id yang dicatat salah. Tambahkan akun di atas ke shared drive sebagai Content manager, lalu cek lagi."],
   },
   read_only_member: {
     tone: "red",
     en: ["Read-only member", "The account is in this shared drive as Viewer or Commenter and may not add files. Make it Content manager."],
     id: ["Anggota hanya-baca", "Akun ada di shared drive ini sebagai Viewer atau Commenter dan tidak boleh menambah file. Jadikan Content manager."],
   },
-  not_a_folder: {
+  app_folder_missing: {
     tone: "red",
-    en: ["Not a folder", "The recorded id is a file, not a folder."],
-    id: ["Bukan folder", "Id yang dicatat adalah file, bukan folder."],
+    en: ["Folder gone", "An ops-talaliving folder is recorded, but uploads can no longer open it (moved, binned or deleted). Create it again."],
+    id: ["Folder hilang", "Folder ops-talaliving tercatat, tapi upload tidak bisa membukanya lagi (dipindah, dibuang, atau dihapus). Buat ulang."],
   },
-  trashed: {
-    tone: "red",
-    en: ["In the bin", "The recorded OPS folder is in the Drive bin. Restore it, or record another."],
-    id: ["Di tempat sampah", "Folder OPS yang dicatat ada di tempat sampah Drive. Pulihkan, atau catat folder lain."],
-  },
-  not_named_ops: {
-    tone: "amber",
-    en: ["Not named OPS", "Uploads work, but the recorded folder is not named OPS, so the app makes an OPS folder inside it."],
-    id: ["Bukan bernama OPS", "Upload bisa, tapi folder yang dicatat tidak bernama OPS, jadi aplikasi membuat folder OPS di dalamnya."],
+  not_configured: {
+    tone: "slate",
+    en: ["Not recorded", "Nothing records which shared drive this is."],
+    id: ["Belum dicatat", "Belum ada catatan shared drive mana ini."],
   },
   check_failed: {
     tone: "red",
@@ -78,7 +64,25 @@ const VERDICT: Record<DriveVerdict, { tone: Tone; en: [string, string]; id: [str
 
 export default function DriveCheckPage() {
   const tr = useTr();
+  const { can } = useSession();
+  const { toast } = useToast();
   const [report, reload] = useLoad(() => documents.checkDrives(), []);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, DriveSetUp>>({});
+
+  const setUp = async (slug?: string) => {
+    setBusy(slug ?? "*");
+    const res = await documents.setUpDrives(slug);
+    setBusy(null);
+    if (res.error) { toast("critical", tr("Not done", "Tidak berhasil"), res.error.message); return; }
+    setResults((prev) => ({ ...prev, ...Object.fromEntries(res.data.map((r) => [r.slug, r])) }));
+    const bad = res.data.filter((r) => !r.ok).length;
+    toast(bad ? "warning" : "success",
+      bad ? tr(`${bad} drive(s) could not be set up`, `${bad} drive tidak bisa disiapkan`)
+          : tr("ops-talaliving is ready", "ops-talaliving siap"),
+      bad ? tr("See each drive below.", "Lihat tiap drive di bawah.") : "");
+    reload();
+  };
 
   return (
     <div>
@@ -86,10 +90,19 @@ export default function DriveCheckPage() {
         breadcrumb="IT"
         title="Google Drive"
         description={tr(
-          "Whether uploads can reach each shared drive's OPS folder, and if not, why and who fixes it.",
-          "Apakah upload bisa sampai ke folder OPS tiap shared drive, dan kalau tidak, kenapa dan siapa yang memperbaikinya.",
+          "Whether the app can file into each shared drive. Everything goes into the app's own ops-talaliving folder at the root of the drive.",
+          "Apakah aplikasi bisa menyimpan file ke tiap shared drive. Semuanya masuk ke folder ops-talaliving milik aplikasi di root drive.",
         )}
-        actions={<Button variant="secondary" size="sm" onClick={reload}>{tr("Check again", "Cek lagi")}</Button>}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={reload}>{tr("Check again", "Cek lagi")}</Button>
+            {can("it.manage_drives") && (
+              <Button size="sm" icon={FolderPlus} disabled={busy != null} onClick={() => setUp()}>
+                {busy === "*" ? tr("Creating…", "Membuat…") : tr("Create ops-talaliving in every drive", "Buat ops-talaliving di semua drive")}
+              </Button>
+            )}
+          </div>
+        }
       />
 
       <Loaded state={report} onRetry={reload}>
@@ -107,16 +120,21 @@ export default function DriveCheckPage() {
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3 text-[13px]">
                 <span className="font-mono text-slate-800">{r.service_account}</span>
                 <span className="text-slate-500">
-                  {tr("Upload permission:", "Izin upload:")} <span className="font-mono">{r.upload_scope}</span>
-                  {" "}{tr("(sees only files and folders the app made)", "(hanya melihat file dan folder buatan aplikasi)")}
+                  {tr("Files into", "Menyimpan ke")} <span className="font-mono">{"<shared drive>"} / {r.app_folder} / …</span>
+                  {" · "}{tr("permission", "izin")} <span className="font-mono">{r.upload_scope}</span>
                 </span>
               </div>
             </Card>
 
             <Card>
-              <CardHeader icon={FolderCheck} title={tr("OPS folder per shared drive", "Folder OPS per shared drive")} />
+              <CardHeader icon={FolderCheck} title={tr("Shared drives", "Shared drive")} />
               <ul className="divide-y divide-slate-100">
-                {r.drives.map((d) => <DriveRow key={d.slug} d={d} />)}
+                {r.drives.map((d) => (
+                  <DriveRow
+                    key={d.slug} d={d} appFolder={r.app_folder} result={results[d.slug]}
+                    busy={busy === d.slug || busy === "*"} onSetUp={can("it.manage_drives") ? () => setUp(d.slug) : undefined}
+                  />
+                ))}
               </ul>
             </Card>
           </>
@@ -126,31 +144,28 @@ export default function DriveCheckPage() {
   );
 }
 
-function DriveRow({ d }: { d: DriveCheck }) {
+function DriveRow({ d, appFolder, result, busy, onSetUp }: {
+  d: DriveCheck; appFolder: string; result?: DriveSetUp; busy: boolean; onSetUp?: () => void;
+}) {
   const tr = useTr();
-  const { can } = useSession();
-  const { toast } = useToast();
-  const [busy, setBusy] = useState(false);
-  const [test, setTest] = useState<DriveFolderTest | null>(null);
   const v = VERDICT[d.verdict];
-
-  const runTest = async () => {
-    setBusy(true);
-    const res = await documents.testDriveFolder(d.slug);
-    setBusy(false);
-    if (res.error) { toast("critical", tr("Test did not run", "Uji tidak berjalan"), res.error.message); return; }
-    setTest(res.data);
-  };
+  const link = (id: string) => (
+    <a href={`https://drive.google.com/drive/folders/${id}`} target="_blank" rel="noreferrer"
+       className="inline-flex items-center gap-1 font-mono text-brand-700 hover:underline">
+      {id} <ExternalLink className="h-3 w-3" />
+    </a>
+  );
 
   return (
     <li className="px-5 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="w-40 shrink-0 text-[13px] font-semibold text-slate-800">{d.label}</span>
         <Badge tone={v.tone}>{tr(v.en[0], v.id[0])}</Badge>
+        {d.drive?.name && <span className="text-[12px] text-slate-500">{tr("drive", "drive")} “{d.drive.name}”</span>}
         <span className="flex-1" />
-        {d.folder_id && can("it.manage_drives") && (
-          <Button variant="secondary" size="sm" icon={FlaskConical} disabled={busy} onClick={runTest}>
-            {busy ? tr("Testing…", "Menguji…") : tr("Test creating a folder", "Uji buat folder")}
+        {onSetUp && d.verdict !== "ready" && d.verdict !== "not_configured" && (
+          <Button variant="secondary" size="sm" icon={FolderPlus} disabled={busy} onClick={onSetUp}>
+            {busy ? tr("Creating…", "Membuat…") : tr(`Create ${appFolder}`, `Buat ${appFolder}`)}
           </Button>
         )}
       </div>
@@ -158,69 +173,25 @@ function DriveRow({ d }: { d: DriveCheck }) {
       {d.note && <p className="mt-1 font-mono text-[11px] text-rose-700">{d.note}</p>}
 
       <dl className="mt-2 grid gap-x-6 gap-y-0.5 text-[11px] text-slate-500 sm:grid-cols-2">
-        <div>
-          {tr("Recorded folder", "Folder tercatat")}:{" "}
-          {d.folder_id ? (
-            <a href={`https://drive.google.com/drive/folders/${d.folder_id}`} target="_blank" rel="noreferrer"
-               className="inline-flex items-center gap-1 font-mono text-brand-700 hover:underline">
-              {d.folder_id} <ExternalLink className="h-3 w-3" />
-            </a>
-          ) : "—"}
-        </div>
-        {d.member && (
-          <div>
-            {tr("A member sees", "Anggota melihat")}:{" "}
-            {d.member.ok
-              ? <span className="text-slate-700">
-                  “{d.member.name}”{d.member.drive_name && ` ${tr("in", "di")} ${d.member.drive_name}`}
-                  {d.member.can_add === false && ` · ${tr("read-only", "hanya-baca")}`}
-                </span>
-              : <span className="text-rose-700">{d.member.status} {d.member.message}</span>}
-          </div>
+        <div>{tr("Recorded folder", "Folder tercatat")}: {d.recorded_folder_id ? link(d.recorded_folder_id) : "—"}</div>
+        <div>{appFolder}: {d.folder_id ? link(d.folder_id) : tr("not made yet", "belum dibuat")}</div>
+        {d.drive && !d.drive.ok && (
+          <div className="sm:col-span-2 text-rose-700">Google: {d.drive.status} {d.drive.message}</div>
         )}
-        {d.uploader && (
-          <div>
-            {tr("Uploads see (drive.file)", "Upload melihat (drive.file)")}:{" "}
-            {d.uploader.ok
-              ? <span className="text-emerald-700">{tr("yes", "ya")}</span>
-              : <span className="text-rose-700">{tr("no", "tidak")} — {d.uploader.status} {d.uploader.message}</span>}
-          </div>
+        {d.app_folder && !d.app_folder.ok && (
+          <div className="sm:col-span-2 text-rose-700">{appFolder}: {d.app_folder.status} {d.app_folder.message}</div>
         )}
       </dl>
 
-      {test && <TestResult t={test} />}
+      {result && (
+        <p className={`mt-2 rounded-lg px-3 py-2 text-[12px] ${result.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
+          {result.ok
+            ? (result.created
+                ? tr(`${appFolder} created and recorded.`, `${appFolder} dibuat dan dicatat.`)
+                : tr(`${appFolder} was already there; recorded.`, `${appFolder} sudah ada; dicatat.`))
+            : result.message}
+        </p>
+      )}
     </li>
-  );
-}
-
-function TestResult({ t }: { t: DriveFolderTest }) {
-  const tr = useTr();
-  const line = (label: string, c: DriveFolderTest["as_uploader"]) => (
-    <p>
-      {label}:{" "}
-      {c.created
-        ? <span className="font-medium text-emerald-700">
-            {tr("created", "berhasil dibuat")}{c.binned ? tr(" (and binned)", " (dan dibuang ke sampah)") : tr(" — NOT binned, remove it by hand", " — BELUM dibuang, hapus manual")}
-          </span>
-        : <span className="font-medium text-rose-700">{tr("refused", "ditolak")} — {c.status} {c.message}</span>}
-    </p>
-  );
-
-  const conclusion =
-    t.as_uploader.created
-      ? tr("Uploads can make their folders here as they are. Nothing to change.",
-           "Upload bisa membuat foldernya sendiri di sini apa adanya. Tidak ada yang perlu diubah.")
-      : t.with_full_access.created
-        ? tr("The app can make its own folders here only with full Drive access. Under drive.file it cannot use a folder a person made. Either the app's permission becomes full Drive access, or the OPS folder must be one the app made.",
-             "Aplikasi hanya bisa membuat folder sendiri di sini dengan akses Drive penuh. Dengan drive.file aplikasi tidak bisa memakai folder buatan orang. Pilihannya: izin aplikasi diubah menjadi akses Drive penuh, atau folder OPS harus dibuat oleh aplikasi.")
-        : tr("Even full Drive access was refused, so the account is not a Content manager here. That is fixed in Drive, by sharing the drive with the account.",
-             "Akses Drive penuh pun ditolak, jadi akun ini bukan Content manager di sini. Perbaikannya di Drive: bagikan shared drive ke akun tersebut.");
-
-  return (
-    <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-slate-700">
-      {line(tr("As uploads work today (drive.file)", "Seperti upload sekarang (drive.file)"), t.as_uploader)}
-      {line(tr("With full Drive access (drive)", "Dengan akses Drive penuh (drive)"), t.with_full_access)}
-      <p className="mt-1 font-medium">{conclusion}</p>
-    </div>
   );
 }

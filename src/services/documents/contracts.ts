@@ -232,62 +232,64 @@ export interface AttachmentView extends Attachment {
   covers_count: number;
 }
 
-/* ── IT → Google Drive (F172) ─────────────────────────────────────────── */
+/* ── IT → Google Drive (F172, D320) ───────────────────────────────────── */
 
-/** What is wrong with one shared drive's recorded OPS folder, if anything.
+/** The state of one shared drive, as far as filing goes.
  *
- *  - `ready`: uploads can use it as it is.
- *  - `not_configured`: no folder id is recorded.
- *  - `not_member_or_wrong_id`: Google cannot find it even for a member, so
- *    the service account is not in that shared drive, or the id is wrong.
- *  - `hidden_by_drive_file`: a member can see it, but uploads cannot. The
- *    folder was made by a person, and `drive.file` only sees what the app made.
- *  - `read_only_member`: in the drive as Viewer or Commenter.
- *  - `not_a_folder` / `trashed` / `not_named_ops`: the id points at the wrong
- *    thing.
+ *  - `ready`: the app's `ops-talaliving` folder exists and uploads can see it.
+ *  - `not_set_up`: the drive is reachable, and the folder is not made yet.
+ *    *Create ops-talaliving* makes it, and so does the first upload.
+ *  - `not_member_or_wrong_id`: Google cannot find the recorded folder or drive
+ *    for the app's account, so the account is not a member of that shared
+ *    drive, or the id is wrong.
+ *  - `read_only_member`: in the drive as Viewer or Commenter, cannot file.
+ *  - `app_folder_missing`: a folder was recorded, but uploads can no longer
+ *    open it (moved, binned or deleted). *Create ops-talaliving* makes another.
+ *  - `not_configured`: nothing records which shared drive this is.
  *  - `check_failed`: the check itself could not run (see `note`).
  */
 export type DriveVerdict =
-  | "ready" | "not_configured" | "not_member_or_wrong_id" | "hidden_by_drive_file"
-  | "read_only_member" | "not_a_folder" | "trashed" | "not_named_ops" | "check_failed";
+  | "ready" | "not_set_up" | "not_member_or_wrong_id" | "read_only_member"
+  | "app_folder_missing" | "not_configured" | "check_failed";
 
 export interface DriveCheck {
   slug: string;
   label: string;
-  /** The id that was checked: the located OPS folder, else the one IT recorded. */
+  /** The folder a person made in the drive; says which drive it is. */
+  recorded_folder_id: string | null;
+  drive_id: string | null;
+  /** The app's `ops-talaliving` folder, once made. */
   folder_id: string | null;
-  /** What a member of the shared drive sees (read-only look). */
-  member: {
+  /** The shared drive as a member sees it (read-only look). */
+  drive: {
     ok: boolean; status: number; message: string | null;
-    name: string | null; is_folder: boolean; trashed: boolean;
-    drive_name: string | null; can_add: boolean | null;
+    name: string | null; can_add: boolean | null;
   } | null;
-  /** What uploads see, with the permission they use (`drive.file`). */
-  uploader: { ok: boolean; status: number; message: string | null } | null;
+  /** The app's folder as uploads see it (`drive.file`). */
+  app_folder: { ok: boolean; status: number; message: string | null; name: string | null; trashed: boolean } | null;
   verdict: DriveVerdict;
   note: string | null;
 }
 
-export interface DriveCreateTry {
-  created: boolean;
-  status: number;
-  message: string | null;
-  binned: boolean;
-}
-
-/** One test folder made and binned, twice: as uploads work today, and with
- *  full Drive access. */
-export interface DriveFolderTest {
+/** One drive's result from *Create ops-talaliving*. */
+export interface DriveSetUp {
   slug: string;
   label: string;
-  folder_id: string;
-  as_uploader: DriveCreateTry;
-  with_full_access: DriveCreateTry;
+  ok: boolean;
+  drive_id: string | null;
+  drive_name: string | null;
+  folder_id: string | null;
+  /** True when made just now; false when the app's folder was already there. */
+  created: boolean;
+  code: string | null;
+  message: string | null;
 }
 
 export interface DriveCheckReport {
   service_account: string;
-  /** The permission uploads use today. */
+  /** The permission uploads use. */
   upload_scope: string;
+  /** The folder the app files into, in every drive. */
+  app_folder: string;
   drives: DriveCheck[];
 }

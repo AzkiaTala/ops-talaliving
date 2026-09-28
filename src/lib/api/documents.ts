@@ -16,7 +16,7 @@
  */
 import type {
   AttachmentView, AttachmentLink, DocKind, LinkEntity,
-  DriveCheckReport, DriveFolderTest,
+  DriveCheckReport, DriveSetUp,
 } from "@/services/documents/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromSeam, notFound, ok, type Result } from "./_kit";
@@ -383,12 +383,12 @@ export async function checkDrives(): Promise<Result<DriveCheckReport>> {
   return viaRoute<DriveCheckReport>("/api/documents/drive-check");
 }
 
-/** Try making (and binning) a test folder in one drive's OPS folder, as
- *  uploads work today and with full Drive access. `it.manage_drives`. */
-export async function testDriveFolder(slug: string): Promise<Result<DriveFolderTest>> {
-  return viaRoute<DriveFolderTest>("/api/documents/drive-check", {
+/** Make (or find) the app's `ops-talaliving` folder in one shared drive, or
+ *  in every one when `slug` is left out, and record it. `it.manage_drives`. */
+export async function setUpDrives(slug?: string): Promise<Result<DriveSetUp[]>> {
+  return viaRoute<DriveSetUp[]>("/api/documents/drive-check", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ slug: slug ?? null }),
   });
 }
