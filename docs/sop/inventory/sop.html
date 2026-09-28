@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>SOP inventory — Tala Living</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 18mm; }
+  :root { --brand: #2f6b52; --ink: #1e293b; --muted: #64748b; --line: #e2e8f0; --warn: #b45309; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.5; margin: 0; background: #fff; }
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .cover .kicker { color: var(--brand); font-weight: 700; letter-spacing: .12em; font-size: 10pt; text-transform: uppercase; }
+  .cover h1 { font-size: 30pt; margin: 6mm 0 3mm; line-height: 1.15; }
+  .cover p { color: var(--muted); max-width: 140mm; }
+  .cover ol { list-style: none; padding: 0; margin-top: 10mm; columns: 2; }
+  .cover ol li { padding: 1.5mm 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+  .cover ol span { color: var(--brand); font-weight: 700; display: inline-block; width: 7mm; }
+  .intro { page-break-after: always; }
+  h2 { margin: 0; font-size: 16pt; }
+  h3 { font-size: 11pt; margin: 0 0 2mm; }
+  .proc { page-break-before: always; }
+  .proc header { display: flex; gap: 4mm; align-items: center; border-bottom: 2px solid var(--brand); padding-bottom: 3mm; margin-bottom: 3mm; }
+  .num { background: var(--brand); color: #fff; width: 11mm; height: 11mm; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13pt; flex: none; }
+  .meta { margin: 1mm 0 0; color: var(--muted); font-size: 9pt; }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.8pt; background: #f1f5f9; padding: 0 1.2mm; border-radius: 1mm; }
+  .purpose { background: #f0f7f3; border-left: 3px solid var(--brand); padding: 2.5mm 3.5mm; margin: 0 0 4mm; }
+  .steps { padding-left: 6mm; margin: 0; }
+  .steps > li { margin: 0 0 4mm; padding-left: 1mm; }
+  .steps > li::marker { color: var(--brand); font-weight: 700; }
+  .act { font-weight: 600; }
+  .btn { background: #e8f1ec; color: var(--brand); border: 1px solid #b9d5c6; border-radius: 1.2mm; padding: 0 1.4mm; font-weight: 700; white-space: nowrap; }
+  .rule { color: #334155; font-size: 9.5pt; margin-top: 1mm; }
+  .status { display: inline-block; margin-top: 1.2mm; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5pt; background: #f8fafc; border: 1px solid var(--line); border-radius: 1mm; padding: .4mm 2mm; }
+  .status span { color: var(--brand); font-weight: 700; }
+  figure { margin: 2.5mm 0 0; break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: 1.5mm; }
+  .faq { margin-top: 4mm; border-top: 1px solid var(--line); padding-top: 3mm; font-size: 9.5pt; break-inside: avoid; }
+  .faq p { margin: 0 0 2mm; }
+  .next { color: var(--muted); font-size: 9.5pt; border-top: 1px dashed var(--line); padding-top: 2mm; }
+  .temuan { page-break-before: always; }
+  .temuan li { margin-bottom: 3mm; }
+  .temuan li b { color: var(--warn); }
+  .note { color: var(--muted); font-size: 9pt; }
+  .proof { color: var(--brand); font-weight: 600; }
+</style></head>
+<body>
+  <div class="cover">
+    <div class="kicker">SOP · OPS TALALIVING</div>
+    <h1>Inventory: dari rak sampai surat jalan</h1>
+    <p>Cara memakai sistem inventory, langkah demi langkah: lokasi rak, mendaftarkan barang dari rak dengan fotonya, barang datang yang menambah stok, pemakaian dan perpindahan material, opname, barang jadi dari Job Order sampai surat jalan, aset, kayu dan label. Setiap langkah di dokumen ini sudah dijalankan dalam simulasi terhadap database yang sama dengan sistem live.</p>
+    <p class="note">Versi 28 September 2026 · dibuat otomatis dari tabel pengetahuan John Lau (<code>ops_asst.processes</code>). Gambar diambil dari uji jalan lewat layar live (14 langkah, 2026-09-28) dengan data uji; yang tidak ada di uji jalan diambil dari mode demo.</p>
+    <ol><li><span>1.</span> Lokasi stok (rak dan area)</li><li><span>2.</span> Mendaftarkan barang dari rak</li><li><span>3.</span> Barang datang menambah stok</li><li><span>4.</span> Mengeluarkan, mengembalikan dan memindah material</li><li><span>5.</span> Opname: hitung rak dan catat selisih</li><li><span>6.</span> Barang jadi: dari Job Order sampai surat jalan</li><li><span>7.</span> Register aset</li><li><span>8.</span> Kayu log dan papan</li><li><span>9.</span> Mencetak label</li></ol>
+  </div>
+
+  <section class="intro">
+    <h2>Sebelum mulai</h2>
+    <p><b>Siapa mengerjakan apa.</b> Staf gudang (akses <code>inventory</code> tulis) mengelola lokasi, mendaftarkan barang, mengeluarkan dan memindah material, mencatat opname, barang jadi dan aset. Procurement menandatangani barang datang — stok bertambah dari tanda tangan itu, gudang tidak mencatatnya lagi. Produksi mencatat Job Order dan progresnya; tim pengiriman membuat surat jalan. Pemegang akses <code>inventory</code> baca melihat semuanya tanpa bisa menulis.</p>
+    <p><b>Stok dihitung, tidak diketik.</b> Tidak ada kolom jumlah yang diisi tangan: stok setiap rak adalah jumlah semua gerak masuk, keluar, pindah dan selisih opname di rak itu. Karena itu opname mencatat <i>selisih</i> dengan alasannya, dan tidak ada yang dihapus — kesalahan diperbaiki dengan gerak baru.</p>
+    <p><b>Aturan opname belum diputuskan.</b> Seberapa sering opname, siapa yang menyetujui selisih, dan apakah foto rak dikirim lewat Chat atau layar masih menunggu keputusan pemilik. Dokumen ini menulis apa yang sistem lakukan hari ini: pemegang izin penyesuaian mencatat selisih langsung, dengan alasan, tanpa persetujuan dan tanpa foto.</p>
+    <p><b>Tanya John Lau kapan saja.</b> Tombol <b class="btn">John Lau</b> ada di pojok kanan bawah setiap halaman. Tanyakan "kenapa stok tidak bertambah padahal barang sudah datang?" atau "bagaimana cara mencatat opname?". Panduannya tetap terbuka saat Anda pindah halaman, dan langkah yang sesuai dengan halaman yang sedang dibuka ditandai <b class="btn">you are here</b>. Percakapan tersimpan, jadi tidak hilang walaupun halaman di-refresh.</p>
+    <p>John Lau menjelaskan cara memakai layar inventory; ia <b>tidak</b> membacakan isi rak, harga atau nilai stok — angkanya dibaca di layar oleh yang berhak.</p>
+    
+  </section>
+
+  
+  <section class="proc">
+    <header>
+      <div class="num">1</div>
+      <div>
+        <h2>Lokasi stok (rak dan area)</h2>
+        <p class="meta">Layar: <code>/inventory/penyesuaian</code> · Butuh: <code>inventory.update</code> · <span class="proof">diuji lewat layar live: 3 langkah</span></p>
+      </div>
+    </header>
+    <p class="purpose">Setiap hitungan dan setiap gerak barang milik satu lokasi. Lokasi ditambah, diganti nama dan dinonaktifkan dari layar Opname oleh pemegang inventory.update, supaya area yang disepakati dengan lapangan tidak menunggu IT. Kodenya tetap selamanya; namanya bebas diubah.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Buka Inventory → Stock adjustments (Opname &amp; penyesuaian). Di kartu <b class="btn">Manage locations</b> (<b class="btn">Kelola lokasi</b>) isi kode dan nama rak, lalu tekan <b class="btn">Add location</b> (<b class="btn">Tambah lokasi</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Hanya pemegang inventory.update yang melihat kartu ini. Kode tidak bisa diganti sesudahnya — riwayat stok memakainya.</div>
+        <div class="status">— <span>→</span> aktif</div>
+        <figure><img src="walk-01-lokasi.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Untuk mengganti nama: tekan <b class="btn">Rename</b> (<b class="btn">Ganti nama</b>) di baris lokasinya, ketik nama baru, lalu <b class="btn">Save name</b> (<b class="btn">Simpan nama</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Nama bebas diubah; kodenya tetap.</div>
+        <div class="status">aktif <span>→</span> aktif</div>
+        
+      </li>
+      <li>
+        <div class="act">Rak yang tidak dipakai lagi: tekan <b class="btn">Deactivate</b> (<b class="btn">Nonaktifkan</b>). Rak nonaktif bisa diaktifkan lagi dengan <b class="btn">Reactivate</b> (<b class="btn">Aktifkan lagi</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Tidak ada hapus: rak yang pernah dihitung tetap terbaca di riwayat, hanya tidak ditawarkan lagi.</div>
+        <div class="status">aktif <span>→</span> nonaktif</div>
+        
+      </li>
+    </ol>
+    
+    <p class="next">Berikutnya: <b>Mendaftarkan barang dari rak</b></p>
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">2</div>
+      <div>
+        <h2>Mendaftarkan barang dari rak</h2>
+        <p class="meta">Layar: <code>/inventory/material</code> · Butuh: <code>inventory.create</code> · <span class="proof">diuji lewat layar live: 2 langkah</span></p>
+      </div>
+    </header>
+    <p class="purpose">Barang yang ada di rak tapi belum ada di katalog didaftarkan dari layar Bahan &amp; hardware: nama katalog (sistem) dan nama lapangan (yang dipakai tim), satu sampai empat foto, kategori, satuan, dan kalau sudah dihitung, jumlah dan raknya. Barang yang sudah ada di katalog cukup diberi nama lapangan.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Buka Inventory → Materials &amp; hardware, tekan <b class="btn">Register an item</b> (<b class="btn">Daftarkan barang</b>). Ambil atau pilih foto barangnya (satu sampai empat).</div>
+        <div class="rule"><b>Kenapa:</b> Tanpa foto ditolak (photo_required); lebih dari empat ditolak (too_many_photos).</div>
+        
+        <figure><img src="walk-04-daftar-barang.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Isi nama katalog (sistem, bahasa Inggris), nama lapangan (yang dipakai tim), kategori dan satuan. Kalau sudah dihitung, isi jumlah dan pilih raknya. Tekan <b class="btn">Register</b> (<b class="btn">Daftarkan</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Nama katalog atau nama lapangan yang sudah ada ditolak (already_catalogued) — hitung di barang yang sudah ada. Hitungan awal tercatat sebagai penyesuaian opname (butuh inventory.adjust) dan harus menyebut rak yang aktif. Kategori yang tidak dihitung di gudang ditolak (not_stocked).</div>
+        <div class="status">— <span>→</span> terdaftar</div>
+        <figure><img src="walk-04-daftar-barang.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Sesudah terdaftar, tekan <b class="btn">Print label</b> (<b class="btn">Cetak label</b>) untuk labelnya, atau <b class="btn">Later</b> (<b class="btn">Nanti</b>).</div>
+        
+        
+        
+      </li>
+      <li>
+        <div class="act">Barang yang sudah ada di katalog: klik barangnya, pada <b class="btn">Floor name</b> (<b class="btn">Nama lapangan</b>) tekan <b class="btn">Edit</b> (<b class="btn">Ubah</b>), ketik namanya, lalu <b class="btn">Save</b> (<b class="btn">Simpan</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Nama lapangan ikut dicari seperti nama katalog; bukan barang kedua.</div>
+        
+        
+      </li>
+      <li>
+        <div class="act">Foto barang ditambah atau dibuang di bagian dokumen barang itu. Untuk mengganti foto terakhir, tambah foto barunya dulu, baru buang yang lama.</div>
+        <div class="rule"><b>Kenapa:</b> Barang harus punya minimal satu foto dan paling banyak empat — database menolak yang melewati batas.</div>
+        
+        
+      </li>
+    </ol>
+    <div class="faq"><h3>Tanya-jawab</h3><p><b>Barangnya sudah ada di katalog dengan nama Inggris, tim menyebutnya lain. Daftarkan lagi?</b><br>Jangan. Buka barang yang sudah ada dan isi nama lapangannya. Mendaftarkan barang dengan nama yang sudah ada ditolak supaya tidak ada barang kembar.</p></div>
+    <p class="next">Berikutnya: <b>Barang datang menambah stok</b></p>
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">3</div>
+      <div>
+        <h2>Barang datang menambah stok</h2>
+        <p class="meta">Layar: <code>/procurement/tracker</code> · Butuh: <code>procurement.create</code> · <span class="proof">diuji lewat layar live: 1 langkah</span></p>
+      </div>
+    </header>
+    <p class="purpose">Stok bertambah saat penerimaan barang ditandatangani di procurement — gudang tidak mencatatnya lagi. Barang masuk ke lokasi rumah barangnya (atau GUDANG), dengan harga dari baris PO/PR-nya. Barang salah kirim atau dikembalikan ke pengirim tidak masuk stok.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Procurement membuka Purchase Tracker, memilih vendornya, tekan <b class="btn">Record arrival</b>, mengisi jumlah, foto barang dan foto surat jalan vendor, lalu <b class="btn">Record what arrived</b>.</div>
+        <div class="rule"><b>Kenapa:</b> Foto barang wajib. Dengan surat jalan vendor penerimaan langsung ditandatangani (CONFIRMED) dan stok bertambah saat itu juga; dengan foto saja masih REPORTED dan stok bertambah saat ditandatangani.</div>
+        <div class="status">— <span>→</span> CONFIRMED</div>
+        <figure><img src="walk-06-penerimaan.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Periksa di Materials &amp; hardware: barangnya bertambah di lokasi rumahnya (atau GUDANG kalau belum punya), dengan harga dari baris PO/PR.</div>
+        <div class="rule"><b>Kenapa:</b> Tidak masuk stok: kondisi WRONG ITEM atau RETURN TO SENDER, kategori yang tidak dihitung di gudang, satuan beli yang tidak bisa dikonversi ke satuan stok, dan baris PO yang tidak menyebut barang maupun baris PR. DAMAGED tetap masuk — barangnya ada di gedung.</div>
+        <div class="status">CONFIRMED <span>→</span> di rak</div>
+        
+      </li>
+    </ol>
+    <div class="faq"><h3>Tanya-jawab</h3><p><b>Barang sudah datang tapi stok di gudang tidak bertambah. Kenapa?</b><br>Stok bertambah saat penerimaannya ditandatangani (CONFIRMED). Kalau penerimaan masih REPORTED (dicatat dengan foto saja), lampirkan surat jalan vendor atau minta procurement menandatanganinya. Kalau sudah CONFIRMED, periksa kondisinya: WRONG ITEM dan RETURN TO SENDER memang tidak masuk stok, begitu juga barang di kategori yang tidak dihitung gudang atau yang satuan belinya tidak bisa dikonversi.</p><p><b>Apakah gudang perlu mencatat barang masuk lagi?</b><br>Tidak. Penerimaan yang ditandatangani di procurement langsung menambah stok di lokasi rumah barangnya. Mencatatnya lagi di gudang membuat stok dobel.</p></div>
+    <p class="next">Berikutnya: <b>Mengeluarkan, mengembalikan dan memindah material</b></p>
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">4</div>
+      <div>
+        <h2>Mengeluarkan, mengembalikan dan memindah material</h2>
+        <p class="meta">Layar: <code>/inventory/material</code> · Butuh: <code>inventory.create</code> · <span class="proof">diuji lewat layar live: 2 langkah</span></p>
+      </div>
+    </header>
+    <p class="purpose">Material yang dipakai produksi dikeluarkan dengan menyebut Job Order-nya; sisa yang tidak terpakai dikembalikan; barang yang pindah rak dicatat sebagai pindah lokasi. Stok selalu dihitung dari semua gerak itu, tidak pernah diketik.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Klik barangnya. Di laci barang pilih <b class="btn">Issue</b> (<b class="btn">Keluarkan</b>), isi jumlah, lokasi asal, nomor Job Order dan untuk apa, lalu tekan <b class="btn">Record</b> (<b class="btn">Catat</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Mengeluarkan lebih banyak dari yang tercatat tidak ditolak: tetap tercatat, dan barangnya ditandai minus — perlu dihitung ulang. Jumlah nol ditolak (qty_invalid). Tombol yang tertekan dua kali tidak mencatat dua kali.</div>
+        <div class="status">— <span>→</span> keluar</div>
+        <figure><img src="walk-07-keluar.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Material untuk satu Job Order juga bisa dikeluarkan sekaligus dari halaman Job Order-nya.</div>
+        <div class="rule"><b>Kenapa:</b> Barang yang bukan stok gudang ditolak dan disebut kodenya.</div>
+        <div class="status">— <span>→</span> keluar</div>
+        
+      </li>
+      <li>
+        <div class="act">Sisa yang tidak terpakai: pilih <b class="btn">Return</b> (<b class="btn">Kembalikan</b>), isi jumlah dan lokasinya, lalu <b class="btn">Record</b> (<b class="btn">Catat</b>).</div>
+        
+        <div class="status">— <span>→</span> kembali</div>
+        <figure><img src="walk-07-keluar.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Pindah rak: pilih <b class="btn">Move location</b> (<b class="btn">Pindah lokasi</b>), isi jumlah, lokasi asal dan lokasi tujuan, lalu <b class="btn">Record</b> (<b class="btn">Catat</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Tercatat dua baris yang saling menutup; total stok tidak berubah. Lokasi asal dan tujuan tidak boleh sama.</div>
+        <div class="status">— <span>→</span> pindah</div>
+        <figure><img src="walk-07-keluar.jpg" alt=""></figure>
+      </li>
+    </ol>
+    <div class="faq"><h3>Tanya-jawab</h3><p><b>Kenapa stok bisa minus?</b><br>Mengeluarkan lebih banyak dari yang tercatat tidak ditolak, karena barangnya memang sudah keluar. Minus berarti ada yang tidak tercatat sebelumnya (barang masuk tanpa penerimaan, atau hitungan awal belum ada). Hitung raknya dan catat selisihnya di Stock adjustments.</p></div>
+    <p class="next">Berikutnya: <b>Opname: hitung rak dan catat selisih</b></p>
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">5</div>
+      <div>
+        <h2>Opname: hitung rak dan catat selisih</h2>
+        <p class="meta">Layar: <code>/inventory/penyesuaian</code> · Butuh: <code>inventory.adjust</code> · <span class="proof">diuji lewat layar live: 2 langkah</span></p>
+      </div>
+    </header>
+    <p class="purpose">Orang di depan rak mengisi jumlah yang benar-benar ada. Sistem menyimpan selisihnya terhadap catatan lokasi itu, bukan angka barunya, dan setiap selisih wajib beralasan. Frekuensi opname, siapa yang menyetujui selisih, dan bagaimana foto rak dikirim belum diputuskan pemilik; hari ini pemegang inventory.adjust mencatat selisih langsung, tanpa persetujuan dan tanpa foto.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Buka Stock adjustments. Di <b class="btn">Record a count</b> (<b class="btn">Catat hasil hitung</b>) pilih barang dan lokasinya — sistem menampilkan jumlah yang tercatat di rak itu.</div>
+        <div class="rule"><b>Kenapa:</b> Satu hitungan milik satu rak, bukan satu total.</div>
+        
+        <figure><img src="walk-09-opname.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Isi jumlah yang benar-benar ada di rak dan alasan selisihnya, lalu tekan <b class="btn">Record difference</b> (<b class="btn">Catat selisih</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Yang disimpan selisihnya, dengan alasan; tanpa alasan ditolak. Kalau hitungan sama dengan catatan, tidak ada yang ditulis. Butuh inventory.adjust. Siapa yang menyetujui selisih belum diputuskan pemilik — hari ini selisih langsung tercatat.</div>
+        <div class="status">— <span>→</span> selisih tercatat</div>
+        <figure><img src="walk-09-opname.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Riwayat semua penyesuaian ada di bawahnya dan tidak pernah dihapus. Barang yang berulang kali kurang ditandai.</div>
+        <div class="rule"><b>Kenapa:</b> Pemegang inventory.read hanya melihat riwayat ini; formulir dan kelola lokasi tidak muncul.</div>
+        
+        
+      </li>
+    </ol>
+    <div class="faq"><h3>Tanya-jawab</h3><p><b>Siapa yang menyetujui selisih opname, dan seberapa sering opname dilakukan?</b><br>Belum diputuskan pemilik. Hari ini pemegang izin penyesuaian (inventory.adjust) mencatat selisih langsung dengan alasannya, tanpa langkah persetujuan dan tanpa jadwal di sistem. Foto rak juga belum diminta, baik lewat Chat maupun layar. Semua selisih tersimpan dengan siapa yang mencatat dan alasannya, jadi bisa diperiksa belakangan.</p><p><b>Hitungan saya sama dengan sistem, kenapa tidak ada yang tercatat?</b><br>Opname menyimpan selisih, bukan angka barunya. Kalau selisihnya nol, tidak ada yang perlu dicatat — layar mengatakan "Matches" ("Cocok").</p><p><b>Bisakah John Lau memberi tahu stok suatu barang?</b><br>Tidak. John Lau menjelaskan cara memakai layar inventory, bukan isi raknya. Stok, harga dan nilai dibaca di layar Materials &amp; hardware atau Finished Goods oleh yang berhak.</p></div>
+    
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">6</div>
+      <div>
+        <h2>Barang jadi: dari Job Order sampai surat jalan</h2>
+        <p class="meta">Layar: <code>/inventory/produk</code> · Butuh: <code>inventory.create</code> · <span class="proof">diuji lewat layar live: 3 langkah</span></p>
+      </div>
+    </header>
+    <p class="purpose">Barang jadi punya raknya sendiri, per produk dan per pesanan klien. Hasil produksi masuk rak dengan menyebut Job Order-nya (pesanan kliennya ikut dari JO); pengiriman tidak dicatat lagi di gudang karena rak membaca surat jalan. Kelebihan produksi dan surplus dihitung sistem.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Buka Inventory → Finished Goods, tekan <b class="btn">Record a finished-goods move</b> (<b class="btn">Catat gerak barang jadi</b>), pilih <b class="btn">Production output</b> (<b class="btn">Hasil produksi</b>), pilih Job Order-nya, lokasinya dan jumlahnya, lalu <b class="btn">Save</b> (<b class="btn">Simpan</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Tanpa Job Order ditolak (wo_required); JO untuk produk lain (wo_other_product) atau yang dibatalkan (wo_cancelled) ditolak. Pesanan kliennya diambil dari JO, bukan dari formulir.</div>
+        <div class="status">— <span>→</span> di rak barang jadi</div>
+        <figure><img src="walk-10-barang-jadi.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Sebelum dikirim, pindahkan barang jadinya ke lokasi rumah produk: <b class="btn">Move location</b> (<b class="btn">Pindah lokasi</b>), pilih produk, batch, dari lokasi, ke lokasi dan jumlahnya, lalu <b class="btn">Save</b> (<b class="btn">Simpan</b>). Lokasi rumah diatur dengan <b class="btn">Home location</b> (<b class="btn">Lokasi rumah</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Surat jalan mengurangi rak dari lokasi rumah produk (atau GUDANG). Memindah lebih banyak dari yang ada ditolak (insufficient).</div>
+        <div class="status">di rak barang jadi <span>→</span> di lokasi rumah</div>
+        
+      </li>
+      <li>
+        <div class="act">Tim pengiriman membuka Projects → Delivery. Di <b class="btn">Ready to ship</b> (<b class="btn">Siap kirim</b>) tekan <b class="btn">Create delivery note</b> (<b class="btn">Buat surat jalan</b>) pada proyeknya, isi jumlah per baris, sopir dan kendaraan, lalu <b class="btn">Dispatch</b> (<b class="btn">Berangkatkan</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Siap kirim dihitung dari progres Job Order (tahap terakhir), bukan dari rak barang jadi; lebih dari yang selesai ditolak (not_enough_made). Gudang tidak mencatat pengiriman lagi — rak barang jadi membaca surat jalan.</div>
+        <div class="status">di lokasi rumah <span>→</span> IN_TRANSIT</div>
+        <figure><img src="walk-12-surat-jalan.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Baca rak barang jadi per pesanan: dibuat, terkirim, di rak, kelebihan produksi dan surplus. Surplus bisa dipakai untuk pesanan lain dengan <b class="btn">Use for another order</b> (<b class="btn">Pakai untuk pesanan lain</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Hanya surplus yang boleh pindah ke pesanan lain dengan produk yang sama, dan harus beralasan. Yang masih menjadi hak pesanan asal tetap di sana.</div>
+        
+        
+      </li>
+      <li>
+        <div class="act">Hitung rak barang jadi dengan <b class="btn">Count (opname)</b> (<b class="btn">Hitung (opname)</b>); barang rusak dengan <b class="btn">Damaged / scrapped</b> (<b class="btn">Rusak / afkir</b>); dijual lepas dengan <b class="btn">Sold outright</b> (<b class="btn">Dijual lepas</b>); kembali dari lokasi proyek dengan <b class="btn">Returned by client</b> (<b class="btn">Retur dari klien</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Selisih hitungan, rusak, dijual dan retur wajib beralasan (reason_required). Rusak/afkir dan hitungan butuh inventory.adjust.</div>
+        
+        
+      </li>
+    </ol>
+    <div class="faq"><h3>Tanya-jawab</h3><p><b>Surat jalan ditolak "not_enough_made" padahal barang jadinya ada di rak.</b><br>Siap kirim dihitung dari progres Job Order di produksi (tahap terakhir), bukan dari rak barang jadi. Minta produksi mencatat progresnya sampai tahap terakhir, lalu buat surat jalannya.</p></div>
+    
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">7</div>
+      <div>
+        <h2>Register aset</h2>
+        <p class="meta">Layar: <code>/inventory/assets</code> · Butuh: <code>inventory.create</code> · <span class="proof">diuji lewat layar live: 1 langkah</span></p>
+      </div>
+    </header>
+    <p class="purpose">Aset perusahaan (alat, mesin, kendaraan, komputer, CCTV) dan barang sewa/leasing/pinjaman dicatat dengan nomor seri, lokasi dan pemegangnya, beserta riwayat servis dan statusnya.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Buka Inventory → Assets, tekan <b class="btn">Register asset</b> (<b class="btn">Daftarkan aset</b>). Isi nama, kategori, kepemilikan, nomor seri/plat, merek, model, lokasi, pemegang, tanggal dan harga beli kalau ada, lalu <b class="btn">Save</b> (<b class="btn">Simpan</b>).</div>
+        <div class="rule"><b>Kenapa:</b> Nama dan kategori wajib (name_required, category_required). Aset sewa/leasing/pinjaman butuh biaya, periode dan tanggal jatuh tempo sewanya.</div>
+        <div class="status">— <span>→</span> in_use</div>
+        <figure><img src="walk-13-aset.jpg" alt=""></figure>
+      </li>
+      <li>
+        <div class="act">Klik asetnya untuk mencatat servis atau perbaikan, dan untuk mengubah statusnya (dipakai, disimpan, diperbaiki, dilepas, hilang, dikembalikan).</div>
+        <div class="rule"><b>Kenapa:</b> Aset yang dilepas atau hilang wajib diberi keterangan (note_required). Hanya aset sewa/pinjaman yang bisa "dikembalikan".</div>
+        <div class="status">in_use <span>→</span> —</div>
+        
+      </li>
+    </ol>
+    <div class="faq"><h3>Tanya-jawab</h3><p><b>Apa bedanya aset dan barang di Materials &amp; hardware?</b><br>Barang di Materials &amp; hardware dipakai habis dan stoknya dihitung dari gerak masuk-keluar. Aset dipakai berulang (alat, mesin, kendaraan), dicatat satu per satu dengan nomor seri dan pemegangnya, dan tidak punya stok.</p></div>
+    
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">8</div>
+      <div>
+        <h2>Kayu log dan papan</h2>
+        <p class="meta">Layar: <code>/inventory/log</code> · Butuh: <code>inventory.create</code></p>
+      </div>
+    </header>
+    <p class="purpose">Kayu log diterima per nota (difoto, ditempel teks, atau diisi tangan), papan hasil gergajinya masuk rak papan, dan papan yang dipakai dicatat dengan pekerjaannya.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Buka Inventory → Timber, catat kayu yang datang dari notanya: foto nota, tempel teksnya, atau isi tangan; periksa baris yang terbaca, lalu simpan.</div>
+        <div class="rule"><b>Kenapa:</b> Jenis kayu dan harga wajib (species_required, cost_required). Nota truk dan gergajian dicatat sebagai biaya tambahan muatan itu.</div>
+        
+        
+      </li>
+      <li>
+        <div class="act">Papan yang dipakai dicatat dengan nomor pekerjaannya.</div>
+        <div class="rule"><b>Kenapa:</b> Tanpa pekerjaan ditolak (ref_required); lebih dari yang ada ditolak.</div>
+        
+        
+      </li>
+    </ol>
+    
+    
+  </section>
+  <section class="proc">
+    <header>
+      <div class="num">9</div>
+      <div>
+        <h2>Mencetak label</h2>
+        <p class="meta">Layar: <code>/inventory/label</code> · Butuh: <code>inventory.read</code></p>
+      </div>
+    </header>
+    <p class="purpose">Label berisi kode, nama, lokasi, tanggal didaftarkan dan QR kode barang, dicetak beberapa per lembar stiker A4. Membaca saja: pemegang inventory.read boleh mencetak.</p>
+    <ol class="steps">
+      
+      <li>
+        <div class="act">Buka Inventory → Labels (atau <b class="btn">Print labels</b> dari layar barang, aset atau barang jadi). Pilih Materials, Assets atau Finished goods, centang yang dilabel, pilih ukuran lembar, lalu tekan <b class="btn">Print</b>.</div>
+        <div class="rule"><b>Kenapa:</b> Membaca saja. QR-nya membuka halaman barang itu.</div>
+        
+        
+      </li>
+    </ol>
+    
+    
+  </section>
+
+  <section class="temuan">
+    <h2>Temuan simulasi — yang belum berjalan sesuai SOP</h2>
+    <p>Simulasi menemukan langkah-langkah berikut yang belum berjalan seperti yang ditulis di atas. Sudah dilaporkan ke IT; sampai diperbaiki, ikuti catatan di bawah.</p>
+    <ol><li><b>Lokasi barang jadi minus setelah surat jalan berangkat</b><br>Surat jalan mengurangi rak dari lokasi rumah produk (atau GUDANG), bukan dari rak tempat barangnya berada. Kalau barang jadinya masih di FINISHING saat dikirim, FINISHING tetap penuh dan lokasi rumahnya jadi minus. Sampai pemilik memutuskan aturannya (Q59): pindahkan barang jadi ke lokasi rumah produk sebelum surat jalan dibuat, atau atur lokasi rumah produk ke rak tempat barang jadinya disimpan.</li></ol>
+  </section>
+</body></html>

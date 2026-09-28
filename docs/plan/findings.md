@@ -7384,3 +7384,65 @@ is accepted: `//host` and full URLs go to the dashboard, checked both ways
 in the demo. The owner also asked for cut lines on the sheet: a dashed
 outline per label, on by default for plain A4 and off for pre-cut sticker
 sheets.
+
+## F176 · 2026-09-28 · the everyday receipt was signed at insert, and the stock trigger only listened for updates
+
+The inventory walk (V1, third module) signed for a delivery the way the
+floor does it: a photo of the goods and the vendor's delivery note together.
+`create_receipt` (0138) then writes the row **already CONFIRMED**, in its
+INSERT. `0169`'s trigger was `after update of status`, so it never saw that
+row, and the rack stayed empty. Only the slower road stocked anything:
+photo first (REPORTED), then `confirm_receipt`. That is the case
+`169_inv_stock_from_receipt` tested, because it inserted REPORTED rows by
+hand and confirmed them. The test called the seam the way its author
+expected, not the way the screen does, as F149 said about B5.
+
+**Fixed** in `0179`: the trigger also fires on insert. New smoke
+`179_inv_stock_from_signed_receipt` fails on `0169`'s trigger and passes on
+`0179`'s. Receipts signed at insert between `0169` and `0179` stay
+unstocked, following the rule `0169` wrote for everything before it (Q58).
+
+## F177 · 2026-09-28 · a surat jalan takes goods from the home rack, wherever they actually are
+
+`product_ledger` (0170) reads shipments off the delivery notes and subtracts
+them from the product's **home location**, else GUDANG. The simulation put
+twelve chairs on FINISHING, moved eight to GUDANG and shipped ten: GUDANG
+read **−2** and FINISHING still read 4. The batch total was right (2 on the
+rack) and each location was wrong. Nothing refuses it, and no screen says
+why FINISHING still holds chairs that are on a truck.
+
+**Not fixed. It changes a derivation the owner set (D311),** so it goes to
+the owner as Q59 with a default. Until then the guide says to move finished
+goods to the home rack before the surat jalan is made, which is also what
+the product form's *Home location* hint already says. The FAQ row is marked
+*(sementara)*, so the SOP prints it under *Temuan* for as long as it stands.
+
+## F178 · 2026-09-28 · D308 said locations could be renamed from the screen; the screen could not
+
+`updateStockLocation` took a name in both layers, and `0157` granted UPDATE.
+`LocationManager` only offered *Deactivate*. The walk went to rename a rack
+and found no button. **Fixed:** *Rename* → *Save name* on each row. The code
+stays fixed, as `0157` requires.
+
+## F179 · 2026-09-28 · a receipt against a PO line from the screen stocked nothing
+
+The browser walk found a second road the SQL simulation had walked past. The
+simulation received against a PR line, but the screen receives against the
+PO. `NewPo.tsx` fills an order line from the approved request line
+(`pr_line_no`, 0139) and never sends `item_id`, so every PO line written
+from the screen has no item. The trigger answered *the line names no
+catalogue item* for every such receipt. **No PO receipt made from the
+screen could ever have stocked.**
+
+**Fixed** in `0179`: when the order line has no item, the trigger reads the
+item of the request line it buys. A PO line typed by hand, with no request
+line, still stocks nothing and says so in the outbox. Both the smoke and the
+simulation now receive against a PO line the way the screen writes one.
+
+## F180 · 2026-09-28 · the screen walks could not sign in after the language switch
+
+D318 made English the default, so the sign-in button reads *Sign in* and
+not *Masuk*. `harness.mjs`, `walk-procurement.mjs` and `walk-john-lau.mjs`
+pressed *Masuk*. They would have timed out at the first step the next time
+anyone ran them. CI does not run them, and nothing else noticed. They now
+accept either label.

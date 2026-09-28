@@ -96,6 +96,18 @@ const TEXT = {
     drafts: `<p><b>Minta John Lau menyiapkan pengajuan cuti.</b> Ketik "ajukan cuti untuk Wulan 2 sampai 3 Oktober, acara keluarga". John Lau menyiapkan <b>draft</b> pengajuan, dan tidak ada yang tersimpan sampai Anda memeriksanya dan menekan <b class="btn">Ya, tulis</b>. Gaji, absensi dan berkas 201 seseorang <b>tidak</b> dibacakan John Lau — angkanya dibaca di layar HRD oleh yang berhak.</p>`,
     figures: ["11-john-lau-cuti.jpg"],
   },
+  inventory: {
+    title: "Inventory: dari rak sampai surat jalan",
+    lede: "Cara memakai sistem inventory, langkah demi langkah: lokasi rak, mendaftarkan barang dari rak dengan fotonya, barang datang yang menambah stok, pemakaian dan perpindahan material, opname, barang jadi dari Job Order sampai surat jalan, aset, kayu dan label.",
+    intro: [
+      `<p><b>Siapa mengerjakan apa.</b> Staf gudang (akses <code>inventory</code> tulis) mengelola lokasi, mendaftarkan barang, mengeluarkan dan memindah material, mencatat opname, barang jadi dan aset. Procurement menandatangani barang datang — stok bertambah dari tanda tangan itu, gudang tidak mencatatnya lagi. Produksi mencatat Job Order dan progresnya; tim pengiriman membuat surat jalan. Pemegang akses <code>inventory</code> baca melihat semuanya tanpa bisa menulis.</p>`,
+      `<p><b>Stok dihitung, tidak diketik.</b> Tidak ada kolom jumlah yang diisi tangan: stok setiap rak adalah jumlah semua gerak masuk, keluar, pindah dan selisih opname di rak itu. Karena itu opname mencatat <i>selisih</i> dengan alasannya, dan tidak ada yang dihapus — kesalahan diperbaiki dengan gerak baru.</p>`,
+      `<p><b>Aturan opname belum diputuskan.</b> Seberapa sering opname, siapa yang menyetujui selisih, dan apakah foto rak dikirim lewat Chat atau layar masih menunggu keputusan pemilik. Dokumen ini menulis apa yang sistem lakukan hari ini: pemegang izin penyesuaian mencatat selisih langsung, dengan alasan, tanpa persetujuan dan tanpa foto.</p>`,
+    ],
+    ask: `Tanyakan "kenapa stok tidak bertambah padahal barang sudah datang?" atau "bagaimana cara mencatat opname?".`,
+    drafts: `<p>John Lau menjelaskan cara memakai layar inventory; ia <b>tidak</b> membacakan isi rak, harga atau nilai stok — angkanya dibaca di layar oleh yang berhak.</p>`,
+    figures: [],
+  },
 };
 const T = TEXT[MODULE] ?? TEXT.procurement;
 

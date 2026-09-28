@@ -101,7 +101,7 @@ async function signIn(name) {
   await page.goto(`${APP}/signin`, { waitUntil: "networkidle" });
   await page.fill("input[type=email]", PEOPLE[name].email);
   await page.fill("input[type=password]", "e2e");
-  await page.getByRole("button", { name: "Masuk" }).click();
+  await page.getByRole("button", { name: /^(Sign in|Masuk)$/ }).click();
   await page.waitForURL((u) => !u.pathname.startsWith("/signin"), { timeout: 15000 }).catch(() => {});
 }
 

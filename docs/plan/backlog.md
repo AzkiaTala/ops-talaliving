@@ -30,6 +30,10 @@ that only shows what is left teaches nobody anything.
 | B16 | ~~**Timesheet live terkunci di periode data demo (29 Agu – 7 Sep 2026)**~~ | `/hrd/absensi` | **fixed** 2026-09-24 — dua minggu terakhir secara bawaan, geser per minggu, `?from=` di alamat (F154) |
 | B17 | ~~**Tombol John Lau menutupi tombol terakhir di halaman pada layar lebar**~~ | semua halaman | **fixed** 2026-09-24 — ruang bawah `pb-24` di semua lebar layar, bukan hanya layar kecil (F65, F154) |
 | B18 | ~~**Karyawan yang dicatat dari layar selalu "masuk hari ini"**~~ | `/hrd/karyawan` | **fixed** 2026-09-24 — kolom *Tanggal masuk* di laci karyawan (F154) |
+| B19 | ~~**Penerimaan yang ditandatangani saat dicatat (foto + surat jalan vendor) tidak menambah stok**~~ | `/procurement/tracker/[vendor]` · `ops_inv.stock_from_receipt` | **fixed** 2026-09-28 — `0179`: trigger juga membaca INSERT; smoke `179` (F176). Penerimaan antara `0169` dan `0179` tidak di-backfill (Q58) |
+| B20 | **Surat jalan mengurangi lokasi rumah produk, bukan rak tempat barang jadinya berada** — lokasi rumah bisa minus, rak lain tetap penuh | `/inventory/produk` · `ops_inv.product_ledger` | **open — keputusan pemilik (Q59).** Sementara: pindahkan barang jadi ke lokasi rumah sebelum surat jalan dibuat (F177) |
+| B21 | ~~**Lokasi stok tidak bisa diganti nama dari layar**, padahal D308 menyebutnya~~ | `/inventory/penyesuaian` | **fixed** 2026-09-28 — *Rename* → *Save name* di Kelola lokasi (F178) |
+| B22 | ~~**Penerimaan terhadap baris PO dari layar tidak pernah menambah stok** — baris PO tidak membawa `item_id`~~ | `/procurement/tracker/[vendor]` · `ops_inv.stock_from_receipt` | **fixed** 2026-09-28 — `0179`: barangnya dibaca dari baris PR yang dibeli baris PO itu (F179) |
 
 ## Scheduled — the owner's answers of 2026-09-11
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, Plus, X, Undo2 } from "lucide-react";
+import { MapPin, Plus, X, Undo2, Pencil, Check } from "lucide-react";
 import { Badge, Button, Card, CardHeader } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { inventory } from "@/demo/api";
@@ -22,7 +22,11 @@ import { useTr } from "@/lib/i18n";
  *  location list — a separate `useLoad` call there, because that picker only
  *  wants active racks while this panel shows retired ones too. Without it, a
  *  location added here would say "selectable starting now" and not actually
- *  be, until somebody reloaded the page by hand. */
+ *  be, until somebody reloaded the page by hand.
+ *
+ *  A name can be changed; a code cannot (`0157`: the code is the key the
+ *  history is filed under). *Rename* was in D308 and in both API layers but
+ *  never on this panel — found by the inventory walk (F178). */
 export function LocationManager({ onChanged }: { onChanged?: () => void }) {
   const tr = useTr();
   const { toast } = useToast();
@@ -30,6 +34,7 @@ export function LocationManager({ onChanged }: { onChanged?: () => void }) {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ code: string; name: string } | null>(null);
   const refresh = () => { reload(); onChanged?.(); };
 
   async function add() {
@@ -53,6 +58,17 @@ export function LocationManager({ onChanged }: { onChanged?: () => void }) {
     refresh();
   }
 
+  async function rename() {
+    if (!editing) return;
+    setBusy(editing.code);
+    const res = await inventory.updateStockLocation(editing.code, { name: editing.name });
+    setBusy(null);
+    if (res.error) { toast("critical", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
+    toast("success", tr(`Location ${res.data.code}`, `Lokasi ${res.data.code}`), tr(`Now called ${res.data.name}.`, `Sekarang bernama ${res.data.name}.`));
+    setEditing(null);
+    refresh();
+  }
+
   return (
     <Card className="mb-4">
       <CardHeader
@@ -67,7 +83,29 @@ export function LocationManager({ onChanged }: { onChanged?: () => void }) {
               {all.map((l) => (
                 <li key={l.code} className="flex items-center gap-3 px-5 py-2.5">
                   <span className="min-w-[90px] font-mono text-[11px] text-slate-400">{l.code}</span>
-                  <span className="flex-1 text-[13px] text-slate-800">{l.name}</span>
+                  {editing?.code === l.code ? (
+                    <>
+                      <input
+                        value={editing.name} autoFocus
+                        onChange={(e) => setEditing({ code: l.code, name: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === "Enter") rename(); if (e.key === "Escape") setEditing(null); }}
+                        aria-label={tr(`New name for ${l.code}`, `Nama baru untuk ${l.code}`)}
+                        className="h-8 flex-1 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
+                      />
+                      <Button size="sm" icon={Check} disabled={busy === l.code || !editing.name.trim()} onClick={rename}>
+                        {tr("Save name", "Simpan nama")}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>{tr("Cancel", "Batal")}</Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-[13px] text-slate-800">{l.name}</span>
+                      <Button size="sm" variant="ghost" icon={Pencil} disabled={busy === l.code}
+                        onClick={() => setEditing({ code: l.code, name: l.name })}>
+                        {tr("Rename", "Ganti nama")}
+                      </Button>
+                    </>
+                  )}
                   <Badge tone={l.is_active ? "green" : "slate"}>{l.is_active ? tr("active", "aktif") : tr("inactive", "nonaktif")}</Badge>
                   <Button
                     size="sm" variant="ghost" icon={l.is_active ? X : Undo2}
