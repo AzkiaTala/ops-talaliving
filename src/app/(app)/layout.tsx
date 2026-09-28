@@ -47,7 +47,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
      *
      * The order matters: `hasAnyModule` is false for a visitor with no session
      * at all, so the sign-in check has to come first or it never runs. */
-    if (needsSignIn) { router.replace("/signin"); return; }
+    /* The page asked for comes along, so signing in lands back on it. A
+       label's QR opens an item's page (D321); without this, a scan by
+       somebody not yet signed in ended on the dashboard (F175). */
+    if (needsSignIn) {
+      const here = window.location.pathname + window.location.search;
+      router.replace(here && here !== "/" ? `/signin?next=${encodeURIComponent(here)}` : "/signin");
+      return;
+    }
     if (!hasAnyModule) router.replace("/no-access");
   }, [ready, hasAnyModule, needsSignIn, router]);
 

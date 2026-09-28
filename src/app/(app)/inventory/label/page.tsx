@@ -108,6 +108,9 @@ export default function LabelPage() {
   const [skip, setSkip] = useState(0);
   const [location, setLocation] = useState("");
   const [showQr, setShowQr] = useState(true);
+  /* Cut lines, for plain A4 cut by hand (owner, 2026-09-28). Off for
+     pre-cut sticker sheets, where a printed line would sit on a sticker. */
+  const [cutLines, setCutLines] = useState(true);
   const [locs] = useLoad(() => inventory.listStockLocations(), []);
 
   const shown = useMemo(() => {
@@ -283,6 +286,10 @@ export default function LabelPage() {
                 </select>
               </label>
               <label className="flex items-center gap-2 text-[12px] text-slate-600">
+                <input type="checkbox" checked={cutLines} onChange={(e) => setCutLines(e.target.checked)} />
+                {tr("Cut lines (plain paper; off for pre-cut sticker sheets)", "Garis potong (kertas biasa; matikan untuk stiker yang sudah terpotong)")}
+              </label>
+              <label className="flex items-center gap-2 text-[12px] text-slate-600">
                 <input type="checkbox" checked={showQr} onChange={(e) => setShowQr(e.target.checked)} />
                 {tr("QR code that opens the item's page", "QR yang membuka halaman detail item")}
               </label>
@@ -318,7 +325,13 @@ export default function LabelPage() {
               }}
             >
               {cellsOnPage.map((r, i) => (
-                <div key={i} className="overflow-hidden">
+                <div
+                  key={i}
+                  className="overflow-hidden"
+                  /* An outline, not a border: it takes no room from the label,
+                     and two neighbours' outlines fall on one line to cut. */
+                  style={cutLines ? { outline: "0.2mm dashed #94a3b8", outlineOffset: "0" } : undefined}
+                >
                   {r && <Label r={r} tier={sheet.tier} location={location} qr={showQr} />}
                 </div>
               ))}

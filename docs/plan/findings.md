@@ -7374,3 +7374,13 @@ page (`/inventory/material?item=`, `/inventory/assets?asset=`,
 `/inventory/produk?product=`) instead of the bare code, and each of those
 screens opens on the record it names. That was checked by decoding the
 printed QR.
+
+**And a QR needs a signed-in phone, so signing in has to land on the record.**
+Every screen sits behind sign-in, the label's page included. Without a
+session, the (app) layout sent the visitor to `/signin`, and signing in went
+to the dashboard, so the scan lost where it was going. The layout now sends
+`/signin?next=<page>`, and sign-in returns there. Only a path on this site
+is accepted: `//host` and full URLs go to the dashboard, checked both ways
+in the demo. The owner also asked for cut lines on the sheet: a dashed
+outline per label, on by default for plain A4 and off for pre-cut sticker
+sheets.
