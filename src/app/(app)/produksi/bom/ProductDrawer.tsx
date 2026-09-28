@@ -143,7 +143,9 @@ function DrawingViewer({ d }: { d: ProductDrawingEntry }) {
     );
   }
   if (isImage && d.url && !failed) {
-    const src = id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1600` : d.url;
+    /* Through this application, as the service account, after the database
+       has said this person may read the attachment (F175). */
+    const src = id ? `/api/documents/thumb/${encodeURIComponent(d.attachment_id)}?w=1600` : d.url;
     return (
       <a href={d.url} target="_blank" rel="noreferrer" title={tr("Open full size", "Buka ukuran penuh")}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

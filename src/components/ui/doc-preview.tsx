@@ -64,9 +64,13 @@ export function DocumentPreview({ doc, height = 340 }: { doc: PreviewDoc; height
      Drive link recorded beside it (0175), which the same thumbnail trick
      reads. Where to go for full size is whichever of the two there is. */
   const openAt = doc.url ?? doc.drive_link ?? null;
-  const imgSrc = doc.url
-    ? (driveThumbnailUrl(doc.url) ?? doc.url)
-    : doc.drive_link ? driveThumbnailUrl(doc.drive_link) : null;
+  /* A Drive file's picture comes through this application, fetched as the
+     service account after the database has said this person may read the
+     attachment (F175). Pointing the browser at Drive directly broke for
+     anyone whose browser was not signed into the right Google account. An
+     address that is not a Drive file is used as it is. */
+  const onDrive = (doc.url ? driveThumbnailUrl(doc.url) : null) ?? (doc.drive_link ? driveThumbnailUrl(doc.drive_link) : null);
+  const imgSrc = onDrive ? `/api/documents/thumb/${encodeURIComponent(doc.id)}?w=1600` : doc.url;
 
   if (isLink) {
     return (

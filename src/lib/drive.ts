@@ -449,3 +449,46 @@ export async function probeDrive(rec: {
   }
   return { drive, appFolder };
 }
+
+/** A picture of a Drive file, fetched as the service account (F175).
+ *
+ *  The tiles used to point the browser straight at
+ *  `drive.google.com/thumbnail?id=…`. That depends on the viewer's own Google
+ *  session reaching a shared drive from another site. Blocked third-party
+ *  cookies, or a personal Google account in the browser, left the tiles
+ *  broken. Google's own documentation says `thumbnailLink` "must be fetched
+ *  using a credentialed request" and suggests a proxy. This is that proxy.
+ *  Who may see the file is decided before this is called, by the attachment
+ *  row the person can read (RLS). This function only carries the picture.
+ *
+ *  `drive.file` first, because the app made the file. `drive.readonly` next,
+ *  for files the legacy capture worker filed, which the app did not make.
+ *  Neither can write. When Drive has no thumbnail yet (it makes them a few
+ *  seconds after upload), an image is sent whole instead.
+ */
+export async function fetchThumbnail(fileId: string, width: number): Promise<Response | null> {
+  for (const scope of [SCOPE, PROBE_SCOPE]) {
+    const token = await accessToken(scope);
+    const meta = await fetch(
+      `${FILES_URL}/${encodeURIComponent(fileId)}?supportsAllDrives=true&fields=thumbnailLink,mimeType`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    if (!meta.ok) continue;
+    const m = (await meta.json()) as { thumbnailLink?: string; mimeType?: string };
+    if (m.thumbnailLink) {
+      /* The link ends in `=s220`; ask for the size the tile needs. */
+      const sized = m.thumbnailLink.replace(/=s\d+(-[a-z])?$/, "") + `=s${width}`;
+      const img = await fetch(sized, { headers: { authorization: `Bearer ${token}` } });
+      if (img.ok) return img;
+    }
+    if (m.mimeType?.startsWith("image/")) {
+      const whole = await fetch(
+        `${FILES_URL}/${encodeURIComponent(fileId)}?supportsAllDrives=true&alt=media`,
+        { headers: { authorization: `Bearer ${token}` } },
+      );
+      if (whole.ok) return whole;
+    }
+    return null;
+  }
+  return null;
+}

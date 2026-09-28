@@ -34,6 +34,11 @@ import { useTr } from "@/lib/i18n";
  *  one label several times, e.g. one per board in a stack. Printing is the
  *  browser's print, with the controls hidden and the page margin at zero.
  *  Print at 100%: scaling moves every label off its sticker.
+ *
+ *  **No preview on the screen** (owner, 2026-09-28): the list is what gets
+ *  printed. The sheets are rendered for the printer only. **The QR opens the
+ *  record's own screen** (`detailPath`), not the bare code, so a scan lands
+ *  on the item, asset or product.
  */
 
 interface Sheet {
@@ -103,6 +108,9 @@ export default function LabelPage() {
   const [skip, setSkip] = useState(0);
   const [location, setLocation] = useState("");
   const [showQr, setShowQr] = useState(true);
+  /* Cut lines, for plain A4 cut by hand (owner, 2026-09-28). Off for
+     pre-cut sticker sheets, where a printed line would sit on a sticker. */
+  const [cutLines, setCutLines] = useState(true);
   const [locs] = useLoad(() => inventory.listStockLocations(), []);
 
   const shown = useMemo(() => {
@@ -278,8 +286,12 @@ export default function LabelPage() {
                 </select>
               </label>
               <label className="flex items-center gap-2 text-[12px] text-slate-600">
+                <input type="checkbox" checked={cutLines} onChange={(e) => setCutLines(e.target.checked)} />
+                {tr("Cut lines (plain paper; off for pre-cut sticker sheets)", "Garis potong (kertas biasa; matikan untuk stiker yang sudah terpotong)")}
+              </label>
+              <label className="flex items-center gap-2 text-[12px] text-slate-600">
                 <input type="checkbox" checked={showQr} onChange={(e) => setShowQr(e.target.checked)} />
-                {tr("QR code of the code", "QR berisi kode")}
+                {tr("QR code that opens the item's page", "QR yang membuka halaman detail item")}
               </label>
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
                 {tr(
@@ -291,15 +303,16 @@ export default function LabelPage() {
           </Card>
         </div>
 
-        <p className="mb-2 mt-6 text-[12px] font-medium text-slate-500">{tr("Preview", "Pratinjau")}</p>
       </div>
 
-      {/* The sheets: shrunk on screen, full size on paper. */}
-      <div className="space-y-4 [zoom:0.55] print:space-y-0 print:[zoom:1]">
+      {/* The sheets exist for the printer only. The owner asked for no preview
+          under the list: the list is what gets printed, and the sheet is
+          measured to the sticker paper, not to a screen. */}
+      <div className="hidden print:block">
         {pages.map((cellsOnPage, p) => (
           <div
             key={p}
-            className="relative mx-auto bg-white shadow ring-1 ring-slate-200 print:mx-0 print:shadow-none print:ring-0"
+            className="relative bg-white"
             style={{ width: "210mm", height: "297mm", breakAfter: p < pages.length - 1 ? "page" : "auto", overflow: "hidden" }}
           >
             <div
@@ -312,7 +325,13 @@ export default function LabelPage() {
               }}
             >
               {cellsOnPage.map((r, i) => (
-                <div key={i} className="overflow-hidden rounded-[2mm] ring-1 ring-slate-200 print:ring-0">
+                <div
+                  key={i}
+                  className="overflow-hidden"
+                  /* An outline, not a border: it takes no room from the label,
+                     and two neighbours' outlines fall on one line to cut. */
+                  style={cutLines ? { outline: "0.2mm dashed #94a3b8", outlineOffset: "0" } : undefined}
+                >
                   {r && <Label r={r} tier={sheet.tier} location={location} qr={showQr} />}
                 </div>
               ))}
@@ -322,6 +341,15 @@ export default function LabelPage() {
       </div>
     </div>
   );
+}
+
+/** Where a scan lands: the record's own screen, opened on it. The phone that
+ *  scans must be signed in, like any other screen here. */
+function detailPath(r: Pick<LabelSource, "kind" | "code">): string {
+  const code = encodeURIComponent(r.code);
+  return r.kind === "asset" ? `/inventory/assets?asset=${code}`
+    : r.kind === "product" ? `/inventory/produk?product=${code}`
+    : `/inventory/material?item=${code}`;
 }
 
 function whereText(r: LabelSource): string {
@@ -380,7 +408,7 @@ function Label({ r, tier, location, qr }: { r: LabelSource; tier: Sheet["tier"];
       </div>
       {qr && (
         <div className="flex shrink-0 flex-col items-center justify-end">
-          <QrCode value={r.code} title={r.code} size={64} className={qrClass} />
+          <QrCode path={detailPath(r)} title={r.code} size={64} className={qrClass} />
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PackageCheck, PackagePlus, Search, History, Tags } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
@@ -34,7 +35,9 @@ export default function FinishedGoodsPage() {
   const tr = useTr();
   const { can } = useSession();
   const [rows, reload] = useLoad(() => inventory.listProductStock(), []);
-  const [q, setQ] = useState("");
+  /* `?product=CODE`: where a label's QR lands (D321), filtered to it. */
+  const params = useSearchParams();
+  const [q, setQ] = useState(params.get("product") ?? "");
   const [surplusOnly, setSurplusOnly] = useState(false);
   const [recording, setRecording] = useState(false);
   const [open, setOpen] = useState<string | null>(null);

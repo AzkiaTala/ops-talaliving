@@ -12,6 +12,16 @@ import { isLiveMode } from "@/lib/live";
 import { AUTHORITY_LABEL, MODULE_LABEL } from "@/lib/roles";
 import { useTr } from "@/lib/i18n";
 
+/** Where to go once signed in: the page that sent here (`?next=`), else the
+ *  dashboard. Only a path on this site: `//host` and full URLs are refused,
+ *  so the parameter cannot bounce a person to another domain. */
+function afterSignIn(): string {
+  if (typeof window === "undefined") return "/dashboard";
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/signin")
+    ? next : "/dashboard";
+}
+
 /** Sign in.
  *
  *  ## One route, two doors, and the second one was missing
@@ -131,7 +141,7 @@ function PasswordForm() {
       setError(res.error.message);
       return;
     }
-    router.push("/dashboard");
+    router.push(afterSignIn());
   }
 
   return (
@@ -248,7 +258,7 @@ function PersonaList() {
               key={u.id}
               onClick={async () => {
                 await actAs(u.id);
-                router.push("/dashboard");
+                router.push(afterSignIn());
               }}
               className="group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-brand-50/40"
             >

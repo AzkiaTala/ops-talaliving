@@ -7347,3 +7347,40 @@ that shared drive, or a file Drive has not thumbnailed yet, gets a tile with
 the name instead of a broken image, and it still opens Drive, which asks for
 access. The sandbox's files have no Drive id, so there they are always name
 tiles.
+
+## F175 · 2026-09-28 · the tiles pointed the browser at Google, and the browser was not Google's to use
+
+The first real uploads reached Drive (seven asset photos, `PROCUREMENT /
+ops-talaliving / INVENTORY/ASSETS`), and the owner reported the pictures as
+broken. F174's tiles loaded `drive.google.com/thumbnail?id=…` straight from
+the browser. That works only when the browser carries a Google session
+that reaches that shared drive and is allowed to send it from another site.
+Blocked third-party cookies, or a personal Google account in the browser,
+break it, and neither is ours to control. Google's documentation says as
+much: `thumbnailLink` "must be fetched using a credentialed request" and a
+proxy is the intended way.
+
+**Fixed:** `/api/documents/thumb/[id]` takes an **attachment id**. It reads the
+row as the signed-in person, so RLS decides who may see it, and a row they
+cannot read is a 404. Then it fetches Drive's thumbnail as the service
+account: `drive.file` first, `drive.readonly` for files the legacy capture
+worker filed. The tiles, the preview modal, the verification screen and the
+BOM drawing viewer all use it. Clicking still opens the file in Drive, which
+is the viewer's own access and is meant to be.
+
+On the same request, from the owner: the label screen shows the list only,
+and the sheets render for the printer only. The QR now holds the record's
+page (`/inventory/material?item=`, `/inventory/assets?asset=`,
+`/inventory/produk?product=`) instead of the bare code, and each of those
+screens opens on the record it names. That was checked by decoding the
+printed QR.
+
+**And a QR needs a signed-in phone, so signing in has to land on the record.**
+Every screen sits behind sign-in, the label's page included. Without a
+session, the (app) layout sent the visitor to `/signin`, and signing in went
+to the dashboard, so the scan lost where it was going. The layout now sends
+`/signin?next=<page>`, and sign-in returns there. Only a path on this site
+is accepted: `//host` and full URLs go to the dashboard, checked both ways
+in the demo. The owner also asked for cut lines on the sheet: a dashed
+outline per label, on by default for plain A4 and off for pre-cut sticker
+sheets.
