@@ -7136,6 +7136,13 @@ position. One of them was already broken before: the payroll run's amber
 *Days unread* tile compared against *Open days*, a label that no longer
 existed, and never lit — left for its own change.
 
+**Hydration.** The first cut read the stored choice immediately, so a label
+map read during the first client render answered Indonesian while the server
+had rendered English, and React threw the sign-in page away. The language now
+answers the server's default until `<LangHydrated />` has mounted, then the
+viewer's own — found by walking every route in both languages in a browser,
+not by `tsc`, which was green throughout (F164 again).
+
 **What stays one language, on purpose.** Data from the database, stored
 codes, business vocabulary (D224), anything written into a record, and the
 two documents that leave the company, which print both languages side by
