@@ -249,7 +249,7 @@ export default function AssetsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
+        breadcrumb={tr("Inventory", "Persediaan")}
         title={tr("Assets", "Aset")}
         description={tr("What the company owns and uses rather than sells: CCTV, PCs, vehicles, tools. Each has a tag for a sticker on the thing itself.", "Apa yang dimiliki dan dipakai perusahaan, bukan dijual: CCTV, PC, kendaraan, perkakas. Masing-masing punya tag untuk stiker di barangnya sendiri.")}
         actions={mayCreate && (

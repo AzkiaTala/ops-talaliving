@@ -82,7 +82,7 @@ export default function StockCountPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
+        breadcrumb={tr("Inventory", "Persediaan")}
         title={tr("Opname & adjustments", "Opname & penyesuaian")}
         description={tr("Enter the physically counted quantity. The difference is recorded, not the new figure — and every difference must have a reason.", "Masukkan jumlah hasil hitung fisik. Selisihnya yang dicatat, bukan angka barunya — dan setiap selisih wajib punya alasan.")}
         actions={<SourceBadge state={moves} />}

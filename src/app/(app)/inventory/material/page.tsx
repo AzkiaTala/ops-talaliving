@@ -48,7 +48,7 @@ export default function StockPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
+        breadcrumb={tr("Inventory", "Persediaan")}
         title={tr("Materials & hardware", "Bahan & hardware")}
         description={tr("Computed from every stock movement, not from a stored figure. Goods come in as soon as receiving is confirmed; they go out when production uses them.", "Dihitung dari setiap pergerakan barang, bukan dari angka yang disimpan. Barang masuk begitu penerimaan dikonfirmasi; keluar saat dipakai produksi.")}
         actions={

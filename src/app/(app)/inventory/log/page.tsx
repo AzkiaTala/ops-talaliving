@@ -56,7 +56,7 @@ export default function TimberPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
+        breadcrumb={tr("Inventory", "Persediaan")}
         title={tr("Timber", "Kayu")}
         description={tr("One module for three things: kubikasi against price, what is on the board rack, and where the boards went. Logs and boards are no longer separate — they are the same wood, before and after the saw.", "Satu modul untuk tiga hal: kubikasi lawan harga, isi rak papan, dan ke mana papannya pergi. Log dan papan tidak lagi dipisah — mereka kayu yang sama, sebelum dan sesudah gergaji.")}
         actions={

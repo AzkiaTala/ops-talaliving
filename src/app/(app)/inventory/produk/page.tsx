@@ -42,7 +42,7 @@ export default function FinishedGoodsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Inventory"
+        breadcrumb={tr("Inventory", "Persediaan")}
         title={tr("Finished goods", "Barang jadi")}
         description={tr("Products made by production that are still in the warehouse — per client order, including overproduction. Deliveries are taken from the surat jalan, never recorded twice.", "Produk hasil produksi yang masih di gudang — per pesanan klien, termasuk kelebihan produksi. Pengiriman diambil dari surat jalan, tidak dicatat dua kali.")}
         actions={
