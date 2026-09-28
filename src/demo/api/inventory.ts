@@ -12,6 +12,7 @@ import type {
   BoardStockView, BoardMoveView, BoardMoveKind, NotaScan, LogCostKind,
   Asset, AssetView, AssetCategory, AssetStatus, AssetInput, AssetService, AssetServiceInput,
   ProductStockRow, ProductLedgerRow, ProductMove, ProductMoveInput, ProductCountInput, ProductAllocateInput, ProductOrderLine,
+  LabelKind, LabelSource,
 } from "@/services/inventory/contracts";
 import { ASSET_GONE, ASSET_OWNERSHIP_LABEL } from "@/services/inventory/contracts";
 import type { ItemPurchase } from "@/services/procurement/contracts";
@@ -1807,4 +1808,79 @@ export async function deleteAssetCategory(code: string): Promise<Result<{ code: 
     writeAudit(draft, { service: SERVICE, entity: "asset_category", entity_no: code, action: "delete", outcome: "ok", reason: null });
   });
   return ok(SERVICE, { code, deleted: true as const });
+}
+
+/** The categories the label screen selects by default: raw and half-finished
+ *  material, not consumables (`ops_inv.label_categories`, `0178`). */
+const LABEL_CATEGORIES = new Set([
+  "raw-wood", "production-metal-stock",
+  /* The sandbox's own names for the same wood and board. */
+  "kayu", "panel",
+]);
+
+export async function listLabelSources(
+  opts: { kind: LabelKind; since?: string | null; codes?: string[] | null; q?: string | null },
+): Promise<Result<LabelSource[]>> {
+  await latency();
+  const denied = requireModule(SERVICE, "inventory");
+  if (denied) return denied;
+  const state = getState();
+  const q = opts.q?.trim().toLowerCase() ?? "";
+  const since = opts.since ?? null;
+  const locName = (code: string) => state.stock_locations.find((l) => l.code === code)?.name ?? code;
+
+  let rows: LabelSource[];
+  if (opts.kind === "item") {
+    rows = stockItems(state).map((r) => {
+      const item = state.items.find((i) => i.code === r.item_code);
+      const registered = (item as { created_at?: string } | undefined)?.created_at ?? null;
+      return {
+        kind: "item" as const, code: r.item_code, name: r.item_name, name_local: r.item_name_local,
+        category: r.category_name, uom: r.uom, registered_at: registered,
+        locations: r.by_location.filter((l) => l.qty > 0).length
+          ? r.by_location.filter((l) => l.qty > 0).map((l) => ({ code: l.location, name: l.location_name, qty: l.qty }))
+          : [],
+        labelled: LABEL_CATEGORIES.has(r.category_code),
+        extra: { category_code: r.category_code },
+      };
+    });
+  } else if (opts.kind === "asset") {
+    rows = state.assets.filter((a) => !ASSET_GONE.includes(a.status)).map((a) => ({
+      kind: "asset" as const, code: a.asset_no, name: a.name, name_local: null,
+      category: assetView(state, a).category_name ?? a.category_code, uom: null, registered_at: a.created_at,
+      locations: a.location ? [{ code: a.location, name: a.location, qty: null }] : [],
+      labelled: true,
+      extra: {
+        ownership: a.ownership, holder: a.holder ?? undefined, identifier: a.identifier ?? undefined,
+        brand: a.brand ?? undefined, model: a.model ?? undefined, status: a.status,
+        acquired_on: a.acquired_on ?? undefined, contract_end: a.contract_end ?? undefined,
+      },
+    }));
+  } else {
+    const stock = productStockRows(state);
+    rows = state.products.filter((p) => p.active !== false).map((p) => {
+      const where = new Map<string, number>();
+      for (const s of stock.filter((x) => x.product_code === p.product_code)) {
+        for (const [loc, qty] of Object.entries(s.by_location)) where.set(loc, (where.get(loc) ?? 0) + qty);
+      }
+      return {
+        kind: "product" as const, code: p.product_code, name: p.name, name_local: null,
+        category: p.category, uom: p.uom, registered_at: (p as { created_at?: string }).created_at ?? null,
+        locations: [...where].filter(([, qty]) => qty > 0).sort((a, b) => b[1] - a[1])
+          .map(([code, qty]) => ({ code, name: locName(code), qty })),
+        labelled: true,
+        extra: {
+          length_mm: p.length_mm ?? undefined, width_mm: p.width_mm ?? undefined,
+          height_mm: p.height_mm ?? undefined, dimension_note: p.dimension_note ?? undefined,
+        },
+      };
+    });
+  }
+
+  if (since) rows = rows.filter((r) => r.registered_at != null && r.registered_at.slice(0, 10) >= since);
+  if (opts.codes?.length) rows = rows.filter((r) => opts.codes!.includes(r.code));
+  if (q) rows = rows.filter((r) => `${r.code} ${r.name} ${r.name_local ?? ""}`.toLowerCase().includes(q));
+  return ok(SERVICE, rows
+    .sort((a, b) => (b.registered_at ?? "").localeCompare(a.registered_at ?? "") || a.code.localeCompare(b.code))
+    .slice(0, 500));
 }

@@ -107,6 +107,8 @@ export const NAV: NavSection[] = [
       { label: "Finished Goods", labelKey: "finishedGoods", href: "/inventory/produk", icon: PackageCheck, permission: "inventory.read", badge: "new" },
       { label: "Stock Adjustments", labelKey: "adjustments", href: "/inventory/penyesuaian", icon: Wrench, permission: "inventory.adjust", badge: "new" },
       { label: "Assets", labelKey: "assets", href: "/inventory/assets", icon: MonitorSmartphone, permission: "inventory.read", badge: "new" },
+      /* Labels for what was recorded: materials, assets, finished goods (D321). */
+      { label: "Labels", labelKey: "labels", href: "/inventory/label", icon: Tags, permission: "inventory.read", badge: "new" },
     ],
   },
   {

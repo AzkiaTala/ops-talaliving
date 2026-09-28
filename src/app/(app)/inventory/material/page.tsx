@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Boxes, AlertTriangle, Search, PackageMinus, PackagePlus, Camera } from "lucide-react";
+import Link from "next/link";
+import { Boxes, AlertTriangle, Search, PackageMinus, PackagePlus, Camera, Tags } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Paged } from "@/components/ui/pager";
-import { formatIDR, formatNumber } from "@/lib/format";
+import { formatDate, formatIDR, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { inventory } from "@/demo/api";
 import type { StockItemView } from "@/services/inventory/contracts";
@@ -42,6 +43,8 @@ export default function StockPage() {
   const [lowOnly, setLowOnly] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+  /* The item just registered, so its label is one click away (D321). */
+  const [justRegistered, setJustRegistered] = useState<string | null>(null);
   const mayMove = can("inventory.update");
   const mayRegister = can("inventory.create");
 
@@ -53,6 +56,9 @@ export default function StockPage() {
         description={tr("Computed from every stock movement, not from a stored figure. Goods come in as soon as receiving is confirmed; they go out when production uses them.", "Dihitung dari setiap pergerakan barang, bukan dari angka yang disimpan. Barang masuk begitu penerimaan dikonfirmasi; keluar saat dipakai produksi.")}
         actions={
           <div className="flex items-center gap-2">
+            <Link href="/inventory/label?kind=item">
+              <Button size="sm" variant="secondary" icon={Tags}>{tr("Print labels", "Cetak label")}</Button>
+            </Link>
             {mayRegister && !registering && (
               <Button size="sm" icon={PackagePlus} onClick={() => setRegistering(true)}>{tr("Register an item", "Daftarkan barang")}</Button>
             )}
@@ -61,11 +67,22 @@ export default function StockPage() {
         }
       />
 
+      {justRegistered && (
+        <Card className="mb-4 flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-[13px]">
+          <span>{tr(`${justRegistered} is registered. Label it now?`, `${justRegistered} sudah terdaftar. Cetak labelnya sekarang?`)}</span>
+          <span className="flex gap-2">
+            <Link href={`/inventory/label?kind=item&codes=${encodeURIComponent(justRegistered)}`}>
+              <Button size="sm" icon={Tags}>{tr("Print label", "Cetak label")}</Button>
+            </Link>
+            <Button size="sm" variant="secondary" onClick={() => setJustRegistered(null)}>{tr("Later", "Nanti")}</Button>
+          </span>
+        </Card>
+      )}
       {registering && (
         <RegisterItem
           mayCount={can("inventory.adjust")}
           onCancel={() => setRegistering(false)}
-          onCreated={(code) => { setRegistering(false); reload(); setOpen(code); }}
+          onCreated={(code) => { setRegistering(false); setJustRegistered(code); reload(); setOpen(code); }}
         />
       )}
 
@@ -232,6 +249,7 @@ function Row({ row: r, onOpen }: { row: StockItemView; onOpen: () => void }) {
         {r.item_name_local && <span className="block text-[12px] text-slate-600">{r.item_name_local}</span>}
         <span className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
           {r.item_code} · {tr("per", "per")} {r.uom}
+          {r.registered_at && <span className="font-sans">· {tr("registered", "didaftarkan")} {formatDate(new Date(r.registered_at))}</span>}
           {r.photo_count === 0 ? (
             <span className="font-sans text-amber-700">· {tr("no photo yet", "belum ada foto")}</span>
           ) : (

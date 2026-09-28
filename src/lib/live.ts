@@ -83,6 +83,7 @@ export const LIVE_ROUTES: readonly string[] = [
   "/hrd/tugas",
   "/hrd/wlkp",
   "/inventory/assets",
+  "/inventory/label",
   "/inventory/log",
   "/inventory/material",
   "/inventory/papan",
