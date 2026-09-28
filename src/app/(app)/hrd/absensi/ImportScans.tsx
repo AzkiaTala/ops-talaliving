@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/primitives";
 import { hr } from "@/demo/api";
 import { readBiometricFile, type ParsedRow } from "@/lib/biometricFile";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Taking the fingerprint machine's own export.
  *
@@ -29,6 +30,7 @@ import { useToast } from "@/store/toast";
  */
 
 export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [file, setFile] = useState<{ name: string; rows: ParsedRow[]; skipped: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +43,7 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
     setResult(null);
     setFile({ name: f.name, rows, skipped });
     if (rows.length === 0) {
-      toast("warning", "Nothing to read", "No row in that file had both a machine number and a time.");
+      toast("warning", tr("Nothing to read", "Tidak ada yang bisa dibaca"), tr("No row in that file had both a machine number and a time.", "Tidak ada baris di file itu yang memiliki nomor mesin sekaligus waktu."));
     }
   }
 
@@ -54,14 +56,17 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Not imported", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not imported", "Tidak diimpor"), res.error.message);
       return;
     }
     setResult(res.data);
     toast(
       res.data.added > 0 ? "success" : "info",
-      `${res.data.added} tap(s) added`,
-      `${res.data.duplicates} already on file${res.data.unknown.length > 0 ? ` · ${res.data.unknown.length} unknown number(s)` : ""}`,
+      tr(`${res.data.added} tap(s) added`, `${res.data.added} tap ditambahkan`),
+      tr(
+        `${res.data.duplicates} already on file${res.data.unknown.length > 0 ? ` · ${res.data.unknown.length} unknown number(s)` : ""}`,
+        `${res.data.duplicates} sudah tercatat${res.data.unknown.length > 0 ? ` · ${res.data.unknown.length} nomor tidak dikenal` : ""}`,
+      ),
     );
   }
 
@@ -80,21 +85,21 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
       open
       onClose={onClose}
       width="max-w-xl"
-      title="Upload biometric file"
+      title={tr("Upload biometric file", "Unggah file biometrik")}
       footer={
         <div className="flex items-center justify-between gap-2">
           <p className="text-[11px] text-slate-500">
-            Uploading the same file twice changes nothing.
+            {tr("Uploading the same file twice changes nothing.", "Mengunggah file yang sama dua kali tidak mengubah apa pun.")}
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={busy}>
-              {result ? "Close" : "Cancel"}
+              {result ? tr("Close", "Tutup") : tr("Cancel", "Batal")}
             </Button>
             {result ? (
-              <Button onClick={onDone}>Back to the timesheet</Button>
+              <Button onClick={onDone}>{tr("Back to the timesheet", "Kembali ke absensi")}</Button>
             ) : (
               <Button icon={Upload} onClick={run} disabled={busy || !file || file.rows.length === 0}>
-                {busy ? "Reading…" : file ? `Import ${file.rows.length} tap(s)` : "Import"}
+                {busy ? tr("Reading…", "Membaca…") : file ? tr(`Import ${file.rows.length} tap(s)`, `Impor ${file.rows.length} tap`) : tr("Import", "Impor")}
               </Button>
             )}
           </div>
@@ -104,7 +109,7 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
       <div className="space-y-4">
         <div>
           <label htmlFor="scan-file" className="block text-xs text-slate-500">
-            The device&rsquo;s export (.xlsx or .csv) — <code className="text-[11px]">Department, Name, No., Date/Time, …</code>
+            {tr("The device’s export (.xlsx or .csv)", "Ekspor dari mesin (.xlsx atau .csv)")} — <code className="text-[11px]">Department, Name, No., Date/Time, …</code>
           </label>
           <input
             id="scan-file"
@@ -114,7 +119,7 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
             className="mt-1 block w-full rounded-lg border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-700 hover:border-brand-300"
           />
           <p className="mt-1 text-[11px] text-slate-500">
-            Times are read as WITA, the way the machine wrote them.
+            {tr("Times are read as WITA, the way the machine wrote them.", "Waktu dibaca sebagai WITA, sesuai yang ditulis mesin.")}
           </p>
         </div>
 
@@ -126,15 +131,15 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
             </p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-[12px]">
               <div>
-                <dt className="text-slate-500">Taps</dt>
+                <dt className="text-slate-500">{tr("Taps", "Tap")}</dt>
                 <dd className="font-semibold tabular-nums text-slate-800">{file.rows.length}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">People</dt>
+                <dt className="text-slate-500">{tr("People", "Orang")}</dt>
                 <dd className="font-semibold tabular-nums text-slate-800">{people.length}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Period</dt>
+                <dt className="text-slate-500">{tr("Period", "Periode")}</dt>
                 <dd className="font-semibold tabular-nums text-slate-800">
                   {span ? `${span[0].slice(5)} → ${span[1].slice(5)}` : "—"}
                 </dd>
@@ -142,7 +147,7 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
             </dl>
             {file.skipped > 0 && (
               <p className="mt-2 text-[11px] text-amber-700">
-                {file.skipped} line(s) had no readable time or number and will be left out.
+                {tr(`${file.skipped} line(s) had no readable time or number and will be left out.`, `${file.skipped} baris tidak memiliki waktu atau nomor yang terbaca dan akan dilewati.`)}
               </p>
             )}
             <p className="mt-2 line-clamp-2 text-[11px] text-slate-500">
@@ -155,15 +160,15 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
           <div className="space-y-3">
             <dl className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[12px]">
               <div>
-                <dt className="text-slate-500">Added</dt>
+                <dt className="text-slate-500">{tr("Added", "Ditambahkan")}</dt>
                 <dd className="text-lg font-bold tabular-nums text-emerald-700">{result.added}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Already on file</dt>
+                <dt className="text-slate-500">{tr("Already on file", "Sudah tercatat")}</dt>
                 <dd className="text-lg font-bold tabular-nums text-slate-700">{result.duplicates}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Unknown number</dt>
+                <dt className="text-slate-500">{tr("Unknown number", "Nomor tidak dikenal")}</dt>
                 <dd className={result.unknown.length > 0 ? "text-lg font-bold tabular-nums text-amber-700" : "text-lg font-bold tabular-nums text-slate-700"}>
                   {result.unknown.length}
                 </dd>
@@ -174,12 +179,18 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-900">
                   <AlertTriangle className="h-4 w-4" />
-                  Numbers nobody is registered under
+                  {tr("Numbers nobody is registered under", "Nomor yang tidak terdaftar atas nama siapa pun")}
                 </p>
                 <p className="mt-1 text-[12px] text-amber-900">
-                  These taps were left out. Nobody was created for them — add the person under
-                  <span className="font-medium"> HRD → Karyawan</span> with this number on the machine,
-                  then upload the file again.
+                  {tr(
+                    "These taps were left out. Nobody was created for them — add the person under",
+                    "Tap ini dilewati. Tidak ada orang yang dibuat untuknya — tambahkan orangnya di",
+                  )}
+                  <span className="font-medium"> {tr("HRD → Employees", "HRD → Karyawan")}</span>{" "}
+                  {tr(
+                    "with this number on the machine, then upload the file again.",
+                    "dengan nomor mesin ini, lalu unggah file itu lagi.",
+                  )}
                 </p>
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {result.unknown.map((u) => (

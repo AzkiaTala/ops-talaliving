@@ -11,6 +11,7 @@ import { hr } from "@/demo/api";
 import { LEAVE_KIND_LABEL, type LeaveKind, type LeaveRequestView } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Cuti & izin — the half that happens before the timesheet.
  *
@@ -25,6 +26,7 @@ import { useToast } from "@/store/toast";
  *  leaving it to be discovered on a payslip.
  */
 export default function LeavePage() {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [requests, reloadRequests] = useLoad(() => hr.listLeaveRequests(), []);
@@ -43,10 +45,10 @@ export default function LeavePage() {
     });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "warning", "Tidak tercatat", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
       return;
     }
-    toast("success", `${res.data.request_no} tercatat`, `${res.data.full_name} · ${res.data.days} hari`);
+    toast("success", tr(`${res.data.request_no} recorded`, `${res.data.request_no} tercatat`), tr(`${res.data.full_name} · ${res.data.days} days`, `${res.data.full_name} · ${res.data.days} hari`));
     setDraft({ ...draft, from_date: "", to_date: "", reason: "" });
     setCreating(false);
     reloadRequests(); reloadBalances();
@@ -57,15 +59,18 @@ export default function LeavePage() {
     const res = await hr.decideLeave({ request_no: r.request_no, approved, note: note ?? null });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", "Tidak diputuskan", res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not decided", "Tidak diputuskan"), res.error.message);
       return;
     }
     toast(
       approved ? "success" : "info",
-      approved ? `${r.request_no} disetujui` : `${r.request_no} ditolak`,
+      approved ? tr(`${r.request_no} approved`, `${r.request_no} disetujui`) : tr(`${r.request_no} rejected`, `${r.request_no} ditolak`),
       approved
-        ? `${res.data.marked.length} hari ditandai di absensi${res.data.skipped.length > 0 ? ` · ${res.data.skipped.length} hari sudah punya tanda lain` : ""}`
-        : "Alasannya tercatat di permintaan.",
+        ? tr(
+          `${res.data.marked.length} days marked on the timesheet${res.data.skipped.length > 0 ? ` · ${res.data.skipped.length} days already had another mark` : ""}`,
+          `${res.data.marked.length} hari ditandai di absensi${res.data.skipped.length > 0 ? ` · ${res.data.skipped.length} hari sudah punya tanda lain` : ""}`,
+        )
+        : tr("The reason is recorded on the request.", "Alasannya tercatat di permintaan."),
     );
     reloadRequests(); reloadBalances();
   }
@@ -74,14 +79,17 @@ export default function LeavePage() {
     <div>
       <PageHeader
         breadcrumb="HRD"
-        title="Cuti & izin"
-        description="Diminta, diputuskan, lalu tertulis di absensi. Sisa hak cuti dihitung dari hari yang sudah ditandai — per orang, karena jatahnya memang berbeda-beda."
+        title={tr("Leave & permits", "Cuti & izin")}
+        description={tr(
+          "Requested, decided, then written onto the timesheet. Remaining leave is counted from the days already marked — per person, because entitlements genuinely differ.",
+          "Diminta, diputuskan, lalu tertulis di absensi. Sisa hak cuti dihitung dari hari yang sudah ditandai — per orang, karena jatahnya memang berbeda-beda.",
+        )}
         actions={
           <div className="flex items-center gap-2">
             <SourceBadge state={requests} />
             {mayEdit && (
               <Button icon={Plus} onClick={() => setCreating((v) => !v)}>
-                {creating ? "Tutup" : "Ajukan"}
+                {creating ? tr("Close", "Tutup") : tr("New request", "Ajukan")}
               </Button>
             )}
           </div>
@@ -90,26 +98,26 @@ export default function LeavePage() {
 
       {creating && mayEdit && (
         <Card className="mb-4">
-          <CardHeader title="Ajukan cuti / izin" subtitle="Satu permintaan, satu rentang tanggal." icon={CalendarClock} />
+          <CardHeader title={tr("Request leave / permit", "Ajukan cuti / izin")} subtitle={tr("One request, one date range.", "Satu permintaan, satu rentang tanggal.")} icon={CalendarClock} />
           <Loaded state={balances} skeletonRows={1}>
             {(bs) => (
               <div className="px-5 py-3">
                 <div className="grid gap-2 sm:grid-cols-[1fr_130px_150px_150px]">
                   <select
                     value={draft.employee_no} onChange={(e) => setDraft({ ...draft, employee_no: e.target.value })}
-                    aria-label="Karyawan"
+                    aria-label={tr("Employee", "Karyawan")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   >
-                    <option value="">Pilih karyawan…</option>
+                    <option value="">{tr("Choose employee…", "Pilih karyawan…")}</option>
                     {bs.map((b) => (
                       <option key={b.employee_no} value={b.employee_no}>
-                        {b.full_name} · sisa {b.remaining} hari
+                        {b.full_name} · {tr(`${b.remaining} days left`, `sisa ${b.remaining} hari`)}
                       </option>
                     ))}
                   </select>
                   <select
                     value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as LeaveKind })}
-                    aria-label="Jenis"
+                    aria-label={tr("Kind", "Jenis")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   >
                     {(Object.keys(LEAVE_KIND_LABEL) as LeaveKind[]).map((k) => (
@@ -118,31 +126,33 @@ export default function LeavePage() {
                   </select>
                   <input
                     type="date" value={draft.from_date} onChange={(e) => setDraft({ ...draft, from_date: e.target.value })}
-                    aria-label="Dari tanggal"
+                    aria-label={tr("From date", "Dari tanggal")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                   <input
                     type="date" value={draft.to_date} onChange={(e) => setDraft({ ...draft, to_date: e.target.value })}
-                    aria-label="Sampai tanggal"
+                    aria-label={tr("To date", "Sampai tanggal")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                 </div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
                   <input
                     value={draft.reason} onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
-                    placeholder="Alasan — ini yang dibaca saat diputuskan"
+                    placeholder={tr("Reason — this is what is read when it is decided", "Alasan — ini yang dibaca saat diputuskan")}
                     className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                   />
                   <Button
                     size="sm" disabled={busy || !draft.employee_no || !draft.from_date || !draft.reason.trim()}
                     onClick={file}
                   >
-                    {busy ? "Menyimpan…" : "Ajukan"}
+                    {busy ? tr("Saving…", "Menyimpan…") : tr("Submit", "Ajukan")}
                   </Button>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Melebihi jatah tidak ditolak — harinya tetap tercatat, hanya tidak dibayar, dan
-                  angkanya terlihat di bawah sebelum diputuskan.
+                  {tr(
+                    "Going over the entitlement is not refused — the days are still recorded, just not paid, and the numbers show below before it is decided.",
+                    "Melebihi jatah tidak ditolak — harinya tetap tercatat, hanya tidak dibayar, dan angkanya terlihat di bawah sebelum diputuskan.",
+                  )}
                 </p>
               </div>
             )}
@@ -158,13 +168,16 @@ export default function LeavePage() {
             <>
               <Card className="mb-4">
                 <CardHeader
-                  title={`${pending.length} menunggu keputusan`}
-                  subtitle="Berapa hari yang dibayar dan berapa yang tidak, dihitung dari sisa hak cuti orangnya — sebelum diputuskan."
+                  title={tr(`${pending.length} awaiting a decision`, `${pending.length} menunggu keputusan`)}
+                  subtitle={tr(
+                    "How many days are paid and how many are not, counted from the person's remaining leave — before it is decided.",
+                    "Berapa hari yang dibayar dan berapa yang tidak, dihitung dari sisa hak cuti orangnya — sebelum diputuskan.",
+                  )}
                   icon={CalendarClock}
                 />
                 <ul className="divide-y divide-slate-100">
                   {pending.length === 0 && (
-                    <li className="px-5 py-6 text-[13px] text-slate-500">Tidak ada permintaan yang menunggu.</li>
+                    <li className="px-5 py-6 text-[13px] text-slate-500">{tr("No requests are waiting.", "Tidak ada permintaan yang menunggu.")}</li>
                   )}
                   {pending.map((r) => (
                     <li key={r.id} className="px-5 py-3">
@@ -177,20 +190,20 @@ export default function LeavePage() {
                         </span>
                         <Badge tone="slate">{LEAVE_KIND_LABEL[r.kind]}</Badge>
                         <span className="whitespace-nowrap text-[12px] text-slate-600">
-                          {r.from_date} → {r.to_date} · {r.days} hari
+                          {r.from_date} → {r.to_date} · {tr(`${r.days} days`, `${r.days} hari`)}
                         </span>
                         <span className="min-w-[180px] flex-1 text-[12px] text-slate-600">{r.reason}</span>
                         {mayEdit && (
                           <span className="flex gap-1.5">
-                            <Button size="sm" icon={Check} disabled={busy} onClick={() => decide(r, true)}>Setujui</Button>
+                            <Button size="sm" icon={Check} disabled={busy} onClick={() => decide(r, true)}>{tr("Approve", "Setujui")}</Button>
                             <Button
                               size="sm" variant="outline" icon={X} disabled={busy}
                               onClick={() => {
-                                const note = window.prompt("Alasan penolakan — dibaca orangnya:");
+                                const note = window.prompt(tr("Reason for rejecting — the person will read it:", "Alasan penolakan — dibaca orangnya:"));
                                 if (note?.trim()) void decide(r, false, note);
                               }}
                             >
-                              Tolak
+                              {tr("Reject", "Tolak")}
                             </Button>
                           </span>
                         )}
@@ -198,21 +211,21 @@ export default function LeavePage() {
                       <p className="mt-1 text-[12px]">
                         {r.kind === "cuti" ? (
                           <>
-                            <span className="text-emerald-700">{r.paid_days} hari dibayar</span>
+                            <span className="text-emerald-700">{tr(`${r.paid_days} days paid`, `${r.paid_days} hari dibayar`)}</span>
                             {r.unpaid_days > 0 && (
-                              <span className="text-amber-700"> · {r.unpaid_days} hari di luar jatah, tidak dibayar</span>
+                              <span className="text-amber-700"> · {tr(`${r.unpaid_days} days beyond entitlement, unpaid`, `${r.unpaid_days} hari di luar jatah, tidak dibayar`)}</span>
                             )}
                           </>
                         ) : r.kind === "sakit" ? (
                           <span className="text-slate-500">
-                            Dibayar hanya kalau surat dokternya dilampirkan pada harinya.
+                            {tr("Paid only if the doctor’s note is attached to the day.", "Dibayar hanya kalau surat dokternya dilampirkan pada harinya.")}
                           </span>
                         ) : (
-                          <span className="text-slate-500">Izin tercatat, tidak dibayar.</span>
+                          <span className="text-slate-500">{tr("Permit recorded, unpaid.", "Izin tercatat, tidak dibayar.")}</span>
                         )}
                         {r.clashes.length > 0 && (
                           <span className="ml-2 text-amber-700">
-                            · {r.clashes.length} hari sudah punya tanda lain ({r.clashes.join(", ")}) — tidak akan ditimpa
+                            · {tr(`${r.clashes.length} days already have another mark (${r.clashes.join(", ")}) — will not be overwritten`, `${r.clashes.length} hari sudah punya tanda lain (${r.clashes.join(", ")}) — tidak akan ditimpa`)}
                           </span>
                         )}
                       </p>
@@ -228,17 +241,20 @@ export default function LeavePage() {
                     return (
                       <Card>
                         <CardHeader
-                          title="Sisa hak cuti"
-                          subtitle="Jatah per orang, dikurangi hari yang sudah ditandai dan yang sudah disetujui tapi belum lewat."
+                          title={tr("Remaining leave", "Sisa hak cuti")}
+                          subtitle={tr(
+                            "Each person's entitlement, minus days already marked and days approved but not yet passed.",
+                            "Jatah per orang, dikurangi hari yang sudah ditandai dan yang sudah disetujui tapi belum lewat.",
+                          )}
                           icon={CalendarClock}
                         />
                         {over.length > 0 && (
                           <p className="flex items-start gap-2 border-b border-slate-100 bg-amber-50/60 px-5 py-2 text-[12px] text-amber-900">
                             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                            {over.map((b) => `${b.full_name} lewat ${b.over} hari`).join(" · ")} — tercatat, tidak dibayar.
+                            {over.map((b) => tr(`${b.full_name} over by ${b.over} days`, `${b.full_name} lewat ${b.over} hari`)).join(" · ")} — {tr("recorded, unpaid.", "tercatat, tidak dibayar.")}
                           </p>
                         )}
-                        <Paged rows={bs} pageSize={12} unit="orang">
+                        <Paged rows={bs} pageSize={12} unit={tr("people", "orang")}>
                           {(page) => (
                             <ul className="divide-y divide-slate-100">
                               {page.map((b) => (
@@ -254,12 +270,12 @@ export default function LeavePage() {
                                     {formatNumber(b.remaining)}
                                   </span>
                                   <span className="text-slate-500">
-                                    dari {b.entitlement} · terpakai {b.taken}
-                                    {b.booked > 0 && ` · ${b.booked} sudah disetujui`}
+                                    {tr(`of ${b.entitlement} · used ${b.taken}`, `dari ${b.entitlement} · terpakai ${b.taken}`)}
+                                    {b.booked > 0 && tr(` · ${b.booked} already approved`, ` · ${b.booked} sudah disetujui`)}
                                   </span>
                                   {b.sick_without_letter > 0 && (
                                     <span className="text-[11px] text-amber-700">
-                                      {b.sick_without_letter} hari sakit tanpa surat
+                                      {tr(`${b.sick_without_letter} sick days without a note`, `${b.sick_without_letter} hari sakit tanpa surat`)}
                                     </span>
                                   )}
                                 </li>
@@ -274,11 +290,11 @@ export default function LeavePage() {
 
                 <Card>
                   <CardHeader
-                    title="Sudah diputuskan"
-                    subtitle="Tetap ada, beserta alasannya — termasuk yang ditolak."
+                    title={tr("Decided", "Sudah diputuskan")}
+                    subtitle={tr("Kept, with the reasons — including the rejected ones.", "Tetap ada, beserta alasannya — termasuk yang ditolak.")}
                     icon={Check}
                   />
-                  <Paged rows={decided} pageSize={12} unit="permintaan">
+                  <Paged rows={decided} pageSize={12} unit={tr("requests", "permintaan")}>
                     {(page) => (
                       <ul className="divide-y divide-slate-100">
                         {page.map((r) => (
@@ -302,7 +318,7 @@ export default function LeavePage() {
                           </li>
                         ))}
                         {decided.length === 0 && (
-                          <li className="px-5 py-6 text-[13px] text-slate-500">Belum ada yang diputuskan.</li>
+                          <li className="px-5 py-6 text-[13px] text-slate-500">{tr("Nothing decided yet.", "Belum ada yang diputuskan.")}</li>
                         )}
                       </ul>
                     )}

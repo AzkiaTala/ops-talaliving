@@ -15,6 +15,7 @@ import {
 } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
+import { useTr, type Message } from "@/lib/i18n";
 
 /** Satu kontrak, dan jarak antara apa yang tertulis dengan apa yang dijalankan.
  *
@@ -31,6 +32,7 @@ import { useToast } from "@/store/toast";
  *    berbunyi *upah berubah* (D155).
  */
 export default function ContractPage({ params }: { params: Promise<{ no: string }> }) {
+  const tr = useTr();
   const { no } = use(params);
   const { can } = useSession();
   const [state, reload] = useLoad(() => hr.getContract(decodeURIComponent(no)), [no]);
@@ -39,9 +41,12 @@ export default function ContractPage({ params }: { params: Promise<{ no: string 
   return (
     <div>
       <PageHeader
-        breadcrumb="HRD · Kontrak kerja"
+        breadcrumb={tr("HRD · Employment contracts", "HRD · Kontrak kerja")}
         title={decodeURIComponent(no)}
-        description="Poin wajibnya, kalimat aslinya, dan apa yang tidak sama dengan yang dijalankan."
+        description={tr(
+          "Its required points, the original wording, and what differs from what actually runs.",
+          "Poin wajibnya, kalimat aslinya, dan apa yang tidak sama dengan yang dijalankan.",
+        )}
         actions={<SourceBadge state={state} />}
       />
 
@@ -58,11 +63,15 @@ export default function ContractPage({ params }: { params: Promise<{ no: string 
   );
 }
 
-const STATUS_LABEL: Record<ContractDetail["status"], string> = {
-  draft: "Draft", active: "Berjalan", superseded: "Digantikan", ended: "Berakhir",
+const STATUS_LABEL: Record<ContractDetail["status"], Message> = {
+  draft: { en: "Draft", id: "Draft" },
+  active: { en: "Running", id: "Berjalan" },
+  superseded: { en: "Superseded", id: "Digantikan" },
+  ended: { en: "Ended", id: "Berakhir" },
 };
 
 function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; onDone: () => void }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
@@ -74,11 +83,11 @@ function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
   async function attachPaper(f: File) {
     setBusy(true);
     const up = await documents.upload({ file: f, kind: "Kontrak Kerja" });
-    if (up.error) { setBusy(false); toast("critical", "Upload gagal", up.error.message); return; }
+    if (up.error) { setBusy(false); toast("critical", tr("Upload failed", "Upload gagal"), up.error.message); return; }
     const res = await hr.attachContractPaper({ contract_no: c.contract_no, attachment_id: up.data.id });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Belum terlampir", res.error.message); return; }
-    toast("success", "Kontrak terlampir", "Setelah sepuluh poin wajib dijawab, kontrak ini bisa diberlakukan.");
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not attached yet", "Belum terlampir"), res.error.message); return; }
+    toast("success", tr("Contract attached", "Kontrak terlampir"), tr("Once the ten required points are answered, this contract can be put into force.", "Setelah sepuluh poin wajib dijawab, kontrak ini bisa diberlakukan."));
     onDone();
   }
 
@@ -86,8 +95,8 @@ function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
     setBusy(true);
     const res = await hr.activateContract(c.contract_no);
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Belum diberlakukan", res.error.message); return; }
-    toast("success", "Kontrak berlaku", `${c.contract_no} · ${c.full_name}`);
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not put into force", "Belum diberlakukan"), res.error.message); return; }
+    toast("success", tr("Contract in force", "Kontrak berlaku"), `${c.contract_no} · ${c.full_name}`);
     onDone();
   }
 
@@ -97,9 +106,9 @@ function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
       contract_no: c.contract_no, ended_on: new Date().toISOString().slice(0, 10), reason,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Belum diakhiri", res.error.message); return; }
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not ended", "Belum diakhiri"), res.error.message); return; }
     setEnding(false); setReason("");
-    toast("success", "Kontrak berakhir", c.contract_no);
+    toast("success", tr("Contract ended", "Kontrak berakhir"), c.contract_no);
     onDone();
   }
 
@@ -107,26 +116,26 @@ function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
     <Card>
       <CardHeader icon={ScrollText} title={c.full_name} subtitle={`${c.employee_no} · ${c.kind}`} />
       <div className="grid gap-4 px-4 py-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Status" value={<Badge tone={c.status === "active" ? "green" : "slate"}>{STATUS_LABEL[c.status]}</Badge>} />
-        <Field label="Berlaku" value={c.effective_from} />
+        <Field label={tr("Status", "Status")} value={<Badge tone={c.status === "active" ? "green" : "slate"}>{tr(STATUS_LABEL[c.status].en, STATUS_LABEL[c.status].id)}</Badge>} />
+        <Field label={tr("Effective", "Berlaku")} value={c.effective_from} />
         <Field
-          label="Berakhir"
+          label={tr("Ends", "Berakhir")}
           value={c.ends_on
             ? <>
                 {c.ends_on}
                 {c.ends_in_days != null && c.ends_in_days <= 60 && (
                   <span className={cn("ml-1.5 text-[11px]", c.ends_in_days < 0 ? "text-rose-700" : "text-amber-700")}>
-                    {c.ends_in_days < 0 ? `lewat ${-c.ends_in_days} hari` : `${c.ends_in_days} hari lagi`}
+                    {c.ends_in_days < 0 ? tr(`${-c.ends_in_days} days past`, `lewat ${-c.ends_in_days} hari`) : tr(`in ${c.ends_in_days} days`, `${c.ends_in_days} hari lagi`)}
                   </span>
                 )}
               </>
-            : <span className="text-slate-400">tanpa batas waktu</span>}
+            : <span className="text-slate-400">{tr("open-ended", "tanpa batas waktu")}</span>}
         />
         <Field
-          label="Masa percobaan"
+          label={tr("Probation", "Masa percobaan")}
           value={c.probation_until
-            ? <>sampai {c.probation_until}</>
-            : <span className="text-slate-400">belum dijawab</span>}
+            ? <>{tr("until", "sampai")} {c.probation_until}</>
+            : <span className="text-slate-400">{tr("not answered yet", "belum dijawab")}</span>}
         />
       </div>
 
@@ -136,20 +145,20 @@ function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
         <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
           <Paperclip className="size-3.5 text-slate-400" />
           {c.attachment_id
-            ? <>Berkas yang ditandatangani terlampir{c.sha256 && <span className="ml-1 font-mono text-[11px] text-slate-400">{c.sha256}</span>}</>
-            : <span className="text-amber-700">Berkas yang ditandatangani belum terlampir</span>}
+            ? <>{tr("Signed file attached", "Berkas yang ditandatangani terlampir")}{c.sha256 && <span className="ml-1 font-mono text-[11px] text-slate-400">{c.sha256}</span>}</>
+            : <span className="text-amber-700">{tr("Signed file not attached yet", "Berkas yang ditandatangani belum terlampir")}</span>}
         </span>
 
         {c.superseded_by && (
           <span className="text-[12px] text-slate-500">
-            Digantikan oleh{" "}
+            {tr("Superseded by", "Digantikan oleh")}{" "}
             <Link href={`/hrd/kontrak/${c.superseded_by}`} className="font-mono text-brand-700 hover:underline">
               {c.superseded_by}
             </Link>
           </span>
         )}
         {c.ended_reason && (
-          <span className="text-[12px] text-slate-500">Berakhir {c.ended_on} — {c.ended_reason}</span>
+          <span className="text-[12px] text-slate-500">{tr("Ended", "Berakhir")} {c.ended_on} — {c.ended_reason}</span>
         )}
 
         <div className="ml-auto flex items-center gap-2">
@@ -157,23 +166,23 @@ function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
             <>
               <input
                 ref={paperRef} type="file" accept="application/pdf,image/*" className="hidden"
-                aria-label="Berkas kontrak yang ditandatangani"
+                aria-label={tr("Signed contract file", "Berkas kontrak yang ditandatangani")}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void attachPaper(f); e.target.value = ""; }}
               />
               <Button size="sm" variant="outline" icon={Paperclip} disabled={busy}
                 onClick={() => paperRef.current?.click()}>
-                {c.attachment_id ? "Ganti berkas kontrak" : "Lampirkan kontrak"}
+                {c.attachment_id ? tr("Replace contract file", "Ganti berkas kontrak") : tr("Attach contract", "Lampirkan kontrak")}
               </Button>
             </>
           )}
           {mayEdit && c.status === "draft" && (
             <Button size="sm" icon={Check} disabled={busy} onClick={activate}>
-              Berlakukan
+              {tr("Put into force", "Berlakukan")}
             </Button>
           )}
           {mayEdit && c.status === "active" && !ending && (
             <Button size="sm" variant="ghost" icon={Undo2} disabled={busy} onClick={() => setEnding(true)}>
-              Akhiri
+              {tr("End", "Akhiri")}
             </Button>
           )}
         </div>
@@ -183,15 +192,15 @@ function Summary({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
         <div className="border-t border-slate-100 px-4 py-3">
           <input
             value={reason} onChange={(e) => setReason(e.target.value)}
-            placeholder="Kenapa berakhir — habis masa, mengundurkan diri, diakhiri…"
+            placeholder={tr("Why it ends — term over, resigned, terminated…", "Kenapa berakhir — habis masa, mengundurkan diri, diakhiri…")}
             className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
           />
-          <p className="mt-1 text-[11px] text-slate-500">Itu yang ditanyakan enam bulan lagi.</p>
+          <p className="mt-1 text-[11px] text-slate-500">{tr("That is what will be asked six months from now.", "Itu yang ditanyakan enam bulan lagi.")}</p>
           <div className="mt-2 flex justify-end gap-2">
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEnding(false); setReason(""); }}>
-              Batal
+              {tr("Cancel", "Batal")}
             </Button>
-            <Button size="sm" disabled={busy || !reason.trim()} onClick={end}>Akhiri kontrak</Button>
+            <Button size="sm" disabled={busy || !reason.trim()} onClick={end}>{tr("End contract", "Akhiri kontrak")}</Button>
           </div>
         </div>
       )}
@@ -212,13 +221,17 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
  *  dan itu disengaja: mengubah upah adalah perbuatan lain, di layar karyawan,
  *  dengan jejaknya sendiri. */
 function Conflicts({ c }: { c: ContractDetail }) {
+  const tr = useTr();
   const rows = c.conflicts.filter((f) => f.differs);
   return (
     <Card>
       <CardHeader
         icon={Scale}
-        title="Tidak sama dengan yang dijalankan"
-        subtitle="Kertasnya mengatakan satu hal dan sistem menjalankan yang lain. Keduanya ditampilkan; yang memutuskan adalah orang."
+        title={tr("Differs from what runs", "Tidak sama dengan yang dijalankan")}
+        subtitle={tr(
+          "The paper says one thing and the system runs another. Both are shown; a person decides.",
+          "Kertasnya mengatakan satu hal dan sistem menjalankan yang lain. Keduanya ditampilkan; yang memutuskan adalah orang.",
+        )}
       />
       <div className="divide-y divide-slate-50">
         {rows.map((f) => (
@@ -226,10 +239,10 @@ function Conflicts({ c }: { c: ContractDetail }) {
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-[13px] font-semibold text-slate-800">{CLAUSE_LABEL[f.kind]}</span>
               <span className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[12px] text-amber-800 ring-1 ring-amber-200">
-                kertas: {f.says}
+                {tr("paper:", "kertas:")} {f.says}
               </span>
               <span className="rounded bg-slate-50 px-1.5 py-0.5 font-mono text-[12px] text-slate-700 ring-1 ring-slate-200">
-                sistem: {f.runs}
+                {tr("system:", "sistem:")} {f.runs}
               </span>
               {f.bears_on && <span className="font-mono text-[11px] text-slate-400">{f.bears_on}</span>}
             </div>
@@ -240,14 +253,18 @@ function Conflicts({ c }: { c: ContractDetail }) {
         ))}
       </div>
       <p className="border-t border-slate-100 px-4 py-2.5 text-[11px] text-slate-500">
-        Menerapkannya dilakukan di layar karyawan, bukan di sini — supaya jejaknya berbunyi
-        <em> upah berubah</em>, karena itulah yang terjadi.
+        {tr(
+          "Applying it is done on the employee screen, not here — so the trail reads",
+          "Menerapkannya dilakukan di layar karyawan, bukan di sini — supaya jejaknya berbunyi",
+        )}
+        <em> {tr("wage changed", "upah berubah")}</em>{tr(", because that is what happened.", ", karena itulah yang terjadi.")}
       </p>
     </Card>
   );
 }
 
 function Clauses({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; onDone: () => void }) {
+  const tr = useTr();
   const byKind = new Map(c.clauses.map((cl) => [cl.kind, cl]));
   /* *Jam kerja* menunjuk sebuah jadwal yang harus benar-benar ada — mengetik
      kodenya bebas berarti menunjuk jadwal yang tidak ada dan baru tahu di
@@ -262,10 +279,13 @@ function Clauses({ c, mayEdit, onDone }: { c: ContractDetail; mayEdit: boolean; 
     <Card>
       <CardHeader
         icon={ScrollText}
-        title="Poin kontrak"
+        title={tr("Contract points", "Poin kontrak")}
         subtitle={c.required_missing > 0
-          ? `${c.required_missing} poin wajib belum dijawab. Kontrak yang berlaku tanpa poin wajibnya adalah kontrak yang tidak bisa dijawab waktu ditanya.`
-          : "Semua poin wajib sudah dijawab."}
+          ? tr(
+            `${c.required_missing} required points not answered yet. A contract in force without its required points is a contract nobody can answer for when asked.`,
+            `${c.required_missing} poin wajib belum dijawab. Kontrak yang berlaku tanpa poin wajibnya adalah kontrak yang tidak bisa dijawab waktu ditanya.`,
+          )
+          : tr("All required points are answered.", "Semua poin wajib sudah dijawab.")}
       />
       <div className="divide-y divide-slate-50">
         {c.coverage.map((k) => (
@@ -293,6 +313,7 @@ function ClauseRow({
   clause: ContractClause | null; mayEdit: boolean; codes: Schedule[] | null;
   onDone: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const fields = CLAUSE_FIELDS[kind];
   const [open, setOpen] = useState(false);
@@ -312,9 +333,9 @@ function ClauseRow({
       contract_no: contractNo, kind, quote, value: shaped ? value : null,
     });
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", "Belum tersimpan", res.error.message); return; }
+    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved yet", "Belum tersimpan"), res.error.message); return; }
     setOpen(false);
-    toast("success", "Poin dikonfirmasi", CLAUSE_LABEL[kind]);
+    toast("success", tr("Point confirmed", "Poin dikonfirmasi"), CLAUSE_LABEL[kind]);
     onDone();
   }
 
@@ -322,17 +343,17 @@ function ClauseRow({
     <div className="px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[13px] font-semibold text-slate-800">{CLAUSE_LABEL[kind]}</span>
-        {required && <Badge tone="slate">wajib</Badge>}
-        {clause?.confirmed && <Badge tone="green">dikonfirmasi</Badge>}
+        {required && <Badge tone="slate">{tr("required", "wajib")}</Badge>}
+        {clause?.confirmed && <Badge tone="green">{tr("confirmed", "dikonfirmasi")}</Badge>}
         {clause && !clause.confirmed && (
           <Badge tone="violet">
-            <Sparkles className="mr-1 inline size-3" />usulan mesin
+            <Sparkles className="mr-1 inline size-3" />{tr("machine proposal", "usulan mesin")}
           </Badge>
         )}
-        {!clause && required && <Badge tone="amber">belum dijawab</Badge>}
+        {!clause && required && <Badge tone="amber">{tr("not answered yet", "belum dijawab")}</Badge>}
         {!clause && !required && <CircleDashed className="size-3.5 text-slate-300" />}
         {clause?.confirmed && clause.source === "extracted" && (
-          <span className="text-[11px] text-slate-400">bacaan mesin, diterima apa adanya</span>
+          <span className="text-[11px] text-slate-400">{tr("machine reading, accepted as is", "bacaan mesin, diterima apa adanya")}</span>
         )}
         {mayEdit && !open && (
           <Button
@@ -346,7 +367,7 @@ function ClauseRow({
               setOpen(true);
             }}
           >
-            {clause?.confirmed ? "Ubah" : clause ? "Periksa usulan" : "Jawab"}
+            {clause?.confirmed ? tr("Edit", "Ubah") : clause ? tr("Review proposal", "Periksa usulan") : tr("Answer", "Jawab")}
           </Button>
         )}
       </div>
@@ -357,7 +378,7 @@ function ClauseRow({
         <>
           <p className="mt-1.5 border-l-2 border-slate-200 pl-2.5 text-[12px] italic text-slate-600">
             {clause.quote}
-            {clause.page != null && <span className="ml-1.5 not-italic text-[11px] text-slate-400">hal. {clause.page}</span>}
+            {clause.page != null && <span className="ml-1.5 not-italic text-[11px] text-slate-400">{tr("p.", "hal.")} {clause.page}</span>}
           </p>
           {clause.value && (
             <p className="mt-1 text-[11px] text-slate-500">
@@ -370,14 +391,14 @@ function ClauseRow({
       {open && (
         <div className="mt-2 space-y-2.5 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
           <div>
-            <label className="text-[11px] uppercase tracking-wide text-slate-400">Kalimat aslinya</label>
+            <label className="text-[11px] uppercase tracking-wide text-slate-400">{tr("Original wording", "Kalimat aslinya")}</label>
             <textarea
               value={quote} onChange={(e) => setQuote(e.target.value)} rows={2}
-              placeholder="Salin kalimatnya dari kontrak, apa adanya."
+              placeholder={tr("Copy the sentence from the contract, exactly as written.", "Salin kalimatnya dari kontrak, apa adanya.")}
               className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm focus:border-brand-400 focus:outline-none"
             />
             <p className="mt-0.5 text-[11px] text-slate-500">
-              Angka tanpa kalimat di belakangnya adalah angka yang tidak bisa dibantah di meja.
+              {tr("A figure without the sentence behind it is a figure nobody can dispute at the table.", "Angka tanpa kalimat di belakangnya adalah angka yang tidak bisa dibantah di meja.")}
             </p>
           </div>
 
@@ -395,17 +416,19 @@ function ClauseRow({
             </div>
           ) : (
             <p className="text-[11px] text-slate-500">
-              Poin ini disimpan sebagai kalimatnya saja — tidak ada angka yang dibandingkan
-              dengan apa pun, jadi tidak ada yang perlu diisi selain kutipannya.
+              {tr(
+                "This point is stored as its sentence only — no figure is compared with anything, so there is nothing to fill in besides the quote.",
+                "Poin ini disimpan sebagai kalimatnya saja — tidak ada angka yang dibandingkan dengan apa pun, jadi tidak ada yang perlu diisi selain kutipannya.",
+              )}
             </p>
           )}
 
           <div className="flex items-center justify-end gap-2">
             {shaped && !ready && quote.trim() !== "" && (
-              <span className="mr-auto text-[11px] text-slate-500">Lengkapi isian di atas.</span>
+              <span className="mr-auto text-[11px] text-slate-500">{tr("Complete the fields above.", "Lengkapi isian di atas.")}</span>
             )}
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>Batal</Button>
-            <Button size="sm" icon={Check} disabled={busy || !ready} onClick={confirm}>Konfirmasi</Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>{tr("Cancel", "Batal")}</Button>
+            <Button size="sm" icon={Check} disabled={busy || !ready} onClick={confirm}>{tr("Confirm", "Konfirmasi")}</Button>
           </div>
         </div>
       )}
@@ -423,13 +446,14 @@ function FieldInput({
   field: ClauseField; value: string; codes: Schedule[] | null;
   onChange: (v: string) => void;
 }) {
+  const tr = useTr();
   const box = "mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none";
   return (
     <div>
       <label className="text-[11px] uppercase tracking-wide text-slate-400">{field.label}</label>
       {field.input === "choice" ? (
         <select value={value} onChange={(e) => onChange(e.target.value)} className={box}>
-          <option value="">— pilih —</option>
+          <option value="">{tr("— choose —", "— pilih —")}</option>
           {field.options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
@@ -438,7 +462,7 @@ function FieldInput({
         codes
           ? (
             <select value={value} onChange={(e) => onChange(e.target.value)} className={box}>
-              <option value="">— pilih —</option>
+              <option value="">{tr("— choose —", "— pilih —")}</option>
               {codes.map((c) => (
                 <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
               ))}
@@ -447,7 +471,7 @@ function FieldInput({
           : (
             <input
               value={value} onChange={(e) => onChange(e.target.value)}
-              placeholder="kode jadwal" className={cn(box, "font-mono text-[12px]")}
+              placeholder={tr("schedule code", "kode jadwal")} className={cn(box, "font-mono text-[12px]")}
             />
           )
       ) : (
