@@ -208,7 +208,7 @@ for (const line of knowledge.trim().split("\n").filter(Boolean)) {
   }
 }
 
-/* ── declared writes: one catalogue, two layers (D317, 0175) ───────────
+/* ── declared writes: one catalogue, two layers (D317, 0176) ───────────
  *
  * A declared tool is a row in `ops_asst.v_tool_seams` and the same row in
  * `SEAMS` in the demo catalogue. The two are compared whole — a field the demo

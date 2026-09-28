@@ -145,7 +145,7 @@ export interface AssistantDraft {
  *
  *  `rpc` — a named security-definer function in a module schema, called
  *  through PostgREST as the person: `ops_mkt.create_market`. Never in
- *  `ops_core` or `ops_asst`; the database refuses that row (0175).
+ *  `ops_core` or `ops_asst`; the database refuses that row (0176).
  *  `api` — a function both API layers export with the same signature,
  *  `(input, idempotencyKey?)`: `procurement.quickAddLine`. */
 export type SeamKind = "rpc" | "api";

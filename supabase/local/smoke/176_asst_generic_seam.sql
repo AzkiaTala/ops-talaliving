@@ -1,5 +1,5 @@
 -- asst — a declared write: the catalogue names a seam, the person says yes,
--- the seam decides (0175, D317).
+-- the seam decides (0176, D317).
 --
 -- What has to hold, and is measured here on row counts rather than on the
 -- absence of an error (F163):

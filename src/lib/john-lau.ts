@@ -210,7 +210,7 @@ export function draftShape(
     };
   }
 
-  /* Every other write is declared (`procurement.draft_pr_line` moved in 0175)
+  /* Every other write is declared (`procurement.draft_pr_line` moved in 0176)
      and drawn by `seamDraftShape`. A tool that reaches this line is a write
      nobody declared or coded: shown as what it is — its name and the
      arguments it was given — rather than dressed as some other tool's card. */

@@ -206,6 +206,12 @@ export interface Attachment {
   source: "web" | "chat" | "api" | "import";
   /** Advisory only — identical bytes seen before. Never blocks (A6). */
   duplicate_suspect: boolean;
+  /** The Google Drive link of an uploaded file — what people open. Null for a
+   *  link and for files filed before 0175. */
+  web_view_link?: string | null;
+  /** Where the file sits, in words: `PROCUREMENT / OPS / INVENTORY/ITEMS`.
+   *  Decided by the database from the kind, never by the screen (0175). */
+  filed_in?: string | null;
 }
 
 export interface AttachmentLink {

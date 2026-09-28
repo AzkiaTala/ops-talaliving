@@ -617,7 +617,7 @@ be granted**: it acts with the grants of the person typing (D219).
 the owner's answer; the middle three are a default taken and marked as such in
 the catalogue, so reversing one is a single line.
 
-### Declared writes — the confirm card for an interaction with no screen (D317, 0175)
+### Declared writes — the confirm card for an interaction with no screen (D317, 0176)
 
 A write tool no longer needs code. It **declares** its seam in
 `ops_asst.tool_seams` and its card in `ops_asst.tool_fields`, and one dispatcher

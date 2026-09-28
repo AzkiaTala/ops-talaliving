@@ -687,9 +687,9 @@ constraints matter, and both are enforced rather than intended:
   (D218). This bullet first said *code, not rows*; `0038` moved it into
   `ops_asst.tools` — rows, but rows **only a migration writes** (no
   insert/update/delete policy, no grant), because a boundary compiled into the
-  bundle is one the reader owns. `0175` added the declared writes on the same
+  bundle is one the reader owns. `0176` added the declared writes on the same
   terms: `tool_seams` names the seam a Confirm calls, `tool_fields` the card
-  (D317, F169). `tools_used` on a turn is still free text validated against
+  (D317, F170). `tools_used` on a turn is still free text validated against
   nothing, and that is the point.
 
 Three more the building added:

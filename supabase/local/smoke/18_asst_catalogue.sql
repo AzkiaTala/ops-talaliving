@@ -46,7 +46,7 @@ declare n int;
 begin
   select count(*) into n from ops_asst.tools;
   -- Sixteen transcribed from the demo, `hr.draft_leave` (0151, D301) and the
-  -- first declared write, `marketing.draft_market` (0175, D317).
+  -- first declared write, `marketing.draft_market` (0176, D317).
   assert n = 18, format('eighteen tools: sixteen from the demo, the leave draft and the market draft, got %s', n);
 
   select count(*) into n from ops_asst.tools where reach = 'blocked';
@@ -180,7 +180,7 @@ begin
 
   -- Six things are out of reach for them and are not blocked: accounting,
   -- inventory, production and project reads, filing leave (hrd, 0151) and
-  -- defining a market (marketing, 0175).
+  -- defining a market (marketing, 0176).
   select count(*) into n from ops_asst.v_tool_catalogue where may = 'no_grant';
   assert n = 6, format('a buyer is short six open tools, got %s', n);
 end $$;

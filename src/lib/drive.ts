@@ -36,7 +36,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const FILES_URL = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD_URL =
   "https://www.googleapis.com/upload/drive/v3/files"
-  + "?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink";
+  + "?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,parents,driveId";
 
 /** The scope, and only this one. `drive.file` lets the service account touch
  *  files **it created** and nothing else — so a mistake here cannot reach the
@@ -60,6 +60,11 @@ export interface DriveFile {
   id: string;
   name: string;
   webViewLink: string | null;
+  /** The folder(s) Drive says the file is in — checked by the upload route
+   *  against the folder it asked for (0175). */
+  parents: string[];
+  /** The shared drive Drive says the file is in. */
+  driveId: string | null;
 }
 
 function credentials(): { email: string; privateKey: string } {
@@ -200,8 +205,18 @@ export async function uploadToDrive(
   if (!res.ok) {
     throw new Error(`Drive refused the upload: ${res.status} ${await res.text()}`);
   }
-  const out = (await res.json()) as { id: string; name: string; webViewLink?: string };
-  return { id: out.id, name: out.name, webViewLink: out.webViewLink ?? null };
+  const out = (await res.json()) as {
+    id: string; name: string; webViewLink?: string; parents?: string[]; driveId?: string;
+  };
+  return {
+    id: out.id, name: out.name,
+    /* Asked for in `fields`, but a field Drive omits is simply absent; the id
+       makes the same link, and a row with no way to open its file is the
+       thing to avoid. */
+    webViewLink: out.webViewLink ?? `https://drive.google.com/file/d/${out.id}/view`,
+    parents: out.parents ?? [],
+    driveId: out.driveId ?? null,
+  };
 }
 
 /** The `OPS` folder of a module — the recorded folder itself, or one inside it.

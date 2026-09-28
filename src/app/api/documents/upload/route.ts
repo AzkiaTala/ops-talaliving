@@ -205,8 +205,21 @@ export async function POST(request: Request): Promise<Response> {
       { slug: folder.slug });
   }
 
-  /* `storage_path` holds the Drive file id — that is the file's identity, and
-     the link is derivable from it (05-storage.md). Recorded as the person. */
+  /* **Did it land where it was sent?** Drive says which folder the file is
+     in; if that is not the folder asked for, the file is somewhere nobody
+     decided, and recording it would put a wrong answer to *which drive* in
+     the database. Refused with the id so IT can find it and move it. */
+  if (!uploaded.parents.includes(targetId)) {
+    return refuse(502, "drive_misfiled",
+      `${uploaded.name} reached Drive but not the ${folder.label} / OPS/${folder.path} folder `
+      + `it was sent to, so it was not recorded. IT can find it by its id.`,
+      { drive_file_id: uploaded.id, expected_folder: targetId, parents: uploaded.parents });
+  }
+
+  /* `storage_path` holds the Drive file id — the file's identity. Beside it
+     the link people open, and the kind and record, from which the database
+     itself records which shared drive and task folder it is in (0175).
+     Recorded as the person. */
   const { data: filed, error: fileErr } = await sb
     .schema("ops_core").rpc("attach_file", {
       p_storage_path: uploaded.id,
@@ -216,6 +229,10 @@ export async function POST(request: Request): Promise<Response> {
       p_sha256: sha256,
       p_source: "web",
       p_key: null,
+      p_kind: kind,
+      p_entity: entity,
+      p_web_view_link: uploaded.webViewLink,
+      p_folder_id: targetId,
     });
   if (fileErr) {
     return refuse(500, "database_error",
@@ -239,7 +256,7 @@ export async function POST(request: Request): Promise<Response> {
       attachment_id: attachmentId,
       drive_file_id: uploaded.id,
       web_view_link: uploaded.webViewLink,
-      filed_in: folder.label,
+      filed_in: `${folder.label} / OPS / ${folder.path}`,
       sha256,
     },
     meta: { request_id: "", service: "documents", version: "1", outcome: "ok" },

@@ -1,4 +1,4 @@
--- 0175_asst_generic_seam.sql — one kind of write tool: *call this seam, with
+-- 0176_asst_generic_seam.sql — one kind of write tool: *call this seam, with
 -- these fields, after the person says yes* (D317).
 --
 -- ── What was there ───────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ comment on table ops_asst.tool_seams is
   'A write tool that is declared rather than coded: the seam its Confirm calls, as the person, '
   'after `may_run` is asked again. rpc seams live in a module schema, never ops_core or '
   'ops_asst — an assistant that could reach the grant functions could widen its own rights '
-  '(D219, D317). (0175)';
+  '(D219, D317). (0176)';
 
 create table ops_asst.tool_fields (
   tool        text not null references ops_asst.tool_seams (tool) on delete cascade,
@@ -145,7 +145,7 @@ create table ops_asst.tool_fields (
 comment on table ops_asst.tool_fields is
   'Every field a declared write shows, editable, before the yes. What is written is what the '
   'card shows after the person edits it (D220); a blank required field is refused, never '
-  'filled in by the assistant (D217). (0175)';
+  'filled in by the assistant (D217). (0176)';
 
 alter table ops_asst.tool_seams  enable row level security;
 alter table ops_asst.tool_fields enable row level security;
@@ -175,7 +175,7 @@ grant select on ops_asst.v_tool_seams to authenticated;
 
 comment on view ops_asst.v_tool_seams is
   'One row per declared write tool, its fields in card order. Read by both the dock and the '
-  'model route (the `arg` column is the list of keys a model may fill, D300). (0175)';
+  'model route (the `arg` column is the list of keys a model may fill, D300). (0176)';
 
 -- ── is every declared seam really there ──────────────────────────────────
 
@@ -243,7 +243,7 @@ values
    'New purchase request line', 'Baris permintaan pembelian baru',
    'This goes in as a request, not as an approval. Approving it stays a person''s act, on the meeting board.',
    'Baris ini masuk sebagai permintaan, bukan sebagai persetujuan. Yang menyetujui tetap orang, di papan rapat.',
-   'Moved from draftShape/confirmDraft to the declared road (0175, D317).');
+   'Moved from draftShape/confirmDraft to the declared road (0176, D317).');
 
 insert into ops_asst.tool_fields
   (tool, seq, key, param, type, required, label_en, label_id, arg, default_kind, default_en, default_id)
@@ -262,7 +262,7 @@ values
   ('marketing.draft_market', 'marketing', 'write', 'write', 'open',
    'Define a new market', 'Menyiapkan pasar baru',
    null, null, '/marketing/pipeline', 33,
-   'No screen calls ops_mkt.create_market (D316); the declared road is its form (0175, D317).');
+   'No screen calls ops_mkt.create_market (D316); the declared road is its form (0176, D317).');
 
 insert into ops_asst.tool_seams
   (tool, kind, seam, key_param, result_ref, headline_en, headline_id, note_en, note_id, note)

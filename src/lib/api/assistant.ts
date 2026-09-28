@@ -79,7 +79,7 @@ const db = () => supabaseBrowser().schema("ops_asst");
 
 /* ── declared writes (D317) ────────────────────────────────────────────── */
 
-/** The declared tools, read once per page from `v_tool_seams` (0175).
+/** The declared tools, read once per page from `v_tool_seams` (0176).
  *
  *  Read from the database rather than from the demo's copy for the reason
  *  `tools` is (0038): which seam a Confirm knocks on is the catalogue's to

@@ -83,7 +83,7 @@ interface ToolRow {
  *  shows. Anything else a model returns is dropped. Read tools take none: they
  *  answer the screen's own question.
  *
- *  A **declared** tool (D317, 0175) is not listed here: its keys are the `arg`
+ *  A **declared** tool (D317, 0176) is not listed here: its keys are the `arg`
  *  column of its fields in `v_tool_seams`, read below, so a new action is one
  *  catalogue row and this file does not change. */
 const TOOL_ARGS: Record<string, string[]> = {

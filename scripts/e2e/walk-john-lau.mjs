@@ -9,7 +9,7 @@
  *  "Ya, tulis" turns into a row — and that a model inventing an argument or a
  *  link has it dropped. The conversation must still be there after a reload.
  *
- *  Stage 5 walks a **declared** write (D317, 0175): a market, which has no
+ *  Stage 5 walks a **declared** write (D317, 0176): a market, which has no
  *  screen, drafted from the catalogue row alone — Confirm writes, Cancel does
  *  not, and a grant taken away between the draft and the yes is refused at the
  *  yes.
@@ -208,7 +208,7 @@ expect("a sentence the router does not know → the model picks the leave draft;
   && !mArgs.includes("minggu depan") && !mArgs.includes("invented"), `${t.join("|")} ${mArgs}`);
 
 /* ═════ Stage 5: a declared write — no screen, one catalogue row (D317) ═════
-   `marketing.draft_market` is declared in `ops_asst.tool_seams` (0175) over
+   `marketing.draft_market` is declared in `ops_asst.tool_seams` (0176) over
    `ops_mkt.create_market`, which no screen calls. Nothing in the dock knows
    it: the card is drawn from the catalogue, the Confirm calls the seam as the
    person. Three things must hold — Confirm writes, Cancel writes nothing, and
