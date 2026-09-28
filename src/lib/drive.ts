@@ -492,3 +492,36 @@ export async function fetchThumbnail(fileId: string, width: number): Promise<Res
   }
   return null;
 }
+
+/** The bytes of one Drive file, for a server route that has to hand a
+ *  document to somebody else — the working drawing to the model (D323).
+ *
+ *  The same order and the same reason as `fetchThumbnail`: `drive.file` for
+ *  what the app made, `drive.readonly` for what it did not. Who may read the
+ *  file is decided before this is called, by the attachment row the person
+ *  can read. A file over `maxBytes` answers with its size and no bytes, so the
+ *  caller can fall back (a big photo to its thumbnail) or say why it stopped.
+ */
+export async function fetchDriveFile(
+  fileId: string, maxBytes: number,
+): Promise<{ bytes: ArrayBuffer | null; mime: string; name: string; size: number } | null> {
+  for (const scope of [SCOPE, PROBE_SCOPE]) {
+    const token = await accessToken(scope);
+    const meta = await fetch(
+      `${FILES_URL}/${encodeURIComponent(fileId)}?supportsAllDrives=true&fields=name,mimeType,size`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    if (!meta.ok) continue;
+    const m = (await meta.json()) as { name?: string; mimeType?: string; size?: string };
+    const size = Number(m.size ?? 0);
+    const out = { mime: m.mimeType ?? "application/octet-stream", name: m.name ?? fileId, size };
+    if (size > maxBytes) return { ...out, bytes: null };
+    const whole = await fetch(
+      `${FILES_URL}/${encodeURIComponent(fileId)}?supportsAllDrives=true&alt=media`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    if (!whole.ok) return null;
+    return { ...out, bytes: await whole.arrayBuffer() };
+  }
+  return null;
+}

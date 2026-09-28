@@ -286,10 +286,11 @@ export function bomAt(state: DemoState, product: Product, rev: number | null): B
   return state.bom_components.filter((b) => b.product_id === product.id && b.rev === rev);
 }
 
-/** The rate a line is costed at, and where it came from (0109).
+/** The rate a line is costed at, and where it came from (0109, 0180).
  *
  *  A line's own rate wins — typed by the estimator while drafting, or frozen
- *  on release. Without one, a material follows the catalogue (standard price,
+ *  on release. Without one, a line that follows the BOM rate list takes the
+ *  list's figure; otherwise a material follows the catalogue (standard price,
  *  else last paid), a sub-assembly its own released production cost, and a
  *  labour line has none, because labour cannot be saved without one. */
 export function lineRate(
@@ -298,6 +299,11 @@ export function lineRate(
   seen: string[] = [],
 ): { rate: number | null; source: RateSource | "none" } {
   if (b.unit_rate != null) return { rate: b.unit_rate, source: b.rate_source ?? "manual" };
+  /* Following the rate list (0180): the list's figure today. */
+  if (b.rate_code) {
+    const r = (state.bom_rates ?? []).find((x) => x.code === b.rate_code);
+    if (r) return { rate: r.rate, source: "rate" };
+  }
   if (b.kind === "material") {
     /* Read at the seam, by public code — never joined (ADR-004). */
     const item = state.items.find((i) => i.code === b.ref_code);
@@ -315,8 +321,19 @@ export function lineRate(
 
 function refName(state: DemoState, b: BomComponent): string | null {
   if (b.kind === "labour") return b.label ?? null;
-  if (b.kind === "material") return state.items.find((i) => i.code === b.ref_code)?.name ?? null;
+  if (b.kind === "material") {
+    return state.items.find((i) => i.code === b.ref_code)?.name
+      /* A material that exists only on the rate list is its `RT-` code. */
+      ?? (state.bom_rates ?? []).find((r) => r.code === b.ref_code)?.name
+      ?? null;
+  }
   return state.products.find((p) => p.product_code === b.ref_code)?.name ?? null;
+}
+
+/** A line's identity inside one revision: the material **for one part**
+ *  (0180). Two parts of the same table may both be kayu mindi. */
+export function lineKey(b: { ref_code: string; part?: string | null }): string {
+  return `${b.ref_code}\u0000${(b.part ?? "").trim().toLowerCase()}`;
 }
 
 export function miscalcOf(state: DemoState, product: Product, rev: number | null): number {
@@ -368,24 +385,26 @@ export function bomDiff(
 ): BomDiff {
   const before = bomAt(state, product, fromRev);
   const after = bomAt(state, product, toRev);
-  const codes = [...new Set([...before, ...after].map((b) => b.ref_code))].sort();
+  const keys = [...new Set([...before, ...after].map(lineKey))].sort();
   const shape = (b: BomComponent | undefined): BomDiffShape | null =>
     b ? { qty: b.qty, uom: b.uom, waste_percent: b.waste_percent, unit_price: lineRate(state, b).rate } : null;
 
   const lines: BomDiffLine[] = [];
-  for (const code of codes) {
-    const a = before.find((b) => b.ref_code === code);
-    const b = after.find((x) => x.ref_code === code);
+  for (const key of keys) {
+    const a = before.find((b) => lineKey(b) === key);
+    const b = after.find((x) => lineKey(x) === key);
     const sa = shape(a);
     const sb = shape(b);
+    const either = (b ?? a)!;
+    const head = { ref_code: either.ref_code, ref_name: refName(state, either), part: either.part ?? null };
     if (sa && sb) {
       if (sa.qty === sb.qty && sa.uom === sb.uom && sa.waste_percent === sb.waste_percent
-        && sa.unit_price === sb.unit_price) continue;
-      lines.push({ ref_code: code, ref_name: refName(state, b!), change: "changed", before: sa, after: sb });
+        && sa.unit_price === sb.unit_price && (a!.rate_code ?? null) === (b!.rate_code ?? null)) continue;
+      lines.push({ ...head, change: "changed", before: sa, after: sb });
     } else if (sb) {
-      lines.push({ ref_code: code, ref_name: refName(state, b!), change: "added", before: null, after: sb });
+      lines.push({ ...head, change: "added", before: null, after: sb });
     } else {
-      lines.push({ ref_code: code, ref_name: refName(state, a!), change: "removed", before: sa, after: null });
+      lines.push({ ...head, change: "removed", before: sa, after: null });
     }
   }
   const mBefore = miscalcOf(state, product, fromRev);
@@ -417,17 +436,25 @@ export function productView(state: DemoState, product: Product, rev?: number | n
     const qty_with_waste = Math.round(b.qty * (1 + b.waste_percent / 100) * 10_000) / 10_000;
     const { rate, source } = lineRate(state, b, [product.product_code]);
     const item = b.kind === "material" ? state.items.find((i) => i.code === b.ref_code) : undefined;
+    const followed = b.rate_code ? (state.bom_rates ?? []).find((r) => r.code === b.rate_code) : undefined;
     return {
       ...b,
       label: b.label ?? null,
       unit_rate: b.unit_rate ?? null,
       rate_source: b.rate_source ?? null,
+      part: b.part ?? null,
+      rate_code: b.rate_code ?? null,
       ref_name: refName(state, b),
       qty_with_waste,
       unit_price: rate,
       price_source: source,
-      subtotal: rate == null ? null : Math.round(rate * qty_with_waste),
-      catalogue_price: item?.standard_price ?? item?.last_price ?? null,
+      /* From the unrounded quantity, as `v_product_bom` and `bomCost` do.
+         Rounding `qty_with_waste` to four places first moved a 0,0053 m³
+         leg by 0,6% — invisible on a sheet of plywood, not on timber (F176). */
+      subtotal: rate == null ? null : Math.round(b.qty * (1 + b.waste_percent / 100) * rate),
+      catalogue_price: followed?.rate ?? item?.standard_price ?? item?.last_price ?? null,
+      rate_name: followed?.name ?? null,
+      rate_group: followed?.rate_group ?? null,
     };
   });
 
@@ -569,6 +596,9 @@ export function explodeBom(
     const item = state.items.find((i) => i.code === code);
     if (item?.standard_price != null) return { price: item.standard_price, source: "standard" };
     if (item?.last_price != null) return { price: item.last_price, source: "last" };
+    /* A material that exists only on the rate list (0180). */
+    const r = (state.bom_rates ?? []).find((x) => x.code === code);
+    if (r) return { price: r.rate, source: "rate" };
     return { price: null, source: "none" };
   };
 
@@ -626,8 +656,7 @@ export function explodeBom(
       /* Labour is costed, not bought: it has no place on a list of things to
          purchase (0109). */
       if (b.kind === "labour") continue;
-      const item = state.items.find((i) => i.code === b.ref_code);
-      addLine(b.ref_code, item?.name ?? null, b.uom, amount, path, here.length - 1);
+      addLine(b.ref_code, refName(state, b), b.uom, amount, path, here.length - 1);
     }
   };
 

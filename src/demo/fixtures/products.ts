@@ -1,4 +1,4 @@
-import type { Product, BomComponent, BomRevision } from "@/services/production/contracts";
+import type { Product, BomComponent, BomRate, BomRevision } from "@/services/production/contracts";
 
 /** What the business sells and makes, and what each one is made of.
  *
@@ -202,3 +202,54 @@ BOM_COMPONENTS.push(
   labour("prd_07", "Rakit laci + pasang rel", 0.5, "hari", 175_000),
 );
 for (const r of BOM_REVISIONS) r.miscalc_percent = r.product_id === "prd_01" ? 7.5 : 5;
+
+/* The *komponen* each line is for (0180, D323). Written onto both of the meja's
+   revisions and the kursi's, the same way on each, so the draft's diff still
+   shows only what actually changed. */
+const PARTS: Record<string, Record<string, string>> = {
+  prd_01: {
+    "ITM-0006": "Top (daun meja)", "ITM-0001": "Kaki & rangka", "ITM-0027": "Kaki & rangka",
+    "ITM-0022": "Rakit", "ITM-0013": "Amplas", "ITM-0014": "Amplas",
+    "ITM-0016": "Finishing", "ITM-0019": "Finishing", "ITM-0021": "Finishing",
+    "ITM-0033": "Packing", "ITM-0032": "Packing",
+    "LABOUR:TUKANG-KAYU-POTONG-RAKIT-": "Rakit", "LABOUR:TUKANG-FINISHING": "Finishing",
+  },
+  prd_02: {
+    "ITM-0002": "Rangka kursi", "ITM-0022": "Rakit", "ITM-0027": "Rakit", "ITM-0013": "Amplas",
+    "ITM-0016": "Finishing", "ITM-0019": "Finishing",
+    "LABOUR:TUKANG-KAYU-POTONG-RAKIT-": "Rakit", "LABOUR:TUKANG-FINISHING": "Finishing",
+  },
+};
+for (const b of BOM_COMPONENTS) {
+  const part = PARTS[b.product_id]?.[b.ref_code];
+  if (part) b.part = part;
+}
+
+/** The estimator's rate list (0180, D323): what a BOM is costed at, apart from
+ *  what procurement last paid. Sample figures for the sandbox — the real list
+ *  is typed by the business, not seeded. Some rates stand for an item in the
+ *  database (`item_code`), so a line priced from them still points at
+ *  something procurement buys; finishing and labour stand for nothing
+ *  bought. */
+const rate = (
+  n: number, name: string, rate_group: BomRate["rate_group"], uom: string, value: number,
+  item_code: string | null = null, note: string | null = null,
+): BomRate => ({
+  id: `rt_${String(n).padStart(3, "0")}`, code: `RT-${String(n).padStart(4, "0")}`,
+  name, rate_group, uom, rate: value, item_code, note, active: true,
+  created_at: "2026-09-20T08:00:00+08:00", updated_at: "2026-09-20T08:00:00+08:00",
+});
+
+export const BOM_RATES: BomRate[] = [
+  rate(1, "Kayu mindi grade A", "kayu", "m3", 5_800_000, "ITM-0005", "Kering oven, sortimen A."),
+  rate(2, "Kayu jati grade C", "kayu", "m3", 9_500_000, null, "Jati kampung, mata kayu diterima."),
+  rate(3, "Kayu jati grade A", "kayu", "m3", 18_500_000, "ITM-0001"),
+  rate(4, "Plywood 18 mm", "material", "lembar", 285_000, "ITM-0007"),
+  rate(5, "Hardware & pengikat (lem, sekrup, dowel)", "material", "set", 35_000),
+  rate(6, "Finishing PU natural matt", "finishing", "m2", 85_000, null, "Sealer + 2 lapis top coat."),
+  rate(7, "Finishing melamine", "finishing", "m2", 60_000),
+  rate(8, "Tukang kayu (potong-rakit)", "labour", "hari", 175_000),
+  rate(9, "Tukang finishing", "labour", "hari", 150_000),
+  rate(10, "Karton 5 lapis", "packing", "m2", 12_000),
+  rate(11, "Packing (bubble wrap + karton + label)", "packing", "unit", 45_000),
+];

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
-  Calculator, Check, ExternalLink, FileText, GitBranch, HardHat, ImageIcon, Layers, Link2, Lock,
-  Package, Paperclip, Pencil, Plus, RotateCcw, Ruler, Save, Search, Trash2, X,
+  AlertTriangle, Calculator, Check, Coins, ExternalLink, FileText, GitBranch, HardHat, ImageIcon, Layers,
+  Link2, Loader2, Lock, Package, Paperclip, Pencil, Plus, RotateCcw, Ruler, Save, Search, Sparkles, Trash2, X,
 } from "lucide-react";
 import { Drawer } from "@/components/ui/drawer";
 import { Badge, Button } from "@/components/ui/primitives";
@@ -16,9 +17,12 @@ import { formatIDR, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { documents, procurement, production } from "@/demo/api";
 import type { Item, ItemCategory } from "@/services/procurement/contracts";
-import type {
-  BomKind, BomLineView, ProductDrawingEntry, ProductView,
+import {
+  BOM_RATE_GROUPS, BOM_RATE_GROUP_LABELS, rateLineKind,
+  type BomKind, type BomLineView, type BomRateView, type BomSuggestion, type BomSuggestionLine,
+  type ProductDrawingEntry, type ProductView,
 } from "@/services/production/contracts";
+import { RateForm } from "../rate/RateForm";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { useTr, type Message } from "@/lib/i18n";
@@ -37,24 +41,39 @@ import { useTr, type Message } from "@/lib/i18n";
  *  **production cost per item code — not a selling price.**
  */
 export function ProductDrawer({
-  productCode, onClose, onChanged,
+  productCode, onClose, onChanged, onCreated, autoSuggest,
 }: {
   productCode: string | null;
   onClose: () => void;
   onChanged: () => void;
+  /** A new product was saved: open its BOM (owner, D323 — *setelah user
+   *  tambah produk otomatis dia ke halaman BOM*). */
+  onCreated?: (productCode: string, opts: { autoSuggest: boolean }) => void;
+  /** Read the working drawing with the AI as soon as the BOM opens, when there
+   *  is a drawing and no component yet. */
+  autoSuggest?: boolean;
 }) {
-  if (!productCode) return <NewProduct onClose={onClose} onChanged={onChanged} />;
-  return <ExistingProduct productCode={productCode} onClose={onClose} onChanged={onChanged} />;
+  if (!productCode) return <NewProduct onClose={onClose} onChanged={onChanged} onCreated={onCreated} />;
+  return <ExistingProduct productCode={productCode} onClose={onClose} onChanged={onChanged} autoSuggest={autoSuggest} />;
 }
+
+/** The AI's proposal, as the drawer holds it. `run` increments per reading so
+ *  the review table starts fresh each time. */
+type SuggestState =
+  | { status: "idle" }
+  | { status: "loading"; filename: string | null }
+  | { status: "ready"; data: BomSuggestion; run: number }
+  | { status: "failed"; message: string };
 
 type Settle = (res: { error?: { status: number; message: string } | null }, done: string, detail?: string) => boolean;
 
 function ExistingProduct({
-  productCode, onClose, onChanged,
+  productCode, onClose, onChanged, autoSuggest,
 }: {
   productCode: string;
   onClose: () => void;
   onChanged: () => void;
+  autoSuggest?: boolean;
 }) {
   const tr = useTr();
   const { can } = useSession();
@@ -62,6 +81,30 @@ function ExistingProduct({
   const [product, reload] = useLoad(() => production.getProduct(productCode), [productCode]);
   const mayEdit = can("production.update");
   const [busy, setBusy] = useState(false);
+  const [suggest, setSuggest] = useState<SuggestState>({ status: "idle" });
+  const runs = useRef(0);
+
+  /* Reading a drawing writes nothing (D200, D323): the answer is a list the
+     estimator checks, and each line they keep is added as themselves. */
+  async function runSuggest(attachmentId?: string, filename?: string | null) {
+    setSuggest({ status: "loading", filename: filename ?? null });
+    const res = await production.suggestBom({ product_code: productCode, attachment_id: attachmentId ?? null });
+    if (res.error) { setSuggest({ status: "failed", message: res.error.message }); return; }
+    runs.current += 1;
+    setSuggest({ status: "ready", data: res.data, run: runs.current });
+  }
+
+  /* Straight from *New product* with a drawing: read it once, on arrival. */
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (!autoSuggest || autoRan.current || !mayEdit || product.status !== "ready") return;
+    autoRan.current = true;
+    const p = product.data;
+    if (p.gambar_kerja && p.components.length === 0) {
+      void runSuggest(p.gambar_kerja.attachment_id, p.gambar_kerja.filename);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSuggest, mayEdit, product]);
 
   /* One answer handler for every write on this drawer: say what happened,
      redraw from what was stored, tell the list behind it. */
@@ -91,12 +134,34 @@ function ExistingProduct({
         {(p) => (
           <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
-              <DrawingPanel p={p} mayEdit={mayEdit} busy={busy} run={run} settle={settle} />
+              <DrawingPanel
+                p={p} mayEdit={mayEdit} busy={busy} run={run} settle={settle}
+                onWorkingDrawing={(id, filename) => {
+                  /* *Langsung dibaca oleh AI*: a new working drawing on a
+                     product with no BOM yet is read at once. With a BOM
+                     already there, reading is a button — a revision of the
+                     drawing is not a reason to propose the whole list again. */
+                  if (mayEdit && p.components.length === 0) void runSuggest(id, filename);
+                }}
+              />
               <ProductFacts p={p} mayEdit={mayEdit} busy={busy} run={run} settle={settle} />
             </div>
             <div className="min-w-0 space-y-4">
               <RevisionBar p={p} mayEdit={mayEdit} busy={busy} run={run} settle={settle} />
-              <BomTable p={p} mayEdit={mayEdit} busy={busy} run={run} settle={settle} />
+              {suggest.status !== "idle" && (
+                <SuggestionPanel
+                  key={suggest.status === "ready" ? suggest.run : suggest.status}
+                  p={p} state={suggest} busy={busy} run={run}
+                  onRetry={() => void runSuggest(p.gambar_kerja?.attachment_id, p.gambar_kerja?.filename)}
+                  onClose={() => setSuggest({ status: "idle" })}
+                  onAdded={() => { reload(); onChanged(); }}
+                />
+              )}
+              <BomTable
+                p={p} mayEdit={mayEdit} busy={busy} run={run} settle={settle}
+                suggesting={suggest.status === "loading"}
+                onSuggest={() => void runSuggest(p.gambar_kerja?.attachment_id, p.gambar_kerja?.filename)}
+              />
               <CostSummary p={p} mayEdit={mayEdit} busy={busy} run={run} settle={settle} />
             </div>
           </div>
@@ -178,7 +243,9 @@ const DRAWING_KIND_LABEL: Record<ProductDrawingEntry["kind"], Message> = {
   "Gambar Jadi": { en: "Finished photo", id: "Gambar Jadi" },
 };
 
-function DrawingPanel({ p, mayEdit, busy, run, settle }: PartProps) {
+function DrawingPanel({
+  p, mayEdit, busy, run, settle, onWorkingDrawing,
+}: PartProps & { onWorkingDrawing: (attachmentId: string, filename: string) => void }) {
   const tr = useTr();
   const [kind, setKind] = useState<ProductDrawingEntry["kind"]>("Gambar Kerja");
   const list = p.drawings.filter((d) => d.kind === kind);
@@ -195,7 +262,10 @@ function DrawingPanel({ p, mayEdit, busy, run, settle }: PartProps) {
       const res = await production.attachProductDrawing({
         product_code: p.product_code, attachment_id: up.data.id, kind,
       });
-      if (settle(res, tr(`${DRAWING_KIND_LABEL[kind].en} attached`, `${kind} terlampir`), f.name)) setPick(up.data.id);
+      if (settle(res, tr(`${DRAWING_KIND_LABEL[kind].en} attached`, `${kind} terlampir`), f.name)) {
+        setPick(up.data.id);
+        if (kind === "Gambar Kerja") onWorkingDrawing(up.data.id, f.name);
+      }
     });
   }
   async function attachUrl() {
@@ -427,13 +497,14 @@ function RevisionBar({ p, mayEdit, busy, run, settle }: PartProps) {
           ) : (
             <ul className="space-y-0.5 text-[12px]">
               {d.lines.map((l) => (
-                <li key={l.ref_code} className="text-slate-700">
+                <li key={`${l.ref_code}|${l.part ?? ""}`} className="text-slate-700">
                   <span className={cn(
                     "mr-1.5 font-medium",
                     l.change === "added" ? "text-emerald-700" : l.change === "removed" ? "text-rose-700" : "text-amber-700",
                   )}>
                     {l.change === "added" ? "+" : l.change === "removed" ? "−" : "~"}
                   </span>
+                  {l.part && <span className="text-slate-500">{l.part} · </span>}
                   {l.ref_name ?? l.ref_code}
                   {l.change === "changed" && l.before && l.after && (
                     <span className="text-slate-500">
@@ -503,49 +574,76 @@ const SOURCE_LABEL: Record<string, Message> = {
   standard: { en: "standard price", id: "harga standar" },
   last: { en: "last purchase price", id: "harga beli terakhir" },
   sub_assembly: { en: "sub-assembly cost", id: "biaya sub-rakitan" },
+  rate: { en: "rate list", id: "daftar rate" },
 };
 
-function BomTable(props: PartProps) {
+/** Lines of one kind, the parts together: every line of *Kaki-kaki* next to
+ *  each other, the lines with no part last. */
+function byPart(a: BomLineView, b: BomLineView): number {
+  const pa = a.part?.toLowerCase() ?? "￿";
+  const pb = b.part?.toLowerCase() ?? "￿";
+  return pa.localeCompare(pb) || (a.ref_name ?? a.ref_code).localeCompare(b.ref_name ?? b.ref_code);
+}
+
+function BomTable(props: PartProps & { onSuggest: () => void; suggesting: boolean }) {
   const tr = useTr();
-  const { p, mayEdit } = props;
+  const { p, mayEdit, onSuggest, suggesting } = props;
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const groups: [BomKind, string][] = [["material", tr("Materials", "Bahan")], ["product", tr("Sub-assemblies", "Sub-rakitan")], ["labour", tr("Labour", "Tenaga kerja")]];
+  const cols = mayEdit ? 7 : 6;
 
   return (
     <div className="rounded-xl border border-slate-200">
-      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5">
         <p className="text-[13px] font-semibold text-slate-800">{tr(`Components per 1 ${p.uom}`, `Komponen per 1 ${p.uom}`)}</p>
         <span className="text-[12px] text-slate-400">{tr(`${p.components.length} lines`, `${p.components.length} baris`)}</span>
-        {mayEdit && !adding && (
-          <Button size="sm" icon={Plus} className="ml-auto" onClick={() => { setAdding(true); setEditing(null); }}>
-            {tr("Add component", "Tambah komponen")}
-          </Button>
+        {mayEdit && (
+          <div className="ml-auto flex gap-1.5">
+            <Button
+              size="sm" variant="outline" icon={suggesting ? Loader2 : Sparkles}
+              disabled={suggesting || !p.gambar_kerja}
+              title={p.gambar_kerja
+                ? tr("The AI reads the working drawing and proposes the components, with rates from the rate list", "AI membaca gambar kerja dan mengusulkan komponennya, dengan rate dari daftar rate")
+                : tr("Upload the working drawing first", "Unggah gambar kerja dulu")}
+              onClick={onSuggest}
+              className={cn(suggesting && "[&>svg]:animate-spin")}
+            >
+              {tr("AI suggestion", "Saran AI")}
+            </Button>
+            {!adding && (
+              <Button size="sm" icon={Plus} onClick={() => { setAdding(true); setEditing(null); }}>
+                {tr("Add component", "Tambah komponen")}
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
       {adding && <AddLine {...props} onDone={() => setAdding(false)} />}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-[13px]">
+        <table className="w-full min-w-[760px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] uppercase tracking-wide text-slate-500">
               <th className="px-3 py-2 text-left">{tr("Component", "Komponen")}</th>
-              <th className="px-3 py-2 text-right">{tr("Need", "Kebutuhan")}</th>
+              <th className="px-3 py-2 text-left">{tr("Material", "Material")}</th>
+              <th className="px-3 py-2 text-right">{tr(`Need per ${p.uom}`, `Kebutuhan per ${p.uom}`)}</th>
+              <th className="px-3 py-2 text-left">{tr("Unit", "Satuan")}</th>
               <th className="px-3 py-2 text-right">Rate</th>
               <th className="px-3 py-2 text-right">Subtotal</th>
               {mayEdit && <th className="w-20 px-3 py-2" />}
             </tr>
           </thead>
           {groups.map(([kind, title]) => {
-            const rows = p.components.filter((c) => c.kind === kind);
+            const rows = p.components.filter((c) => c.kind === kind).sort(byPart);
             if (rows.length === 0) return null;
             const Icon = KIND_ICON[kind];
             const sum = rows.reduce((a, c) => a + (c.subtotal ?? 0), 0);
             return (
               <tbody key={kind}>
                 <tr className="bg-slate-50/40">
-                  <td colSpan={mayEdit ? 5 : 4} className="px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <td colSpan={cols} className="px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     <Icon className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />{title}
                     <span className="float-right font-normal normal-case tabular-nums">{formatIDR(sum)}</span>
                   </td>
@@ -560,11 +658,16 @@ function BomTable(props: PartProps) {
           })}
           {p.components.length === 0 && (
             <tbody>
-              <tr><td colSpan={mayEdit ? 5 : 4} className="px-3 py-8 text-center text-[13px] text-slate-500">
-                {tr(
-                  `No components yet. Look at the working drawing on the left, then add whatever goes into making 1 ${p.uom}.`,
-                  `Belum ada komponen. Lihat gambar kerja di kiri, lalu tambahkan apa saja yang dipakai untuk membuat 1 ${p.uom}.`,
-                )}
+              <tr><td colSpan={cols} className="px-3 py-8 text-center text-[13px] text-slate-500">
+                {p.gambar_kerja
+                  ? tr(
+                    `No components yet. Press AI suggestion to have the working drawing read, or add whatever goes into making 1 ${p.uom}.`,
+                    `Belum ada komponen. Tekan Saran AI supaya gambar kerja dibaca, atau tambahkan apa saja yang dipakai untuk membuat 1 ${p.uom}.`,
+                  )
+                  : tr(
+                    `No components yet. Upload the working drawing on the left — the AI reads it and proposes the components — or add whatever goes into making 1 ${p.uom}.`,
+                    `Belum ada komponen. Unggah gambar kerja di kiri — AI membacanya dan mengusulkan komponennya — atau tambahkan apa saja yang dipakai untuk membuat 1 ${p.uom}.`,
+                  )}
               </td></tr>
             </tbody>
           )}
@@ -578,28 +681,39 @@ function LineRow({ p, c, mayEdit, busy, run, settle, onEdit }: PartProps & { c: 
   const tr = useTr();
   async function remove() {
     const res = await run(() => production.removeBomComponent({ product_code: p.product_code, component_id: c.id }));
-    settle(res, tr("Component removed", "Komponen dihapus"), c.ref_name ?? c.ref_code);
+    settle(res, tr("Component removed", "Komponen dihapus"), [c.part, c.ref_name ?? c.ref_code].filter(Boolean).join(" · "));
   }
   const drift = c.rate_source === "manual" && c.catalogue_price != null && c.unit_price != null
     && Math.abs(c.unit_price - c.catalogue_price) / Math.max(c.catalogue_price, 1) > 0.2;
   return (
     <tr className="group border-b border-slate-100 last:border-0">
-      <td className="px-3 py-2">
-        <span className={cn("block", c.ref_name ? "text-slate-800" : "text-amber-800")}>
-          {c.ref_name ?? tr(`${c.ref_code} — not in the database`, `${c.ref_code} — tidak ada di database`)}
-        </span>
-        {c.kind !== "labour" && (
-          <span className="block font-mono text-[10px] text-slate-400">
-            {c.ref_code}{c.note && <span className="font-sans"> · {c.note}</span>}
-          </span>
-        )}
-        {c.kind === "labour" && c.note && <span className="block text-[10px] text-slate-400">{c.note}</span>}
+      <td className="px-3 py-2 align-top">
+        {c.part
+          ? <span className="font-medium text-slate-800">{c.part}</span>
+          : <span className="text-slate-300">—</span>}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-700">
-        {formatNumber(c.qty)} {c.uom}
+      <td className="px-3 py-2 align-top">
+        {/* A line taken from the rate list reads as the rate — *Kayu mindi
+            grade A* — with the item it stands for beneath, the way the
+            estimator picked it. */}
+        <span className={cn("block", c.rate_name ?? c.ref_name ? "text-slate-800" : "text-amber-800")}>
+          {c.rate_name ?? c.ref_name ?? tr(`${c.ref_code} — not in the database`, `${c.ref_code} — tidak ada di database`)}
+        </span>
+        <span className="block text-[10px] text-slate-400">
+          {c.rate_code && (
+            <span title={tr("Follows the BOM rate list", "Mengikuti daftar rate BOM")} className="mr-1 rounded bg-violet-50 px-1 font-mono text-violet-700">{c.rate_code}</span>
+          )}
+          {c.kind !== "labour" && c.ref_code !== c.rate_code && <span className="font-mono">{c.ref_code}</span>}
+          {c.rate_name && c.ref_name && c.rate_name !== c.ref_name && c.kind !== "labour" && <span> · {c.ref_name}</span>}
+          {c.note && <span> · {c.note}</span>}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-slate-700">
+        {formatNumber(c.qty, 4)}
         {c.waste_percent > 0 && <span className="block text-[10px] text-slate-400">{tr(`+${c.waste_percent}% waste`, `+${c.waste_percent}% susut`)}</span>}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-slate-600">{c.uom}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-right align-top">
         {c.unit_price == null ? (
           <span className="text-[11px] text-amber-700">{tr("no rate yet", "belum ada rate")}</span>
         ) : (
@@ -607,16 +721,18 @@ function LineRow({ p, c, mayEdit, busy, run, settle, onEdit }: PartProps & { c: 
             <span className="tabular-nums text-slate-700">{formatIDR(c.unit_price)}</span>
             <span className={cn("block text-[10px]", drift ? "text-amber-700" : "text-slate-400")}>
               {SOURCE_LABEL[c.price_source] ? tr(SOURCE_LABEL[c.price_source].en, SOURCE_LABEL[c.price_source].id) : ""}
-              {drift && tr(` · catalogue ${formatIDR(c.catalogue_price!)}`, ` · katalog ${formatIDR(c.catalogue_price!)}`)}
+              {drift && (c.rate_code
+                ? tr(` · list ${formatIDR(c.catalogue_price!)}`, ` · daftar ${formatIDR(c.catalogue_price!)}`)
+                : tr(` · catalogue ${formatIDR(c.catalogue_price!)}`, ` · katalog ${formatIDR(c.catalogue_price!)}`))}
             </span>
           </>
         )}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-800">
+      <td className="whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-slate-800">
         {c.subtotal == null ? "—" : formatIDR(c.subtotal)}
       </td>
       {mayEdit && (
-        <td className="whitespace-nowrap px-2 py-2 text-right">
+        <td className="whitespace-nowrap px-2 py-2 text-right align-top">
           <button onClick={onEdit} disabled={busy} aria-label={tr("Edit", "Ubah")}
             className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
             <Pencil className="h-3.5 w-3.5" />
@@ -633,64 +749,75 @@ function LineRow({ p, c, mayEdit, busy, run, settle, onEdit }: PartProps & { c: 
 
 function EditRow({ p, c, busy, run, settle, onDone }: PartProps & { c: BomLineView; onDone: () => void }) {
   const tr = useTr();
+  const [part, setPart] = useState(c.part ?? "");
   const [qty, setQty] = useState(c.qty);
   const [uom, setUom] = useState(c.uom);
   const [label, setLabel] = useState(c.label ?? "");
-  /* Null means *follow the catalogue*. Labour always has a rate. */
-  const [rate, setRate] = useState<number | null>(c.rate_source === "manual" || c.kind === "labour" ? c.unit_rate ?? c.unit_price : null);
+  /* Null means *follow* — the rate list where the line follows one, else the
+     catalogue. A labour line with no rate from the list always has one. */
+  const follows = c.rate_code != null || c.kind !== "labour";
+  const [rate, setRate] = useState<number | null>(c.rate_source === "manual" || !follows ? c.unit_rate ?? c.unit_price : null);
   const [note, setNote] = useState(c.note ?? "");
+  const followLabel = c.rate_code ? tr("follow rate list", "ikut daftar rate") : tr("follow catalogue", "ikut katalog");
 
   async function save() {
     const res = await run(() => production.saveBomComponent({
       product_code: p.product_code, component_id: c.id, kind: c.kind,
       ref_code: c.ref_code, label: c.kind === "labour" ? label : null,
       qty, uom, unit_rate: rate, waste_percent: c.waste_percent, note: note || null,
+      part: part.trim() || null, rate_code: c.rate_code ?? null,
     }));
-    if (settle(res, tr("Component saved", "Komponen disimpan"), c.ref_name ?? c.ref_code)) onDone();
+    if (settle(res, tr("Component saved", "Komponen disimpan"), [part.trim(), c.ref_name ?? c.ref_code].filter(Boolean).join(" · "))) onDone();
   }
 
   return (
     <tr className="border-b border-slate-100 bg-brand-50/40">
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 align-top">
+        <input value={part} onChange={(e) => setPart(e.target.value)} aria-label={tr("Component", "Komponen")}
+          placeholder={tr("e.g. Legs", "mis. Kaki-kaki")} className={cn(inputCls, "h-8")} />
+      </td>
+      <td className="px-3 py-2 align-top">
         {c.kind === "labour" ? (
           <input value={label} onChange={(e) => setLabel(e.target.value)} aria-label={tr("Labour name", "Nama tenaga kerja")} className={cn(inputCls, "h-8")} />
         ) : (
-          <span className="block text-slate-800">{c.ref_name ?? c.ref_code}</span>
+          <span className="block text-slate-800">{c.rate_name ?? c.ref_name ?? c.ref_code}</span>
         )}
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={tr("note (optional)", "catatan (opsional)")}
           aria-label={tr("Note", "Catatan")} className={cn(inputCls, "mt-1 h-7 text-[12px]")} />
       </td>
-      <td className="px-3 py-2">
-        <div className="flex justify-end gap-1">
-          <NumberInput size="sm" value={qty} min={0} max={99_999} step={0.001} onChange={setQty} className="!w-20" />
-          <input value={uom} onChange={(e) => setUom(e.target.value)} aria-label={tr("Unit", "Satuan")} list="bom-uoms"
-            className="h-8 w-16 rounded-lg border border-slate-200 px-1.5 text-[12px] focus:border-brand-400 focus:outline-none" />
+      <td className="px-3 py-2 align-top">
+        <div className="flex justify-end">
+          <NumberInput size="sm" value={qty} min={0} max={99_999} step={0.001} onChange={setQty} className="!w-24" />
         </div>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 align-top">
+        <input value={uom} onChange={(e) => setUom(e.target.value)} aria-label={tr("Unit", "Satuan")} list="bom-uoms"
+          className="h-8 w-16 rounded-lg border border-slate-200 px-1.5 text-[12px] focus:border-brand-400 focus:outline-none" />
+      </td>
+      <td className="px-3 py-2 align-top">
         <div className="flex items-center justify-end gap-1">
           {rate == null ? (
             <button onClick={() => setRate(c.unit_price ?? 0)}
               className="rounded-lg border border-dashed border-slate-300 px-2 py-1 text-[11px] text-slate-600 hover:bg-white">
-              {c.unit_price == null ? tr("enter a rate", "isi rate") : tr(`follow catalogue · ${formatIDR(c.unit_price)}`, `ikut katalog · ${formatIDR(c.unit_price)}`)}
+              {c.unit_price == null ? tr("enter a rate", "isi rate") : `${followLabel} · ${formatIDR(c.unit_price)}`}
             </button>
           ) : (
             <>
               <div className="w-28"><MoneyInput size="sm" value={rate} onChange={setRate} /></div>
-              {c.kind !== "labour" && (
-                <button onClick={() => setRate(null)} title={tr("Go back to following the catalogue price", "Kembali ikut harga katalog")}
+              {follows && (
+                <button onClick={() => setRate(null)} title={c.rate_code ? tr("Go back to following the rate list", "Kembali ikut daftar rate") : tr("Go back to following the catalogue price", "Kembali ikut harga katalog")}
                   className="rounded p-1 text-slate-400 hover:text-slate-700"><RotateCcw className="h-3.5 w-3.5" /></button>
               )}
             </>
           )}
         </div>
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-slate-500">
+      <td className="px-3 py-2 text-right align-top tabular-nums text-slate-500">
         {rate != null ? formatIDR(Math.round(qty * (1 + c.waste_percent / 100) * rate))
           : c.unit_price != null ? formatIDR(Math.round(qty * (1 + c.waste_percent / 100) * c.unit_price)) : "—"}
       </td>
-      <td className="whitespace-nowrap px-2 py-2 text-right">
-        <button onClick={save} disabled={busy || qty <= 0 || (c.kind === "labour" && (!label.trim() || rate == null))}
+      <td className="whitespace-nowrap px-2 py-2 text-right align-top">
+        <button onClick={save} disabled={busy || qty <= 0 || (c.kind === "labour" && (!label.trim() || (rate == null && !c.rate_code)))}
           aria-label={tr("Save", "Simpan")} className="rounded p-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
           <Check className="h-4 w-4" />
         </button>
@@ -704,16 +831,32 @@ function EditRow({ p, c, busy, run, settle, onDone }: PartProps & { c: BomLineVi
 
 /* ── + : a new line ──────────────────────────────────────────────────────── */
 
+type AddMode = "rate" | BomKind;
+
+/** What the new line points at, whichever list it came from. */
+interface Picked {
+  code: string;
+  name: string;
+  uom: string;
+  price: number | null;
+  /** Set when it came from the rate list: the line follows that rate. */
+  rate_code?: string;
+  /** A labour rate becomes a labour line. */
+  kind?: "material" | "labour";
+}
+
 function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => void }) {
   const tr = useTr();
   const units = useUnits();
-  const [mode, setMode] = useState<BomKind>("material");
+  const [mode, setMode] = useState<AddMode>("rate");
   const [items, reloadItems] = useLoad(() => procurement.listItems(), []);
   const [cats] = useLoad(() => procurement.listCategories(), []);
   const [products] = useLoad(() => production.listProducts({}), []);
+  const [rates, reloadRates] = useLoad(() => production.listBomRates(), []);
 
   const [q, setQ] = useState("");
-  const [ref, setRef] = useState<{ code: string; name: string; uom: string; price: number | null } | null>(null);
+  const [ref, setRef] = useState<Picked | null>(null);
+  const [part, setPart] = useState("");
   const [qty, setQty] = useState(1);
   const [uom, setUom] = useState("pcs");
   const [rate, setRate] = useState<number | null>(null);
@@ -733,6 +876,17 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
 
   const matches = useMemo(() => {
     const term = q.trim().toLowerCase();
+    if (mode === "rate") {
+      const all: BomRateView[] = rates.status === "ready" ? rates.data : [];
+      return all
+        .filter((r) => !term || `${r.name} ${r.code} ${r.item_name ?? ""} ${BOM_RATE_GROUP_LABELS[r.rate_group].id} ${BOM_RATE_GROUP_LABELS[r.rate_group].en}`.toLowerCase().includes(term))
+        .slice(0, term ? 10 : 8)
+        .map((r) => ({
+          code: r.item_code ?? r.code, name: r.name, uom: r.uom, price: r.rate,
+          rate_code: r.code, kind: rateLineKind(r.rate_group),
+          sub: `${r.code} · ${tr(BOM_RATE_GROUP_LABELS[r.rate_group].en, BOM_RATE_GROUP_LABELS[r.rate_group].id)}${r.item_code ? ` · ${r.item_code}` : ""}`,
+        }));
+    }
     if (mode === "material") {
       const all: Item[] = items.status === "ready" ? items.data : [];
       if (!term) return [];
@@ -756,26 +910,35 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
         }));
     }
     return [];
-  }, [q, mode, items, products, catPath, p.product_code, tr]);
+  }, [q, mode, items, products, rates, catPath, p.product_code, tr]);
 
-  function choose(m: { code: string; name: string; uom: string; price: number | null }) {
+  function choose(m: Picked) {
     setRef(m); setUom(m.uom); setQ(""); setRate(null);
   }
+
+  const kind: BomKind = mode === "rate" ? (ref?.kind ?? "material") : mode;
 
   async function add() {
     const res = await run(() => production.saveBomComponent({
       product_code: p.product_code,
-      kind: mode,
-      ref_code: mode === "labour" ? undefined : ref?.code,
+      kind,
+      /* From the rate list the seam works the material out itself: the item
+         the rate stands for, else the rate (0180). */
+      ref_code: mode === "labour" || mode === "rate" ? undefined : ref?.code,
       label: mode === "labour" ? label : null,
       qty, uom, unit_rate: rate,
+      part: part.trim() || null,
+      rate_code: mode === "rate" ? ref?.rate_code ?? null : null,
     }));
-    if (settle(res, tr("Component added", "Komponen ditambahkan"), mode === "labour" ? label : ref?.name)) {
+    if (settle(res, tr("Component added", "Komponen ditambahkan"),
+      [part.trim(), mode === "labour" ? label : ref?.name].filter(Boolean).join(" · "))) {
+      /* The part stays: the next line is often the same part's next material. */
       setRef(null); setQty(1); setRate(null); setLabel(""); setQ("");
     }
   }
 
   const ready = qty > 0 && (mode === "labour" ? label.trim() !== "" && rate != null && uom.trim() !== "" : ref != null);
+  const followWord = mode === "rate" ? tr("follow rate list", "ikut daftar rate") : tr("follow catalogue", "ikut katalog");
 
   return (
     <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-3">
@@ -783,10 +946,11 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
           in — those are the workshop's day and hour, not units anything is
           bought by, so they are not in the unit table. */}
       <datalist id="bom-uoms">
-        {[...new Set(["hari", "jam", ...(units ?? []).map((u) => u.code)])].map((u) => <option key={u} value={u} />)}
+        {[...new Set(["hari", "jam", "m3", "m2", ...(units ?? []).map((u) => u.code)])].map((u) => <option key={u} value={u} />)}
       </datalist>
       <div className="flex flex-wrap items-center gap-1.5">
         {([
+          ["rate", tr("From the rate list", "Dari daftar rate"), Coins],
           ["material", tr("From the items database", "Dari database items"), Package],
           ["labour", tr("Labour", "Tenaga kerja"), HardHat],
           ["product", tr("Sub-assembly", "Sub-rakitan"), Layers],
@@ -810,6 +974,14 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
         </button>
       </div>
 
+      {/* The part first: it is what the drawing is read by. */}
+      <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+        <span className="shrink-0">{tr("Component", "Komponen")}</span>
+        <input value={part} onChange={(e) => setPart(e.target.value)}
+          placeholder={tr("e.g. Legs, Top, Frame — the part of the product this line is for", "mis. Kaki-kaki, Top, Rangka — bagian produk yang memakai baris ini")}
+          aria-label={tr("Component", "Komponen")} className={cn(inputCls, "h-8 bg-white")} />
+      </label>
+
       {/* Step 1 — what. */}
       {mode !== "labour" && !ref && !creating && (
         <div className="mt-2">
@@ -817,16 +989,18 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
             <Search className="h-4 w-4 text-slate-400" />
             <input
               autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-              placeholder={mode === "material"
-                ? tr("Search items: name, code, category — e.g. ‘jati’, ‘PU clear’", "Cari item: nama, kode, kategori — mis. ‘jati’, ‘PU clear’")
-                : tr("Search other products…", "Cari produk lain…")}
-              aria-label={tr("Search components", "Cari komponen")}
+              placeholder={mode === "rate"
+                ? tr("Search the rate list — e.g. ‘mindi’, ‘finishing’, ‘packing’", "Cari di daftar rate — mis. ‘mindi’, ‘finishing’, ‘packing’")
+                : mode === "material"
+                  ? tr("Search items: name, code, category — e.g. ‘jati’, ‘PU clear’", "Cari item: nama, kode, kategori — mis. ‘jati’, ‘PU clear’")
+                  : tr("Search other products…", "Cari produk lain…")}
+              aria-label={tr("Search materials", "Cari material")}
               className="h-9 w-full bg-transparent text-sm focus:outline-none"
             />
           </label>
           <ul className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white empty:hidden">
             {matches.map((m) => (
-              <li key={m.code}>
+              <li key={`${m.code}|${"rate_code" in m ? m.rate_code : ""}`}>
                 <button onClick={() => choose(m)} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-brand-50/50">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] text-slate-800">{m.name}</span>
@@ -840,6 +1014,20 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
               </li>
             ))}
           </ul>
+          {mode === "rate" && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[12px]">
+              <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
+                <Plus className="h-3.5 w-3.5" />
+                {q.trim()
+                  ? tr(`Not there — add “${q.trim()}” to the rate list`, `Belum ada — tambahkan “${q.trim()}” ke daftar rate`)
+                  : tr("Add a rate to the list", "Tambah rate ke daftar")}
+              </button>
+              <Link href="/produksi/rate" className="text-slate-500 hover:underline">{tr("Open the rate list", "Buka daftar rate")}</Link>
+              {rates.status === "ready" && rates.data.length === 0 && (
+                <span className="text-amber-700">{tr("The rate list is empty.", "Daftar rate masih kosong.")}</span>
+              )}
+            </div>
+          )}
           {mode === "material" && q.trim().length >= 2 && (
             <button
               onClick={() => setCreating(true)}
@@ -857,7 +1045,19 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
         </div>
       )}
 
-      {creating && (
+      {creating && mode === "rate" && (
+        <div className="mt-2 rounded-lg border border-brand-200 bg-white px-3 py-2.5">
+          <RateForm
+            compact initial={{ name: q.trim() }}
+            onCancel={() => setCreating(false)}
+            onSaved={(r) => {
+              setCreating(false); reloadRates();
+              choose({ code: r.item_code ?? r.code, name: r.name, uom: r.uom, price: r.rate, rate_code: r.code, kind: rateLineKind(r.rate_group) });
+            }}
+          />
+        </div>
+      )}
+      {creating && mode === "material" && (
         <NewItem
           initialName={q.trim()} categories={cats.status === "ready" ? cats.data : []}
           busy={busy} run={run}
@@ -872,7 +1072,8 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
           {ref && (
             <div className="mb-2 flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800">{ref.name}</span>
-              <span className="font-mono text-[10px] text-slate-400">{ref.code}</span>
+              <span className="font-mono text-[10px] text-slate-400">{ref.rate_code ?? ref.code}</span>
+              {ref.kind === "labour" && <Badge tone="violet">{tr("labour", "tenaga kerja")}</Badge>}
               <button onClick={() => setRef(null)} className="text-[11px] text-slate-500 hover:underline">{tr("change", "ganti")}</button>
             </div>
           )}
@@ -884,11 +1085,11 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
               </label>
             )}
             <label className="text-[11px] text-slate-500">{tr(`Need per 1 ${p.uom}`, `Kebutuhan per 1 ${p.uom}`)}
-              <div className="mt-0.5 flex gap-1">
-                <NumberInput value={qty} min={0} max={99_999} step={0.001} onChange={setQty} className="!w-24" />
-                <input value={uom} onChange={(e) => setUom(e.target.value)} list="bom-uoms" aria-label={tr("Unit", "Satuan")}
-                  className="h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
-              </div>
+              <NumberInput value={qty} min={0} max={99_999} step={0.001} onChange={setQty} className="mt-0.5 !w-24" />
+            </label>
+            <label className="text-[11px] text-slate-500">{tr("Unit", "Satuan")}
+              <input value={uom} onChange={(e) => setUom(e.target.value)} list="bom-uoms" aria-label={tr("Unit", "Satuan")}
+                className="mt-0.5 h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
             </label>
             <label className="text-[11px] text-slate-500">
               {tr(`Rate per ${uom || "unit"}`, `Rate per ${uom || "satuan"}`)}
@@ -896,13 +1097,13 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
                 {rate == null && mode !== "labour" ? (
                   <button onClick={() => setRate(ref?.price ?? 0)}
                     className="h-9 rounded-lg border border-dashed border-slate-300 px-2 text-[12px] text-slate-600 hover:bg-slate-50">
-                    {ref?.price == null ? tr("enter a rate", "isi rate") : tr(`follow catalogue · ${formatIDR(ref.price)}`, `ikut katalog · ${formatIDR(ref.price)}`)}
+                    {ref?.price == null ? tr("enter a rate", "isi rate") : `${followWord} · ${formatIDR(ref.price)}`}
                   </button>
                 ) : (
                   <>
                     <div className="w-32"><MoneyInput value={rate ?? 0} onChange={setRate} /></div>
                     {mode !== "labour" && (
-                      <button onClick={() => setRate(null)} title={tr("Follow the catalogue price", "Ikut harga katalog")}
+                      <button onClick={() => setRate(null)} title={followWord}
                         className="rounded p-1 text-slate-400 hover:text-slate-700"><RotateCcw className="h-3.5 w-3.5" /></button>
                     )}
                   </>
@@ -917,16 +1118,296 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
             </div>
             <Button icon={Plus} onClick={add} disabled={busy || !ready}>{tr("Add", "Tambah")}</Button>
           </div>
+          {mode === "rate" && ref && ref.uom !== uom && (
+            <p className="mt-1.5 text-[11px] text-amber-700">
+              {tr(`The rate is per ${ref.uom}; the need is counted in ${uom}. Check they match.`, `Rate-nya per ${ref.uom}; kebutuhannya dihitung dalam ${uom}. Pastikan sama.`)}
+            </p>
+          )}
           {mode === "labour" && (
             <p className="mt-1.5 text-[11px] text-slate-500">
               {tr(
-                "Example: 1.5 days × Rp 150,000 daily wage. The unit is free — day (hari), hour (jam), or per piece-rate unit.",
-                "Contoh: 1,5 hari × Rp 150.000 upah harian. Satuannya bebas — hari, jam, atau per unit borongan.",
+                "Example: 1.5 days × Rp 150,000 daily wage. The unit is free — day (hari), hour (jam), or per piece-rate unit. A labour rate kept on the rate list is under “From the rate list”.",
+                "Contoh: 1,5 hari × Rp 150.000 upah harian. Satuannya bebas — hari, jam, atau per unit borongan. Rate tenaga kerja yang ada di daftar rate ada di “Dari daftar rate”.",
               )}
             </p>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── the AI's proposal, to be checked ────────────────────────────────────── */
+
+interface ReviewRow extends BomSuggestionLine {
+  key: number;
+  include: boolean;
+  added: boolean;
+  error: string | null;
+}
+
+/** What the AI read from the working drawing, as rows the estimator checks
+ *  (D323). Every field is editable; a row is added only when ticked, and only
+ *  through `saveBomComponent`, as the person pressing the button. Rates are
+ *  the list's, never the model's — a material the list does not have cannot be
+ *  added until a rate is chosen or typed into the list. */
+function SuggestionPanel({
+  p, state, busy, run, onRetry, onClose, onAdded,
+}: {
+  p: ProductView;
+  state: SuggestState;
+  busy: boolean;
+  run: <T>(fn: () => Promise<T>) => Promise<T>;
+  onRetry: () => void;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const tr = useTr();
+  const { toast } = useToast();
+  const [rates, reloadRates] = useLoad(() => production.listBomRates(), []);
+  const rateList: BomRateView[] = rates.status === "ready" ? rates.data : [];
+  const onBom = (r: { part: string; rate_code: string | null }) => r.rate_code != null && p.components.some(
+    (c) => c.rate_code === r.rate_code && (c.part ?? "").trim().toLowerCase() === r.part.trim().toLowerCase());
+
+  const [rows, setRows] = useState<ReviewRow[]>(() => state.status === "ready"
+    ? state.data.lines.map((l, i) => ({
+      ...l, key: i, added: false, error: null,
+      include: l.rate_code != null && !onBom(l),
+    }))
+    : []);
+  const [newRateFor, setNewRateFor] = useState<number | null>(null);
+  const patch = (key: number, f: Partial<ReviewRow>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...f } : r)));
+
+  function pickRate(key: number, code: string, list: BomRateView[] = rateList) {
+    const r = list.find((x) => x.code === code);
+    if (!r) { patch(key, { rate_code: null, rate: null, include: false }); return; }
+    patch(key, { rate_code: r.code, rate: r.rate, uom: r.uom, kind: rateLineKind(r.rate_group), include: true });
+  }
+
+  const chosen = rows.filter((r) => r.include && !r.added && r.rate_code && r.qty > 0 && r.part.trim());
+  const total = chosen.reduce((a, r) => a + Math.round(r.qty * (1 + r.waste_percent / 100) * (r.rate ?? 0)), 0);
+
+  async function addChosen() {
+    let ok = 0;
+    const failed: string[] = [];
+    const done = new Set(rows.filter((r) => r.added).map((r) => r.key));
+    await run(async () => {
+      for (const r of chosen) {
+        const res = await production.saveBomComponent({
+          product_code: p.product_code, kind: r.kind, rate_code: r.rate_code, part: r.part.trim(),
+          qty: r.qty, uom: r.uom, waste_percent: r.waste_percent,
+          note: r.working ? `AI: ${r.working}`.slice(0, 200) : "AI",
+        });
+        if (res.error) { failed.push(`${r.part}: ${res.error.message}`); patch(r.key, { error: res.error.message }); }
+        else { ok += 1; done.add(r.key); patch(r.key, { added: true, include: false, error: null }); }
+      }
+    });
+    if (ok > 0) onAdded();
+    /* Every proposed line is on the BOM now: nothing left to check here. */
+    if (done.size === rows.length) onClose();
+    if (failed.length === 0) {
+      toast("success", tr(`${ok} lines added to the draft`, `${ok} baris masuk ke draft`),
+        tr("Check the costs, then release the revision when it is right.", "Periksa biayanya, lalu rilis revisinya kalau sudah benar."));
+    } else {
+      toast("warning", tr(`${ok} added, ${failed.length} not added`, `${ok} masuk, ${failed.length} tidak`), failed.join(" · "));
+    }
+  }
+
+  if (state.status === "loading") {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50/60 px-4 py-3 text-[13px] text-violet-900">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>
+          {tr("The AI is reading the working drawing", "AI sedang membaca gambar kerja")}
+          {state.filename && <span className="text-violet-700"> · {state.filename}</span>}
+          <span className="block text-[11px] text-violet-700">
+            {tr("Usually 10–40 seconds. Nothing is saved until you add the lines.", "Biasanya 10–40 detik. Tidak ada yang tersimpan sampai barisnya ditambahkan.")}
+          </span>
+        </span>
+      </div>
+    );
+  }
+  if (state.status === "failed") {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">{tr("The drawing could not be read", "Gambar tidak bisa dibaca")}</p>
+            <p className="text-[12px]">{state.message}</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={onRetry} disabled={busy}>{tr("Try again", "Coba lagi")}</Button>
+          <button onClick={onClose} aria-label={tr("Close", "Tutup")} className="rounded p-1 text-amber-700 hover:bg-white/60"><X className="h-4 w-4" /></button>
+        </div>
+      </div>
+    );
+  }
+  if (state.status !== "ready") return null;
+  const s = state.data;
+
+  return (
+    <div className="rounded-xl border border-violet-200 bg-white">
+      <div className="flex flex-wrap items-start gap-2 border-b border-violet-100 bg-violet-50/60 px-4 py-2.5">
+        <Sparkles className="mt-0.5 h-4 w-4 text-violet-600" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold text-slate-800">
+            {tr(`AI suggestion — ${s.lines.length} lines`, `Saran AI — ${s.lines.length} baris`)}
+            {s.drawing && <span className="font-normal text-slate-500"> · {s.drawing.filename}</span>}
+          </p>
+          <p className="text-[11px] text-slate-600">
+            {tr(
+              "Check every line: component, material, need and unit. Rates come from the rate list. Nothing is saved until you add the lines.",
+              "Periksa tiap baris: komponen, material, kebutuhan dan satuan. Rate diambil dari daftar rate. Tidak ada yang tersimpan sampai barisnya ditambahkan.",
+            )}
+          </p>
+          {s.source === "sandbox" && (
+            <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+              {tr(
+                "Sandbox: there is no AI model here, so the lines were worked out from the product's size — not read from the drawing. The live app reads the drawing.",
+                "Sandbox: di sini tidak ada model AI, jadi barisnya dihitung dari ukuran produk — bukan dibaca dari gambar. Aplikasi live membaca gambarnya.",
+              )}
+            </p>
+          )}
+        </div>
+        <button onClick={onClose} aria-label={tr("Close", "Tutup")} className="rounded p-1 text-slate-400 hover:bg-white"><X className="h-4 w-4" /></button>
+      </div>
+
+      {(s.summary || s.assumptions.length > 0 || s.unread.length > 0) && (
+        <details className="border-b border-violet-100 px-4 py-2 text-[12px] text-slate-600" open={s.unread.length > 0}>
+          <summary className="cursor-pointer select-none text-[11px] font-medium text-slate-500">
+            {tr("What the AI read and assumed", "Yang dibaca dan diasumsikan AI")}
+            {s.unread.length > 0 && <span className="ml-1 text-amber-700">· {tr(`${s.unread.length} not readable`, `${s.unread.length} tidak terbaca`)}</span>}
+          </summary>
+          {s.summary && <p className="mt-1">{s.summary}</p>}
+          {s.assumptions.length > 0 && (
+            <ul className="mt-1 list-disc pl-4">{s.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul>
+          )}
+          {s.unread.length > 0 && (
+            <ul className="mt-1 list-disc pl-4 text-amber-800">{s.unread.map((a, i) => <li key={i}>{a}</li>)}</ul>
+          )}
+        </details>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[740px] border-collapse text-[12px]">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/70 text-[10px] uppercase tracking-wide text-slate-500">
+              <th className="w-8 px-2 py-2" />
+              <th className="px-2 py-2 text-left">{tr("Component", "Komponen")}</th>
+              <th className="px-2 py-2 text-left">{tr("Material (rate list)", "Material (daftar rate)")}</th>
+              <th className="px-2 py-2 text-right">{tr(`Need per ${p.uom}`, `Kebutuhan per ${p.uom}`)}</th>
+              <th className="px-2 py-2 text-left">{tr("Unit", "Satuan")}</th>
+              <th className="px-2 py-2 text-right">Rate</th>
+              <th className="px-2 py-2 text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const already = onBom(r);
+              const sub = r.rate == null ? null : Math.round(r.qty * (1 + r.waste_percent / 100) * r.rate);
+              return (
+                <tr key={r.key} className={cn("border-b border-slate-100 align-top", r.added && "bg-emerald-50/50 opacity-70", !r.include && !r.added && "text-slate-500")}>
+                  <td className="px-2 py-2 text-center">
+                    {r.added ? <Check className="mx-auto h-4 w-4 text-emerald-600" /> : (
+                      <input type="checkbox" checked={r.include} disabled={!r.rate_code || busy}
+                        aria-label={tr("Add this line", "Tambahkan baris ini")}
+                        onChange={(e) => patch(r.key, { include: e.target.checked })} />
+                    )}
+                  </td>
+                  <td className="px-2 py-2">
+                    <input value={r.part} onChange={(e) => patch(r.key, { part: e.target.value })} disabled={r.added}
+                      aria-label={tr("Component", "Komponen")} className={cn(inputCls, "h-8 min-w-[96px] text-[12px]")} />
+                    {r.kind === "labour" && <Badge tone="violet" className="mt-1">{tr("labour", "tenaga kerja")}</Badge>}
+                  </td>
+                  <td className="px-2 py-2">
+                    <select value={r.rate_code ?? ""} disabled={r.added} onChange={(e) => pickRate(r.key, e.target.value)}
+                      aria-label={tr("Rate", "Rate")}
+                      className={cn(inputCls, "h-8 min-w-[170px] bg-white text-[12px]", !r.rate_code && "border-amber-300 text-amber-800")}>
+                      <option value="">{tr("— not on the rate list —", "— tidak ada di daftar rate —")}</option>
+                      {/* Until the list has loaded, the matched rate still shows by name. */}
+                      {r.rate_code && !rateList.some((x) => x.code === r.rate_code) && (
+                        <option value={r.rate_code}>{r.material}{r.rate != null ? ` · ${formatIDR(r.rate)}/${r.uom}` : ""}</option>
+                      )}
+                      {BOM_RATE_GROUPS.map((g) => {
+                        const inGroup = rateList.filter((x) => x.rate_group === g);
+                        if (inGroup.length === 0) return null;
+                        return (
+                          <optgroup key={g} label={tr(BOM_RATE_GROUP_LABELS[g].en, BOM_RATE_GROUP_LABELS[g].id)}>
+                            {inGroup.map((x) => <option key={x.code} value={x.code}>{x.name} · {formatIDR(x.rate)}/{x.uom}</option>)}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
+                    <span className="mt-0.5 block text-[10px] text-slate-400">
+                      AI: {r.material}{r.working && <> · {r.working}</>}
+                      {r.confidence === "low" && <span className="text-amber-700"> · {tr("low confidence", "kurang yakin")}</span>}
+                    </span>
+                    {r.warnings.map((w, i) => <span key={i} className="block text-[10px] text-amber-700">{w}</span>)}
+                    {already && !r.added && <span className="block text-[10px] text-amber-700">{tr("Already on this BOM for this component.", "Sudah ada di BOM ini untuk komponen ini.")}</span>}
+                    {r.error && <span className="block text-[10px] text-rose-700">{r.error}</span>}
+                    {!r.rate_code && !r.added && newRateFor !== r.key && (
+                      <button onClick={() => setNewRateFor(r.key)} className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:underline">
+                        <Plus className="h-3 w-3" />{tr(`Add “${r.material}” to the rate list`, `Tambahkan “${r.material}” ke daftar rate`)}
+                      </button>
+                    )}
+                    {newRateFor === r.key && (
+                      <div className="mt-1.5 min-w-[520px] rounded-lg border border-brand-200 bg-white px-2.5 py-2">
+                        <RateForm
+                          compact
+                          initial={{ name: r.material, uom: r.uom, rate_group: r.kind === "labour" ? "labour" : "kayu" }}
+                          onCancel={() => setNewRateFor(null)}
+                          onSaved={(saved) => {
+                            setNewRateFor(null); reloadRates();
+                            pickRate(r.key, saved.code, [...rateList, saved]);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-2 py-2">
+                    <div className="flex justify-end">
+                      <NumberInput size="sm" value={r.qty} min={0} max={99_999} step={0.001} disabled={r.added}
+                        onChange={(v) => patch(r.key, { qty: v })} className="!w-24" />
+                    </div>
+                    <label className="mt-1 flex items-center justify-end gap-1 text-[10px] text-slate-400">
+                      {tr("waste", "susut")}
+                      <NumberInput size="sm" value={r.waste_percent} min={0} max={90} step={1} disabled={r.added}
+                        onChange={(v) => patch(r.key, { waste_percent: v })} className="!w-14" />%
+                    </label>
+                  </td>
+                  <td className="px-2 py-2">
+                    <input value={r.uom} onChange={(e) => patch(r.key, { uom: e.target.value })} disabled={r.added} list="bom-uoms"
+                      aria-label={tr("Unit", "Satuan")}
+                      className="h-8 w-16 rounded-lg border border-slate-200 px-1.5 text-[12px] focus:border-brand-400 focus:outline-none" />
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                    {r.rate == null ? <span className="text-amber-700">—</span> : formatIDR(r.rate)}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums text-slate-800">
+                    {sub == null ? "—" : formatIDR(sub)}
+                  </td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">
+                {tr("The AI proposed no lines. Add the components yourself.", "AI tidak mengusulkan baris apa pun. Tambahkan komponennya sendiri.")}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-violet-100 px-4 py-2.5">
+        <span className="text-[12px] text-slate-600">
+          {tr(`${chosen.length} lines ticked`, `${chosen.length} baris dipilih`)}
+          {chosen.length > 0 && <> · <strong className="tabular-nums text-slate-800">{formatIDR(total)}</strong></>}
+        </span>
+        <Button size="sm" variant="ghost" onClick={onRetry} disabled={busy}>{tr("Read again", "Baca ulang")}</Button>
+        <Button size="sm" icon={Plus} className="ml-auto" onClick={addChosen} disabled={busy || chosen.length === 0}>
+          {tr(`Add ${chosen.length} lines to the draft`, `Tambahkan ${chosen.length} baris ke draft`)}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1069,7 +1550,13 @@ function CostSummary({ p, mayEdit, busy, run, settle }: PartProps) {
 
 /* ── a new product ───────────────────────────────────────────────────────── */
 
-function NewProduct({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+function NewProduct({
+  onClose, onChanged, onCreated,
+}: {
+  onClose: () => void;
+  onChanged: () => void;
+  onCreated?: (productCode: string, opts: { autoSuggest: boolean }) => void;
+}) {
   const tr = useTr();
   const { toast } = useToast();
   const [code, setCode] = useState("");
@@ -1077,19 +1564,46 @@ function NewProduct({ onClose, onChanged }: { onClose: () => void; onChanged: ()
   const [category, setCategory] = useState("");
   const [uom, setUom] = useState("unit");
   const [dims, setDims] = useState({ l: 0, w: 0, h: 0 });
+  const [drawing, setDrawing] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
+  /* Saved, then straight to its BOM (D323): with a working drawing the AI is
+     already reading it by the time the drawer opens. The drawing is filed
+     after the product exists, because it is filed **against** the product. */
   async function create() {
     setBusy(true);
     const res = await production.saveProduct({
       product_code: code, name, category, uom,
       length_mm: dims.l || null, width_mm: dims.w || null, height_mm: dims.h || null,
     });
+    if (res.error) {
+      setBusy(false);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message);
+      return;
+    }
+    const saved = res.data.product_code;
+    let filed = false;
+    if (drawing) {
+      const up = await documents.upload({ file: drawing, kind: "Gambar Kerja", entity: "product" });
+      const att = up.error ? up : await production.attachProductDrawing({
+        product_code: saved, attachment_id: up.data.id, kind: "Gambar Kerja",
+      });
+      if (att.error) {
+        toast("warning", tr("Product created — the drawing was not filed", "Produk dibuat — gambarnya tidak tersimpan"),
+          `${att.error.message} ${tr("Upload it again from the BOM.", "Unggah lagi dari BOM.")}`);
+      } else {
+        filed = true;
+      }
+    }
     setBusy(false);
-    if (res.error) { toast(res.error.status === 403 ? "critical" : "warning", tr("Not saved", "Tidak tersimpan"), res.error.message); return; }
-    toast("success", tr("Product created", "Produk dibuat"), `${res.data.product_code} · ${res.data.name}`);
+    if (!drawing || filed) {
+      toast("success", tr("Product created", "Produk dibuat"),
+        filed ? tr(`${saved} · the AI is reading the working drawing`, `${saved} · AI sedang membaca gambar kerja`) : `${saved} · ${res.data.name}`);
+    }
     onChanged();
-    onClose();
+    if (onCreated) onCreated(saved, { autoSuggest: filed });
+    else onClose();
   }
 
   return (
@@ -1137,9 +1651,33 @@ function NewProduct({ onClose, onChanged }: { onClose: () => void; onChanged: ()
             </div>
           </div>
         </div>
-        <p className="text-[11px] text-slate-500">
-          {tr("The working drawing and components are added after the product is saved.", "Gambar kerja dan komponennya ditambahkan setelah produk tersimpan.")}
-        </p>
+        <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5">
+          <span className="block text-xs text-slate-500">{tr("Working drawing (optional)", "Gambar kerja (opsional)")}</span>
+          <input
+            ref={fileRef} type="file" className="hidden" accept="image/*,application/pdf"
+            onChange={(e) => { setDrawing(e.target.files?.[0] ?? null); e.target.value = ""; }}
+          />
+          <div className="mt-1 flex items-center gap-2">
+            <Button size="sm" variant="outline" icon={Paperclip} onClick={() => fileRef.current?.click()} disabled={busy}>
+              {drawing ? tr("Change", "Ganti") : tr("Choose file", "Pilih berkas")}
+            </Button>
+            <span className="min-w-0 flex-1 truncate text-[12px] text-slate-600">
+              {drawing?.name ?? tr("Photo or PDF", "Foto atau PDF")}
+            </span>
+            {drawing && (
+              <button onClick={() => setDrawing(null)} aria-label={tr("Remove", "Hapus")} className="rounded p-1 text-slate-400 hover:bg-slate-100">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-slate-500">
+            <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-violet-500" />
+            {tr(
+              "After saving, the BOM opens. With a working drawing, the AI reads it and proposes the components with rates from the rate list — you check, change or add before anything is saved.",
+              "Setelah disimpan, BOM-nya terbuka. Dengan gambar kerja, AI membacanya dan mengusulkan komponen dengan rate dari daftar rate — Anda periksa, ubah atau tambah sebelum ada yang tersimpan.",
+            )}
+          </p>
+        </div>
       </div>
     </Drawer>
   );
