@@ -6,6 +6,7 @@ import { Banknote, Upload, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
 import { MoneyInput } from "@/components/ui/money-input";
 import { formatIDR } from "@/lib/format";
+import { useTr } from "@/lib/i18n";
 import { accounting, documents } from "@/demo/api";
 import type { PrLineView } from "@/services/procurement/contracts";
 import {
@@ -34,6 +35,7 @@ export function PayFromLine({
   proof: { id: string; filename: string } | null;
   onPosted: () => void;
 }) {
+  const tr = useTr();
   const { can, hasAuthority } = useSession();
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<AccountBalance[]>([]);
@@ -69,14 +71,14 @@ export function PayFromLine({
     if (!proof && !file) {
       /* No document, no ledger row (D85). The panel says so before the service
          has to refuse it. */
-      toast("warning", "Proof first", "A payment is recorded with its proof — the transfer receipt or the nota.");
+      toast("warning", tr("Proof first", "Bukti dulu"), tr("A payment is recorded with its proof — the transfer receipt or the nota.", "Pembayaran dicatat bersama buktinya — bukti transfer atau nota."));
       return;
     }
     setPosting(true);
     let attachmentId = proof?.id;
     if (!attachmentId && file) {
       const up = await documents.upload({ file, kind: "Payment Proof" });
-      if (up.error) { setPosting(false); toast("critical", "Upload failed", up.error.message); return; }
+      if (up.error) { setPosting(false); toast("critical", tr("Upload failed", "Unggah gagal"), up.error.message); return; }
       attachmentId = up.data.id;
       await documents.link({
         attachment_id: up.data.id, entity: "pr_line",
@@ -89,10 +91,10 @@ export function PayFromLine({
     });
     setPosting(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "warning" : "critical", "Not posted", res.error.message);
+      toast(res.error.status === 409 ? "warning" : "critical", tr("Not posted", "Tidak dicatat"), res.error.message);
       return;
     }
-    toast("success", `Posted as ${res.data.trx_no}`, `${formatIDR(amount)} · ${line.line_no_full}`);
+    toast("success", tr(`Posted as ${res.data.trx_no}`, `Dicatat sebagai ${res.data.trx_no}`), `${formatIDR(amount)} · ${line.line_no_full}`);
     setFile(null);
     onPosted();
   }
@@ -100,18 +102,23 @@ export function PayFromLine({
   return (
     <section className="rounded-xl border border-brand-200 bg-brand-50/50 px-4 py-3.5">
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-800">
-        <Banknote className="h-3.5 w-3.5" /> Record the payment
+        <Banknote className="h-3.5 w-3.5" /> {tr("Record the payment", "Catat pembayaran")}
       </p>
       <p className="mt-1.5 text-[12px] text-brand-900">
-        Posting from here writes the ledger row, allocates it to this line and
-        files the document against both — the ledger entry carries{" "}
-        <span className="font-mono">{line.line_no_full}</span>, so the payment
-        and the request can never drift apart.
+        {tr(
+          "Posting from here writes the ledger row, allocates it to this line and files the document against both — the ledger entry carries",
+          "Mencatat dari sini menulis baris buku besar, mengalokasikannya ke baris ini, dan mengarsipkan dokumen ke keduanya — entri buku besar membawa",
+        )}{" "}
+        <span className="font-mono">{line.line_no_full}</span>
+        {tr(
+          ", so the payment and the request can never drift apart.",
+          ", sehingga pembayaran dan permintaan tidak pernah bisa berselisih.",
+        )}
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor="pay-date" className="block text-xs text-slate-500">Date paid</label>
+          <label htmlFor="pay-date" className="block text-xs text-slate-500">{tr("Date paid", "Tanggal bayar")}</label>
           <input
             id="pay-date" type="date" value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -119,11 +126,11 @@ export function PayFromLine({
           />
         </div>
         <div>
-          <label htmlFor="pay-amount" className="block text-xs text-slate-500">Amount paid</label>
+          <label htmlFor="pay-amount" className="block text-xs text-slate-500">{tr("Amount paid", "Jumlah dibayar")}</label>
           <MoneyInput id="pay-amount" value={amount} onChange={setAmount} className="mt-1" />
         </div>
         <div>
-          <label htmlFor="pay-account" className="block text-xs text-slate-500">Paid from</label>
+          <label htmlFor="pay-account" className="block text-xs text-slate-500">{tr("Paid from", "Dibayar dari")}</label>
           <select
             id="pay-account" value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -135,7 +142,7 @@ export function PayFromLine({
           </select>
         </div>
         <div>
-          <label htmlFor="pay-type" className="block text-xs text-slate-500">Ledger type</label>
+          <label htmlFor="pay-type" className="block text-xs text-slate-500">{tr("Ledger type", "Jenis buku besar")}</label>
           <select
             id="pay-type" value={type}
             onChange={(e) => setType(e.target.value as TransactionTypeCode)}
@@ -148,9 +155,10 @@ export function PayFromLine({
 
       {amount !== line.coverage.remaining && line.coverage.remaining > 0 && (
         <p className="mt-2 text-[12px] text-amber-800">
-          {formatIDR(line.coverage.remaining)} is what is still approved and
-          unpaid. Posting {formatIDR(amount)} leaves a difference somebody will
-          have to explain — which is fine, as long as it is on purpose.
+          {tr(
+            `${formatIDR(line.coverage.remaining)} is what is still approved and unpaid. Posting ${formatIDR(amount)} leaves a difference somebody will have to explain — which is fine, as long as it is on purpose.`,
+            `${formatIDR(line.coverage.remaining)} adalah yang masih disetujui dan belum dibayar. Mencatat ${formatIDR(amount)} menyisakan selisih yang harus dijelaskan seseorang — tidak masalah, asalkan disengaja.`,
+          )}
         </p>
       )}
 
@@ -158,7 +166,7 @@ export function PayFromLine({
         <p className="mt-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-white px-3 py-2 text-[13px] text-slate-700">
           <Link2 className="h-4 w-4 shrink-0 text-brand-600" />
           <span className="min-w-0 flex-1 truncate">{proof.filename}</span>
-          <span className="text-[11px] text-slate-400">will be filed on the ledger row too</span>
+          <span className="text-[11px] text-slate-400">{tr("will be filed on the ledger row too", "juga akan diarsipkan di baris buku besar")}</span>
         </p>
       ) : (
         <>
@@ -170,15 +178,17 @@ export function PayFromLine({
             variant="outline" size="sm" icon={Upload} className="mt-3"
             onClick={() => fileRef.current?.click()}
           >
-            {file ? file.name : "Attach the payment proof"}
+            {file ? file.name : tr("Attach the payment proof", "Lampirkan bukti pembayaran")}
           </Button>
         </>
       )}
 
       {!proof && !file && (
         <p className="mt-2 text-[11px] text-amber-700">
-          Attach the payment proof first — a ledger row without a document is a
-          number somebody typed.
+          {tr(
+            "Attach the payment proof first — a ledger row without a document is a number somebody typed.",
+            "Lampirkan bukti pembayaran dulu — baris buku besar tanpa dokumen hanyalah angka yang diketik seseorang.",
+          )}
         </p>
       )}
 
@@ -187,7 +197,7 @@ export function PayFromLine({
         onClick={post}
         disabled={posting || !accountId || amount <= 0 || (!proof && !file)}
       >
-        {posting ? "Posting…" : `Post ${formatIDR(amount)} to the ledger`}
+        {posting ? tr("Posting…", "Mencatat…") : tr(`Post ${formatIDR(amount)} to the ledger`, `Catat ${formatIDR(amount)} ke buku besar`)}
       </Button>
     </section>
   );

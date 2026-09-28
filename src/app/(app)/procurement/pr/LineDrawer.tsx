@@ -11,10 +11,11 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { NumberInput } from "@/components/ui/number-input";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 import { procurement, documents } from "@/demo/api";
 import {
   MEETING_STATE_LABEL, PR_CATEGORIES,
-  type PrLineView, type UomCode, type PrCategory,
+  type PrLineView, type UomCode, type PrCategory, type MeetingState,
 } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
@@ -23,6 +24,14 @@ import { VariancePanel } from "./VariancePanel";
 import { DecisionPanel } from "./DecisionPanel";
 import { PayFromLine } from "./PayFromLine";
 import { UomOptions } from "@/components/ui/uom-options";
+
+/* Indonesian side of MEETING_STATE_LABEL (the English lives in contracts). */
+export const MEETING_STATE_LABEL_ID: Record<MeetingState, string> = {
+  settled: "Disetujui dan dibayar",
+  approved_unpaid: "Disetujui, belum dibayar",
+  paid_unapproved: "Dibayar, belum disetujui",
+  neither: "Menunggu persetujuan",
+};
 
 /** One item, everything about it.
  *
@@ -42,6 +51,7 @@ export function LineDrawer({
    *  of the same submission without a second lookup. */
   others?: PrLineView[];
 }) {
+  const tr = useTr();
   const { can } = useSession();
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -88,8 +98,8 @@ export function LineDrawer({
       item_total: draft.item_total ?? 0,
     });
     setSaving(false);
-    if (res.error) { toast(res.error.status === 409 ? "warning" : "critical", "Not saved", res.error.message); return; }
-    toast("success", "Line updated", line!.line_no_full);
+    if (res.error) { toast(res.error.status === 409 ? "warning" : "critical", tr("Not saved", "Tidak disimpan"), res.error.message); return; }
+    toast("success", tr("Line updated", "Baris diperbarui"), line!.line_no_full);
     setEditing(false);
     onChanged(res.data);
   }
@@ -121,18 +131,18 @@ export function LineDrawer({
         mayEdit ? (
           editing ? (
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setEditing(false)} disabled={saving}>Cancel</Button>
-              <Button size="sm" icon={Save} onClick={save} disabled={saving}>{saving ? "Saving…" : "Save line"}</Button>
+              <Button variant="outline" size="sm" onClick={() => setEditing(false)} disabled={saving}>{tr("Cancel", "Batal")}</Button>
+              <Button size="sm" icon={Save} onClick={save} disabled={saving}>{saving ? tr("Saving…", "Menyimpan…") : tr("Save line", "Simpan baris")}</Button>
             </div>
           ) : (
             <div className="flex flex-wrap justify-end gap-2">
               {!line.removed_at && (
                 <Button variant="ghost" size="sm" icon={Trash2} onClick={() => onRemove(line)}>
-                  No longer needed
+                  {tr("No longer needed", "Tidak diperlukan lagi")}
                 </Button>
               )}
               {editable && (
-                <Button variant="outline" size="sm" icon={Pencil} onClick={startEdit}>Edit item</Button>
+                <Button variant="outline" size="sm" icon={Pencil} onClick={startEdit}>{tr("Edit item", "Ubah barang")}</Button>
               )}
             </div>
           )
@@ -147,19 +157,19 @@ export function LineDrawer({
               : line.meeting_state === "paid_unapproved" ? "red"
                 : line.meeting_state === "approved_unpaid" ? "brand" : "amber"
           }>
-            {MEETING_STATE_LABEL[line.meeting_state]}
+            {tr(MEETING_STATE_LABEL[line.meeting_state], MEETING_STATE_LABEL_ID[line.meeting_state])}
           </Badge>
-          {line.has_payment_proof && <Badge tone="violet">payment proof on file</Badge>}
+          {line.has_payment_proof && <Badge tone="violet">{tr("payment proof on file", "bukti bayar sudah ada")}</Badge>}
           {/* A line can be COMPLETED and still owe an answer. Without this the
               header would read "Approved and paid" over a Rp 225.000 overpayment. */}
           {line.variance.material && !line.variance.explanation && (
-            <Badge tone="red">difference not explained</Badge>
+            <Badge tone="red">{tr("difference not explained", "selisih belum dijelaskan")}</Badge>
           )}
           {/* Which job on the floor this was bought for. It is what lets the
               purchase be counted against that job's BOM projection (D152). */}
           {line.source_wo_no && (
             <Link href="/produksi/jadwal">
-              <Badge tone="slate">untuk {line.source_wo_no}</Badge>
+              <Badge tone="slate">{tr("for", "untuk")} {line.source_wo_no}</Badge>
             </Link>
           )}
         </div>
@@ -167,21 +177,21 @@ export function LineDrawer({
         {editing ? (
           <div className="space-y-3">
             <div>
-              <label htmlFor="ed-desc" className="block text-xs text-slate-500">Item</label>
+              <label htmlFor="ed-desc" className="block text-xs text-slate-500">{tr("Item", "Barang")}</label>
               <input id="ed-desc" value={draft.description ?? ""}
                      onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none" />
             </div>
             <div>
-              <label htmlFor="ed-purpose" className="block text-xs text-slate-500">What is it for</label>
+              <label htmlFor="ed-purpose" className="block text-xs text-slate-500">{tr("What is it for", "Untuk apa")}</label>
               <input id="ed-purpose" value={(draft.purpose ?? "") as string}
                      onChange={(e) => setDraft({ ...draft, purpose: e.target.value })}
-                     placeholder="e.g. Table tops, VILLA SEMINYAK"
+                     placeholder={tr("e.g. Table tops, VILLA SEMINYAK", "mis. Daun meja, VILLA SEMINYAK")}
                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none" />
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
-                <label htmlFor="ed-qty" className="block text-xs text-slate-500">Qty</label>
+                <label htmlFor="ed-qty" className="block text-xs text-slate-500">{tr("Qty", "Jml")}</label>
                 <NumberInput
                   id="ed-qty"
                   value={draft.qty ?? 0}
@@ -193,7 +203,7 @@ export function LineDrawer({
                 />
               </div>
               <div>
-                <label htmlFor="ed-uom" className="block text-xs text-slate-500">Unit</label>
+                <label htmlFor="ed-uom" className="block text-xs text-slate-500">{tr("Unit", "Satuan")}</label>
                 <select id="ed-uom" value={draft.uom ?? "pcs"}
                         onChange={(e) => setDraft({ ...draft, uom: e.target.value as UomCode })}
                         className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
@@ -201,7 +211,7 @@ export function LineDrawer({
                 </select>
               </div>
               <div className="col-span-2">
-                <label htmlFor="ed-price" className="block text-xs text-slate-500">Unit price</label>
+                <label htmlFor="ed-price" className="block text-xs text-slate-500">{tr("Unit price", "Harga satuan")}</label>
                 <MoneyInput
                   id="ed-price"
                   value={draft.unit_price ?? 0}
@@ -216,7 +226,7 @@ export function LineDrawer({
               </div>
               <div className="col-span-2 sm:col-span-4">
                 <label htmlFor="ed-total" className="block text-xs text-slate-500">
-                  Amount <span className="text-slate-400">— editable on its own, for a line with no quantity</span>
+                  {tr("Amount", "Jumlah")} <span className="text-slate-400">{tr("— editable on its own, for a line with no quantity", "— bisa diubah sendiri, untuk baris tanpa kuantitas")}</span>
                 </label>
                 <MoneyInput
                   id="ed-total"
@@ -231,14 +241,17 @@ export function LineDrawer({
                   && Math.round(draft.qty * draft.unit_price) !== draft.item_total && (
                   <p className="mt-1 text-[11px] text-amber-700">
                     {formatNumber(draft.qty)} × {formatIDR(draft.unit_price)} ={" "}
-                    {formatIDR(Math.round(draft.qty * draft.unit_price))} — the amount above
-                    is different, and it is the one that will be used.
+                    {formatIDR(Math.round(draft.qty * draft.unit_price))}{" "}
+                    {tr(
+                      "— the amount above is different, and it is the one that will be used.",
+                      "— jumlah di atas berbeda, dan jumlah itulah yang akan dipakai.",
+                    )}
                   </p>
                 )}
               </div>
             </div>
             <div>
-              <label htmlFor="ed-cat" className="block text-xs text-slate-500">Category</label>
+              <label htmlFor="ed-cat" className="block text-xs text-slate-500">{tr("Category", "Kategori")}</label>
               <select id="ed-cat" value={draft.category ?? "OTHER"}
                       onChange={(e) => setDraft({ ...draft, category: e.target.value as PrCategory })}
                       className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none">
@@ -254,21 +267,23 @@ export function LineDrawer({
               </div>
             ) : (
               <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-[13px] text-slate-500">
-                No note on what this is for. Approving a price without knowing the job
-                is guesswork.
+                {tr(
+                  "No note on what this is for. Approving a price without knowing the job is guesswork.",
+                  "Tidak ada catatan untuk apa barang ini. Menyetujui harga tanpa tahu pekerjaannya sama dengan menebak.",
+                )}
               </p>
             )}
 
             <dl className="space-y-2.5">
               {([
-                ["Quantity", line.qty != null ? `${formatNumber(line.qty)} ${line.uom ?? ""}` : "—"],
-                ["Unit price", line.unit_price != null ? formatIDR(line.unit_price) : "—"],
-                ["Requested", formatIDR(line.item_total)],
-                ["Approved", line.approval?.approved ? formatIDR(line.approval.approved_amount ?? line.item_total) : "not yet"],
-                ["Vendor", line.vendor_name ?? "not decided"],
-                ["Category", line.category ?? "—"],
-                ["Needed by", line.need_by ?? "—"],
-                ["From", `${line.doc_no}${line.submitted_at ? ` · ${line.submitted_at.slice(0, 10)}` : ""}`],
+                [tr("Quantity", "Kuantitas"), line.qty != null ? `${formatNumber(line.qty)} ${line.uom ?? ""}` : "—"],
+                [tr("Unit price", "Harga satuan"), line.unit_price != null ? formatIDR(line.unit_price) : "—"],
+                [tr("Requested", "Diminta"), formatIDR(line.item_total)],
+                [tr("Approved", "Disetujui"), line.approval?.approved ? formatIDR(line.approval.approved_amount ?? line.item_total) : tr("not yet", "belum")],
+                ["Vendor", line.vendor_name ?? tr("not decided", "belum ditentukan")],
+                [tr("Category", "Kategori"), line.category ?? "—"],
+                [tr("Needed by", "Dibutuhkan tanggal"), line.need_by ?? "—"],
+                [tr("From", "Dari"), `${line.doc_no}${line.submitted_at ? ` · ${line.submitted_at.slice(0, 10)}` : ""}`],
               ] as [string, string][]).map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-slate-100 pb-2">
                   <dt className="text-slate-500">{k}</dt>
@@ -283,12 +298,12 @@ export function LineDrawer({
               <div>
                 <Progress value={pct} tone={cov.settled ? "green" : "amber"} />
                 <p className="mt-1 text-[11px] text-slate-500">
-                  {formatIDR(cov.covered)} of {formatIDR(cov.approved)} covered
+                  {tr(`${formatIDR(cov.covered)} of ${formatIDR(cov.approved)} covered`, `${formatIDR(cov.covered)} dari ${formatIDR(cov.approved)} tertutup`)}
                   {/* Owed and short are not the same thing: once somebody has
                       explained the gap, the rest was never spent. */}
                   {cov.remaining > 0 && (cov.settled
-                    ? ` · closed ${formatIDR(cov.remaining)} short`
-                    : ` · ${formatIDR(cov.remaining)} still owed`)}
+                    ? tr(` · closed ${formatIDR(cov.remaining)} short`, ` · ditutup kurang ${formatIDR(cov.remaining)}`)
+                    : tr(` · ${formatIDR(cov.remaining)} still owed`, ` · ${formatIDR(cov.remaining)} masih terutang`))}
                 </p>
               </div>
             )}
@@ -297,9 +312,12 @@ export function LineDrawer({
 
             {line.trx_nos.length > 0 && (
               <p className="text-[12px] text-slate-500">
-                Paid by{" "}
+                {tr("Paid by", "Dibayar oleh")}{" "}
                 <span className="font-mono text-slate-600">{line.trx_nos.join(", ")}</span>
-                {" "}— the same money, read from the ledger rather than repeated here.
+                {" "}{tr(
+                  "— the same money, read from the ledger rather than repeated here.",
+                  "— uang yang sama, dibaca dari buku besar, bukan diulang di sini.",
+                )}
               </p>
             )}
 
@@ -335,7 +353,10 @@ export function LineDrawer({
                   .slice(-1)[0];
                 if (latest) setProof({ id: latest.id, filename: latest.filename });
               }}
-              note="Attached here, to this item — the system already knows which line, which vendor and which amount, so it only asks what kind of document this is."
+              note={tr(
+                "Attached here, to this item — the system already knows which line, which vendor and which amount, so it only asks what kind of document this is.",
+                "Dilampirkan di sini, ke barang ini — sistem sudah tahu baris, vendor, dan jumlahnya, jadi hanya menanyakan jenis dokumennya.",
+              )}
             />
 
           </>

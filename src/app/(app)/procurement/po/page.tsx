@@ -7,6 +7,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { useTr } from "@/lib/i18n";
 import { procurement } from "@/demo/api";
 import type { PoView } from "@/demo/api/procurement";
 import { useSession } from "@/store/session";
@@ -24,6 +25,7 @@ import { NewPo } from "../tracker/NewPo";
  *  badges, never a single percentage.
  */
 export default function PoPage() {
+  const tr = useTr();
   const { can } = useSession();
   const [rows, reload] = useLoad(() => procurement.listPo(), []);
   const [creating, setCreating] = useState(false);
@@ -32,7 +34,7 @@ export default function PoPage() {
   const columns: Column<PoView>[] = [
     {
       key: "po",
-      header: "Order",
+      header: tr("Order", "Order"),
       className: "whitespace-normal",
       render: (p) => (
         <div className="max-w-[260px]">
@@ -52,20 +54,20 @@ export default function PoPage() {
           </Badge>
           {p.status === "DRAFT" && (
             <p className="mt-0.5 text-[11px] text-slate-500">
-              {p.approved_at ? "confirmed — ready to send"
-                : p.approval_asked_at ? "waiting on leadership"
-                  : "not asked yet"}
+              {p.approved_at ? tr("confirmed — ready to send", "dikonfirmasi — siap dikirim")
+                : p.approval_asked_at ? tr("waiting on leadership", "menunggu pimpinan")
+                  : tr("not asked yet", "belum ditanyakan")}
             </p>
           )}
           {p.days_late != null && (
-            <p className="mt-0.5 text-[11px] text-rose-700">{p.days_late} day(s) late</p>
+            <p className="mt-0.5 text-[11px] text-rose-700">{tr(`${p.days_late} day(s) late`, `terlambat ${p.days_late} hari`)}</p>
           )}
         </div>
       ),
     },
     {
       key: "contract",
-      header: "Contract",
+      header: tr("Contract", "Kontrak"),
       align: "right",
       render: (p) => (
         <span className="whitespace-nowrap tabular-nums text-slate-800">
@@ -75,29 +77,31 @@ export default function PoPage() {
     },
     {
       key: "money",
-      header: "Money",
+      header: tr("Money", "Uang"),
       render: (p) => (
         <Badge tone={p.status_view.payment_state === "SETTLED" ? "green"
           : p.status_view.payment_state === "PARTIAL" ? "amber" : "slate"}>
-          {p.status_view.payment_state === "SETTLED" ? "paid"
-            : p.status_view.payment_state === "PARTIAL" ? `${formatIDR(p.status_view.paid_to_date)} paid` : "nothing paid"}
+          {p.status_view.payment_state === "SETTLED" ? tr("paid", "lunas")
+            : p.status_view.payment_state === "PARTIAL"
+              ? tr(`${formatIDR(p.status_view.paid_to_date)} paid`, `${formatIDR(p.status_view.paid_to_date)} dibayar`)
+              : tr("nothing paid", "belum dibayar")}
         </Badge>
       ),
     },
     {
       key: "goods",
-      header: "Goods",
+      header: tr("Goods", "Barang"),
       render: (p) => (
         <Badge tone={p.status_view.delivery_state === "COMPLETE" ? "green"
           : p.status_view.delivery_state === "PARTIAL" ? "amber" : "slate"}>
-          {p.status_view.delivery_state === "COMPLETE" ? "all arrived"
-            : p.status_view.delivery_state === "PARTIAL" ? "part arrived" : "nothing arrived"}
+          {p.status_view.delivery_state === "COMPLETE" ? tr("all arrived", "semua tiba")
+            : p.status_view.delivery_state === "PARTIAL" ? tr("part arrived", "sebagian tiba") : tr("nothing arrived", "belum ada yang tiba")}
         </Badge>
       ),
     },
     {
       key: "exposure",
-      header: "Exposure",
+      header: tr("Exposure", "Eksposur"),
       align: "right",
       /* Paid minus received. Positive is money out ahead of goods — our risk;
          negative is goods here we have not paid for — theirs. One number that
@@ -107,10 +111,10 @@ export default function PoPage() {
         return (
           <div className="whitespace-nowrap text-right">
             <span className={cn("tabular-nums font-medium", e > 0 ? "text-amber-700" : e < 0 ? "text-slate-700" : "text-slate-400")}>
-              {e === 0 ? "level" : formatIDR(Math.abs(e))}
+              {e === 0 ? tr("level", "seimbang") : formatIDR(Math.abs(e))}
             </span>
             {e !== 0 && (
-              <p className="text-[11px] text-slate-500">{e > 0 ? "paid ahead" : "delivered ahead"}</p>
+              <p className="text-[11px] text-slate-500">{e > 0 ? tr("paid ahead", "dibayar lebih dulu") : tr("delivered ahead", "dikirim lebih dulu")}</p>
             )}
           </div>
         );
@@ -121,10 +125,13 @@ export default function PoPage() {
   return (
     <div>
       <PageHeader
-        breadcrumb="Procurement"
-        title="Purchase orders"
-        description="What we agreed with each supplier, what has arrived against it, and what has been paid. Money and goods are read separately, never merged."
-        actions={mayCreate ? <Button icon={Plus} onClick={() => setCreating(true)}>Add new PO</Button> : undefined}
+        breadcrumb={tr("Procurement", "Pengadaan")}
+        title={tr("Purchase orders", "Purchase order")}
+        description={tr(
+          "What we agreed with each supplier, what has arrived against it, and what has been paid. Money and goods are read separately, never merged.",
+          "Apa yang kita sepakati dengan tiap pemasok, apa yang sudah tiba, dan apa yang sudah dibayar. Uang dan barang dibaca terpisah, tidak pernah digabung.",
+        )}
+        actions={mayCreate ? <Button icon={Plus} onClick={() => setCreating(true)}>{tr("Add new PO", "Tambah PO baru")}</Button> : undefined}
       />
 
       <Loaded state={rows} onRetry={reload}>
@@ -141,36 +148,49 @@ export default function PoPage() {
                    nobody reads it as an obligation. */
                 <Card className="mb-4">
                   <CardHeader
-                    title={`${drafts.length} draft — not sent, so nothing is owed`}
-                    subtitle="Issue it and the deposit becomes payable and it starts counting against what we owe suppliers."
+                    title={tr(`${drafts.length} draft — not sent, so nothing is owed`, `${drafts.length} draf — belum dikirim, jadi belum ada utang`)}
+                    subtitle={tr(
+                      "Issue it and the deposit becomes payable and it starts counting against what we owe suppliers.",
+                      "Terbitkan, maka uang muka menjadi wajib dibayar dan mulai dihitung dalam utang kita ke pemasok.",
+                    )}
                     icon={Send}
                   />
                   <DataTable
                     dense columns={columns} rows={drafts} rowKey={(p) => p.po_no}
-                    onRowClick={open} empty="No drafts."
+                    onRowClick={open} empty={tr("No drafts.", "Tidak ada draf.")}
                   />
                 </Card>
               )}
 
               <Card className="mb-4">
                 <CardHeader
-                  title={`${live.length} order(s) open`}
-                  subtitle="Issued and not closed. Open one to see its terms, its deliveries and what may be paid next."
+                  title={tr(`${live.length} order(s) open`, `${live.length} order terbuka`)}
+                  subtitle={tr(
+                    "Issued and not closed. Open one to see its terms, its deliveries and what may be paid next.",
+                    "Sudah terbit dan belum ditutup. Buka salah satu untuk melihat syarat, pengiriman, dan apa yang boleh dibayar berikutnya.",
+                  )}
                   icon={FileText}
                   action={<SourceBadge state={rows} />}
                 />
                 <DataTable
                   dense columns={columns} rows={live} rowKey={(p) => p.po_no}
-                  onRowClick={open} empty="No orders are open."
+                  onRowClick={open} empty={tr("No orders are open.", "Tidak ada order yang terbuka.")}
                 />
               </Card>
 
               {done.length > 0 && (
                 <Card>
-                  <CardHeader title={`${done.length} finished`} subtitle="Closed or cancelled — kept, because last month's questions arrive next month." icon={FileText} />
+                  <CardHeader
+                    title={tr(`${done.length} finished`, `${done.length} selesai`)}
+                    subtitle={tr(
+                      "Closed or cancelled — kept, because last month's questions arrive next month.",
+                      "Ditutup atau dibatalkan — tetap disimpan, karena pertanyaan bulan lalu datang bulan depan.",
+                    )}
+                    icon={FileText}
+                  />
                   <DataTable
                     dense columns={columns} rows={done} rowKey={(p) => p.po_no}
-                    onRowClick={open} empty="Nothing finished yet."
+                    onRowClick={open} empty={tr("Nothing finished yet.", "Belum ada yang selesai.")}
                   />
                 </Card>
               )}

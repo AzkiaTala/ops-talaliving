@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/primitives";
 import { procurement } from "@/demo/api";
 import { useToast } from "@/store/toast";
+import { useTr } from "@/lib/i18n";
 
 /** Declaring an order finished.
  *
@@ -24,6 +25,7 @@ export function ClosePo({
   onClose: () => void;
   onClosed: () => void;
 }) {
+  const tr = useTr();
   const { toast } = useToast();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,10 +36,14 @@ export function ClosePo({
     const res = await procurement.closePo({ po_no: poNo, settle_reason: reason.trim() || null });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 409 ? "critical" : "warning", "Not closed", res.error.message);
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not closed", "Tidak ditutup"), res.error.message);
       return;
     }
-    toast("success", `${poNo} closed`, clean ? "Everything matched." : "Closed early, with the reason on the record.");
+    toast(
+      "success",
+      tr(`${poNo} closed`, `${poNo} ditutup`),
+      clean ? tr("Everything matched.", "Semuanya cocok.") : tr("Closed early, with the reason on the record.", "Ditutup lebih awal, dengan alasan tercatat."),
+    );
     onClosed();
   }
 
@@ -45,43 +51,50 @@ export function ClosePo({
     <Modal
       open
       onClose={onClose}
-      title={`Close ${poNo}`}
+      title={tr(`Close ${poNo}`, `Tutup ${poNo}`)}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
           <Button icon={Lock} onClick={close} disabled={busy || (!clean && !reason.trim())}>
-            {busy ? "Closing…" : clean ? "Close it" : "Close it anyway"}
+            {busy ? tr("Closing…", "Menutup…") : clean ? tr("Close it", "Tutup") : tr("Close it anyway", "Tetap tutup")}
           </Button>
         </div>
       }
     >
       {clean ? (
         <p className="text-[13px] text-slate-600">
-          Everything ordered has arrived, everything has been paid, and the evidence is
-          filed. Closing it just says so.
+          {tr(
+            "Everything ordered has arrived, everything has been paid, and the evidence is filed. Closing it just says so.",
+            "Semua yang dipesan sudah tiba, semua sudah dibayar, dan buktinya sudah diarsipkan. Menutupnya hanya menyatakan hal itu.",
+          )}
         </p>
       ) : (
         <div className="space-y-3">
           <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-[13px] font-medium text-amber-900">
-              <AlertTriangle className="h-4 w-4" /> This order is not finished
+              <AlertTriangle className="h-4 w-4" /> {tr("This order is not finished", "Order ini belum selesai")}
             </p>
             <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[12px] text-amber-900">
               {blockers.map((b) => <li key={b}>{b}</li>)}
             </ul>
           </div>
           <div>
-            <label htmlFor="cl-reason" className="block text-xs text-slate-500">Why close it anyway</label>
+            <label htmlFor="cl-reason" className="block text-xs text-slate-500">{tr("Why close it anyway", "Mengapa tetap ditutup")}</label>
             <input
               id="cl-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. the last two sheets were written off — vendor agreed, nothing more is coming"
+              placeholder={tr(
+                "e.g. the last two sheets were written off — vendor agreed, nothing more is coming",
+                "mis. dua lembar terakhir dihapuskan — vendor setuju, tidak ada lagi yang akan datang",
+              )}
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
             />
             <p className="mt-1 text-[11px] text-slate-500">
-              Required, and kept on the record. In six months this sentence is the only
-              thing that explains why the numbers do not match.
+              {tr(
+                "Required, and kept on the record. In six months this sentence is the only thing that explains why the numbers do not match.",
+                "Wajib, dan disimpan dalam catatan. Enam bulan lagi, kalimat ini satu-satunya yang menjelaskan mengapa angkanya tidak cocok.",
+              )}
             </p>
           </div>
         </div>
