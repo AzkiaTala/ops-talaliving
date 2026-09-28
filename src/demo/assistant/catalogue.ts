@@ -12,7 +12,7 @@
  *  this catalogue and still cannot reach past it, because the refusal is in the
  *  dispatcher rather than in the model's good intentions.
  */
-import type { AssistantTool } from "@/services/assistant/contracts";
+import type { AssistantTool, ToolSeam } from "@/services/assistant/contracts";
 import type { Message, Lang } from "@/lib/i18n";
 
 /** The catalogue holds **both languages**; the dispatcher resolves one before
@@ -110,6 +110,12 @@ export const TOOLS: ToolDef[] = [
     label: { en: "Draft a leave, permit or sick-day request", id: "Menyiapkan pengajuan cuti, izin atau sakit" },
     blocked_reason: null, instead_at: "/hrd/cuti",
   },
+  {
+    name: "marketing.draft_market", module: "marketing", level: "write",
+    effect: "write", reach: "open",
+    label: { en: "Define a new market", id: "Menyiapkan pasar baru" },
+    blocked_reason: null, instead_at: "/marketing/pipeline",
+  },
 
   /* ── Never, at any grant ──────────────────────────────────────────── */
   {
@@ -166,4 +172,49 @@ export const TOOLS: ToolDef[] = [
 
 export function findTool(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);
+}
+
+/** The write tools that declare their seam instead of being coded (D317) —
+ *  the sandbox's copy of `ops_asst.v_tool_seams`, row for row.
+ *
+ *  Written out in the database's own shape (both languages, flat), because
+ *  `scripts/check-john-lau.mjs` compares the two and refuses any difference:
+ *  a card the demo shows with a field the database does not declare is a demo
+ *  that promises a write the real one will not make. */
+export const SEAMS: ToolSeam[] = [
+  {
+    tool: "procurement.draft_pr_line", kind: "api", seam: "procurement.quickAddLine",
+    key_param: null, result_ref: "line_no_full",
+    headline_en: "New purchase request line", headline_id: "Baris permintaan pembelian baru",
+    note_en: "This goes in as a request, not as an approval. Approving it stays a person's act, on the meeting board.",
+    note_id: "Baris ini masuk sebagai permintaan, bukan sebagai persetujuan. Yang menyetujui tetap orang, di papan rapat.",
+    fields: [
+      { key: "item", param: "description", type: "text", required: true, label_en: "Item", label_id: "Barang", choices: null, arg: "name", default_kind: "blank", default_en: null, default_id: null },
+      { key: "qty", param: "qty", type: "number", required: true, label_en: "Quantity", label_id: "Jumlah", choices: null, arg: "qty", default_kind: "blank", default_en: null, default_id: null },
+      { key: "uom", param: "uom", type: "text", required: true, label_en: "Unit", label_id: "Satuan", choices: null, arg: "uom", default_kind: "blank", default_en: null, default_id: null },
+      { key: "purpose", param: "purpose", type: "text", required: false, label_en: "Purpose", label_id: "Keperluan", choices: null, arg: "purpose", default_kind: "text", default_en: "Requested through John Lau", default_id: "Diminta lewat John Lau" },
+    ],
+  },
+  {
+    tool: "marketing.draft_market", kind: "rpc", seam: "ops_mkt.create_market",
+    key_param: "p_key", result_ref: "code",
+    headline_en: "New market", headline_id: "Pasar baru",
+    note_en: "The code is COUNTRY[-REGION]-CITY-AREA and every filter is a prefix of it. The database checks the code, the country, the currency and the time zone, and says which one is wrong.",
+    note_id: "Kodenya NEGARA[-WILAYAH]-KOTA-AREA dan setiap filter adalah awalan dari kode itu. Database memeriksa kode, negara, mata uang dan zona waktunya, dan menyebut mana yang salah.",
+    fields: [
+      { key: "code", param: "p_code", type: "text", required: true, label_en: "Market code (e.g. AU-QLD-GOLDCOAST-SPNORTH)", label_id: "Kode pasar (mis. AU-QLD-GOLDCOAST-SPNORTH)", choices: null, arg: "code", default_kind: "blank", default_en: null, default_id: null },
+      { key: "country_code", param: "p_country_code", type: "text", required: true, label_en: "Country code (ISO, 2 letters)", label_id: "Kode negara (ISO, 2 huruf)", choices: null, arg: "country_code", default_kind: "blank", default_en: null, default_id: null },
+      { key: "country_name", param: "p_country_name", type: "text", required: true, label_en: "Country", label_id: "Negara", choices: null, arg: "country_name", default_kind: "blank", default_en: null, default_id: null },
+      { key: "region", param: "p_region", type: "text", required: false, label_en: "Region / state", label_id: "Wilayah / provinsi", choices: null, arg: "region", default_kind: "blank", default_en: null, default_id: null },
+      { key: "city", param: "p_city", type: "text", required: true, label_en: "City", label_id: "Kota", choices: null, arg: "city", default_kind: "blank", default_en: null, default_id: null },
+      { key: "area_label", param: "p_area_label", type: "text", required: true, label_en: "Area, as it is called there", label_id: "Area, sebutan setempat", choices: null, arg: "area_label", default_kind: "blank", default_en: null, default_id: null },
+      { key: "currency", param: "p_currency", type: "text", required: true, label_en: "Currency (ISO, 3 letters)", label_id: "Mata uang (ISO, 3 huruf)", choices: null, arg: "currency", default_kind: "blank", default_en: null, default_id: null },
+      { key: "timezone", param: "p_timezone", type: "text", required: true, label_en: "Time zone (e.g. Australia/Brisbane)", label_id: "Zona waktu (mis. Australia/Brisbane)", choices: null, arg: "timezone", default_kind: "blank", default_en: null, default_id: null },
+      { key: "language", param: "p_language", type: "text", required: false, label_en: "Outreach language", label_id: "Bahasa penjangkauan", choices: null, arg: "language", default_kind: "text", default_en: "en", default_id: "en" },
+    ],
+  },
+];
+
+export function findSeam(tool: string): ToolSeam | undefined {
+  return SEAMS.find((s) => s.tool === tool);
 }

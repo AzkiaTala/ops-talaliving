@@ -45,8 +45,9 @@ do $$
 declare n int;
 begin
   select count(*) into n from ops_asst.tools;
-  -- Sixteen transcribed from the demo, and `hr.draft_leave` (0151, D301).
-  assert n = 17, format('seventeen tools: sixteen from the demo and the leave draft, got %s', n);
+  -- Sixteen transcribed from the demo, `hr.draft_leave` (0151, D301) and the
+  -- first declared write, `marketing.draft_market` (0176, D317).
+  assert n = 18, format('eighteen tools: sixteen from the demo, the leave draft and the market draft, got %s', n);
 
   select count(*) into n from ops_asst.tools where reach = 'blocked';
   assert n = 5, format('five of them are the owner''s refusals, got %s', n);
@@ -177,10 +178,11 @@ begin
   assert ops_core.said_ok(r), format('procurement.write may draft, got %s', r);
   assert r -> 'data' ->> 'effect' = 'write', format('and it is a write, got %s', r -> 'data');
 
-  -- Five things are out of reach for them and are not blocked: accounting,
-  -- inventory, production and project reads, and filing leave (hrd, 0151).
+  -- Six things are out of reach for them and are not blocked: accounting,
+  -- inventory, production and project reads, filing leave (hrd, 0151) and
+  -- defining a market (marketing, 0176).
   select count(*) into n from ops_asst.v_tool_catalogue where may = 'no_grant';
-  assert n = 5, format('a buyer is short five open tools, got %s', n);
+  assert n = 6, format('a buyer is short six open tools, got %s', n);
 end $$;
 
 /* ── the language of a refusal is decided here, not at the screen ──────── */

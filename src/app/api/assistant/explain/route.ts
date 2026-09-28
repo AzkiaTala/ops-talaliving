@@ -79,14 +79,19 @@ interface ToolRow {
   label_id: string; label_en: string; may: "blocked" | "no_grant" | "yes";
 }
 
-/** The arguments each write tool takes — the keys `draftShape` shows and the
- *  keyword router's `extract_args` fills. Anything else a model returns is
- *  dropped. Read tools take none: they answer the screen's own question. */
+/** The arguments each **hand-coded** write tool takes — the keys `draftShape`
+ *  shows. Anything else a model returns is dropped. Read tools take none: they
+ *  answer the screen's own question.
+ *
+ *  A **declared** tool (D317, 0176) is not listed here: its keys are the `arg`
+ *  column of its fields in `v_tool_seams`, read below, so a new action is one
+ *  catalogue row and this file does not change. */
 const TOOL_ARGS: Record<string, string[]> = {
-  "procurement.draft_pr_line": ["name", "qty", "uom", "purpose"],
   "procurement.draft_po": ["name", "item", "qty", "uom", "unit_price"],
   "hr.draft_leave": ["employee", "kind", "from", "to", "reason"],
 };
+
+interface SeamRow { tool: string; fields: { arg: string | null; label_id: string }[] }
 
 export async function POST(request: Request): Promise<Response> {
   const cfg = llmConfig();
@@ -110,14 +115,15 @@ export async function POST(request: Request): Promise<Response> {
   if (!prompt) return refuse(422, "empty_prompt", lang === "id" ? "Tulis pertanyaannya dulu." : "Write the question first.");
 
   const asst = sb.schema("ops_asst");
-  const [procs, steps, faq, turns, cat] = await Promise.all([
+  const [procs, steps, faq, turns, cat, seams] = await Promise.all([
     asst.from("processes").select("key,module,seq,title,purpose,route,permission,follows").order("seq"),
     asst.from("process_steps").select("process_key,seq,route,action,rule,status_before,status_after").order("process_key").order("seq"),
     asst.from("process_faq").select("process_key,question,answer"),
     asst.from("turns").select("prompt,text,steps,at").order("at", { ascending: false }).limit(HISTORY),
     asst.from("v_tool_catalogue").select("name,effect,reach,label_id,label_en,may").order("sort_order"),
+    asst.from("v_tool_seams").select("tool,fields"),
   ]);
-  const failed = procs.error ?? steps.error ?? faq.error ?? turns.error ?? cat.error;
+  const failed = procs.error ?? steps.error ?? faq.error ?? turns.error ?? cat.error ?? seams.error;
   if (failed) return refuse(500, "database_error", failed.message);
 
   const processes = (procs.data ?? []) as ProcessRow[];
@@ -133,7 +139,13 @@ export async function POST(request: Request): Promise<Response> {
   /* Guides are answered from the knowledge above; the catalogue offers the
      rest — reads, writes (as drafts) and the closed ones, named as closed. */
   const tools = ((cat.data ?? []) as ToolRow[]).filter((t) => t.effect !== "guide");
-  const system = systemPrompt(processes, stepRows, faqRows, pathname, lang, tools);
+  /* Hand-coded keys, then every declared tool's own — the catalogue's word
+     wins, because it is the one the Confirm will be built from. */
+  const toolArgs: Record<string, string[]> = { ...TOOL_ARGS };
+  for (const r of (seams.data ?? []) as SeamRow[]) {
+    toolArgs[r.tool] = r.fields.map((f) => f.arg).filter((a): a is string => !!a);
+  }
+  const system = systemPrompt(processes, stepRows, faqRows, pathname, lang, tools, toolArgs);
 
   /* Oldest first, and each past answer as the assistant's own words so the
      model reads a conversation rather than a log. */
@@ -158,7 +170,7 @@ export async function POST(request: Request): Promise<Response> {
   /* ── a tool, when the model picked one it is allowed to name ─────────── */
   const picked = typeof parsed?.tool === "string" ? tools.find((t) => t.name === parsed.tool) : undefined;
   if (picked) {
-    const allowed = TOOL_ARGS[picked.name] ?? [];
+    const allowed = toolArgs[picked.name] ?? [];
     const rawArgs = (parsed?.args && typeof parsed.args === "object" ? parsed.args : {}) as Record<string, unknown>;
     const args: Record<string, string> = {};
     for (const k of allowed) {
@@ -215,11 +227,12 @@ export async function POST(request: Request): Promise<Response> {
 function systemPrompt(
   processes: ProcessRow[], steps: StepRow[], faq: FaqRow[], pathname: string, lang: "en" | "id",
   tools: ToolRow[],
+  toolArgs: Record<string, string[]>,
 ): string {
   const catalogue = tools.map((t) => {
     const state = t.reach === "blocked" ? "DITUTUP untuk prompt"
       : t.may === "yes" ? "boleh" : "pengguna ini belum punya izin";
-    const args = TOOL_ARGS[t.name];
+    const args = toolArgs[t.name];
     return `- ${t.name} (${t.effect === "write" ? "menyiapkan draft" : "membaca data"}; ${state}): ${t.label_id}`
       + (args ? ` — args: ${args.join(", ")}` : "");
   }).join("\n");
@@ -238,7 +251,7 @@ function systemPrompt(
     "Kamu adalah John Lau, pemandu aplikasi internal Tala Living (manufaktur furnitur).",
     "Tugasmu ada dua: (a) menjelaskan CARA MEMAKAI sistem, langkah demi langkah; atau (b) memilih SATU alat dari KATALOG ALAT kalau pengguna meminta data atau meminta sesuatu disiapkan. Kamu sendiri tidak punya akses ke data bisnis — alat yang kamu pilih dijalankan oleh sistem atas nama pengguna, dan alat tulis hanya menyiapkan draft yang harus dikonfirmasi pengguna.",
     "",
-    "Kapan memilih alat: pengguna bertanya angka/daftar yang dijawab alat baca (misalnya hutang ke vendor, saldo rekening, baris yang menunggu persetujuan), atau meminta dibuatkan/disiapkan sesuatu yang ada alat tulisnya (baris PR, PO, pengajuan cuti/izin/sakit). Pilih juga alat yang DITUTUP kalau itu yang diminta — sistem akan menolaknya dengan alasan resminya. Kalau tidak ada alat yang cocok, jawab sebagai panduan.",
+    "Kapan memilih alat: pengguna bertanya angka/daftar yang dijawab alat baca (misalnya hutang ke vendor, saldo rekening, baris yang menunggu persetujuan), atau meminta dibuatkan/disiapkan sesuatu yang ada alat tulisnya (misalnya baris PR, PO, pengajuan cuti/izin/sakit, pasar baru — lihat alat tulis di katalog). Pilih juga alat yang DITUTUP kalau itu yang diminta — sistem akan menolaknya dengan alasan resminya. Kalau tidak ada alat yang cocok, jawab sebagai panduan.",
     "Untuk alat tulis, isi `args` HANYA dengan yang benar-benar tertulis di kalimat pengguna. Jangan mengarang vendor, harga, atau jumlah; biarkan kosong, pengguna akan melengkapinya di draft.",
     `Tanggal di args ditulis TTTT-BB-HH. Hari ini (kalender kantor, WITA) adalah ${officeToday()}.`,
     "",
