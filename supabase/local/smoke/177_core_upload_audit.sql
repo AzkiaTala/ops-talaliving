@@ -1,4 +1,4 @@
--- core — the audit log tells the truth about an upload (0177, F172).
+-- core — the audit log tells the truth about an upload (0177, F173).
 --
 -- DERIVATIONS  asking which folder a file goes in writes no audit row; the
 --              app's ops-talaliving folder and its drive are recorded once; a

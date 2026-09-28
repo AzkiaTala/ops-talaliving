@@ -148,7 +148,7 @@ export async function POST(request: Request): Promise<Response> {
   };
 
   /* **A refusal from Drive, said so a person can act on it.** Google's JSON
-     used to be the toast (F172). Now the toast says what happened and who
+     used to be the toast (F173). Now the toast says what happened and who
      fixes it; Google's own answer goes to the audit log's detail, and the
      failure is written there at all, which it was not before: the log's only
      row for a failed upload was the folder question, reading `ok`. */
@@ -176,7 +176,7 @@ export async function POST(request: Request): Promise<Response> {
   /* **The app's own folder, made once per drive (D320).**
    *
    * `drive.file` cannot see a folder a person made, so the owner's hand-made
-   * OPS folders answered *File not found* (F172). The app makes its own
+   * OPS folders answered *File not found* (F173). The app makes its own
    * `ops-talaliving` at the root of the shared drive instead, and files
    * everything under it. The recorded folder only says which drive that is.
    * Both ids are written back, so the next upload asks Google nothing. IT →

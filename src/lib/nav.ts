@@ -204,7 +204,7 @@ export const NAV: NavSection[] = [
       { label: "Activity Log", labelKey: "activity", href: "/it/aktivitas", icon: Activity, permission: "it.read", badge: "new" },
       { label: "Users", labelKey: "users", href: "/it/pengguna", icon: UserCog, permission: "it.manage_users", badge: "new" },
       { label: "Roles & Permissions", labelKey: "roles", href: "/it/peran", icon: KeyRound, permission: "it.manage_roles", badge: "new" },
-      /* Whether uploads can reach each shared drive's OPS folder (F172).
+      /* Whether uploads can reach each shared drive's OPS folder (F173).
          `it.read` to look; the one write on it asks `it.manage_drives`. */
       { label: "Google Drive", labelKey: "googleDrive", href: "/it/drive", icon: HardDrive, permission: "it.read", badge: "new" },
     ],

@@ -7253,7 +7253,26 @@ codes, business vocabulary (D224), anything written into a record, and the
 two documents that leave the company, which print both languages side by
 side (D318).
 
-## F172 · 2026-09-28 · the audit log said `file ok` for an upload that failed, and the toast said nothing a person could use
+## F172 · 2026-09-28 · the payroll run's *Days unread* tile never lit
+
+**What.** On `/hrd/payroll/[run]` the figure for unread days is the one that
+blocks approval, and it is meant to turn amber when it is above zero. It
+never did: the colour was chosen by `k === "Open days"`, and the tile had
+been renamed *Days unread*. A run with 14 unread days showed 14 in the same
+grey as the head count.
+
+**Why nothing caught it.** A comparison against display text is still valid
+TypeScript after the text changes; `tsc` and lint have nothing to say about a
+string that no longer matches anything. Found while translating the screen
+(F171), where every such comparison broke in one language or the other.
+
+**The fix.** Each tile carries its own `warn` flag computed from the figure
+(`d.open_days > 0`, `d.pending_overtime_hours > 0`), so the label can say
+whatever it likes in either language. Checked in a browser on
+`pyr-26-09-06_01`: 14 unread days amber in English and Indonesian, overtime
+waiting 0 h stays grey.
+
+## F173 · 2026-09-28 · the audit log said `file ok` for an upload that failed, and the toast said nothing a person could use
 
 `0175` let uploads reach Drive. Three of them failed at Google with *File not
 found: 16btMm…*, which is the Procurement OPS folder. Two things the owner

@@ -45,7 +45,7 @@ const UPLOAD_URL =
  *
  *  **What it costs:** the account cannot see a folder a person made. The OPS
  *  folders the owner made by hand (D313) answered *File not found* to the
- *  first real upload (F172). The owner kept `drive.file` and had the app make
+ *  first real upload (F173). The owner kept `drive.file` and had the app make
  *  its own folder instead: `ops-talaliving`, at the root of each shared drive
  *  (D320). Everything the app files lives under it. */
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
@@ -65,7 +65,7 @@ export const APP_FOLDER = "ops-talaliving";
  *
  *  The route turns it into a sentence a person can act on, and keeps
  *  Google's own answer in the audit row's detail. Before this, both were one
- *  string, so the toast showed a JSON blob and the log showed nothing (F172). */
+ *  string, so the toast showed a JSON blob and the log showed nothing (F173). */
 export class DriveError extends Error {
   constructor(
     /** Which step: `token`, `drive` (finding the shared drive),

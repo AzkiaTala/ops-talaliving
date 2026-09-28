@@ -20,7 +20,7 @@ stand) and `docs/plan/07-ways-of-working.md` (the loop). Decisions are in
   PRODUCTION, PROJECT MANAGER, IT). **The app makes that folder itself**,
   because uploads use the `drive.file` permission, which sees only what the
   app made. The owner's hand-made OPS folders answered *File not found* for
-  that reason (F172). Its id is `ops_core.drive_folders.folder_id`, and the
+  that reason (F173). Its id is `ops_core.drive_folders.folder_id`, and the
   shared drive's is `drive_id`. `parent_folder_id` (the hand-made OPS) only
   says which drive it is. IT → Google Drive (`/it/drive`) makes the folder
   for every drive and shows which drives the app cannot reach.

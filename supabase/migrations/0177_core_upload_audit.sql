@@ -1,5 +1,5 @@
 -- 0177_core_upload_audit.sql — the audit log said `file · ok` for an upload
--- that failed (F172).
+-- that failed (F173).
 --
 -- ── What the owner saw ────────────────────────────────────────────────────
 --

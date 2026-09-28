@@ -232,7 +232,7 @@ export interface AttachmentView extends Attachment {
   covers_count: number;
 }
 
-/* ── IT → Google Drive (F172, D320) ───────────────────────────────────── */
+/* ── IT → Google Drive (F173, D320) ───────────────────────────────────── */
 
 /** The state of one shared drive, as far as filing goes.
  *

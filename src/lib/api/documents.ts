@@ -378,7 +378,7 @@ async function viaRoute<T>(url: string, init?: RequestInit): Promise<Result<T>> 
 
 /** IT → Google Drive: every shared drive's recorded OPS folder, looked at as
  *  a member and as uploads look (read-only). `/api/documents/drive-check`,
- *  because it needs the service account key (F172). */
+ *  because it needs the service account key (F173). */
 export async function checkDrives(): Promise<Result<DriveCheckReport>> {
   return viaRoute<DriveCheckReport>("/api/documents/drive-check");
 }

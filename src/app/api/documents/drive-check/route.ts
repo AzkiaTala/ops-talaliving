@@ -12,7 +12,7 @@ import type { DriveCheck, DriveCheckReport, DriveSetUp, DriveVerdict } from "@/s
  *  `POST /api/documents/drive-check {slug?}`: make (or find) `ops-talaliving`
  *  at the root of one shared drive, or every one, and record it (D320).
  *
- *  Why (F172): uploads use `drive.file`, which sees only what the app made.
+ *  Why (F173): uploads use `drive.file`, which sees only what the app made.
  *  The owner's hand-made OPS folders answered *File not found*. The owner kept
  *  the permission and asked for the app's own folder. This is where IT makes
  *  it for every drive at once and sees which drives the app cannot reach.

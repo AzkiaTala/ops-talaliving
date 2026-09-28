@@ -10,7 +10,7 @@ import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
 import type { DriveCheck, DriveSetUp, DriveVerdict } from "@/services/documents/contracts";
 
-/** IT → Google Drive: can the app file into each shared drive (F172, D320).
+/** IT → Google Drive: can the app file into each shared drive (F173, D320).
  *
  *  Uploads use `drive.file`, which sees only what the app itself made. The
  *  owner's hand-made OPS folders were invisible to it, and the first real
