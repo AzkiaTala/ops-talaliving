@@ -123,6 +123,14 @@ export const MESSAGES = {
     writeIt: m("Yes, write it", "Ya, tulis"),
     savedAs: m("Saved", "Tersimpan"),
     abandoned: m("Cancelled. Nothing was written.", "Dibatalkan. Tidak ada yang ditulis."),
+    /* What the seam said when it did not write (D317) — read out on the card,
+       by outcome, because *refused*, *invalid* and *conflict* are fixed by
+       different people: IT, the person typing, and nobody (it is already
+       there). */
+    seamRefused: m("Refused — nothing was written", "Ditolak — tidak ada yang ditulis"),
+    seamInvalid: m("A field needs fixing — nothing was written", "Ada isian yang perlu dibetulkan — tidak ada yang ditulis"),
+    seamConflict: m("Already there — nothing was written", "Sudah ada — tidak ada yang ditulis"),
+    seamNotFound: m("Not found — nothing was written", "Tidak ditemukan — tidak ada yang ditulis"),
   },
 } as const;
 

@@ -208,6 +208,84 @@ for (const line of knowledge.trim().split("\n").filter(Boolean)) {
   }
 }
 
+/* ── declared writes: one catalogue, two layers (D317, 0175) ───────────
+ *
+ * A declared tool is a row in `ops_asst.v_tool_seams` and the same row in
+ * `SEAMS` in the demo catalogue. The two are compared whole — a field the demo
+ * shows and the database does not declare is a sandbox promising a write the
+ * real thing will not make. Then each seam has to be there: an `api` seam
+ * exported by both `src/lib/api/<svc>.ts` and `src/demo/api/<svc>.ts`, an
+ * `rpc` seam passing `ops_asst.seam_problems()` and having a stand-in in
+ * `src/demo/assistant/seams.ts`. And every open write tool is either declared
+ * or has its own branch in the live `confirmDraft` — never neither. */
+const { stripTypeScriptTypes } = await import("node:module");
+const { writeFileSync, mkdtempSync } = await import("node:fs");
+const { tmpdir } = await import("node:os");
+const catSrc = readFileSync(join(ROOT, "src/demo/assistant/catalogue.ts"), "utf8");
+const catTmp = join(mkdtempSync(join(tmpdir(), "jl-")), "catalogue.mjs");
+writeFileSync(catTmp, stripTypeScriptTypes(catSrc));
+const demoCat = await import(catTmp);
+
+const canon = (rows) => JSON.stringify(
+  [...rows].sort((a, b) => a.tool.localeCompare(b.tool)).map((r) => ({
+    tool: r.tool, kind: r.kind, seam: r.seam, key_param: r.key_param, result_ref: r.result_ref,
+    headline_en: r.headline_en, headline_id: r.headline_id, note_en: r.note_en, note_id: r.note_id,
+    fields: r.fields.map((f) => ({
+      key: f.key, param: f.param, type: f.type, required: f.required,
+      label_en: f.label_en, label_id: f.label_id, choices: f.choices, arg: f.arg,
+      default_kind: f.default_kind, default_en: f.default_en, default_id: f.default_id,
+    })),
+  })), null, 1);
+const dbSeams = JSON.parse(ask("select coalesce(jsonb_agg(to_jsonb(v)), '[]') from ops_asst.v_tool_seams v").trim());
+if (canon(dbSeams) !== canon(demoCat.SEAMS)) {
+  const a = canon(dbSeams).split("\n"), b = canon(demoCat.SEAMS).split("\n");
+  const i = a.findIndex((l, n) => l !== b[n]);
+  findings.push(
+    "the declared seams in ops_asst.v_tool_seams and SEAMS in src/demo/assistant/catalogue.ts differ.\n"
+    + `     first difference, line ${i + 1}: database ${a[i]?.trim()} · demo ${b[i]?.trim()}`,
+  );
+}
+const demoNames = new Set(demoCat.TOOLS.map((t) => t.name));
+for (const name of tools.keys()) {
+  if (!demoNames.has(name)) findings.push(`${name} is in ops_asst.tools and not in the demo catalogue.`);
+}
+for (const name of demoNames) {
+  if (!tools.has(name)) findings.push(`${name} is in the demo catalogue and not in ops_asst.tools.`);
+}
+
+const exportsOf = (file) => {
+  try {
+    return new Set([...readFileSync(join(ROOT, file), "utf8").matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1]));
+  } catch { return new Set(); }
+};
+const rpcStandIns = new Set([...readFileSync(join(ROOT, "src/demo/assistant/seams.ts"), "utf8")
+  .matchAll(/^\s*"(ops_[a-z]+\.[a-z0-9_]+)":/gm)].map((m) => m[1]));
+for (const r of dbSeams) {
+  if (r.kind === "api") {
+    const [svc, fn] = r.seam.split(".");
+    for (const file of [`src/lib/api/${svc}.ts`, `src/demo/api/${svc}.ts`]) {
+      if (!exportsOf(file).has(fn)) findings.push(`${r.tool} declares ${r.seam}, and ${file} does not export ${fn}.`);
+    }
+  } else if (!rpcStandIns.has(r.seam)) {
+    findings.push(`${r.tool} declares ${r.seam}, and src/demo/assistant/seams.ts has no stand-in for it.`);
+  }
+}
+for (const line of ask("select tool || ': ' || problem from ops_asst.seam_problems()").trim().split("\n").filter(Boolean)) {
+  findings.push(`declared seam ${line}`);
+}
+const liveSrcA = readFileSync(join(ROOT, "src/lib/api/assistant.ts"), "utf8");
+const declared = new Set(dbSeams.map((r) => r.tool));
+let coded = 0;
+for (const [name, t] of tools) {
+  if (t.effect !== "write" || t.reach === "blocked") continue;
+  if (declared.has(name)) continue;
+  if (liveSrcA.includes(`draft.tool === "${name}"`)) { coded++; continue; }
+  findings.push(
+    `${name} is an open write tool with no declared seam and no branch in confirmDraft —\n`
+    + "     its Confirm would settle the draft and write nothing. Declare it in ops_asst.tool_seams.",
+  );
+}
+
 if (findings.length) {
   console.error("john lau\n");
   for (const f of findings) console.error("  ✗  " + f + "\n");
@@ -222,5 +300,6 @@ const built = [...answered].length;
 console.log(
   "john lau".padEnd(44)
   + `ok (${prompts.length} suggestions route, ${built} tools answer, `
-  + `${notBuilt.size} waiting on a module, ${knowledgeRoutes} process routes resolve)`,
+  + `${notBuilt.size} waiting on a module, ${knowledgeRoutes} process routes resolve, `
+  + `${declared.size} declared writes match both layers, ${coded} coded)`,
 );

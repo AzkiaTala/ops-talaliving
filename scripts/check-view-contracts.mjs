@@ -234,6 +234,10 @@ const VIEW_CONTRACTS = {
      mapping names every field it moves, so `tsc` checks it; what `tsc` cannot
      see, and this can, is whether the view still returns `blocked_reason_id`. */
   v_tool_catalogue: "CatalogueRow",
+  /* The declared writes (0175, D317), cast whole into `ToolSeam` — the same
+     shape the demo catalogue's `SEAMS` is written in, which is what lets
+     `check-john-lau.mjs` compare the two. */
+  v_tool_seams: "ToolSeam",
 };
 
 /** Views that do **not** satisfy their contract, with what is missing and why

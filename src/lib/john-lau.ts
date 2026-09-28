@@ -210,18 +210,14 @@ export function draftShape(
     };
   }
 
+  /* Every other write is declared (`procurement.draft_pr_line` moved in 0175)
+     and drawn by `seamDraftShape`. A tool that reaches this line is a write
+     nobody declared or coded: shown as what it is — its name and the
+     arguments it was given — rather than dressed as some other tool's card. */
   return {
-    headline: id ? "Baris permintaan pembelian baru" : "New purchase request line",
-    fields: [
-      { key: "item", label: id ? "Barang" : "Item", value: args.name ?? blank },
-      { key: "qty", label: id ? "Jumlah" : "Quantity", value: qty },
-      { key: "purpose", label: id ? "Keperluan" : "Purpose", value: args.purpose ?? blank },
-    ],
-    warnings: id ? [
-      "Baris ini masuk sebagai permintaan, bukan sebagai persetujuan. Yang menyetujui tetap orang, di papan rapat.",
-    ] : [
-      "This goes in as a request, not as an approval. Approving it stays a person's act, on the meeting board.",
-    ],
+    headline: tool,
+    fields: Object.entries(args).map(([key, value]) => ({ key, label: key, value: value || blank })),
+    warnings: [id ? "Alat ini belum punya kartu yang dideklarasikan." : "This tool has no declared card yet."],
   };
 }
 

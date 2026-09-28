@@ -7093,3 +7093,69 @@ This is F164's lesson one layer down: a type-check proves the call is
 spelled right, not that the build calls it. The route list, parity and
 schemas were all right about the files they read. The build read a
 different file.
+
+## F169 · 2026-09-28 · a write John Lau can make is a catalogue row, and making it one found three writes that were not what they said
+
+**What was done (D317).** A write tool may now *declare* its seam instead of
+being coded: `ops_asst.tool_seams` (which seam the Confirm calls — an `rpc`
+security-definer function in a module schema, or an `api` function both layers
+export — plus headline, note, `key_param`, `result_ref`) and
+`ops_asst.tool_fields` (one row per card field: key, parameter, type, both
+labels, required, which sentence argument fills it, default). One engine,
+`src/lib/john-lau-seams.ts`, draws the card and builds the Confirm for both
+layers. `procurement.draft_pr_line` moved onto it as the proof;
+`marketing.draft_market` over `ops_mkt.create_market` is the first action with
+no screen at all (`0175`). The recipe for IT is in `03-api.md`.
+
+**Where the catalogue lives.** `02-database.md` still said *the tool catalogue
+is code, not rows*. `0038` had moved it into `ops_asst.tools` on purpose — a
+boundary compiled into the bundle is one the reader owns — and made it
+migration-only instead. The declared seams follow what is true now, not the
+sentence: rows, no write policy, no grant. The sentence is corrected.
+
+**What moving `draft_pr_line` found.** Its two hand-written confirms did not
+agree with each other or with D217/D220:
+
+- a blank quantity became **1** live (`Number("") || 1`) and **0** in the demo
+  (`Number("")`), and a blank unit became **pcs** in both — a figure nobody
+  typed, and a different one per layer. On the declared road a blank required
+  field is refused with the field named, before the seam is called;
+- a blank purpose was replaced by *Diminta lewat John Lau* **after** the yes,
+  so the row said something the card never showed. It is now the field's
+  default, visible and editable on the card (D220);
+- the quantity and its unit were one string split on a space; they are two
+  fields now, which is the one visible change to that card.
+
+**The yes was not re-gated live.** `03-api.md` said *the grant is re-checked
+here*; the demo's `confirmDraft` did, the live one did not — only the seam's
+own check stood between a revoked grant and a write. Harmless where the seam
+checks (every seam here does), but the person heard the seam's wording, not
+*your access changed*. Every live Confirm now asks `may_run` again first;
+walked by downgrading a writer to reader between draft and yes.
+
+**A refusal in a toast is a refusal nobody reads.** The seam's answer was
+shown for four seconds in a corner while the person was about to fix the very
+field it named. It now stays on the card — outcome, sentence, code — and the
+field its `detail.field` names is outlined (matched by key or by parameter, so
+`quick_add_line`'s `description` finds *Barang*).
+
+**Two layers, one catalogue, checked.** The demo keeps a copy of the declared
+seams (`SEAMS`), in the database's own flat shape so `check-john-lau.mjs` can
+compare them whole — it reads the TypeScript with Node's
+`stripTypeScriptTypes` rather than a regex. An `rpc` seam has no demo function
+by definition (that is D317's case), so it needs a stand-in in
+`src/demo/assistant/seams.ts`; the check refuses one without. The check also
+refuses an open write tool that is neither declared nor coded — its Confirm
+would settle the draft and write nothing. `ops_asst.seam_problems()` answers
+whether each rpc seam exists, is definer, is executable by `authenticated`,
+and takes the parameters its fields feed; the smoke asserts it empty. Every
+new check was run failing first.
+
+**Walked (F164).** Live stack (PostgREST 12.2.3 over the ladder, mock model):
+`walk-john-lau.mjs` stage 5 — the market card drawn from nine catalogue rows,
+`AUS` refused by the seam and read out on the card with nothing written, `AU`
+writes one market as Sari with the draft naming it, *Batal* writes nothing, and
+a grant downgraded between draft and yes is refused at the yes. The existing
+PR-line stage passes unchanged through the new road. Sandbox: the same card,
+the same refusal from the stand-in, and the demo's own fixture markets
+answering `market_exists` — the conflict read out, not hidden.

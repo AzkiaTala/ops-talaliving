@@ -125,7 +125,12 @@ export interface AssistantDraft {
    *  become empty, silently, because `fields["Barang"]` no longer existed.
    *
    *  A display string is never a key. */
-  fields: { key: string; label: string; value: string }[];
+  fields: {
+    key: string; label: string; value: string;
+    /** The seam parameter it feeds, on a declared tool (D317) — so a seam's
+     *  `detail.field`, which names its own parameter, marks the right input. */
+    param?: string;
+  }[];
   /** Things a person should notice before saying yes — a price above the last
    *  one paid, a vendor with no history. Never blocking. */
   warnings: string[];
@@ -134,6 +139,62 @@ export interface AssistantDraft {
   /** So a double tap is one purchase order (A4). */
   idempotency_key: string;
   created_at: string;
+}
+
+/** How a declared write reaches the database (D317).
+ *
+ *  `rpc` — a named security-definer function in a module schema, called
+ *  through PostgREST as the person: `ops_mkt.create_market`. Never in
+ *  `ops_core` or `ops_asst`; the database refuses that row (0175).
+ *  `api` — a function both API layers export with the same signature,
+ *  `(input, idempotencyKey?)`: `procurement.quickAddLine`. */
+export type SeamKind = "rpc" | "api";
+
+export type SeamFieldType = "text" | "number" | "date" | "choice";
+
+/** One field on a declared write's card — a row of `ops_asst.tool_fields`,
+ *  in both languages, exactly as the database holds it so the sandbox's copy
+ *  can be compared with it field by field (`check-john-lau.mjs`). */
+export interface SeamField {
+  /** The card's key and the confirm payload's key. Never a label. */
+  key: string;
+  /** The seam parameter it feeds: `p_code` for rpc, `description` for api. */
+  param: string;
+  type: SeamFieldType;
+  /** Blank and required is refused before the seam is called; nobody fills it
+   *  in for the person (D217). */
+  required: boolean;
+  label_en: string;
+  label_id: string;
+  choices: string[] | null;
+  /** The sentence argument that fills it — and the only keys a model may send
+   *  for this tool (D300). Null: never from the sentence. */
+  arg: string | null;
+  /** Where the first value comes from when the sentence did not say. */
+  default_kind: "blank" | "today" | "text";
+  default_en: string | null;
+  default_id: string | null;
+}
+
+/** A write tool declared rather than coded (D317): which seam the Confirm
+ *  calls, and every field it shows first. Adding one is a catalogue row and,
+ *  when the seam does not exist yet, the migration that makes it — no screen,
+ *  no branch in either dispatcher. */
+export interface ToolSeam {
+  tool: string;
+  kind: SeamKind;
+  /** `ops_mkt.create_market` or `procurement.quickAddLine`. */
+  seam: string;
+  /** The rpc parameter carrying the draft's idempotency key. */
+  key_param: string | null;
+  /** The key in the seam's answer that names what was written. */
+  result_ref: string | null;
+  headline_en: string;
+  headline_id: string;
+  /** What this write does not do — shown under every card of its kind. */
+  note_en: string | null;
+  note_id: string | null;
+  fields: SeamField[];
 }
 
 export type TurnKind =
