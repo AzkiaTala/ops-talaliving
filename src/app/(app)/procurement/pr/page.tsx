@@ -20,8 +20,7 @@ import {
 } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
-import { LineDrawer, MEETING_STATE_LABEL_ID } from "./LineDrawer";
-import { VARIANCE_REASON_LABEL_ID } from "./VariancePanel";
+import { LineDrawer } from "./LineDrawer";
 
 /** The requests board — and the approval queue, which is the same board.
  *
@@ -267,7 +266,7 @@ export default function RequestsBoardPage() {
                     >
                       <Icon className={cn("h-3.5 w-3.5", meta.tone)} />
                       <span className="font-semibold text-slate-800">{r.length}</span>
-                      <span className="text-slate-600">{tr(MEETING_STATE_LABEL[state], MEETING_STATE_LABEL_ID[state])}</span>
+                      <span className="text-slate-600">{MEETING_STATE_LABEL[state]}</span>
                       <span className="tabular-nums text-[11px] text-slate-400">
                         {/* Approved lines count at what was approved, not at
                             what was asked — now that a decision can cut both
@@ -327,7 +326,7 @@ export default function RequestsBoardPage() {
                 <CardHeader
                   title={
                     varianceOnly ? tr("Paid ≠ approved", "Dibayar ≠ disetujui")
-                      : stateFilter ? tr(MEETING_STATE_LABEL[stateFilter], MEETING_STATE_LABEL_ID[stateFilter])
+                      : stateFilter ? MEETING_STATE_LABEL[stateFilter]
                         : tr("All open items", "Semua barang terbuka")
                   }
                   subtitle={tr(
@@ -389,7 +388,7 @@ function VarianceChip({
   }
   const kinds = [...byReason.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([r, n]) => `${tr(VARIANCE_REASON_LABEL[r], VARIANCE_REASON_LABEL_ID[r])} ×${n}`)
+    .map(([r, n]) => `${VARIANCE_REASON_LABEL[r]} ×${n}`)
     .join(" · ");
 
   return (

@@ -10,7 +10,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import { QrCode } from "@/components/ui/qr";
 import { cn } from "@/lib/cn";
 import { delivery } from "@/demo/api";
-import type { BoxStatus, BoxView } from "@/services/delivery/contracts";
+import { BOX_STATUS_LABEL, type BoxStatus, type BoxView } from "@/services/delivery/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { useTr } from "@/lib/i18n";
@@ -179,7 +179,7 @@ function BoxGroup({
                 <span key={w} className="mt-0.5 block text-[11px] text-amber-700">{w}</span>
               ))}
             </span>
-            <Badge tone={TONE[b.status]} dot>{b.status_label}</Badge>
+            <Badge tone={TONE[b.status]} dot>{BOX_STATUS_LABEL[b.status]}</Badge>
           </li>
         ))}
       </ul>

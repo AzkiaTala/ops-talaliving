@@ -14,17 +14,6 @@ import {
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 
-/* Indonesian side of VARIANCE_REASON_LABEL (the English lives in contracts). */
-export const VARIANCE_REASON_LABEL_ID: Record<VarianceReason, string> = {
-  price_changed: "Harga vendor berbeda dari penawaran",
-  quantity_changed: "Jumlah yang diambil berbeda",
-  rounding: "Transfer dibulatkan",
-  input_error: "Jumlah salah dimasukkan",
-  partial_payment: "Dibayar bertahap — masih ada sisanya",
-  overpaid: "Kelebihan bayar — vendor berutang ke kita",
-  other: "Lainnya",
-};
-
 /** Approved against paid, and the sentence somebody wrote about the gap.
  *
  *  Two gaps live in these numbers and only one of them is a variance.
@@ -65,7 +54,7 @@ export function VariancePanel({
       toast(res.error.status === 409 ? "warning" : "critical", tr("Not recorded", "Tidak dicatat"), res.error.message);
       return;
     }
-    toast("success", tr("Explanation recorded", "Penjelasan dicatat"), tr(VARIANCE_REASON_LABEL[reason], VARIANCE_REASON_LABEL_ID[reason]));
+    toast("success", tr("Explanation recorded", "Penjelasan dicatat"), VARIANCE_REASON_LABEL[reason]);
     setOpen(false);
     setNote("");
     onChanged(res.data);
@@ -144,7 +133,7 @@ export function VariancePanel({
       {v.explanation ? (
         <div className="mt-3 rounded-lg border border-white bg-white/80 px-3 py-2.5">
           <p className="text-[13px] font-medium text-slate-800">
-            {tr(VARIANCE_REASON_LABEL[v.explanation.reason], VARIANCE_REASON_LABEL_ID[v.explanation.reason])}
+            {VARIANCE_REASON_LABEL[v.explanation.reason]}
           </p>
           {v.explanation.note && (
             <p className="mt-0.5 text-[13px] text-slate-600">{v.explanation.note}</p>
@@ -179,7 +168,7 @@ export function VariancePanel({
               className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none"
             >
               {VARIANCE_REASONS.map((r) => (
-                <option key={r} value={r}>{tr(VARIANCE_REASON_LABEL[r], VARIANCE_REASON_LABEL_ID[r])}</option>
+                <option key={r} value={r}>{VARIANCE_REASON_LABEL[r]}</option>
               ))}
             </select>
           </div>

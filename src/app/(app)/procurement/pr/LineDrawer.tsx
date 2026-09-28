@@ -15,7 +15,7 @@ import { useTr } from "@/lib/i18n";
 import { procurement, documents } from "@/demo/api";
 import {
   MEETING_STATE_LABEL, PR_CATEGORIES,
-  type PrLineView, type UomCode, type PrCategory, type MeetingState,
+  type PrLineView, type UomCode, type PrCategory,
 } from "@/services/procurement/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
@@ -24,14 +24,6 @@ import { VariancePanel } from "./VariancePanel";
 import { DecisionPanel } from "./DecisionPanel";
 import { PayFromLine } from "./PayFromLine";
 import { UomOptions } from "@/components/ui/uom-options";
-
-/* Indonesian side of MEETING_STATE_LABEL (the English lives in contracts). */
-export const MEETING_STATE_LABEL_ID: Record<MeetingState, string> = {
-  settled: "Disetujui dan dibayar",
-  approved_unpaid: "Disetujui, belum dibayar",
-  paid_unapproved: "Dibayar, belum disetujui",
-  neither: "Menunggu persetujuan",
-};
 
 /** One item, everything about it.
  *
@@ -157,7 +149,7 @@ export function LineDrawer({
               : line.meeting_state === "paid_unapproved" ? "red"
                 : line.meeting_state === "approved_unpaid" ? "brand" : "amber"
           }>
-            {tr(MEETING_STATE_LABEL[line.meeting_state], MEETING_STATE_LABEL_ID[line.meeting_state])}
+            {MEETING_STATE_LABEL[line.meeting_state]}
           </Badge>
           {line.has_payment_proof && <Badge tone="violet">{tr("payment proof on file", "bukti bayar sudah ada")}</Badge>}
           {/* A line can be COMPLETED and still owe an answer. Without this the

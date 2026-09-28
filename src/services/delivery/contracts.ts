@@ -13,6 +13,8 @@
  *  handed over. Four different numbers, and today they are one guess.
  */
 
+import { bilingual, type Message } from "@/lib/i18n";
+
 /* ── Delivery ─────────────────────────────────────────────────────────── */
 
 export type DeliveryStatus =
@@ -24,12 +26,13 @@ export type DeliveryStatus =
   | "ARRIVED"
   | "CANCELLED";
 
-export const DELIVERY_STATUS_LABEL: Record<DeliveryStatus, string> = {
-  DRAFT: "Draft",
-  IN_TRANSIT: "Di jalan",
-  ARRIVED: "Sampai",
-  CANCELLED: "Dibatalkan",
+export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, Message> = {
+  DRAFT: { en: "Draft", id: "Draft" },
+  IN_TRANSIT: { en: "In transit", id: "Di jalan" },
+  ARRIVED: { en: "Arrived", id: "Sampai" },
+  CANCELLED: { en: "Cancelled", id: "Dibatalkan" },
 };
+export const DELIVERY_STATUS_LABEL = bilingual(DELIVERY_STATUS_LABELS);
 
 /** One consignment leaving for one site. */
 export interface Delivery {
@@ -94,13 +97,14 @@ export type BoxStatus =
   /** Scanned and found damaged or short, with what is wrong. */
   | "PROBLEM";
 
-export const BOX_STATUS_LABEL: Record<BoxStatus, string> = {
-  PACKED: "Dikemas",
-  IN_TRANSIT: "Di jalan",
-  ON_SITE: "Sampai di site",
-  INSTALLED: "Terpasang",
-  PROBLEM: "Bermasalah",
+export const BOX_STATUS_LABELS: Record<BoxStatus, Message> = {
+  PACKED: { en: "Packed", id: "Dikemas" },
+  IN_TRANSIT: { en: "In transit", id: "Di jalan" },
+  ON_SITE: { en: "On site", id: "Sampai di site" },
+  INSTALLED: { en: "Installed", id: "Terpasang" },
+  PROBLEM: { en: "Problem", id: "Bermasalah" },
 };
+export const BOX_STATUS_LABEL = bilingual(BOX_STATUS_LABELS);
 
 export interface PackingBox {
   id: string;
@@ -161,11 +165,12 @@ export interface BoxView extends PackingBox {
 
 export type InstallationStatus = "SCHEDULED" | "DONE" | "CANCELLED";
 
-export const INSTALLATION_STATUS_LABEL: Record<InstallationStatus, string> = {
-  SCHEDULED: "Dijadwalkan",
-  DONE: "Selesai",
-  CANCELLED: "Dibatalkan",
+export const INSTALLATION_STATUS_LABELS: Record<InstallationStatus, Message> = {
+  SCHEDULED: { en: "Scheduled", id: "Dijadwalkan" },
+  DONE: { en: "Done", id: "Selesai" },
+  CANCELLED: { en: "Cancelled", id: "Dibatalkan" },
 };
+export const INSTALLATION_STATUS_LABEL = bilingual(INSTALLATION_STATUS_LABELS);
 
 /** One visit to a site by a crew. A job usually takes several. */
 export interface Installation {
@@ -200,10 +205,11 @@ export interface InstallationLine {
 export type SnagSeverity = "minor" | "major";
 export type SnagStatus = "OPEN" | "FIXED";
 
-export const SNAG_SEVERITY_LABEL: Record<SnagSeverity, string> = {
-  minor: "Ringan",
-  major: "Berat",
+export const SNAG_SEVERITY_LABELS: Record<SnagSeverity, Message> = {
+  minor: { en: "Minor", id: "Ringan" },
+  major: { en: "Major", id: "Berat" },
 };
+export const SNAG_SEVERITY_LABEL = bilingual(SNAG_SEVERITY_LABELS);
 
 export interface Snag {
   id: string;
@@ -307,14 +313,15 @@ export type FulfilmentStage =
   | "installed"
   | "handed_over";
 
-export const FULFILMENT_STAGE_LABEL: Record<FulfilmentStage, string> = {
-  in_production: "Masih diproduksi",
-  ready_to_ship: "Siap kirim",
-  in_transit: "Di jalan",
-  on_site: "Sudah di lokasi",
-  installed: "Terpasang",
-  handed_over: "Sudah serah terima",
+export const FULFILMENT_STAGE_LABELS: Record<FulfilmentStage, Message> = {
+  in_production: { en: "In production", id: "Masih diproduksi" },
+  ready_to_ship: { en: "Ready to ship", id: "Siap kirim" },
+  in_transit: { en: "In transit", id: "Di jalan" },
+  on_site: { en: "On site", id: "Sudah di lokasi" },
+  installed: { en: "Installed", id: "Terpasang" },
+  handed_over: { en: "Handed over", id: "Sudah serah terima" },
 };
+export const FULFILMENT_STAGE_LABEL = bilingual(FULFILMENT_STAGE_LABELS);
 
 export interface FulfilmentView {
   project_code: string;

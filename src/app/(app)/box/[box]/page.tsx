@@ -7,7 +7,7 @@ import { Badge, Button, Card, PageHeader } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { QrCode } from "@/components/ui/qr";
 import { delivery } from "@/demo/api";
-import type { BoxStatus, BoxView } from "@/services/delivery/contracts";
+import { BOX_STATUS_LABEL, type BoxStatus, type BoxView } from "@/services/delivery/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { useTr } from "@/lib/i18n";
@@ -103,7 +103,7 @@ function BoxCard({ box, mayEdit, onDone }: { box: BoxView; mayEdit: boolean; onD
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Badge tone={TONE[box.status]} dot>{box.status_label}</Badge>
+          <Badge tone={TONE[box.status]} dot>{BOX_STATUS_LABEL[box.status]}</Badge>
           {box.scanned_at && (
             <span className="text-[12px] text-slate-500">
               {tr("Scanned", "Di-scan")} {box.scanned_at.slice(0, 16).replace("T", " ")} {tr("by", "oleh")} {box.scanned_by_name}
