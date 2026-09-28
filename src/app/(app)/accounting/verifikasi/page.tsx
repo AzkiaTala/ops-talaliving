@@ -1,5 +1,6 @@
 "use client";
 
+import { driveOpenUrl } from "@/lib/drive-links";
 import { TypeOptions } from "@/components/ui/type-options";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -441,7 +442,7 @@ export default function InboxPage() {
                               height={230}
                               doc={{
                                 id: f.id, filename: f.filename, mime: f.mime, bytes: f.bytes,
-                                url: f.url, drive_link: f.web_view_link ?? null, uploaded_at: f.uploaded_at,
+                                url: f.url, drive_link: f.url ? null : driveOpenUrl(f), uploaded_at: f.uploaded_at,
                                 kind: f.links[0]?.kind ?? null, read: docReading(d),
                               }}
                             />
@@ -759,7 +760,7 @@ function ResolvePanel({
           <DocumentPreview
             doc={{
               id: file.id, filename: file.filename, mime: file.mime, bytes: file.bytes,
-              url: file.url, drive_link: file.web_view_link ?? null, uploaded_at: file.uploaded_at,
+              url: file.url, drive_link: file.url ? null : driveOpenUrl(file), uploaded_at: file.uploaded_at,
               kind: file.links[0]?.kind ?? null,
               read: docReading(doc),
             }}
