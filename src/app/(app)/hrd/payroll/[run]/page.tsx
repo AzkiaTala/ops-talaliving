@@ -221,25 +221,28 @@ export default function PayrollRunPage({ params }: { params: Promise<{ run: stri
             <div className="mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
               <dl className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
                 {([
-                  [tr("Gross", "Bruto"), formatIDR(d.gross_total), tr("before any deduction", "sebelum potongan apa pun")],
+                  [tr("Gross", "Bruto"), formatIDR(d.gross_total), tr("before any deduction", "sebelum potongan apa pun"), false],
                   [tr("Take-home", "Diterima"), formatIDR(d.net_total),
                     d.adjustment_total === 0 ? tr("no adjustments", "tidak ada penyesuaian")
                       : tr(
                         `${d.adjustment_total < 0 ? "−" : "+"}${formatIDR(Math.abs(d.adjustment_total))} manual adjustments`,
                         `${d.adjustment_total < 0 ? "−" : "+"}${formatIDR(Math.abs(d.adjustment_total))} penyesuaian tangan`,
-                      )],
-                  [tr("People", "Orang"), String(d.lines.length), tr("employed during the period", "bekerja selama periode ini")],
+                      ), false],
+                  [tr("People", "Orang"), String(d.lines.length), tr("employed during the period", "bekerja selama periode ini"), false],
                   [tr("Days unread", "Hari belum dibaca"), String(d.open_days), d.open_days > 0
                     ? tr("must be read before approval", "harus dibaca sebelum disetujui")
-                    : tr("every day has been read", "semua hari sudah dibaca")],
-                  [tr("Overtime waiting", "Lembur menunggu"), tr(`${formatNumber(d.pending_overtime_hours)} h`, `${formatNumber(d.pending_overtime_hours)} jam`), tr("claimed, not approved — not in the figures", "diajukan, belum disetujui — tidak masuk angka")],
-                ] as [string, string, string][]).map(([k, v, note]) => (
+                    : tr("every day has been read", "semua hari sudah dibaca"), d.open_days > 0],
+                  [tr("Overtime waiting", "Lembur menunggu"), tr(`${formatNumber(d.pending_overtime_hours)} h`, `${formatNumber(d.pending_overtime_hours)} jam`), tr("claimed, not approved — not in the figures", "diajukan, belum disetujui — tidak masuk angka"), d.pending_overtime_hours > 0],
+                /* The fourth field says whether the figure needs attention. It
+                   used to be decided by comparing the label's text, and the
+                   *Days unread* tile never lit because its label had been
+                   renamed from *Open days* (F172). */
+                ] as [string, string, string, boolean][]).map(([k, v, note, warn]) => (
                   <div key={k} className="px-4 py-3.5">
                     <dt className="text-[11px] uppercase tracking-wide text-slate-400">{k}</dt>
                     <dd className={cn(
                       "mt-0.5 text-xl font-bold tabular-nums tracking-tight",
-                      (k === "Open days" && d.open_days > 0) || (k === tr("Overtime waiting", "Lembur menunggu") && d.pending_overtime_hours > 0)
-                        ? "text-amber-700" : "text-slate-800",
+                      warn ? "text-amber-700" : "text-slate-800",
                     )}>
                       {v}
                     </dd>
