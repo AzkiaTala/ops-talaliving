@@ -19,6 +19,7 @@
  *  Translating it would be the one change guaranteed to make the screen unusable
  *  by the people who use the sheet today.
  */
+import { bilingual, type Message } from "@/lib/i18n";
 
 /* ── Where in the world ───────────────────────────────────────────────────
  *
@@ -88,17 +89,18 @@ export const OUTREACH_STAGES = [
 ] as const;
 export type OutreachStage = (typeof OUTREACH_STAGES)[number] | "RECYCLED" | "SKIP";
 
-export const STAGE_LABEL: Record<OutreachStage, string> = {
-  QUEUED: "Antre",
-  "MSG SENT": "Pesan terkirim",
-  REPLIED: "Sudah balas",
-  "CALL SET": "Janji telepon",
-  "FORM BACK": "Formulir kembali",
-  PRESENTATION: "Presentasi",
-  DEAL: "Deal",
-  RECYCLED: "Dilepas",
-  SKIP: "Dilewati",
+export const STAGE_LABELS: Record<OutreachStage, Message> = {
+  QUEUED: { en: "Queued", id: "Antre" },
+  "MSG SENT": { en: "Message sent", id: "Pesan terkirim" },
+  REPLIED: { en: "Replied", id: "Sudah balas" },
+  "CALL SET": { en: "Call booked", id: "Janji telepon" },
+  "FORM BACK": { en: "Form returned", id: "Formulir kembali" },
+  PRESENTATION: { en: "Presentation", id: "Presentasi" },
+  DEAL: { en: "Deal", id: "Deal" },
+  RECYCLED: { en: "Released", id: "Dilepas" },
+  SKIP: { en: "Skipped", id: "Dilewati" },
 };
+export const STAGE_LABEL = bilingual(STAGE_LABELS);
 
 /** Whether the property is worth approaching at all. A disqualification keeps
  *  its reason in the string, exactly as the tracker writes it — *DISQUALIFIED —
@@ -194,13 +196,14 @@ export interface SalesRep {
  *  ladder: an owner either is talking to us, has signed, or has not. */
 export type ReferralStatus = "LEAD" | "SURVEYED" | "QUOTED" | "WON" | "LOST";
 
-export const REFERRAL_STATUS_LABEL: Record<ReferralStatus, string> = {
-  LEAD: "Kontak masuk",
-  SURVEYED: "Sudah disurvei",
-  QUOTED: "Sudah ditawar",
-  WON: "Jadi proyek",
-  LOST: "Batal",
+export const REFERRAL_STATUS_LABELS: Record<ReferralStatus, Message> = {
+  LEAD: { en: "New contact", id: "Kontak masuk" },
+  SURVEYED: { en: "Surveyed", id: "Sudah disurvei" },
+  QUOTED: { en: "Quoted", id: "Sudah ditawar" },
+  WON: { en: "Became a project", id: "Jadi proyek" },
+  LOST: { en: "Lost", id: "Batal" },
 };
+export const REFERRAL_STATUS_LABEL = bilingual(REFERRAL_STATUS_LABELS);
 
 /** An owner the representative introduced. */
 export interface Referral {

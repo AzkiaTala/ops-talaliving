@@ -7,6 +7,7 @@
  *  Ids are `string` here and `uuid` in Phase 2. The demo uses readable ids so
  *  fixtures can be read by a human.
  */
+import { bilingual, type Message } from "@/lib/i18n";
 
 /** Access is two separate things (D22–D24). Modules say which screens open.
  *
@@ -52,20 +53,21 @@ export const MODULES: ModuleName[] = [
   "marketing", "project", "production", "delivery", "it", "settings",
 ];
 
-export const MODULE_LABEL: Record<ModuleName, string> = {
-  dashboard: "Dashboard",
-  hrd: "HR",
-  payroll: "Payroll",
-  procurement: "Procurement",
-  inventory: "Inventory",
-  accounting: "Accounting",
-  marketing: "Marketing",
-  project: "Projects",
-  production: "Production",
-  delivery: "Delivery",
-  it: "IT",
-  settings: "Settings",
+export const MODULE_LABELS: Record<ModuleName, Message> = {
+  dashboard: { en: "Dashboard", id: "Dasbor" },
+  hrd: { en: "HR", id: "SDM" },
+  payroll: { en: "Payroll", id: "Penggajian" },
+  procurement: { en: "Procurement", id: "Pengadaan" },
+  inventory: { en: "Inventory", id: "Persediaan" },
+  accounting: { en: "Accounting", id: "Akuntansi" },
+  marketing: { en: "Marketing", id: "Pemasaran" },
+  project: { en: "Projects", id: "Proyek" },
+  production: { en: "Production", id: "Produksi" },
+  delivery: { en: "Delivery", id: "Pengiriman" },
+  it: { en: "IT", id: "IT" },
+  settings: { en: "Settings", id: "Pengaturan" },
 };
+export const MODULE_LABEL = bilingual(MODULE_LABELS);
 
 export const AUTHORITIES: Authority[] = [
   "approve_goods",
@@ -75,13 +77,14 @@ export const AUTHORITIES: Authority[] = [
   "resolve_inbox",
 ];
 
-export const AUTHORITY_LABEL: Record<Authority, string> = {
-  approve_goods: "Approve goods (CEO)",
-  approve_funds: "Approve funds",
-  approve_overtime: "Approve overtime (leadership)",
-  post_ledger: "Post to the ledger",
-  resolve_inbox: "Resolve unparented documents",
+export const AUTHORITY_LABELS: Record<Authority, Message> = {
+  approve_goods: { en: "Approve goods (CEO)", id: "Menyetujui barang (CEO)" },
+  approve_funds: { en: "Approve funds", id: "Menyetujui dana" },
+  approve_overtime: { en: "Approve overtime (leadership)", id: "Menyetujui lembur (pimpinan)" },
+  post_ledger: { en: "Post to the ledger", id: "Membukukan ke buku besar" },
+  resolve_inbox: { en: "Resolve unparented documents", id: "Menautkan dokumen tanpa induk" },
 };
+export const AUTHORITY_LABEL = bilingual(AUTHORITY_LABELS);
 
 export interface User {
   id: string;
@@ -273,22 +276,24 @@ export interface AuditRowView {
  */
 export type SettingReach = "display" | "forward" | "retroactive";
 
-export const SETTING_REACH_LABEL: Record<SettingReach, string> = {
-  display: "Tampilan saja",
-  forward: "Berlaku ke depan",
-  retroactive: "Mengubah angka lama",
+export const SETTING_REACH_LABELS: Record<SettingReach, Message> = {
+  display: { en: "Display only", id: "Tampilan saja" },
+  forward: { en: "Applies going forward", id: "Berlaku ke depan" },
+  retroactive: { en: "Changes past figures", id: "Mengubah angka lama" },
 };
+export const SETTING_REACH_LABEL = bilingual(SETTING_REACH_LABELS);
 
 export type SettingKind = "text" | "number" | "choice";
 
 export type SettingGroup = "identity" | "format" | "operations" | "retention";
 
-export const SETTING_GROUP_LABEL: Record<SettingGroup, string> = {
-  identity: "Identitas",
-  format: "Format & bahasa",
-  operations: "Ambang batas operasional",
-  retention: "Waktu, retensi, dan aturan yang tidak diubah dari sini",
+export const SETTING_GROUP_LABELS: Record<SettingGroup, Message> = {
+  identity: { en: "Identity", id: "Identitas" },
+  format: { en: "Format & language", id: "Format & bahasa" },
+  operations: { en: "Operational thresholds", id: "Ambang batas operasional" },
+  retention: { en: "Time, retention, and rules not changed from here", id: "Waktu, retensi, dan aturan yang tidak diubah dari sini" },
 };
+export const SETTING_GROUP_LABEL = bilingual(SETTING_GROUP_LABELS);
 
 export interface AppSetting {
   key: string;

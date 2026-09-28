@@ -139,7 +139,7 @@ export default function UsersPage() {
                                         </span>
                                         {m === "it" && (
                                           <span className="basis-full pl-[118px] text-[11px] text-amber-700">
-                                            {IT_ACCESS_RULE}
+                                            {tr(IT_ACCESS_RULE.en, IT_ACCESS_RULE.id)}
                                           </span>
                                         )}
                                       </li>

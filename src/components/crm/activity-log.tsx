@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 import { officeToday } from "@/lib/office";
 import { crm } from "@/demo/api";
 import {
-  ACTIVITY_KINDS,
+  ACTIVITY_KINDS, ACTIVITY_KIND_LABEL,
   type ActivityFilter, type ActivityKind, type ClientActivityView, type FollowUpState,
 } from "@/services/crm/contracts";
 import { useSession } from "@/store/session";
@@ -84,16 +84,6 @@ export const FOLLOW_UP_TONE: Record<FollowUpState, { label: Message; tone: "red"
   none: { label: { en: "", id: "" }, tone: "slate" },
 };
 
-/** Display names for the contact kinds; the code is what is stored. */
-const KIND_LABEL: Record<ActivityKind, Message> = {
-  call: { en: "Call", id: "Telepon" },
-  whatsapp: { en: "WhatsApp", id: "WhatsApp" },
-  email: { en: "Email", id: "Email" },
-  meeting: { en: "Meeting", id: "Meeting" },
-  visit: { en: "Visit", id: "Kunjungan" },
-  note: { en: "Note", id: "Catatan" },
-};
-
 export function ActivityRow({
   a, mayWrite, onChanged, showClient,
 }: {
@@ -119,7 +109,7 @@ export function ActivityRow({
   return (
     <li className="px-4 py-2.5 text-[13px]">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-        <Badge tone="slate">{KIND_LABEL[a.kind] ? tr(KIND_LABEL[a.kind].en, KIND_LABEL[a.kind].id) : a.kind}</Badge>
+        <Badge tone="slate">{ACTIVITY_KIND_LABEL(a.kind)}</Badge>
         <span className="text-slate-500">{a.happened_on}</span>
         {showClient && (
           <Link href={`/master-data/clients/${encodeURIComponent(a.client_code)}`} className="font-medium text-brand-700 hover:underline">
@@ -199,7 +189,7 @@ function NewActivity({
     <div className="space-y-2 border-b border-slate-100 bg-brand-50/40 px-4 py-3">
       <div className="flex flex-wrap gap-2">
         <select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as ActivityKind })} aria-label={tr("Kind", "Jenis")} className={cls}>
-          {ACTIVITY_KINDS.map((k) => <option key={k.code} value={k.code}>{KIND_LABEL[k.code] ? tr(KIND_LABEL[k.code].en, KIND_LABEL[k.code].id) : k.label}</option>)}
+          {ACTIVITY_KINDS.map((k) => <option key={k.code} value={k.code}>{k.label}</option>)}
         </select>
         <input type="date" value={f.happened_on} max={today} onChange={(e) => setF({ ...f, happened_on: e.target.value })}
           aria-label={tr("Date", "Tanggal")} className={cls} />

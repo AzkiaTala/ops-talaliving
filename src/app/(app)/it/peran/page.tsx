@@ -43,7 +43,7 @@ export default function RolesPage() {
       <Card className="mb-4">
         <CardHeader title={tr("Who may open the IT module", "Siapa boleh membuka modul IT")} subtitle={tr("The owner's answer to Q22", "Jawaban pemilik atas Q22")} icon={KeyRound} />
         <div className="px-4 py-3 text-[13px] text-slate-700">
-          <p>{IT_ACCESS_RULE}</p>
+          <p>{tr(IT_ACCESS_RULE.en, IT_ACCESS_RULE.id)}</p>
           <Loaded state={users}>
             {(rows) => {
               const holders = rows.filter((u) => u.modules.some((m) => m.module === "it"));

@@ -9,26 +9,11 @@ import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { cn } from "@/lib/cn";
 import { identity } from "@/demo/api";
 import {
-  type AppSetting, type SettingGroup, type SettingReach,
+  SETTING_GROUP_LABEL, SETTING_REACH_LABEL, type AppSetting, type SettingGroup, type SettingReach,
 } from "@/services/identity/contracts";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
-import { useTr, type Message } from "@/lib/i18n";
-
-/* Display side of `SETTING_REACH_LABEL` / `SETTING_GROUP_LABEL`, in both
-   languages. The keys are the contract's; only the words differ. */
-const REACH_LABEL: Record<SettingReach, Message> = {
-  display: { en: "Display only", id: "Tampilan saja" },
-  forward: { en: "Applies going forward", id: "Berlaku ke depan" },
-  retroactive: { en: "Changes past figures", id: "Mengubah angka lama" },
-};
-
-const GROUP_LABEL: Record<SettingGroup, Message> = {
-  identity: { en: "Identity", id: "Identitas" },
-  format: { en: "Format & language", id: "Format & bahasa" },
-  operations: { en: "Operational thresholds", id: "Ambang batas operasional" },
-  retention: { en: "Time, retention, and rules not changed from here", id: "Waktu, retensi, dan aturan yang tidak diubah dari sini" },
-};
+import { useTr } from "@/lib/i18n";
 
 const REACH_TONE: Record<SettingReach, "slate" | "brand" | "amber"> = {
   display: "slate", forward: "brand", retroactive: "amber",
@@ -94,7 +79,7 @@ export default function SettingsPage() {
                 if (inGroup.length === 0) return null;
                 return (
                   <Card key={g}>
-                    <CardHeader title={tr(GROUP_LABEL[g].en, GROUP_LABEL[g].id)} icon={Settings} />
+                    <CardHeader title={SETTING_GROUP_LABEL[g]} icon={Settings} />
                     <ul className="divide-y divide-slate-100">
                       {inGroup.map((s) => (
                         <SettingRow key={s.key} setting={s} mayEdit={mayEdit} onSaved={reload} />
@@ -148,7 +133,7 @@ function SettingRow({ setting, mayEdit, onSaved }: {
         <span className="min-w-[220px] flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-[13px] font-medium text-slate-800">{setting.label}</span>
-            <Badge tone={REACH_TONE[setting.reach]}>{tr(REACH_LABEL[setting.reach].en, REACH_LABEL[setting.reach].id)}</Badge>
+            <Badge tone={REACH_TONE[setting.reach]}>{SETTING_REACH_LABEL[setting.reach]}</Badge>
             {locked && <Lock className="h-3 w-3 text-slate-400" />}
           </span>
           <span className="mt-0.5 block text-[12px] text-slate-600">{stripRefs(setting.help)}</span>

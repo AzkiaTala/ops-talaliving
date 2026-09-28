@@ -53,15 +53,15 @@ export function TourBar() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] uppercase tracking-wide text-slate-400">
-              {tour.name} · {tr(`step ${index + 1} of ${tour.steps.length}`, `langkah ${index + 1} dari ${tour.steps.length}`)}
+              {tr(tour.name.en, tour.name.id)} · {tr(`step ${index + 1} of ${tour.steps.length}`, `langkah ${index + 1} dari ${tour.steps.length}`)}
             </p>
-            <p className="text-[14px] font-semibold">{step.title}</p>
+            <p className="text-[14px] font-semibold">{tr(step.title.en, step.title.id)}</p>
             <button
               onClick={() => setExpanded((v) => !v)}
               className="mt-0.5 block w-full text-left text-[13px] leading-snug text-slate-300 sm:cursor-default"
               aria-expanded={expanded}
             >
-              <span className={expanded ? "" : "line-clamp-2 sm:line-clamp-none"}>{step.body}</span>
+              <span className={expanded ? "" : "line-clamp-2 sm:line-clamp-none"}>{tr(step.body.en, step.body.id)}</span>
               {!expanded && <span className="text-slate-500 sm:hidden">{tr(" — tap for the rest", " — ketuk untuk selengkapnya")}</span>}
             </button>
           </div>
