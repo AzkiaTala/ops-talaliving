@@ -1,25 +1,12 @@
 import type { DemoState } from "./state";
 
-/** The demo's account ↔ employee link — what `ops_hr.employees.user_id` and
- *  `my_employee_id()` are in the database (0152).
- *
- *  Kept beside the fixture rather than on the shared `Employee` contract,
- *  because widening `Employee` with a `user_id` would touch every screen that
- *  already destructures one. Wulan (HRD) and the shared IT account map to
- *  nothing — an office account with no employee row, the ordinary case.
- *
- *  **Karjo** is the one account here that holds no module at all: a daily
- *  worker in the workshop whose whole app is `/saya` (D331). He is how the
- *  sandbox shows the employee-only shell.
- */
-export const SELF_EMPLOYEE_NO: Record<string, string> = {
-  usr_evin: "K-001", usr_putri: "K-004", usr_anggun: "K-007",
-  usr_andi: "K-011", usr_made: "K-014",
-  usr_karjo: "B-009",
-};
-
+/** The demo's account ↔ employee link — `ops_hr.employees.user_id` and
+ *  `my_employee_id()` in the database (0152). Read from
+ *  `state.employee_accounts`, which IT writes from `/it/pengguna` (D329), so
+ *  `/saya`'s door and the documents guard follow the same link `hr.myProfile`
+ *  does. Karjo (`usr_karjo`) is the one linked account with no module (D331). */
 export function selfEmployeeId(state: DemoState, userId: string): string | null {
-  const no = SELF_EMPLOYEE_NO[userId];
+  const no = state.employee_accounts?.find((l) => l.user_id === userId)?.employee_no;
   if (!no) return null;
   return state.employees.find((e) => e.employee_no === no)?.id ?? null;
 }

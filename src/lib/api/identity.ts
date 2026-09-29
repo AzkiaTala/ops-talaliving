@@ -13,7 +13,7 @@
 import type {
   Session, Authority, ModuleName, ModuleLevel, ModuleGrant, AuditRowView,
   ActivityEvent, ActivityDaily, RetentionStatus, Approver, MyActivityEvent,
-  UserDirectoryRow, AccountStatus, UserLinkSent, UserActiveChange,
+  UserDirectoryRow, AccountStatus, UserLinkSent, UserActiveChange, UserPasswordIssued,
 } from "@/services/identity/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromRows, fromSeam, invalid, notFound, ok, type Result } from "./_kit";
@@ -282,6 +282,22 @@ export async function inviteUser(
   input: { email: string; full_name: string },
 ): Promise<Result<UserLinkSent>> {
   return usersRoute<UserLinkSent>({ action: "invite", ...input });
+}
+
+/** Add a person with a password instead of an invitation (D329): the
+ *  database decides, GoTrue creates the account confirmed and mails nothing,
+ *  and the answer carries the generated password — the only time anybody
+ *  sees it. */
+export async function createUser(
+  input: { email: string; full_name: string },
+): Promise<Result<UserPasswordIssued>> {
+  return usersRoute<UserPasswordIssued>({ action: "create", ...input });
+}
+
+/** Give an account a new generated password (D329). The trail says it was
+ *  reset and by whom; the password is in this answer and nowhere else. */
+export async function resetUserPassword(userId: string): Promise<Result<UserPasswordIssued>> {
+  return usersRoute<UserPasswordIssued>({ action: "reset_password", user_id: userId });
 }
 
 /** Send somebody a link to set their password — the invitation again if they

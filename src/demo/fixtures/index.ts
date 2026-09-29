@@ -137,6 +137,20 @@ export function initialState(): DemoState {
     tasks: TASKS,
     task_routines: TASK_ROUTINES,
     employee_identities: EMPLOYEE_IDENTITIES,
+    /* Five of the six office personas are also on the roster (W7), and Karjo
+       from the workshop floor (D331). Wulan (HRD) and
+       the shared IT account are not — the ordinary case of an account that is
+       nobody's employee record. */
+    employee_accounts: [
+      { employee_no: "K-001", user_id: "usr_evin" },
+      { employee_no: "K-004", user_id: "usr_putri" },
+      { employee_no: "K-007", user_id: "usr_anggun" },
+      { employee_no: "K-011", user_id: "usr_andi" },
+      { employee_no: "K-014", user_id: "usr_made" },
+      /* Karjo, a daily worker with no module: the employee-only account whose
+         whole app is `/saya` (D331). */
+      { employee_no: "B-009", user_id: "usr_karjo" },
+    ],
     pay_rule_sets: PAY_RULE_SETS,
     employee_documents: EMPLOYEE_DOCUMENTS,
     employment_contracts: EMPLOYMENT_CONTRACTS,
