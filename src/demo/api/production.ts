@@ -1,5 +1,6 @@
 /** Implements `/api/v1/production` from `03-api.md`. */
 import { refused, ok, invalid, notFound, noop, isOk, type Result } from "@/services/_shared/envelope";
+import { trNow } from "@/lib/i18n";
 import {
   PROCESS_STAGES, RETIRED_STAGES, VENDOR_PROCESSES, VENDOR_PROCESS_NAME, DESIGN_KIND_LABEL, ROUTE, STAGE_NAME, goodsOnSite,
   type WorkOrder, type WorkOrderView, type WorkOrderRef, type ProgressEntry, type ProductView,
@@ -7,17 +8,19 @@ import {
   type VendorLegView, type VendorRecord,
   type WorkAttribution, type BomKind,
   type JobTrail, type TrailEvent, type TrailStage,
+  BOM_RATE_GROUPS, type BomRate, type BomRateGroup, type BomRateView,
+  type BomSuggestion, type BomSuggestionLine,
 } from "@/services/production/contracts";
 import type { ProjectStatus } from "@/services/procurement/contracts";
 import { getState, apply, newId, nextDocNumber, writeAudit, writeOutbox } from "../store";
 import {
   workOrderView, workOrderViews, productView, productViews,
-  currentBomRev, draftBomRev, bomAt, bomDiff, bomRevisions, lineRate, bomRepinnable, explodeBom, bomWouldCycle,
+  currentBomRev, draftBomRev, bomAt, bomDiff, bomRevisions, lineRate, lineKey, bomRepinnable, explodeBom, bomWouldCycle,
   designQueue, designTaskView, designGaps, officeToday,
   unresolvedNames, workAttribution, openVendorLegs, vendorLegViews, vendorRecords, type UnresolvedName,
 } from "../production-derive";
 import {
-  latency, actingUser, requireModule, requireAuthority, conflict, replayed, remember,
+  latency, actingUser, requireModule, requireAuthority, requireLevel, conflict, replayed, remember,
 } from "./_kit";
 import { settingNumber } from "../settings";
 import { lineCoverage } from "../derive";
@@ -784,7 +787,8 @@ function openDraft(productId: string, by: string, byEmail: string): number {
       created_at: new Date().toISOString(), created_by: by,
     });
     for (const b of draft.bom_components.filter((x) => x.product_id === productId && x.rev === from)) {
-      const keep = b.rate_source === "manual" || b.kind === "labour";
+      /* A line that follows the rate list goes back to following it (0182). */
+      const keep = b.rate_source === "manual" || (b.kind === "labour" && !b.rate_code);
       draft.bom_components.push({
         ...b, id: newId("bom"), rev,
         unit_rate: keep ? b.unit_rate ?? null : null,
@@ -831,6 +835,10 @@ export async function saveBomComponent(
     unit_rate?: number | null;
     waste_percent?: number;
     note?: string | null;
+    /** Komponen — Kaki-kaki, Top (0182). */
+    part?: string | null;
+    /** The BOM rate list entry this line follows (0182). */
+    rate_code?: string | null;
   },
 ): Promise<Result<ProductView>> {
   await latency();
@@ -841,25 +849,38 @@ export async function saveBomComponent(
   const product = state.products.find((p) => p.product_code === input.product_code);
   if (!product) return notFound(SERVICE, "product_not_found", `No product ${input.product_code}.`);
 
+  const part = input.part?.trim() || null;
+  const rateCode = input.rate_code?.trim().toUpperCase() || null;
+  const followed = rateCode ? (state.bom_rates ?? []).find((r) => r.code === rateCode) : undefined;
+  if (rateCode && !followed) {
+    return invalid(SERVICE, "unknown_rate", `Tidak ada rate ${rateCode} di daftar rate BOM.`, { field: "rate_code" });
+  }
+  if (rateCode && input.kind === "product") {
+    return invalid(SERVICE, "rate_on_sub_assembly", "Sub-rakitan dihitung dari BOM-nya sendiri, bukan dari daftar rate.", { field: "rate_code" });
+  }
+
   if (!input.qty || input.qty <= 0) {
     return invalid(SERVICE, "qty_required", "Kebutuhan per unit harus lebih dari nol.", { field: "qty" });
   }
   if (input.unit_rate != null && input.unit_rate < 0) {
     return invalid(SERVICE, "negative_rate", "Rate tidak bisa negatif.", { field: "unit_rate" });
   }
-  const label = input.label?.trim() || null;
+  let label = input.label?.trim() || null;
   let ref: string;
   if (input.kind === "labour") {
+    label = label ?? followed?.name ?? null;
     if (!label) {
       return invalid(SERVICE, "label_required", "Tenaga kerja apa? Mis. \"Tukang finishing\".", { field: "label" });
     }
-    if (input.unit_rate == null) {
-      return invalid(SERVICE, "rate_required", "Tenaga kerja butuh rate — upah per hari, per jam, atau per unit.", { field: "unit_rate" });
+    if (input.unit_rate == null && !followed) {
+      return invalid(SERVICE, "rate_required", "Tenaga kerja butuh rate — upah per hari, per jam, atau per unit, diketik atau dari daftar rate.", { field: "unit_rate" });
     }
     ref = labourCode(label);
   } else {
     ref = (input.ref_code ?? "").trim().toUpperCase();
-    if (!ref) return invalid(SERVICE, "ref_required", "Komponennya apa?", { field: "ref_code" });
+    /* Picked from the rate list: the item it stands for, else the rate itself. */
+    if (!ref && followed) ref = (followed.item_code ?? "").trim().toUpperCase() || followed.code;
+    if (!ref) return invalid(SERVICE, "ref_required", "Materialnya apa?", { field: "ref_code" });
   }
   if (input.kind === "product") {
     /* Not just *itself* — anywhere in the loop (D257). */
@@ -884,48 +905,53 @@ export async function saveBomComponent(
 
   const user = actingUser();
   const rev = openDraft(product.id, user.id, user.email);
-  /* Edited from a released revision: the edit lands on that line's copy. */
+  /* Edited from a released revision: the edit lands on that line's copy —
+     the same material for the same part. */
   if (existing && existing.rev !== rev) {
-    const fromRef = existing.ref_code;
+    const fromKey = lineKey(existing);
     existing = getState().bom_components.find(
-      (b) => b.product_id === product.id && b.rev === rev && b.ref_code === fromRef,
+      (b) => b.product_id === product.id && b.rev === rev && lineKey(b) === fromKey,
     );
   }
 
-  const dup = bomAt(getState(), product, rev).find((b) => b.ref_code === ref && b.id !== existing?.id);
+  const key = lineKey({ ref_code: ref, part });
+  const dup = bomAt(getState(), product, rev).find((b) => lineKey(b) === key && b.id !== existing?.id);
   if (dup) {
     return conflict(
       SERVICE, "already_on_bom",
-      `${label ?? ref} sudah ada di BOM ini — ubah jumlahnya, jangan tambah baris kedua.`,
+      `${label ?? followed?.name ?? ref}${part ? ` untuk ${part}` : ""} sudah ada di BOM ini — ubah jumlahnya, jangan tambah baris kedua.`,
     );
   }
 
   const rate = input.unit_rate ?? null;
+  const uom = input.uom?.trim() || followed?.uom || "";
   apply((draft) => {
     const row = existing ? draft.bom_components.find((b) => b.id === existing!.id) : null;
     if (row) {
       Object.assign(row, {
         kind: input.kind, ref_code: ref, label, qty: input.qty,
-        uom: input.uom.trim() || row.uom,
+        uom: uom || row.uom,
         waste_percent: input.waste_percent ?? 0,
         unit_rate: rate, rate_source: rate == null ? null : "manual",
         note: input.note?.trim() || null,
+        part, rate_code: rateCode,
       });
     } else {
       draft.bom_components.push({
         id: newId("bom"), product_id: product.id, rev,
         kind: input.kind, ref_code: ref, label, qty: input.qty,
-        uom: input.uom.trim() || "pcs",
+        uom: uom || "pcs",
         waste_percent: input.waste_percent ?? 0,
         unit_rate: rate, rate_source: rate == null ? null : "manual",
         note: input.note?.trim() || null,
+        part, rate_code: rateCode,
       });
     }
     writeAudit(draft, {
       service: SERVICE, entity: "bom", entity_no: product.product_code,
       action: row ? "update_line" : "add_line", outcome: "ok",
       reason: input.note?.trim() ?? null,
-      detail: { rev, ref, qty: input.qty, unit_rate: rate, by: user.email },
+      detail: { rev, ref, part, rate_code: rateCode, qty: input.qty, unit_rate: rate, by: user.email },
     });
   });
   return getProduct(product.product_code);
@@ -949,8 +975,8 @@ export async function removeBomComponent(
   const user = actingUser();
   const rev = openDraft(product.id, user.id, user.email);
   if (row.rev !== rev) {
-    const fromRef = row.ref_code;
-    row = getState().bom_components.find((b) => b.product_id === product.id && b.rev === rev && b.ref_code === fromRef);
+    const fromKey = lineKey(row);
+    row = getState().bom_components.find((b) => b.product_id === product.id && b.rev === rev && lineKey(b) === fromKey);
     if (!row) return noop(SERVICE, productView(getState(), product));
   }
   const gone = row;
@@ -1116,7 +1142,7 @@ export async function releaseBom(
   if (unpricedLines.length > 0) {
     return invalid(
       SERVICE, "unpriced_lines",
-      `Belum ada rate untuk: ${unpricedLines.map((c) => `${c.ref_name ?? c.ref_code} (${c.ref_code})`).join(", ")}. Isi rate-nya dulu — biaya yang dirilis tidak boleh bolong.`,
+      `Belum ada rate untuk: ${unpricedLines.map((c) => `${c.part ? `${c.part} · ` : ""}${c.ref_name ?? c.ref_code} (${c.ref_code})`).join(", ")}. Isi rate-nya dulu — biaya yang dirilis tidak boleh bolong.`,
       { field: "unit_rate", lines: unpricedLines.map((c) => c.ref_code) },
     );
   }
@@ -1341,6 +1367,237 @@ export async function setLabourCost(
     });
   });
   return getProduct(product.product_code);
+}
+
+/* ------------------------------------------------------------------ */
+/* The BOM rate list (0182, D324)                                        */
+/* ------------------------------------------------------------------ */
+
+function rateView(state: ReturnType<typeof getState>, r: BomRate): BomRateView {
+  const used = new Set(
+    state.bom_components
+      .filter((b) => b.rate_code === r.code)
+      .filter((b) => {
+        const p = state.products.find((x) => x.id === b.product_id);
+        return p ? b.rev === (draftBomRev(state, p) ?? currentBomRev(state, p)) : false;
+      })
+      .map((b) => b.product_id),
+  );
+  return {
+    ...r,
+    item_name: r.item_code ? state.items.find((i) => i.code === r.item_code)?.name ?? null : null,
+    updated_by_name: null,
+    used_by: used.size,
+  };
+}
+
+/** The estimator's price list, grouped and named — kayu, material, finishing,
+ *  labour, packing. Retired rates only when asked for. */
+export async function listBomRates(
+  opts: { include_inactive?: boolean } = {},
+): Promise<Result<BomRateView[]>> {
+  await latency();
+  const state = getState();
+  const rows = (state.bom_rates ?? [])
+    .filter((r) => opts.include_inactive || r.active)
+    .map((r) => rateView(state, r))
+    .sort((a, b) => BOM_RATE_GROUPS.indexOf(a.rate_group) - BOM_RATE_GROUPS.indexOf(b.rate_group)
+      || a.name.localeCompare(b.name));
+  return ok(SERVICE, rows);
+}
+
+/** Adding a rate, or changing one (0182's `save_bom_rate`). A changed figure
+ *  moves every draft that follows it and no released revision. */
+export async function saveBomRate(
+  input: {
+    code?: string | null;
+    name: string;
+    rate_group: BomRateGroup;
+    uom: string;
+    rate: number;
+    item_code?: string | null;
+    note?: string | null;
+    active?: boolean;
+  },
+): Promise<Result<BomRateView>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "production", "write");
+  if (denied) return denied;
+  const state = getState();
+  const code = input.code?.trim().toUpperCase() || null;
+  const existing = code ? (state.bom_rates ?? []).find((r) => r.code === code) : undefined;
+  if (code && !existing) return notFound(SERVICE, "rate_not_found", `Tidak ada rate ${code}.`);
+
+  const name = input.name.trim();
+  if (!name) return invalid(SERVICE, "name_required", "Rate untuk apa? Mis. \"Kayu mindi grade A\".", { field: "name" });
+  if (!BOM_RATE_GROUPS.includes(input.rate_group)) {
+    return invalid(SERVICE, "unknown_group", `"${input.rate_group}" bukan kelompok rate.`, { field: "rate_group" });
+  }
+  const uom = input.uom.trim();
+  if (!uom) return invalid(SERVICE, "uom_required", "Rate per apa? m3, m2, lembar, hari, unit…", { field: "uom" });
+  if (input.rate == null || Number.isNaN(input.rate)) return invalid(SERVICE, "rate_required", "Berapa rate-nya?", { field: "rate" });
+  if (input.rate < 0) return invalid(SERVICE, "negative_rate", "Rate tidak bisa negatif.", { field: "rate" });
+  const item = input.item_code?.trim().toUpperCase() || null;
+  if (item && !state.items.some((i) => i.code === item)) {
+    return invalid(SERVICE, "no_such_item", `Tidak ada item ${item} di database items.`, { field: "item_code" });
+  }
+  const active = input.active ?? existing?.active ?? true;
+  if (active && (state.bom_rates ?? []).some((r) => r.active && r.id !== existing?.id
+      && r.name.trim().toLowerCase() === name.toLowerCase())) {
+    return conflict(SERVICE, "rate_name_taken", `"${name}" sudah ada di daftar rate — ubah yang itu, jangan buat dua harga untuk satu barang.`);
+  }
+
+  const user = actingUser();
+  const now = new Date().toISOString();
+  const next = existing?.code ?? `RT-${String((state.bom_rates ?? []).reduce((a, r) => Math.max(a, Number(r.code.slice(3)) || 0), 0) + 1).padStart(4, "0")}`;
+  apply((draft) => {
+    draft.bom_rates = draft.bom_rates ?? [];
+    const row = draft.bom_rates.find((r) => r.code === next);
+    const fields = { name, rate_group: input.rate_group, uom, rate: input.rate, item_code: item, note: input.note?.trim() || null, active, updated_at: now };
+    if (row) Object.assign(row, fields);
+    else draft.bom_rates.push({ id: newId("rt"), code: next, created_at: now, ...fields });
+    writeAudit(draft, {
+      service: SERVICE, entity: "bom_rate", entity_no: next,
+      action: row ? "update" : "create", outcome: "ok", reason: null,
+      detail: { before: existing ? { rate: existing.rate, active: existing.active } : null, rate: input.rate, active, by: user.email },
+    });
+  });
+  const saved = getState().bom_rates.find((r) => r.code === next)!;
+  return ok(SERVICE, rateView(getState(), saved));
+}
+
+/** A BOM proposed from the working drawing (D324).
+ *
+ *  The live build sends the drawing to a language model through
+ *  `/api/production/bom/suggest`. **The sandbox has no model**, so it works
+ *  the lines out from the product's size instead — the same shape, the same
+ *  rates from the same list, and `source: "sandbox"` so the screen says it was
+ *  not read from the drawing. It writes nothing, in either build. */
+export async function suggestBom(
+  input: { product_code: string; attachment_id?: string | null },
+): Promise<Result<BomSuggestion>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "production", "write");
+  if (denied) return denied;
+  const state = getState();
+  const product = state.products.find((p) => p.product_code === input.product_code);
+  if (!product) return notFound(SERVICE, "product_not_found", `No product ${input.product_code}.`);
+  const drawing = productView(state, product).drawings
+    .find((d) => d.kind === "Gambar Kerja" && (!input.attachment_id || d.attachment_id === input.attachment_id));
+  if (!drawing) {
+    return invalid(SERVICE, "no_drawing", "Belum ada gambar kerja untuk dibaca. Unggah gambar kerjanya dulu.", { field: "attachment_id" });
+  }
+  const L = product.length_mm, W = product.width_mm, H = product.height_mm;
+  if (!L || !W || !H) {
+    return invalid(SERVICE, "no_size",
+      "Sandbox menghitung dari ukuran produk (P × L × T), dan ukurannya belum diisi. Di aplikasi live, AI membaca ukurannya dari gambar kerja.",
+      { field: "size" });
+  }
+  const rates = (state.bom_rates ?? []).filter((r) => r.active);
+  return ok(SERVICE, {
+    product_code: product.product_code,
+    drawing: { attachment_id: drawing.attachment_id, filename: drawing.filename },
+    source: "sandbox",
+    summary: trNow(
+      `Sandbox estimate for ${product.name}, worked out from its size (${L} × ${W} × ${H} mm) — not read from the drawing. Check every quantity.`,
+      `Estimasi sandbox untuk ${product.name}, dihitung dari ukurannya (${L} × ${W} × ${H} mm) — bukan dibaca dari gambar. Periksa setiap jumlah.`,
+    ),
+    lines: sandboxEstimate(product.category, L, W, H, rates),
+    assumptions: [
+      trNow("Solid timber parts 25 mm thick for panels, 50 × 50 mm for legs.", "Bagian kayu solid tebal 25 mm untuk panel, 50 × 50 mm untuk kaki."),
+      trNow("Finishing on every visible face; 12% waste on timber.", "Finishing di semua sisi yang terlihat; susut kayu 12%."),
+    ],
+    unread: [],
+  });
+}
+
+/** The sandbox's stand-in for reading a drawing: a table, a chair or a
+ *  cabinet, cut from its three dimensions and priced from the rate list. */
+function sandboxEstimate(
+  category: string, L: number, W: number, H: number, rates: BomRate[],
+): BomSuggestionLine[] {
+  const pick = (group: BomRateGroup, prefer: RegExp[] = []) => {
+    const inGroup = rates.filter((r) => r.rate_group === group);
+    for (const re of prefer) {
+      const hit = inGroup.find((r) => re.test(r.name));
+      if (hit) return hit;
+    }
+    return inGroup[0] ?? null;
+  };
+  const m3 = (n: number, a: number, b: number, c: number) => Math.round(n * a * b * c / 1e5) / 1e4;
+  const fmt = (n: number) => String(n).replace(".", ",");
+  const lines: BomSuggestionLine[] = [];
+  const timber = pick("kayu", [/mindi/i]);
+  const add = (
+    part: string, kind: "material" | "labour", r: BomRate | null, material: string,
+    qty: number, uom: string, working: string, waste = 0,
+  ) => {
+    if (qty <= 0) return;
+    lines.push({
+      part, kind, rate_code: r?.code ?? null, material: r?.name ?? material,
+      qty, uom: r?.uom ?? uom, waste_percent: waste, rate: r?.rate ?? null,
+      working, confidence: "medium",
+      warnings: r ? [] : [trNow(`No rate on the list for ${material} — pick one or add it.`, `Belum ada rate untuk ${material} di daftar — pilih atau tambahkan.`)],
+    });
+  };
+  const wood = timber?.name ?? "Kayu";
+  const cat = category.toLowerCase();
+  let volume = 0;
+  const timberPart = (part: string, n: number, a: number, b: number, c: number) => {
+    const v = m3(n, a, b, c);
+    volume = Math.round((volume + v) * 1e4) / 1e4;
+    add(part, "material", timber, wood, v, "m3", `${n} × ${a}×${b}×${c} mm = ${fmt(v)} m³`, 12);
+  };
+  if (/kursi|chair|stool/.test(cat)) {
+    const seat = Math.round(H * 0.5);
+    timberPart("Dudukan", 1, L, W, 25);
+    timberPart("Kaki-kaki", 4, 45, 45, seat);
+    timberPart("Sandaran", 1, L, Math.max(H - seat, 100), 25);
+    timberPart("Rangka dudukan", 4, Math.max(L - 90, 100), 60, 25);
+  } else if (/lemari|rak|cabinet|nakas|laci|buffet|wardrobe/.test(cat)) {
+    timberPart("Top & alas", 2, L, W, 25);
+    timberPart("Samping", 2, H, W, 25);
+    timberPart("Pintu / depan", 1, L, H, 20);
+    const ply = pick("material", [/plywood/i]);
+    const sheets = Math.ceil((L * H) / (1220 * 2440) * 10) / 10;
+    add("Panel belakang", "material", ply, "Plywood", sheets, "lembar", `${L}×${H} mm ÷ 1220×2440 = ${fmt(sheets)} lembar`, 10);
+  } else {
+    const top = 25;
+    timberPart("Top", 1, L, W, top);
+    timberPart("Kaki-kaki", 4, 50, 50, H - top);
+    timberPart("Rangka (apron)", 2, Math.max(L - 100, 100), 80, 25);
+    timberPart("Rangka (apron)", 2, Math.max(W - 100, 100), 80, 25);
+  }
+  /* The two apron pairs above are one line: same material, same part. */
+  const merged: BomSuggestionLine[] = [];
+  for (const l of lines) {
+    const twin = merged.find((m) => m.part === l.part && m.rate_code === l.rate_code && m.material === l.material);
+    if (twin) {
+      twin.qty = Math.round((twin.qty + l.qty) * 1e4) / 1e4;
+      twin.working = `${twin.working}; ${l.working}`;
+    } else merged.push({ ...l });
+  }
+  lines.length = 0;
+  lines.push(...merged);
+
+  add("Rakit", "material", pick("material", [/hardware|pengikat|sekrup/i]), "Hardware & pengikat", 1, "set", "1 set per unit");
+  const area = Math.round(2 * (L * W + L * H + W * H) / 1e6 * 0.6 * 100) / 100;
+  add("Finishing", "material", pick("finishing", [/PU/i]), "Finishing", area, "m2",
+    `≈ 60% dari 2 × (P×L + P×T + L×T) = ${fmt(area)} m²`);
+  const carpentry = Math.max(1, Math.round((1 + volume * 20) * 2) / 2);
+  add("Rakit", "labour", pick("labour", [/kayu|rakit/i]), "Tukang kayu", carpentry, "hari",
+    `1 hari + 20 hari per m³ kayu (${fmt(volume)} m³) ≈ ${fmt(carpentry)} hari`);
+  const finishingDays = Math.max(0.5, Math.round(area / 4 * 2) / 2);
+  add("Finishing", "labour", pick("labour", [/finishing/i]), "Tukang finishing", finishingDays, "hari",
+    `${fmt(area)} m² ÷ 4 m² per hari ≈ ${fmt(finishingDays)} hari`);
+  const packing = pick("packing", [/packing/i]);
+  if (packing && packing.uom === "unit") {
+    add("Packing", "material", packing, "Packing", 1, "unit", "1 per unit");
+  } else {
+    const box = Math.round(2 * ((L + 50) * (W + 50) + (L + 50) * (H + 50) + (W + 50) * (H + 50)) / 1e6 * 100) / 100;
+    add("Packing", "material", packing, "Karton", box, "m2", `kotak ${L + 50}×${W + 50}×${H + 50} mm = ${fmt(box)} m²`);
+  }
+  return lines;
 }
 
 /** Filing a drawing against a product.
