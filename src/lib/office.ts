@@ -37,6 +37,11 @@ export const OFFICE_TZ = {
 
 const OFFSET_MS = OFFICE_TZ.offset_hours * 3_600_000;
 
+/* `schedule-rules.ts` restates the offset because it may import nothing. This
+   fails to compile the moment the two say different things (D334). */
+type Same<A extends B, B> = A;
+export type OfficeOffsetAgrees = Same<typeof OFFICE_TZ.iso, typeof import("@/services/hr/schedule-rules").OFFICE_OFFSET>;
+
 /** The office day a moment belongs to, as `YYYY-MM-DD`. */
 export function officeDay(at: Date | number = Date.now()): string {
   const ms = typeof at === "number" ? at : at.getTime();

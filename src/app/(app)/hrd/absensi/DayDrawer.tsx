@@ -2,13 +2,13 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, Flag, Plus, Clock, Undo2, Paperclip, Wallet } from "lucide-react";
+import { AlertTriangle, Check, Flag, Plus, Clock, Undo2, Paperclip, Wallet, Moon } from "lucide-react";
 import { Drawer } from "@/components/ui/drawer";
 import { Badge, Button } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { NumberInput } from "@/components/ui/number-input";
 import { formatNumber } from "@/lib/format";
-import { officeClock } from "@/lib/office";
+import { officeClock, officeDay } from "@/lib/office";
 import { cn } from "@/lib/cn";
 import { documents, hr } from "@/demo/api";
 import {
@@ -18,6 +18,18 @@ import {
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
+import { instantInDay } from "@/services/hr/schedule-rules";
+
+/** A tap's office calendar day and clock face, from the instant rather than
+ *  from the string's own offset, so a night's morning tap can say it is
+ *  *tomorrow* whichever zone the row arrived in (F17). The zone is
+ *  `src/lib/office.ts`'s (WIB since D334), not a number written here. */
+function tapDay(iso: string): string {
+  return officeDay(Date.parse(iso));
+}
+function tapClock(iso: string): string {
+  return officeClock(Date.parse(iso));
+}
 
 /** One person, one day, and everything that is known about it.
  *
@@ -248,6 +260,24 @@ export function DayDrawer({
               </div>
             )}
 
+            {/* A night reads into the next morning (D330). Said here, because a
+                pulang at 07.05 on a day dated the evening before otherwise looks
+                like a typo — and because the window is exactly where the reading
+                drew its line, not a rule the screen worked out again. */}
+            {d.overnight && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-3">
+                <p className="flex items-center gap-2 text-[13px] font-semibold text-indigo-900">
+                  <Moon className="h-4 w-4" /> {tr("Night shift — one working day across midnight", "Shift malam — satu hari kerja melewati tengah malam")}
+                </p>
+                <p className="mt-0.5 text-[12px] text-indigo-900">
+                  {tr(
+                    `Taps from ${tapClock(d.window_from)} on ${d.work_date} until ${tapClock(d.window_to)} the next day are read into this day. Each tap is still stored on the calendar day it happened.`,
+                    `Tap dari ${tapClock(d.window_from)} tanggal ${d.work_date} sampai ${tapClock(d.window_to)} esok harinya dibaca ke hari ini. Setiap tap tetap tersimpan pada tanggal kalender kejadiannya.`,
+                  )}
+                </p>
+              </div>
+            )}
+
             {d.issues.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-900">
@@ -295,7 +325,10 @@ export function DayDrawer({
                       </span>
                       <span className="flex-1 text-[13px] text-slate-700">{SLOT_LABEL[slot]}</span>
                       <span className={cn("font-mono text-[13px] tabular-nums", at ? "text-slate-800" : "text-slate-300")}>
-                        {at ? officeClock(Date.parse(at)) : "··:··"}
+                        {at ? tapClock(at) : "··:··"}
+                        {at && tapDay(at) > workDate && (
+                          <span className="ml-1 text-[10px] font-sans text-indigo-700">{tr("next day", "esok")}</span>
+                        )}
                       </span>
                       <span className="w-16 text-right text-[10px] uppercase tracking-wide text-slate-400">
                         {tap ? tap.verify : ""}
@@ -325,7 +358,8 @@ export function DayDrawer({
                       "rounded-lg border px-2 py-1 text-[11px]",
                       s.slot ? "border-slate-200 bg-white text-slate-700" : "border-amber-300 bg-amber-50 text-amber-900",
                     )}>
-                      <span className="font-mono tabular-nums">{officeClock(Date.parse(s.at))}</span>
+                      <span className="font-mono tabular-nums">{tapClock(s.at)}</span>
+                      {tapDay(s.at) > workDate && <span className="ml-1 text-indigo-700">{tr("next day", "esok")}</span>}
                       <span className="ml-1.5 text-slate-400">{s.verify}</span>
                       <span className="ml-1.5">{s.slot ? SLOT_LABEL[s.slot] : tr("unreadable", "tidak terbaca")}</span>
                       {s.source === "manual" && <span className="ml-1.5 text-slate-400">· {tr("manual", "manual")}</span>}
@@ -353,6 +387,17 @@ export function DayDrawer({
                         className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"
                       />
                     </div>
+                    {/* On a night, a morning time lands on the next calendar day.
+                        Said before saving, in the same words the save will use,
+                        so nobody types 07.05 and wonders where it went. */}
+                    {d.overnight && time && instantInDay(workDate, time, d.window_from).slice(0, 10) !== workDate && (
+                      <p className="mt-1 text-[11px] text-indigo-800">
+                        {tr(
+                          `Recorded as ${instantInDay(workDate, time, d.window_from).slice(0, 10)} ${time} — the morning that ends this night.`,
+                          `Dicatat sebagai ${instantInDay(workDate, time, d.window_from).slice(0, 10)} ${time} — pagi yang mengakhiri malam ini.`,
+                        )}
+                      </p>
+                    )}
                     <p className="mt-1 text-[11px] text-slate-500">
                       {tr("The reason is what separates a correction from a favour three months later.", "Alasan itulah yang membedakan koreksi dari bantuan tiga bulan kemudian.")}
                     </p>

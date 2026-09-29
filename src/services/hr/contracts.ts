@@ -71,6 +71,27 @@ export interface Employee {
   note: string | null;
 }
 
+/** Which sign-in an employee uses, if any (D329, `ops_hr.v_employee_account`).
+ *
+ *  The link `my_employee_id()` reads, with both halves named, for the two
+ *  screens that ask: IT → Pengguna & akses links and unlinks it, HR →
+ *  Karyawan shows it. Name, number, unit and position only — nothing about
+ *  pay, because IT reads it too. Null `user_id` is normal: most of the floor
+ *  had no account before D329. */
+export interface EmployeeAccount {
+  employee_id: string;
+  employee_no: string;
+  full_name: string;
+  position: string | null;
+  unit: string | null;
+  /** Still works here. A left employee can be unlinked, never linked. */
+  active: boolean;
+  user_id: string | null;
+  user_email: string | null;
+  user_full_name: string | null;
+  user_is_active: boolean | null;
+}
+
 /** Where a scan came from. `import` is the machine's own export; `manual` is a
  *  person putting in what the machine missed, which always carries a reason
  *  (D137); `self` is the person themselves, tapped from their own signed-in
@@ -229,6 +250,17 @@ export interface TimesheetDay {
    *  *The rule could not fit the taps* and *something here is worth a second
    *  look* are different sentences, and only the first one blocks. */
   notes: string[];
+  /** The instants this day's taps were read from: `[window_from, window_to)`.
+   *  Midnight to midnight on the office clock for an ordinary pattern; for somebody on a
+   *  night (D330) the day claims the next morning, up to the middle of the
+   *  off-duty gap — so a guard's 07.05 pulang is on the evening it began,
+   *  while the tap's own `work_date` stays the calendar day it happened on.
+   *  Carried so a client lists the taps the reading read and decides nothing
+   *  again. */
+  window_from: string;
+  window_to: string;
+  /** Read as a shift that crosses midnight. */
+  overnight: boolean;
 }
 
 /** Overtime arrives as a **sheet**, and there are two kinds of sheet.

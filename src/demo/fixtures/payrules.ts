@@ -320,3 +320,30 @@ export const PAY_RULE_SETS: PayRuleSet[] = [
     created_at: "2026-09-23T11:00:00+07:00",
   },
 ];
+
+/* Satpam 12 jam lewat tengah malam (D330).
+
+   *Satpam 12 jam lewat hari* memberi panjangnya dan bahwa ia melewati tengah
+   malam; jam mulainya tetap tidak pernah disebut. 19.00–07.00 tanpa potongan
+   istirahat adalah **default**, dan ditandai `hours_unconfirmed` supaya layar
+   jadwal menyebutnya *belum dikonfirmasi* alih-alih terbaca sebagai jawaban —
+   pelajaran F138, dipasang sebelum kejadiannya kali ini. HRD menetapkannya
+   di /hrd/jadwal, dan menyimpannya menghapus tanda itu.
+
+   Bertanggal sama dengan v5 sebagai koreksi atasnya, seperti v4 atas v3: pola
+   ini tidak dipakai siapa pun sebelum satpam contoh di bawah bergabung, jadi
+   tidak ada angka yang pernah dibaca orang yang bergeser. Dibangun dari v5
+   alih-alih disalin, supaya satu-satunya beda di antara keduanya adalah jam
+   satpam. */
+PAY_RULE_SETS.push(((v5: PayRuleSet): PayRuleSet => ({
+  ...v5,
+  id: "prs_06", version: 6,
+  note: "Satpam 12 jam melewati tengah malam. Jam 19.00–07.00 tanpa potongan istirahat adalah default yang belum dikonfirmasi pemilik — HRD menetapkannya di /hrd/jadwal (D330).",
+  rules: {
+    ...v5.rules,
+    schedules: v5.rules.schedules.map((sc) => (sc.code === "SATPAM"
+      ? { ...sc, start_minutes: 19 * 60, end_minutes: 7 * 60, break_minutes: 0, hours_unconfirmed: true }
+      : sc)),
+  },
+  created_at: "2026-09-29T08:00:00+07:00",
+}))(PAY_RULE_SETS[PAY_RULE_SETS.length - 1]));

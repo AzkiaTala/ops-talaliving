@@ -7631,6 +7631,205 @@ local zone and printing UTC, so they land one day early in a WITA browser:
 A later branch can fix these together; `officeToday()` and `shiftDay()`
 cover all of them.
 
+## F185 · 2026-09-29 · a service worker is a client-held copy, and three things about the host decided how it could know it was stale
+
+D328 made the app installable. The worker is the part that can go wrong
+quietly, because it is exactly what F24 warned about: a copy held in the
+browser that keeps answering after the server has moved on. So it holds only
+what cannot go stale (content-hashed `/_next/static/*` and the icons) and
+nothing that belongs to a person. Three things were learned getting that to
+hold under Cloudflare, not under `next start`.
+
+**A new build has to change a byte the browser checks.** `public/` is copied as
+is, so `sw.js` is the same file in every build and the browser would never see
+an update. `next.config.mjs` now makes one id per build (commit + time, kept in
+the environment because Next evaluates the config again in its workers and
+they must agree), uses it as Next's build id, and writes it to
+`public/sw-version.js` (not committed). `sw.js` imports that file, and the
+browser compares imported scripts byte for byte on an update check, so a new
+build is a new worker. It waits; the page offers *A new version is available →
+Reload*; Reload tells the waiting worker to take over and the page reloads on
+`controllerchange` — but only if a worker was already in control, or the very
+first visit would reload for nothing. Proved with two builds under
+`cf:preview`: toast, reload, one cache left.
+
+**Workers static assets ignore `next.config` headers, and `_headers` works.**
+`public/_headers` reaches `.open-next/assets`, wrangler reports *Parsed 3 valid
+header rules*, and `sw.js` / `sw-version.js` come back `Cache-Control:
+no-cache`. The worker is also registered with `updateViaCache: "none"`, so the
+check skips the HTTP cache even if a header is ever lost.
+
+**The asset server redirects `/offline.html` to `/offline`.** `cache.add` would
+have stored a redirected response, and a browser refuses to give a navigation a
+response that was redirected, so the offline page would have failed exactly
+when it was needed. The worker fetches it and stores the body as a new
+`Response`, which works whether or not the host redirects.
+
+Two things about testing it. Playwright's `setOffline` does not reach a service
+worker's own `fetch` in Chromium, so the first offline walk loaded the app from
+the real network and looked like the fallback was broken. Stopping the server
+is the honest test: the navigation fails, the worker answers `/offline.html`,
+and `/api/*` and a POST fail rather than being served from cache. And a
+non-persistent Playwright context is incognito, where Chrome never offers
+installation; the Android path needed a persistent profile, where
+`beforeinstallprompt` fired and `Page.getInstallabilityErrors` was empty.
+
+At 390px the demo topbar had no room left: the sandbox's *Reset* and *Access*
+already squeeze the *Demo · data is not real* badge onto three lines, and the
+install button pushed the avatar 30px off screen. Live mode has neither sandbox
+control, so the button is always shown live and from `sm` up in the demo. The
+toaster was also wider than a phone (`w-full` plus `right-6` put its left edge
+off screen); it now keeps a 16px gutter on both sides below `sm`.
+
+## F186 · 2026-09-29 · an account that is only a username, and the link nothing wrote
+
+The owner asked for accounts the floor can use without a mailbox: IT types a
+name and an email that is only text, the server makes a password, IT hands it
+over (D329, `0185`). And the account has to be tied to the employee, because
+`ops_hr.employees.user_id` (0152) was read by `my_employee_id()` and written by
+nothing (F183).
+
+**What GoTrue accepts, read from its source, not assumed.** The admin API
+(`internal/api/admin.go`, `validateEmail`) checks the address's *format* only
+(`checkmail.ValidateFormat`). `budi@talaliving.local` and
+`budi.gudang@talaliving.com` are both accepted by `createUser`. The stricter
+checks live in the **mail** client (`internal/mailer/validateclient`), only when
+extended validation is on, and refuse to *send* to `.local`, `.test`,
+`.example`, `.localhost` and a few typed-constantly addresses. That split is
+the convention: a person with no mailbox gets `nama.bagian@talaliving.local`,
+which signs in and can never be mailed. A made-up `@talaliving.com` address
+would also sign in, but a password link to it would bounce off the company's
+real mail server, and it would collide with the real mailbox the day that
+person gets one. `request_user_link` now refuses `.local` (`no_mailbox`) with
+*make a new password instead*, and the screen hides the mail button for it.
+
+**The password is in three places, on purpose, and nowhere else.** The route
+generates it after the seam says yes, hands it to GoTrue, and returns it once
+with `cache-control: no-store`; the screen holds it in one component's props
+until *Done*. The seams never take a password argument, so there is no path by
+which one could reach the trail. The walk searched `audit_log`,
+`activity_events` and `outbox` for both passwords it was shown and found
+neither.
+
+**The link needed a door the roster did not have.** IT holds no `hrd.read`, so
+under RLS IT cannot see `ops_hr.employees` at all. The first smoke run proved
+it: the link was written, and IT's own read-back of the base table saw `null`.
+HR has the opposite gap (no read of another person's `ops_core.users` row). The
+answer is one definer function, `ops_hr.employee_accounts()`, gated inside on
+`it.read` or `hrd.read`, returning name, number, unit, position and the account
+— nothing about pay — with an ordinary invoker view over it. The first attempt
+was an owner-rights view, and `17_core_view_invoker` refused it: the ladder
+keeps exactly two such views, the two that say what somebody may open. The
+second guard, `A2_core_execute_grants`, refused the shared validation helper
+until it was granted to `authenticated`; it decides inside, and all it can do
+for somebody without `it.manage_users` is refuse them. Both guards were right,
+and neither was in the plan.
+
+**The demo's link was a constant.** `SELF_EMPLOYEE_NO` in the demo's `hr.ts`
+mapped five personas to employees because nothing wrote the link. Now IT
+writes it, so it lives in the demo state (`employee_accounts`), seeded with the
+same five.
+
+**The walk could not have proved the password without the stub learning it.**
+`local-stack.mjs` accepted any password for anybody. It now has GoTrue's
+`POST /admin/users` and `password` on the admin PUT, and checks a password IT
+issued (in memory, never in the database). The walk signs Karjo in with the
+first password after a reset and is refused, then with the second and is let
+in — landing on `/no-access`, because he holds no module.
+
+**For D331, not fixed here (its lane).** (1) A linked account with no module
+lands on `/no-access`; that is the gate D331 opens for `/saya`. (2) `/profil`'s
+*send a password link* and the sign-in page's *lupa kata sandi* both mail the
+account's own address. For a `.local` username that mail is refused by GoTrue
+(extended validation) or bounces; either way the person gets nothing. For
+these accounts the honest sentence is *ask IT for a new password*, which is
+now one button for IT.
+
+**Not verified here.** Real GoTrue: the stub stands in for `createUser` and
+`updateUserById`, and the email rules above come from GoTrue's source, not from
+the hosted project. The hosted project's *password requirements* setting is
+unknown; the generated password always carries upper, lower, digit and a
+hyphen, so it passes the strictest one.
+
+---
+
+## F187 · 2026-09-29 · a guard's night was two days worth nothing, and the clock face said he was never late
+
+The owner's answer to D326 was *satpam 12 jam lewat hari*. The pattern already
+existed (D274) with no start and no end, and nobody had ever put a guard on it,
+so the question of what happens at midnight had never been asked of the code.
+Asked now, the answer was: **every reader cut the night in half.** Taps are
+stored with `work_date = office_day(at)`, and `read_day`, the timesheet
+listing, the payroll and the KPI all walked calendar days. A 19.02 → 07.05
+night became Monday with masuk and no pulang and Tuesday with the same, both
+`review`, both worth nothing under D137. The guard would have been paid for
+no days at all, and HRD sent two days to read that were never wrong.
+
+**Fixed on the read side, and the stored fact left alone (D141).** Changing
+`work_date` on write would have meant two tap sources (the import and
+`tap_self`) deciding which shift a tap belongs to, plus a backfill every time a
+pattern's hours change. Instead every person's day has a **boundary**:
+midnight, or, for a pattern whose end is before its start, the middle of the
+off-duty gap (13.00 for 19.00–07.00). The boundary between D and D+1 is decided
+by **the pattern in force on D**, the day that would claim the morning. So the
+windows partition the taps even on the day somebody changes pattern or a
+rule book changes: both sides of every boundary ask the same question of the
+same day. That property was the design constraint. A simpler per-day window
+built from each day's own rule book would have overlapped on the day a guard
+moved to the day shift, and counted the morning twice.
+
+**Three things the naive version would have got wrong.**
+
+1. **Lateness was clock-face arithmetic.** `wita_minutes(in_at) − start` is
+   right only while masuk is on the start's own calendar day. A guard due at
+   19.00 who arrives at 00.40 is 340 minutes late on the clock and 40 − 1140 =
+   *never late* by the formula. Two places computed it (payroll and KPI).
+   `late_minutes()` measures elapsed time from the start on the day being read.
+   The smoke file proves it gives the same answer as the old formula, to the
+   second and including the floor of a negative, for every masuk on the day
+   itself. The two functions were restated **by copying them and changing one
+   line each**, and the migration says so. `diff` against `0119` and `0064`
+   shows exactly that line.
+2. **The guard's own screen would have disagreed with his payslip.**
+   `read_day` runs as the caller, and `pay_rule_sets` is readable only by HRD,
+   payroll and IT. On `/profil` a guard's pattern came back null, so his night
+   was read as two calendar days while payroll, run by HRD, read it as one. The
+   first cut gated a definer `schedule_on(employee)` by permission, and that
+   was wrong too: IT's rule-book preview and any caller without HRD claims
+   would have read guards wrongly. The shipped `pattern_on(code, unit, date)`
+   knows nothing about people. The caller reads the employee row under their
+   own RLS and asks only *what does this code mean on this date*. A pattern is
+   not a secret (0117); who is on it is.
+3. **The listing made empty days.** `v_timesheet_day` listed days by
+   `work_date`, so a guard's Tuesday-morning tap produced a Tuesday with
+   nothing in it, which reads `off` and asks HRD to explain an absence. It now
+   lists by `shift_day()`, and the client matches taps to a day by the window
+   the reading reports (`window_from`/`window_to`), not by `work_date`. The
+   client learns the answer and does not decide it again.
+
+**What the smoke file taught while it was being written.** Expected 325
+minutes late, got 340. The code was right: the night with only a 19.30 tap is
+`review`, and payroll has counted lateness on review days since `0050`. The
+test's arithmetic was wrong, not the reading.
+
+**Also found.** `DayDrawer` used to print `at.slice(11, 16)`, which is the
+clock face of whatever offset the row arrived in. A row that arrives with a UTC offset (as a
+`timestamptz` from PostgREST can) would print eight hours off. The drawer now converts to
+WITA before printing. The same slice is used elsewhere in the app and is left
+for its own change.
+
+**For `tap_self` (D327, D332).** It still answers with the calendar
+`work_date`. The stored row is correct either way. When it wants to tell a
+guard *tercatat untuk shift Senin*, it should call `ops_hr.shift_day(employee,
+at)` and not work the rule out again. It was deliberately not edited here.
+
+**Open, with defaults:** Q-D330a (19.00–07.00, no break, marked unconfirmed
+on screen, confirmed by HRD saving it) and Q-D330b (no day/night rotation; one
+pattern per person). Rotation matters more than it looks. `schedule_code` on
+the employee is not dated, so moving somebody to another pattern today also
+changes how their past days read. A dated per-person schedule is the likely
+shape if the answer is yes.
+
 ## F191 · 2026-09-29 · two errors of one hour that cancelled, until one of them was fixed
 
 D334. The fingerprint machine writes WIB wall-clock time with no zone; every
@@ -7686,3 +7885,18 @@ from an HRD one, which is the exact line D334's data rule draws.
 Fixture stamps were rewritten `+08:00` → `+07:00`: they were authored as
 office wall-clock times, and the demo should read as the real layer does
 after `0190` — the machine's 07:25 still 07:25.
+
+**After merging D330 (`0186`, already applied to production).** D330 landed
+while this branch was open and brought the office clock back into six
+places: `instantInDay` (`schedule-rules.ts`), the day drawer's `witaDay` /
+`witaClock` (`8 * 3_600_000`), and `dayBeginsAt` / `shiftDayOf` /
+`lateMinutesOf` / the night's `outFrom` in the demo's `hr-derive.ts`, plus
+`'Asia/Makassar'` in `read_day`, `day_begins` and `late_minutes` and `+08` in
+smoke `186`. The sweep in `0190` rewrites the three functions exactly as
+designed; the app copies now call `office.ts`. `schedule-rules.ts` may import
+nothing (its check script loads it bare), so it restates the offset as
+`OFFICE_OFFSET`, and `office.ts` exports a type (`OfficeOffsetAgrees`) that
+fails to compile when the two disagree — tried with `+08:00`, and `tsc`
+refused it. The fourth time a copy of the office clock appeared (F17, F39,
+F63, here) is the argument for making the copy impossible to get wrong rather
+than for asking the next author to remember.

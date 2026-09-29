@@ -3,13 +3,15 @@ import { ok, noop, invalid, notFound, refused, conflict, type Result } from "@/s
 import type {
   Session, Authority, ModuleName, ModuleLevel,
   ActivityEvent, ActivityDaily, RetentionStatus, AuditRowView, AppSetting, Approver,
-  MyActivityEvent, UserDirectoryRow, UserLinkSent, UserActiveChange,
+  MyActivityEvent, UserDirectoryRow, UserLinkSent, UserActiveChange, UserPasswordIssued,
 } from "@/services/identity/contracts";
 import { expandPermissions } from "@/lib/roles";
 import { getState, apply, newId, writeAudit } from "../store";
 import type { DemoState, DemoUser } from "../state";
 import { latency, actingUser, requireModule, requireLevel } from "./_kit";
 import { officeDay as sharedOfficeDay } from "@/lib/office";
+import { generatePassword } from "@/lib/generated-password";
+import { isUsernameOnly } from "@/services/identity/contracts";
 
 const SERVICE = "identity" as const;
 
@@ -33,7 +35,8 @@ function toDirectoryRow(user: DemoUser, state: DemoState = getState()): UserDire
   const last = state.audit_log.find((a) =>
     a.action === "sign_in" && a.outcome === "ok" && a.entity_no.toLowerCase() === user.email.toLowerCase());
   const lastAt = last?.at ?? null;
-  const pending = Boolean(user.invited_at) && (!lastAt || lastAt < (user.invited_at as string));
+  const since = user.password_issued_at ?? user.invited_at ?? null;
+  const pending = Boolean(since) && (!lastAt || lastAt < (since as string));
   return {
     ...toSession(user),
     status: !user.is_active ? "inactive" : pending ? "pending" : "active",
@@ -346,6 +349,69 @@ export async function inviteUser(
   return ok(SERVICE, { user_id: id, email, kind: "invite" });
 }
 
+/** `ops_core.create_user` + GoTrue's `createUser` (D329). The password is
+ *  generated and returned once, as the route does; the demo keeps nothing of
+ *  it and accepts any password at sign-in. */
+export async function createUser(
+  input: { email: string; full_name: string },
+): Promise<Result<UserPasswordIssued>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  const email = (input.email ?? "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return invalid(SERVICE, "email_invalid", "That is not an email address.", { field: "email" });
+  }
+  const name = tidyName(input.full_name ?? "");
+  const bad = nameProblem(name);
+  if (bad) return bad;
+  const existing = getState().users.find((u) => u.email.toLowerCase() === email);
+  if (existing) {
+    return conflict(SERVICE, "already_registered", "That address already has an account here.",
+      { user_id: existing.id, is_active: existing.is_active });
+  }
+
+  const id = newId("usr");
+  const now = new Date().toISOString();
+  apply((draft) => {
+    draft.users.push({
+      id, email, full_name: name, is_active: true,
+      modules: [], authorities: [], password_issued_at: now, created_at: now,
+    });
+    writeAudit(draft, {
+      service: SERVICE, entity: "user", entity_no: email,
+      action: "create", outcome: "ok", reason: null,
+    });
+  });
+  return ok(SERVICE, { user_id: id, email, full_name: name, password: generatePassword(), kind: "created" });
+}
+
+/** `ops_core.request_user_password` + GoTrue's `updateUserById` (D329). */
+export async function resetUserPassword(userId: string): Promise<Result<UserPasswordIssued>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  if (userId === getState().session_user_id) {
+    return refused(SERVICE, "self_service_refused", "Change your own password on your profile page.");
+  }
+  const user = getState().users.find((u) => u.id === userId);
+  if (!user) return notFound(SERVICE, "user_not_found", "No such user.");
+  if (!user.is_active) {
+    return refused(SERVICE, "user_inactive",
+      "Switch the account back on first — a password into an account that holds nothing opens nothing.");
+  }
+  apply((draft) => {
+    writeAudit(draft, {
+      service: SERVICE, entity: "user", entity_no: user.email,
+      action: "password.reset", outcome: "ok", reason: null,
+    });
+  });
+  return ok(SERVICE, {
+    user_id: userId, email: user.email, full_name: user.full_name,
+    password: generatePassword(), kind: "reset",
+  });
+}
+
 export async function sendUserLink(userId: string): Promise<Result<UserLinkSent>> {
   await latency();
   const denied = requireLevel(SERVICE, "it", "admin");
@@ -355,6 +421,10 @@ export async function sendUserLink(userId: string): Promise<Result<UserLinkSent>
   if (!user.is_active) {
     return refused(SERVICE, "user_inactive",
       "Switch the account back on first — a link into an account that holds nothing opens nothing.");
+  }
+  if (isUsernameOnly(user.email)) {
+    return refused(SERVICE, "no_mailbox",
+      "This address is a username, not a mailbox — nothing can be sent to it. Make a new password instead.");
   }
   const kind = toDirectoryRow(user).status === "pending" ? "invite" : "recovery";
   apply((draft) => {

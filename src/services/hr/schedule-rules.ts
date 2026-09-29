@@ -68,6 +68,11 @@ export interface ScheduleShape {
   /** What is known about it that the numbers do not say — a twelve-hour shift
    *  that may or may not rotate, an end time nobody has fixed. */
   note: string | null;
+  /** The start, end and break are a **default nobody has confirmed** (D288,
+   *  D330). The guard's 19.00–07.00 is the one today: the owner said twelve
+   *  hours across midnight and never said from when. Absent and `false` mean
+   *  the same — somebody stated these hours. HRD saving them clears it. */
+  hours_unconfirmed?: boolean;
 }
 
 /** A refusal, in the two parts a seam needs: a code the client can branch on
@@ -84,6 +89,31 @@ const MINUTES_IN_DAY = 24 * 60;
  *  (ADR-004's reason, in a place ADR-004 did not reach). Lower case and spaces
  *  are how two rows that look the same stop matching. */
 const CODE_SHAPE = /^[A-Z][A-Z0-9_-]*$/;
+
+/** Minutes from start to end, walking forward through midnight when the end
+ *  is earlier on the clock (D330). Null when either is unstated — a shift
+ *  nobody has described has no length, not a length of zero. Transcribes
+ *  `ops_hr.shift_minutes()`. */
+export function shiftMinutes(start: number | null, end: number | null): number | null {
+  if (start == null || end == null) return null;
+  return end > start ? end - start : end + MINUTES_IN_DAY - start;
+}
+
+/** *Any pattern whose end is before its start is overnight* — the whole
+ *  definition (D330). Equal is not overnight; it is refused. */
+export function isOvernight(sc: Pick<ScheduleShape, "start_minutes" | "end_minutes"> | null): boolean {
+  return sc != null && sc.start_minutes != null && sc.end_minutes != null
+    && sc.end_minutes < sc.start_minutes;
+}
+
+/** Where the next working day begins for somebody on this pattern, in minutes
+ *  after midnight: 0 for an ordinary pattern, and for a night the middle of the
+ *  off-duty gap — 13.00 for 19.00–07.00. A tap before it is still last night.
+ *  Transcribes `ops_hr.day_boundary_minutes()`. */
+export function dayBoundaryMinutes(sc: Pick<ScheduleShape, "start_minutes" | "end_minutes"> | null): number {
+  if (!sc || !isOvernight(sc)) return 0;
+  return Math.floor(((sc.end_minutes as number) + (sc.start_minutes as number)) / 2);
+}
 
 function clockOf(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}.${String(m % 60).padStart(2, "0")}`;
@@ -154,24 +184,42 @@ export function scheduleProblems(
 
     const st = sc.start_minutes, en = sc.end_minutes, br = sc.break_minutes;
     const fen = sc.friday_end_minutes, fbr = sc.friday_break_minutes;
+    /* Only stated, in-range values take part in the arithmetic; a bad one has
+       already been reported above, and the SQL side never gets this far with
+       one because it returns on the first problem. */
+    const ok = (v: number | null): v is number => v != null && !badMinutes(v);
 
-    if (st != null && en != null && !badMinutes(st) && !badMinutes(en) && en <= st) {
+    /* Equal is a pattern with no length. An end earlier on the clock is a
+       night (D330) and no longer a mistake. */
+    if (ok(st) && ok(en) && en === st) {
       out.push({
         code: "end_before_start",
         message: `${where}: pulang ${clockOf(en)} tidak sesudah masuk ${clockOf(st)}.`,
       });
     }
+    const night = ok(st) && ok(en) && en < st;
+    const span = ok(st) && ok(en) && en !== st ? shiftMinutes(st, en) : null;
+
     /* A break that eats the whole day leaves nought hours, and nought hours is
        not a schedule — it is a row that will quietly value every day at zero
        for whoever is on it. */
-    if (st != null && en != null && br != null && en > st && br >= en - st) {
+    if (span != null && br != null && br >= span) {
       out.push({
         code: "break_too_long",
-        message: `${where}: istirahat ${br} menit menghabiskan seluruh hari kerja ${clockOf(st)}–${clockOf(en)}.`,
+        message: `${where}: istirahat ${br} menit menghabiskan seluruh hari kerja ${clockOf(st as number)}–${clockOf(en as number)}.`,
       });
     }
 
-    if (st != null && fen != null && !badMinutes(st) && !badMinutes(fen) && fen <= st) {
+    /* A night's Friday ends on Saturday morning. A field that means *Friday
+       16.30* for the office cannot also mean *Saturday 05.00* for the guard
+       without somebody deciding it does, so it is refused rather than read. */
+    if (night && fen != null) {
+      out.push({
+        code: "overnight_friday_end",
+        message: `${where}: shift ini melewati tengah malam, jadi jam pulang Jumat belum bisa diatur — kosongkan; shift Jumat malam pulang pada jam pulang biasa.`,
+      });
+    }
+    if (!night && ok(st) && ok(fen) && fen <= st) {
       out.push({
         code: "friday_end_before_start",
         message: `${where}: pulang Jumat ${clockOf(fen)} tidak sesudah masuk ${clockOf(st)}.`,
@@ -181,10 +229,11 @@ export function scheduleProblems(
        to be checked on the pair it will actually be computed from. */
     const fEnd = fen ?? en;
     const fBreak = fbr ?? br;
-    if (st != null && fEnd != null && fBreak != null && fEnd > st && fBreak >= fEnd - st) {
+    const fSpan = night ? span : st != null && fEnd != null && fEnd > st ? fEnd - st : null;
+    if (fSpan != null && fBreak != null && fBreak >= fSpan) {
       out.push({
         code: "friday_break_too_long",
-        message: `${where}: istirahat Jumat ${fBreak} menit menghabiskan seluruh hari Jumat ${clockOf(st)}–${clockOf(fEnd)}.`,
+        message: `${where}: istirahat Jumat ${fBreak} menit menghabiskan seluruh hari Jumat ${clockOf(st as number)}–${clockOf(fEnd as number)}.`,
       });
     }
   });
@@ -256,7 +305,13 @@ export const SCHEDULE_CASES: ScheduleCase[] = (() => {
     { name: "menit di luar sehari", schedules: [sc({ start_minutes: 1441 })], schedule_by_unit: {}, expect: "minutes_range" },
     { name: "menit negatif", schedules: [sc({ break_minutes: -1 })], schedule_by_unit: {}, expect: "minutes_range" },
     { name: "menit pecahan", schedules: [sc({ end_minutes: 1035.5 })], schedule_by_unit: {}, expect: "minutes_range" },
-    { name: "pulang sebelum masuk", schedules: [sc({ start_minutes: 600, end_minutes: 540 })], schedule_by_unit: {}, expect: "end_before_start" },
+    /* Sejak D330 pulang yang lebih awal di jam dinding adalah shift malam, bukan
+       salah ketik: 10.00–09.00 adalah malam 23 jam dan sah bentuknya. */
+    { name: "pulang sebelum masuk = lewat tengah malam", schedules: [sc({ start_minutes: 600, end_minutes: 540, friday_end_minutes: null })], schedule_by_unit: {}, expect: null },
+    { name: "satpam 19.00–07.00", schedules: [sc({ code: "SATPAM", name: "Satpam", start_minutes: 1140, end_minutes: 420, break_minutes: 0, friday_break_minutes: null, friday_end_minutes: null, hours_unconfirmed: true })], schedule_by_unit: {}, expect: null },
+    { name: "istirahat menghabiskan malam", schedules: [sc({ code: "SATPAM", name: "Satpam", start_minutes: 1140, end_minutes: 420, break_minutes: 720, friday_break_minutes: null, friday_end_minutes: null })], schedule_by_unit: {}, expect: "break_too_long" },
+    { name: "malam dengan jam pulang Jumat", schedules: [sc({ code: "SATPAM", name: "Satpam", start_minutes: 1140, end_minutes: 420, break_minutes: 0, friday_break_minutes: null, friday_end_minutes: 300 })], schedule_by_unit: {}, expect: "overnight_friday_end" },
+    { name: "istirahat Jumat menghabiskan malam Jumat", schedules: [sc({ code: "SATPAM", name: "Satpam", start_minutes: 1140, end_minutes: 420, break_minutes: 0, friday_break_minutes: 720, friday_end_minutes: null })], schedule_by_unit: {}, expect: "friday_break_too_long" },
     { name: "pulang sama dengan masuk", schedules: [sc({ start_minutes: 600, end_minutes: 600 })], schedule_by_unit: {}, expect: "end_before_start" },
     { name: "istirahat menghabiskan hari", schedules: [sc({ start_minutes: 480, end_minutes: 1035, break_minutes: 555 })], schedule_by_unit: {}, expect: "break_too_long" },
     { name: "pulang Jumat sebelum masuk", schedules: [sc({ friday_end_minutes: 420 })], schedule_by_unit: {}, expect: "friday_end_before_start" },
@@ -330,7 +385,9 @@ export function scheduleHoursOf(sc: ScheduleShape, daysPerWeek: number): Schedul
   }
 
   const start = sc.start_minutes as number;
-  const daily_hours = round2(((sc.end_minutes as number) - start - (sc.break_minutes as number)) / 60);
+  /* Walked through midnight: `end − start` gave the guard minus seven hundred
+     and twenty minutes (D330). */
+  const daily_hours = round2(((shiftMinutes(start, sc.end_minutes) as number) - (sc.break_minutes as number)) / 60);
 
   /* Friday differs in two ways and either one is enough (Q54, D289): a longer
      break, an earlier finish, or both. Whichever is not stated falls back to
@@ -340,7 +397,9 @@ export function scheduleHoursOf(sc: ScheduleShape, daysPerWeek: number): Schedul
   const fridayDiffers = sc.friday_end_minutes != null || sc.friday_break_minutes != null;
   const fridayEnd = sc.friday_end_minutes ?? (sc.end_minutes as number);
   const fridayBreak = sc.friday_break_minutes ?? (sc.break_minutes as number);
-  const friday_hours = fridayDiffers ? round2((fridayEnd - start - fridayBreak) / 60) : null;
+  const friday_hours = fridayDiffers
+    ? round2(((shiftMinutes(start, fridayEnd) as number) - fridayBreak) / 60)
+    : null;
 
   const weekly_hours = friday_hours == null
     ? round2(daily_hours * daysPerWeek)
@@ -351,4 +410,39 @@ export function scheduleHoursOf(sc: ScheduleShape, daysPerWeek: number): Schedul
     monthly_hours: round2((weekly_hours * 52) / 12),
     blocked_by: null,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Which calendar day a typed clock time lands on                      */
+/* ------------------------------------------------------------------ */
+
+/** The calendar day after `key` (`YYYY-MM-DD`), without going near a timezone
+ *  — `Date` in local time loses the last day of a period (F39). */
+export function nextOfficeDay(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+
+/** The instant a person means by *this clock time, on this working day*.
+ *
+ *  For almost everybody it is that day at that time, on the office clock
+ *  (`src/lib/office.ts`, WIB since D334). For a guard on a
+ *  night (D330) the working day runs into the next morning, so 07.05 typed
+ *  against Monday's shift is **Tuesday** 07.05. Decided by the day's own
+ *  window as the reading reported it — a time earlier than the window opens
+ *  can only be the morning after — so neither client works out the shift
+ *  rule a second time.
+ */
+/** The office clock's offset (WIB, D334). `src/lib/office.ts` is where it is
+ *  decided, but this file may not import anything (see the header), so it is
+ *  restated here — and `office.ts` refuses to compile if the two disagree
+ *  (`OfficeOffsetAgrees`), so a second zone change cannot miss this copy. */
+export const OFFICE_OFFSET = "+07:00" as const;
+
+export function instantInDay(workDate: string, time: string, windowFrom: string | null): string {
+  const at = `${workDate}T${time}:00${OFFICE_OFFSET}`;
+  if (windowFrom && Date.parse(at) < Date.parse(windowFrom)) {
+    return `${nextOfficeDay(workDate)}T${time}:00${OFFICE_OFFSET}`;
+  }
+  return at;
 }

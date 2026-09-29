@@ -8,7 +8,7 @@
  */
 import type { DemoState } from "./state";
 import { settingNumber } from "./settings";
-import { officeClock, officeToday } from "@/lib/office";
+import { officeClock, officeDay, officeStamp, officeToday } from "@/lib/office";
 import { personWork, workAttribution } from "./production-derive";
 import type {
   Employee, TimesheetDay, DayState, ScanSlot, DayPay, DayMark,
@@ -27,7 +27,9 @@ import {
   EMPLOYEE_DOC_CHECKLIST, EMPLOYEE_DOC_LABEL, SENSITIVE_DOC_KINDS, DOC_NO_DIGITS, maskDocNo,
   SCHEME_LABEL, COMPUTED_SCHEMES,
 } from "@/services/hr/contracts";
-import { scheduleHoursOf } from "@/services/hr/schedule-rules";
+import {
+  scheduleHoursOf, isOvernight, dayBoundaryMinutes, shiftMinutes, nextOfficeDay,
+} from "@/services/hr/schedule-rules";
 import {
   addDays, taskPeriodStart, taskPeriodEnd, taskPeriodLabel, ageOn, ageBand,
 } from "@/services/hr/task-periods";
@@ -42,18 +44,28 @@ function hoursBetween(from: string, to: string): number {
   return Math.round((ms / HOURS) * 100) / 100;
 }
 
-/** Taps a person made on one day, de-duplicated.
+/** Taps a person made in one working day's window, de-duplicated.
  *
  *  A reader scanned twice in the same minute is one arrival, not two — the
  *  real export has 29 of them. Two minutes is the window: it is long enough to
  *  swallow a finger that did not take the first time, and short enough to keep
  *  a genuine second tap eleven minutes later, which is a different event
  *  somebody has to look at (D141).
+ *
+ *  The window, not `work_date`: a guard's 07.05 pulang is stored on the
+ *  calendar day it happened and read into the night that began the evening
+ *  before (D330).
  */
-function tapsOf(state: DemoState, employeeId: string, workDate: string) {
+function tapsOf(state: DemoState, employeeId: string, from: string, to: string) {
+  const lo = Date.parse(from);
+  const hi = Date.parse(to);
   const rows = state.attendance_scans
-    .filter((r) => r.employee_id === employeeId && r.work_date === workDate)
-    .sort((a, b) => a.at.localeCompare(b.at));
+    .filter((r) => {
+      if (r.employee_id !== employeeId) return false;
+      const at = Date.parse(r.at);
+      return at >= lo && at < hi;
+    })
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const kept: typeof rows = [];
   for (const r of rows) {
     const last = kept[kept.length - 1];
@@ -61,6 +73,41 @@ function tapsOf(state: DemoState, employeeId: string, workDate: string) {
     kept.push(r);
   }
   return kept;
+}
+
+/** The instant a working day begins for this person, as an office-clock ISO string:
+ *  midnight, or — when the **previous** day's pattern is a night — the middle
+ *  of that night's off-duty gap, 13.00 for 19.00–07.00. Transcribes
+ *  `ops_hr.day_begins()`; the boundary between two days is decided by the day
+ *  that would claim the morning, so the windows never overlap (D330). */
+export function dayBeginsAt(state: DemoState, employee: Employee, workDate: string): string {
+  const prev = previousOfficeDay(workDate);
+  const b = dayBoundaryMinutes(scheduleFor(activePayRules(state, prev).rules, employee));
+  return officeStamp(workDate, clockOf(b).replace(".", ":"));
+}
+
+/** Which working day a tap belongs to. `work_date` stays the calendar day; this
+ *  is the reading of it (D330). Transcribes `ops_hr.shift_day()`. */
+export function shiftDayOf(state: DemoState, employee: Employee, at: string): string {
+  const calendar = officeDay(Date.parse(at));
+  return Date.parse(at) < Date.parse(dayBeginsAt(state, employee, calendar))
+    ? previousOfficeDay(calendar)
+    : calendar;
+}
+
+/** Minutes past the start of the day being read, past the grace — measured as
+ *  elapsed time, so a guard due at 19.00 who arrives at 00.30 is late by five
+ *  and a half hours rather than never. The same number the clock face gave
+ *  for everybody whose masuk is on the day itself. Transcribes
+ *  `ops_hr.late_minutes()`. */
+export function lateMinutesOf(inAt: string, workDate: string, start: number, grace: number): number {
+  const due = Date.parse(officeStamp(workDate, clockOf(start).replace(".", ":")));
+  return Math.floor((Date.parse(inAt) - due) / 60_000) - grace;
+}
+
+function previousOfficeDay(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
 }
 
 /* The office clock, not the characters of the string. A fixture stamp carries
@@ -184,7 +231,11 @@ export function timesheetDay(
      is read against August's rules, which is the whole reason the rule book is
      dated (D173). */
   const rules = activePayRules(state, workDate).rules;
-  const taps = tapsOf(state, employee.id, workDate);
+  const sc = scheduleFor(rules, employee);
+  const overnight = isOvernight(sc);
+  const window_from = dayBeginsAt(state, employee, workDate);
+  const window_to = dayBeginsAt(state, employee, nextOfficeDay(workDate));
+  const taps = tapsOf(state, employee.id, window_from, window_to);
   const mark = state.day_marks.find(
     (m) => m.work_date === workDate
       && (m.employee_id === null || m.employee_id === employee.id),
@@ -207,14 +258,30 @@ export function timesheetDay(
     return true;
   };
 
-  if (taps.length > 0) {
+  if (taps.length > 0 && !overnight) {
     take("in", () => true);
     /* The middle of the day: out to eat, back from eating. */
     take("break_out", (t) => minutes(t.at) >= 11 * 60 && minutes(t.at) < 13 * 60 + 30);
     take("break_in", (t) => minutes(t.at) >= 11 * 60 + 30 && minutes(t.at) < 14 * 60 + 30);
     take("out", (t) => minutes(t.at) >= 14 * 60 + 30);
-    take("ot_start", (t) => slots.out !== undefined && t.at > slots.out!);
-    take("ot_end", (t) => slots.ot_start !== undefined && t.at > slots.ot_start!);
+  } else if (taps.length > 0 && sc) {
+    /* The night, read against its own clock (D330). Pulang is the first tap in
+       the last stretch of the shift — its final three hours, or its second
+       half if it is shorter than six — where the day reading's 14.30 sits for
+       an office that finishes at 17.15. Anything between masuk and that is the
+       break going out and coming back. */
+    const end = sc.end_minutes as number;
+    const span = shiftMinutes(sc.start_minutes, end) as number;
+    const outFrom = Date.parse(officeStamp(nextOfficeDay(workDate), clockOf(end).replace(".", ":")))
+      - Math.min(180, Math.floor(span / 2)) * 60_000;
+    take("in", () => true);
+    take("break_out", (t) => Date.parse(t.at) < outFrom);
+    take("break_in", (t) => Date.parse(t.at) < outFrom);
+    take("out", (t) => Date.parse(t.at) >= outFrom);
+  }
+  if (taps.length > 0) {
+    take("ot_start", (t) => slots.out !== undefined && Date.parse(t.at) > Date.parse(slots.out!));
+    take("ot_end", (t) => slots.ot_start !== undefined && Date.parse(t.at) > Date.parse(slots.ot_start!));
   }
 
   const worked = (a?: string, b?: string) =>
@@ -232,7 +299,12 @@ export function timesheetDay(
   }
   if (taps.length > 0) {
     if (!slots.out) issues.push("No pulang — the day has no end");
-    if (!slots.break_out || !slots.break_in) issues.push("Istirahat incomplete");
+    /* A guard on post does not go out to eat, so a night with no break taps at
+       all is a whole night, not an incomplete one. Half a break is still half
+       a break. */
+    if (overnight ? (slots.break_out && !slots.break_in) : (!slots.break_out || !slots.break_in)) {
+      issues.push("Istirahat incomplete");
+    }
     /* The allowance the owner set is 45 minutes (Q44, D270), and a break that
        ran past it is **reported, never deducted** — it is a fact about a day,
        and turning it into money is the same decision lateness has been waiting
@@ -300,6 +372,9 @@ export function timesheetDay(
     pay,
     issues,
     notes,
+    window_from,
+    window_to,
+    overnight,
   };
 }
 
@@ -493,13 +568,14 @@ export function payrollLine(
   const lateBy = (d: (typeof days)[number]): number => {
     const inAt = d.slots.in;
     if (!inAt || d.mark) return 0;
-    const mins = minutes(inAt);
     const start = dayStartFor(rules, employee);
     /* Nobody has said when this person's day starts, so nothing about this day
        is late. Not zero because they were punctual — zero because there is no
        threshold, and inventing one puts minutes on a payslip (D274). */
     if (start === null) return 0;
-    return Math.max(mins - start - rules.late_grace_minutes, 0);
+    /* From the start of the day being read, not the clock face: a guard's
+       00.30 masuk is five and a half hours after 19.00 (D330). */
+    return Math.max(lateMinutesOf(inAt, d.work_date, start, rules.late_grace_minutes), 0);
   };
   const late_minutes = days.reduce((s, d) => s + lateBy(d), 0);
   const late_days = days.filter((d) => lateBy(d) > 0).length;
@@ -989,10 +1065,9 @@ export function kpiView(
   const startOn = (d: (typeof days)[number]) =>
     dayStartFor(activePayRules(state, d.work_date).rules, employee);
   const lateOn = (d: (typeof days)[number]): boolean => {
-    const mins = minutes(d.slots.in!);
     const r = activePayRules(state, d.work_date).rules;
     const start = startOn(d);
-    return start !== null && mins - start - r.late_grace_minutes > 0;
+    return start !== null && lateMinutesOf(d.slots.in!, d.work_date, start, r.late_grace_minutes) > 0;
   };
   /* Days whose schedule has no start time cannot be judged, so they leave the
      arithmetic entirely rather than counting as punctual (D261's rule, in a
