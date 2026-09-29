@@ -7579,3 +7579,73 @@ here:** real GoTrue sending a real invitation email. The invitation lands on
 `/set-password` only if that origin is in Authentication → URL Configuration →
 Redirect URLs (`06-auth.md`). Supabase's built-in mail sends only a few
 messages an hour.
+
+## F186 · 2026-09-29 · an account that is only a username, and the link nothing wrote
+
+The owner asked for accounts the floor can use without a mailbox: IT types a
+name and an email that is only text, the server makes a password, IT hands it
+over (D329, `0185`). And the account has to be tied to the employee, because
+`ops_hr.employees.user_id` (0152) was read by `my_employee_id()` and written by
+nothing (F183).
+
+**What GoTrue accepts, read from its source, not assumed.** The admin API
+(`internal/api/admin.go`, `validateEmail`) checks the address's *format* only
+(`checkmail.ValidateFormat`). `budi@talaliving.local` and
+`budi.gudang@talaliving.com` are both accepted by `createUser`. The stricter
+checks live in the **mail** client (`internal/mailer/validateclient`), only when
+extended validation is on, and refuse to *send* to `.local`, `.test`,
+`.example`, `.localhost` and a few typed-constantly addresses. That split is
+the convention: a person with no mailbox gets `nama.bagian@talaliving.local`,
+which signs in and can never be mailed. A made-up `@talaliving.com` address
+would also sign in, but a password link to it would bounce off the company's
+real mail server, and it would collide with the real mailbox the day that
+person gets one. `request_user_link` now refuses `.local` (`no_mailbox`) with
+*make a new password instead*, and the screen hides the mail button for it.
+
+**The password is in three places, on purpose, and nowhere else.** The route
+generates it after the seam says yes, hands it to GoTrue, and returns it once
+with `cache-control: no-store`; the screen holds it in one component's props
+until *Done*. The seams never take a password argument, so there is no path by
+which one could reach the trail. The walk searched `audit_log`,
+`activity_events` and `outbox` for both passwords it was shown and found
+neither.
+
+**The link needed a door the roster did not have.** IT holds no `hrd.read`, so
+under RLS IT cannot see `ops_hr.employees` at all. The first smoke run proved
+it: the link was written, and IT's own read-back of the base table saw `null`.
+HR has the opposite gap (no read of another person's `ops_core.users` row). The
+answer is one definer function, `ops_hr.employee_accounts()`, gated inside on
+`it.read` or `hrd.read`, returning name, number, unit, position and the account
+— nothing about pay — with an ordinary invoker view over it. The first attempt
+was an owner-rights view, and `17_core_view_invoker` refused it: the ladder
+keeps exactly two such views, the two that say what somebody may open. The
+second guard, `A2_core_execute_grants`, refused the shared validation helper
+until it was granted to `authenticated`; it decides inside, and all it can do
+for somebody without `it.manage_users` is refuse them. Both guards were right,
+and neither was in the plan.
+
+**The demo's link was a constant.** `SELF_EMPLOYEE_NO` in the demo's `hr.ts`
+mapped five personas to employees because nothing wrote the link. Now IT
+writes it, so it lives in the demo state (`employee_accounts`), seeded with the
+same five.
+
+**The walk could not have proved the password without the stub learning it.**
+`local-stack.mjs` accepted any password for anybody. It now has GoTrue's
+`POST /admin/users` and `password` on the admin PUT, and checks a password IT
+issued (in memory, never in the database). The walk signs Karjo in with the
+first password after a reset and is refused, then with the second and is let
+in — landing on `/no-access`, because he holds no module.
+
+**For D331, not fixed here (its lane).** (1) A linked account with no module
+lands on `/no-access`; that is the gate D331 opens for `/saya`. (2) `/profil`'s
+*send a password link* and the sign-in page's *lupa kata sandi* both mail the
+account's own address. For a `.local` username that mail is refused by GoTrue
+(extended validation) or bounces; either way the person gets nothing. For
+these accounts the honest sentence is *ask IT for a new password*, which is
+now one button for IT.
+
+**Not verified here.** Real GoTrue: the stub stands in for `createUser` and
+`updateUserById`, and the email rules above come from GoTrue's source, not from
+the hosted project. The hosted project's *password requirements* setting is
+unknown; the generated password always carries upper, lower, digit and a
+hyphen, so it passes the strictest one.

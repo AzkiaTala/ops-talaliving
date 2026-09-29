@@ -15,7 +15,7 @@ import type {
   Task, TaskView, TaskRefKind, KpiView,
   ContractKind, ClauseKind, ClauseChecklistItem, EmploymentContract,
   ContractView, ContractDetail, ContractClause, ClauseConflict, TimesheetTotal, DayState,
-  EffectiveDaysCalendar,
+  EffectiveDaysCalendar, EmployeeAccount,
 } from "@/services/hr/contracts";
 import {
   SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem,
@@ -73,6 +73,91 @@ export async function getEmployee(employeeNo: string): Promise<Result<Employee>>
   const found = getState().employees.find((e) => e.employee_no === employeeNo);
   if (!found) return notFound(SERVICE, "employee_not_found", `No employee ${employeeNo}.`);
   return ok(SERVICE, found);
+}
+
+/* ------------------------------------------------------------------ */
+/* Which account is which employee (D329)                              */
+/* ------------------------------------------------------------------ */
+
+function toEmployeeAccount(state: DemoState, e: Employee): EmployeeAccount {
+  const link = state.employee_accounts?.find((l) => l.employee_no === e.employee_no);
+  const user = link ? state.users.find((u) => u.id === link.user_id) : undefined;
+  return {
+    employee_id: e.id, employee_no: e.employee_no, full_name: e.full_name,
+    position: e.position ?? null, unit: e.unit ?? null, active: e.active,
+    user_id: user?.id ?? null, user_email: user?.email ?? null,
+    user_full_name: user?.full_name ?? null, user_is_active: user ? user.is_active : null,
+  };
+}
+
+/** `ops_hr.v_employee_account`: IT and HR read it, nobody else. */
+export async function listEmployeeAccounts(): Promise<Result<EmployeeAccount[]>> {
+  await latency();
+  const user = actingUser();
+  if (!user.is_active || !user.modules.some((m) => m.module === "it" || m.module === "hrd")) {
+    return ok(SERVICE, []);
+  }
+  const state = getState();
+  return ok(SERVICE, [...state.employees]
+    .sort((a, b) => a.employee_no.localeCompare(b.employee_no))
+    .map((e) => toEmployeeAccount(state, e)));
+}
+
+/** `ops_hr.link_employee_account` — same checks, same codes, same order.
+ *  `user_id` null unlinks. */
+export async function linkEmployeeAccount(
+  input: { employee_id: string; user_id: string | null },
+): Promise<Result<EmployeeAccount>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  const state = getState();
+  const emp = state.employees.find((e) => e.id === input.employee_id);
+  if (!emp) return notFound(SERVICE, "not_found", "No such employee.");
+  const current = state.employee_accounts.find((l) => l.employee_no === emp.employee_no);
+  const currentUser = current ? state.users.find((u) => u.id === current.user_id) : undefined;
+  const action = input.user_id ? "account.link" : "account.unlink";
+
+  if (!input.user_id) {
+    if (!current) return noop(SERVICE, toEmployeeAccount(state, emp));
+    apply((draft) => {
+      draft.employee_accounts = draft.employee_accounts.filter((l) => l.employee_no !== emp.employee_no);
+      writeAudit(draft, {
+        service: SERVICE, entity: "employee", entity_no: emp.employee_no, action, outcome: "ok",
+        reason: null, detail: { before: { user_id: current.user_id, email: currentUser?.email ?? null }, after: { user_id: null } },
+      });
+    });
+    return ok(SERVICE, toEmployeeAccount(getState(), emp));
+  }
+
+  const user = state.users.find((u) => u.id === input.user_id);
+  if (!user) return notFound(SERVICE, "not_found", "No such account.");
+  if (current?.user_id === user.id) return noop(SERVICE, toEmployeeAccount(state, emp));
+  if (current) {
+    return conflict(SERVICE, "employee_has_account",
+      `${emp.full_name} is already linked to ${currentUser?.email ?? current.user_id}. Unlink that account first.`,
+      { employee_id: emp.id, user_id: current.user_id, email: currentUser?.email ?? null });
+  }
+  const elsewhere = state.employee_accounts.find((l) => l.user_id === user.id);
+  if (elsewhere) {
+    const other = state.employees.find((e) => e.employee_no === elsewhere.employee_no);
+    return conflict(SERVICE, "account_linked_elsewhere",
+      `${user.email} is already linked to ${other?.full_name ?? ""} (${elsewhere.employee_no}). Unlink it there first.`,
+      { employee_id: other?.id ?? null, employee_no: elsewhere.employee_no, full_name: other?.full_name ?? null });
+  }
+  if (!emp.active) {
+    return refused(SERVICE, "employee_left",
+      `${emp.full_name} no longer works here — an account for them would open nothing of theirs.`,
+      { employee_id: emp.id, left_on: emp.left_on });
+  }
+  apply((draft) => {
+    draft.employee_accounts.push({ employee_no: emp.employee_no, user_id: user.id });
+    writeAudit(draft, {
+      service: SERVICE, entity: "employee", entity_no: emp.employee_no, action, outcome: "ok",
+      reason: null, detail: { before: { user_id: null }, after: { user_id: user.id, email: user.email } },
+    });
+  });
+  return ok(SERVICE, toEmployeeAccount(getState(), emp));
 }
 
 /** Adding somebody, or changing what they are paid.
@@ -292,23 +377,12 @@ export async function getDay(
 /* ------------------------------------------------------------------ */
 //
 // The real database resolves "who am I as an employee" through
-// `ops_hr.my_employee_id()` — `employees.user_id = auth.uid()`, a link the
-// demo's `Employee` fixture has never carried because nothing here needed it
-// before this build. Five of the six demo personas already have a matching
-// employee row by name (Evin, Putri, Anggun, Andi, Made); this table is that
-// same link, kept beside the fixture rather than added to the shared
-// contract, because widening `Employee` with a `user_id` column would touch
-// every screen that already destructures one. Wulan (HRD) and the shared IT
-// account deliberately map to nothing — the same ordinary case as a
-// production worker with no login, exercised here by an office account
-// instead.
-const SELF_EMPLOYEE_NO: Record<string, string> = {
-  usr_evin: "K-001", usr_putri: "K-004", usr_anggun: "K-007",
-  usr_andi: "K-011", usr_made: "K-014",
-};
-
+// `ops_hr.my_employee_id()` — `employees.user_id = auth.uid()`. The demo keeps
+// the same link in `state.employee_accounts`, beside the fixture rather than on
+// the shared `Employee` contract, and IT writes it from `/it/pengguna` with
+// `linkEmployeeAccount` (D329), exactly as the seam does.
 function myEmployee(state: DemoState): Employee | null {
-  const no = SELF_EMPLOYEE_NO[actingUser().id];
+  const no = state.employee_accounts?.find((l) => l.user_id === actingUser().id)?.employee_no;
   if (!no) return null;
   return state.employees.find((e) => e.employee_no === no) ?? null;
 }
