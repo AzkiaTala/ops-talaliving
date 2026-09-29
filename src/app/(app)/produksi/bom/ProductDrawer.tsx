@@ -1196,7 +1196,7 @@ function SuggestionPanel({
         const res = await production.saveBomComponent({
           product_code: p.product_code, kind: r.kind, rate_code: r.rate_code, part: r.part.trim(),
           qty: r.qty, uom: r.uom, waste_percent: r.waste_percent,
-          /* The norm the waste came from stays on the line (0192, D335). */
+          /* The norm the waste came from stays on the line (0193, D338). */
           note: [r.working ? `AI: ${r.working}` : "AI", r.waste_norm && r.waste_percent > 0 ? `susut: ${r.waste_norm}` : null]
             .filter(Boolean).join(" · ").slice(0, 200),
         });

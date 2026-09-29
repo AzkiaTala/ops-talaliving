@@ -12,7 +12,7 @@ import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
 
 /** Each finishing system in the business's recipes (`finishing_recipes`),
- *  totalled per m², offered as a `finishing` rate (0192, D335).
+ *  totalled per m², offered as a `finishing` rate (0193, D338).
  *
  *  **Offered, never added for anyone.** The owner decides the list (D324
  *  default 2), so a system becomes a rate only when somebody with

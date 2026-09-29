@@ -100,7 +100,7 @@ const VIEW_CONTRACTS = {
   /* The BOM rate list (0182): read into a private flat shape and converted
      by `toRate`, which only turns `rate` into a number. */
   v_bom_rate:        "BomRateRow",
-  /* The business's norms and finishing systems (0192): flat rows whose
+  /* The business's norms and finishing systems (0193): flat rows whose
      numerics are converted by hand in the client. */
   v_bom_norm:         "BomNormRow",
   v_finishing_system: "FinishingSystemRow",

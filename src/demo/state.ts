@@ -245,10 +245,10 @@ export interface DemoState {
   bom_revisions: BomRevision[];
   /** The estimator's rate list a BOM is costed from (0182, D324). */
   bom_rates: BomRate[];
-  /** The business's estimating norms (0192, D335) — sample rules in the
+  /** The business's estimating norms (0193, D338) — sample rules in the
    *  sandbox; read-only, like the table. */
   bom_norms: BomNorm[];
-  /** Finishing systems step by step (`ops_prod.finishing_recipes`, 0192). */
+  /** Finishing systems step by step (`ops_prod.finishing_recipes`, 0193). */
   finishing_recipes: FinishingRecipeRow[];
   /** The drafters' queue: what has to be drawn, which revision the floor may
    *  cut from, and what is stuck on an answer (D179). */
@@ -345,7 +345,7 @@ export type SessionView = Session;
 export type DemoLogCost = Omit<LogCost, "purchase_no"> & { purchase_id: string };
 
 /** One step of one finishing system, as `ops_prod.finishing_recipes` holds it
- *  (0174, read since 0192). The screen reads systems, not steps —
+ *  (0174, read since 0193). The screen reads systems, not steps —
  *  `listFinishingSystems` totals them the way `v_finishing_system` does. */
 export interface FinishingRecipeRow {
   id: string;

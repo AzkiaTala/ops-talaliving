@@ -1469,7 +1469,7 @@ export async function saveBomRate(
 }
 
 /* ------------------------------------------------------------------ */
-/* The business's estimating rules (0192, D335)                          */
+/* The business's estimating rules (0193, D338)                          */
 /* ------------------------------------------------------------------ */
 
 /** Production reads them; anyone else reads nothing — RLS's answer, an empty
@@ -1585,7 +1585,7 @@ export async function suggestBom(
 /** The sandbox's stand-in for reading a drawing: a table, a chair or a
  *  cabinet, cut from its three dimensions and priced from the rate list. Its
  *  timber and plywood waste and the plywood sheet come from the business's
- *  norms when it has them (0192), the way the live model is told to take
+ *  norms when it has them (0193), the way the live model is told to take
  *  them; without norms it falls back to the figures it always used. */
 function sandboxEstimate(
   category: string, L: number, W: number, H: number, rates: BomRate[], norms: BomNorm[] = [],

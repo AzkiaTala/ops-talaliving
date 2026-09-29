@@ -171,7 +171,7 @@ function toRate({ unit_rate, ...r }: BomRateRow): BomRateView {
   return { ...r, rate: Number(unit_rate) };
 }
 
-/* `v_bom_norm` and `v_finishing_system` (0192): numerics arrive as strings,
+/* `v_bom_norm` and `v_finishing_system` (0193): numerics arrive as strings,
    and the breakdown as jsonb whose numbers are numbers already. */
 interface BomNormRow {
   id: string;
@@ -620,7 +620,7 @@ export async function saveBomRate(
   return ok(SERVICE, toRate(row as BomRateRow));
 }
 
-/** The business's estimating norms in force (0192, D335) — what the AI's
+/** The business's estimating norms in force (0193, D338) — what the AI's
  *  proposal is held to. Read-only: the rules are changed where they were
  *  written. Production readers only; anyone else reads an empty list.
  *
@@ -635,7 +635,7 @@ export async function listBomNorms(): Promise<Result<BomNorm[]>> {
 }
 
 /** Each finishing system from `finishing_recipes`, totalled per m², as the
- *  `finishing` rate it could become (0192, D335). Offered on the rate screen;
+ *  `finishing` rate it could become (0193, D338). Offered on the rate screen;
  *  adding one is `saveBomRate`, pressed by a person. */
 export async function listFinishingSystems(): Promise<Result<FinishingSystem[]>> {
   const { data, error } = await db().from("v_finishing_system").select("*").order("system");

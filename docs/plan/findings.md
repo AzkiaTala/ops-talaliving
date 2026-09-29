@@ -8082,7 +8082,7 @@ WITA. A sweep-only `0191` was drafted for the race and dropped once
 production no longer needed it: a migration with no job is one more thing
 to read in the ladder.
 
-## F193 · 2026-09-29 · the business had written its waste down, and the model was still asked to guess it
+## F194 · 2026-09-29 · the business had written its waste down, and the model was still asked to guess it
 
 D324 gave the AI a working drawing and the rate list's names, and asked it
 for a `waste_percent` from general knowledge: *kayu solid 10–20, panel 5–15*.
@@ -8092,11 +8092,11 @@ Square to finished component yield 80 %*, *Finishing · NC sanding sealer
 coverage 9 m²/L/coat*…) and `ops_prod.finishing_recipes` (two systems, 13
 steps, a cost per m² each). `0174` had written them into the ladder with RLS on
 and no policy, which was right for a table nothing read, and it kept them out
-of sight of the feature that needed them. `0192` gives both a read policy for
+of sight of the feature that needed them. `0193` gives both a read policy for
 `production.read`, a view each (`v_bom_norm`, `v_finishing_system`), and hands
 the norms to the model. The price rule already in D324 is applied to waste
 too: the model names the norm (`waste_norm`), and the figure is read from the
-norm on the server (D335).
+norm on the server (D338).
 
 **A yield is not a waste, and the costing decides the conversion.** A BOM line
 is costed as `qty × (1 + waste ÷ 100)` (`0182`'s `qty_with_waste`). An 80 %
@@ -8125,7 +8125,7 @@ the 15 % cannot mean "from the log". Plywood and fabric: *Waste material lain
 5 %* (decision) against 12 % and 15 % (industry). The model is told to prefer
 `decision`, then `empirical`, then `industry`, and each line in the panel names
 the norm its waste came from, so a wrong pick can be seen. The default and
-the question are Q-D335a.
+the question are Q-D338a.
 
 **A finishing recipe is not the finishing cost.** The NC natural recipe totals
 Rp 69.918/m² (Rp 59.918 without the optional bleach). The empirical norm

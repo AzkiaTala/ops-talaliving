@@ -31,7 +31,7 @@ import { FinishingCandidates } from "./FinishingCandidates";
  *  would move.
  *
  *  Below the list, each finishing system in the business's recipes is offered
- *  as a candidate `finishing` rate (0192, D335) — added only when somebody
+ *  as a candidate `finishing` rate (0193, D338) — added only when somebody
  *  presses the button.
  */
 export default function BomRatesPage() {

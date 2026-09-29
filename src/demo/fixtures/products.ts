@@ -255,8 +255,8 @@ export const BOM_RATES: BomRate[] = [
   rate(11, "Packing (bubble wrap + karton + label)", "packing", "unit", 45_000),
 ];
 
-/** The business's estimating norms (`ops_prod.bom_norms`, read since 0192,
- *  D335). **Sample rules for the sandbox**: common industry figures, not the
+/** The business's estimating norms (`ops_prod.bom_norms`, read since 0193,
+ *  D338). **Sample rules for the sandbox**: common industry figures, not the
  *  business's own list, which lives in production and is not copied here. The
  *  sandbox's AI stand-in takes timber and plywood waste and the sheet size
  *  from these, as the live model is told to. */
@@ -281,7 +281,7 @@ export const BOM_NORMS: BomNorm[] = [
     "Belum ada norma umum."),
 ];
 
-/** Finishing systems step by step (`ops_prod.finishing_recipes`, 0192).
+/** Finishing systems step by step (`ops_prod.finishing_recipes`, 0193).
  *  **Sample figures**, rounded — the business's recipes live in production. */
 const step = (
   n: number, system: string, name: string, product: string, unit_price: number, uom: string,

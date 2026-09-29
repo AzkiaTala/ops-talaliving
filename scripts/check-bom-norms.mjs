@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** The AI's BOM proposal is held to the business's norms — checked by running
- *  the validator itself (0192, D335).
+ *  the validator itself (0193, D338).
  *
  *  `toBomSuggestion` (`src/lib/bom-vision.ts`) is the one place a model's
  *  `waste_percent` is replaced by the norm it names, the way its price is
@@ -11,11 +11,11 @@
  *
  *  - a waste norm is the waste as it stands (plywood 12 %);
  *  - a yield norm is converted for a costing that multiplies by
- *    `1 + waste ÷ 100` — 80 % yield is 25 % waste, not 20 % (F193);
+ *    `1 + waste ÷ 100` — 80 % yield is 25 % waste, not 20 % (F194);
  *  - overhead and contingency are never one line's waste — even filed under
  *    `Factor`, where the business also files *Waste kayu*, which is one;
  *  - a norm the model made up, or a waste no norm backs, stays with a warning;
- *  - with no norms at all, the model's own waste stands, as before 0192.
+ *  - with no norms at all, the model's own waste stands, as before 0193.
  *
  *  Bundled with esbuild (already in the tree for the Cloudflare build) because
  *  `bom-vision.ts` imports `@/…` and `server-only`; the latter is replaced by
@@ -127,7 +127,7 @@ expect("a made-up norm: model's waste kept, named in the warning",
 expect("no norm named, waste given: flagged", [by.Laci.waste_percent, by.Laci.warnings.length], [18, 1]);
 expect("no norm, no waste: nothing to flag", [by.Samping.waste_percent, by.Samping.warnings], [0, []]);
 
-/* ── no norms: as before 0192 ─────────────────────────────────────────── */
+/* ── no norms: as before 0193 ─────────────────────────────────────────── */
 const bare = m.toBomSuggestion({ lines: [line("Kaki-kaki", "RT-0001", 15, "Wood | Square to finished component yield")] }, RATES, base, []);
 expect("no norms: the model's waste stands, unflagged",
   [bare.lines[0].waste_percent, bare.lines[0].waste_norm, bare.lines[0].warnings, bare.norms], [15, null, [], 0]);

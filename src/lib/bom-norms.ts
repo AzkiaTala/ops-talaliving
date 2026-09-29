@@ -2,7 +2,7 @@
    carries React-bound labels, and the suggest route cannot compile those. */
 import type { BomNorm } from "@/services/production/contracts";
 
-/** The business's estimating norms, applied to one BOM line (0192, D335).
+/** The business's estimating norms, applied to one BOM line (0193, D338).
  *
  *  Shared by the suggest route's validator (`bom-vision.ts`) and the sandbox's
  *  stand-in estimate, so the live model and the demo take a line's waste from
@@ -15,7 +15,7 @@ import type { BomNorm } from "@/services/production/contracts";
  *  - **yield** (*Square to finished component yield 80 %*) is what survives,
  *    and a BOM line is costed as `qty × (1 + waste ÷ 100)` (0182's
  *    `qty_with_waste`), so 80 % yield is 25 % waste — not the 20 % that
- *    `100 − yield` gives, which under-buys by a fifth of the waste (F193).
+ *    `100 − yield` gives, which under-buys by a fifth of the waste (F194).
  *
  *  Which `%` norms are a line's waste is read from the norm's **name**, not
  *  its category: the business's `Factor` category holds both *Waste kayu (log

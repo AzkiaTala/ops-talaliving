@@ -18,7 +18,7 @@ import type { BomNorm, BomRate } from "@/services/production/contracts";
  *  Who may ask is the database's answer, read as the person: `production.update`
  *  (every call is a paid request to a model, and its only use is writing a
  *  BOM), the product and its drawing link through RLS, and the rate list and
- *  the business's estimating norms (0192, D335) the same way. Only then does
+ *  the business's estimating norms (0193, D338) the same way. Only then does
  *  the service account fetch the drawing from Drive.
  *
  *  Not `runtime = "edge"` — see the upload route for the deploy it cost.
@@ -130,7 +130,7 @@ export async function POST(request: Request): Promise<Response> {
   const rates: BomRate[] = ((rateRows ?? []) as (Omit<BomRate, "rate"> & { unit_rate: number | string })[])
     .map(({ unit_rate, ...r }) => ({ ...r, rate: Number(unit_rate) }));
 
-  /* The norms in force, as the person reads them (`production.read`, 0192).
+  /* The norms in force, as the person reads them (`production.read`, 0193).
      The model is told to take waste, yield and coverage from these, and
      `toBomSuggestion` holds each line's waste to the norm it names. */
   const { data: normRows, error: nErr } = await sb.schema("ops_prod").from("v_bom_norm")

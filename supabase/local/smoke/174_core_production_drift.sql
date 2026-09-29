@@ -4,7 +4,7 @@
 --   * `authenticated` holds no grant on the three procurement import tables,
 --     and reading as a signed-in user with every procurement right still sees
 --     nothing — the API cannot reach them. `bom_norms` and `finishing_recipes`
---     were opened to production reading by `0192` (D335); smoke `192` holds them
+--     were opened to production reading by `0193` (D338); smoke `193` holds them
 --   * `v_item_view` carries the evidence columns in production's order,
 --     before `name_local`, and names its columns rather than `i.*`
 

@@ -1164,7 +1164,7 @@ export interface BomSuggestionLine {
   uom: string;
   waste_percent: number;
   /** The business norm the waste was taken from, `Panel · Plywood cutting
-   *  waste` (0192, D335). Null when no norm applied — the waste is then the
+   *  waste` (0193, D338). Null when no norm applied — the waste is then the
    *  model's own, and a warning says so whenever the business has norms. */
   waste_norm: string | null;
   /** From the rate list at the time of the proposal. Null when unmatched. */
@@ -1191,15 +1191,15 @@ export interface BomSuggestion {
   assumptions: string[];
   /** Text on the drawing it could not read with confidence. */
   unread: string[];
-  /** How many of the business's norms in force the reading was held to (0192,
-   *  D335). Zero means none were readable, and waste is the model's estimate. */
+  /** How many of the business's norms in force the reading was held to (0193,
+   *  D338). Zero means none were readable, and waste is the model's estimate. */
   norms: number;
 }
 
-/* ── The business's estimating rules (0192, D335) ──────────────────────────
+/* ── The business's estimating rules (0193, D338) ──────────────────────────
  *
  *  Imported 2026-09-25 into `ops_prod.bom_norms` and `ops_prod.finishing_recipes`
- *  and unread until 0192: waste, yield and coverage the business has written
+ *  and unread until 0193: waste, yield and coverage the business has written
  *  down, and its finishing systems step by step. The AI's proposal is held to
  *  the norms; each finishing system's total is offered on the rate screen as a
  *  candidate rate the owner may add — never added for them (D324 default 2).

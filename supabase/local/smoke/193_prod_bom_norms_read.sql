@@ -1,4 +1,4 @@
--- prod — the business's estimating norms and finishing recipes, read (0192, D335).
+-- prod — the business's estimating norms and finishing recipes, read (0193, D338).
 --
 --   READ         production (read) sees the norms and the recipes; a person
 --                with every procurement right and no production sees none —

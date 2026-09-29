@@ -122,7 +122,7 @@ jobs:
         run: node scripts/check-clause-fields.mjs
 
       # The AI's BOM proposal takes each line's waste from the business's norm,
-      # the way it takes the price from the rate list (0192, D335). No screen
+      # the way it takes the price from the rate list (0193, D338). No screen
       # shows the difference between *the norm gives 25 %* and *the model wrote
       # 20 % and cited the norm*, so the validator is run on fixed answers.
       - name: the BOM proposal is held to the business's norms

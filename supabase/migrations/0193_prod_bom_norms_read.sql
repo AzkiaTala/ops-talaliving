@@ -1,6 +1,6 @@
--- 0192_prod_bom_norms_read.sql — the business's own estimating rules, read
+-- 0193_prod_bom_norms_read.sql — the business's own estimating rules, read
 -- by the app: the norms the AI's BOM proposal is held to, and the finishing
--- recipes offered as rates (D335).
+-- recipes offered as rates (D338).
 --
 -- ── What was there ────────────────────────────────────────────────────────
 --
@@ -48,10 +48,10 @@ grant select on ops_prod.finishing_recipes to authenticated;
 
 comment on table ops_prod.bom_norms is
   'Rules of thumb a BOM is estimated from, per category, with where each came from. '
-  'Read by production (0192): the BOM suggestion is held to the ones in force (v_bom_norm). '
+  'Read by production (0193): the BOM suggestion is held to the ones in force (v_bom_norm). '
   'No write policy — changed where they were written.';
 comment on table ops_prod.finishing_recipes is
-  'Finishing systems step by step, with coverage and cost per m². Read by production (0192); '
+  'Finishing systems step by step, with coverage and cost per m². Read by production (0193); '
   'each system''s total is offered as a candidate finishing rate (v_finishing_system), never written as one.';
 
 -- ── 2. the norms in force ─────────────────────────────────────────────────

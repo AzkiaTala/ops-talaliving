@@ -22,7 +22,7 @@ import { findNorm, normLabel, normPromptLine, wasteFromNorm } from "@/lib/bom-no
  *  - **The price is never the model's.** It is shown the rate list without
  *    figures and asked which entry fits; the figure is read from the list here.
  *    A code it invents is dropped to *unmatched*, not trusted.
- *  - **The waste is the business's, not the model's** (0192, D335). It is
+ *  - **The waste is the business's, not the model's** (0193, D338). It is
  *    shown the norms in force and asked which one a line's waste comes from;
  *    the figure is then read from that norm here, exactly as the price is read
  *    from the rate list. A waste no norm backs stays, with a warning.
