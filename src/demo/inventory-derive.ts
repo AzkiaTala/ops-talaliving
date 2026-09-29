@@ -268,6 +268,7 @@ import type {
 } from "@/services/inventory/contracts";
 import { STOCKED_CATEGORIES } from "./fixtures/reference";
 import { settingNumber } from "./settings";
+import { officeStamp } from "@/lib/office";
 
 /** What one item's stock is worth, and how sure we are of it.
  *
@@ -610,7 +611,7 @@ export function boardMoveViews(
     const m3Each = boardVolumeM3(sb.thickness_mm, sb.width_mm, sb.length_mm);
     const { rate: c, basis } = rateFor(sb.purchase_id, species);
     return {
-      id: sb.id, move_no: sb.id, at: `${sb.sawn_on}T12:00:00+08:00`,
+      id: sb.id, move_no: sb.id, at: officeStamp(sb.sawn_on, "12:00"),
       board_key: boardKey(species, sb.thickness_mm, sb.width_mm, sb.length_mm),
       species, thickness_mm: sb.thickness_mm, width_mm: sb.width_mm, length_mm: sb.length_mm,
       qty: sb.qty, kind: "sawn" as const,

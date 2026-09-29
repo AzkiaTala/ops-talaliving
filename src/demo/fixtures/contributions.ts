@@ -21,31 +21,31 @@ export const CONTRIBUTION_RATES: ContributionRate[] = [
     id: "crt_kes", scheme: "BPJS_KESEHATAN", effective_from: "2026-01-01",
     employer_percent: 4, employee_percent: 1, wage_ceiling: 12_000_000,
     note: "5% dari upah: 4% perusahaan, 1% pekerja. Batas upah Rp 12.000.000 ditetapkan pemerintah dan berubah dari waktu ke waktu.",
-    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+08:00",
+    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+07:00",
   },
   {
     id: "crt_jht", scheme: "JHT", effective_from: "2026-01-01",
     employer_percent: 3.7, employee_percent: 2, wage_ceiling: null,
     note: "5,7% dari upah: 3,7% perusahaan, 2% pekerja. Tanpa batas upah.",
-    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+08:00",
+    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+07:00",
   },
   {
     id: "crt_jp", scheme: "JP", effective_from: "2026-01-01",
     employer_percent: 2, employee_percent: 1, wage_ceiling: 10_042_300,
     note: "3% dari upah: 2% perusahaan, 1% pekerja. Batas upah JP disetel BPJS tiap tahun — angka ini perlu dicek ulang setiap Maret.",
-    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+08:00",
+    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+07:00",
   },
   {
     id: "crt_jkk", scheme: "JKK", effective_from: "2026-01-01",
     employer_percent: 0.54, employee_percent: 0, wage_ceiling: null,
     note: "Dibayar penuh perusahaan. Persentasenya mengikuti KELAS RISIKO usaha, 0,24%–1,74%, dan ditetapkan BPJS per pemberi kerja. 0,54% di sini adalah kelas II sebagai perkiraan — BELUM dikonfirmasi.",
-    confirmed: false, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+08:00",
+    confirmed: false, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+07:00",
   },
   {
     id: "crt_jkm", scheme: "JKM", effective_from: "2026-01-01",
     employer_percent: 0.3, employee_percent: 0, wage_ceiling: null,
     note: "0,30% dari upah, dibayar penuh perusahaan.",
-    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+08:00",
+    confirmed: true, created_by: "usr_shared", created_at: "2026-01-01T08:00:00+07:00",
   },
 ];
 
@@ -61,7 +61,7 @@ const e = (
     id: `enr_${String(n).padStart(3, "0")}`,
     employee_id, scheme, member_no, enrolled_on, ended_on, ended_reason,
     declared_base, note,
-    by: "usr_wulan", at: "2026-09-01T09:00:00+08:00",
+    by: "usr_wulan", at: "2026-09-01T09:00:00+07:00",
   };
 };
 

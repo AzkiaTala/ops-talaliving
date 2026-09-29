@@ -22,7 +22,7 @@ export const BANK_STATEMENTS: BankStatement[] = [
     filename: "BCA-064_25Agu-07Sep.csv",
     status: "PENDING", attachment_id: null,
     note: "Diserahkan pimpinan lewat WhatsApp, dua mingguan.",
-    uploaded_by: "usr_anggun", uploaded_at: "2026-09-08T09:20:00+08:00",
+    uploaded_by: "usr_anggun", uploaded_at: "2026-09-08T09:20:00+07:00",
   },
   {
     id: "bst_02", statement_no: "rkk-26-09-08_02", account_id: "acc_bcausd",
@@ -32,7 +32,7 @@ export const BANK_STATEMENTS: BankStatement[] = [
     filename: "BCA-USD-081_Agustus.csv",
     status: "PENDING", attachment_id: null,
     note: "Rekening dolar — kurs hari transaksi belum diisi.",
-    uploaded_by: "usr_anggun", uploaded_at: "2026-09-08T09:35:00+08:00",
+    uploaded_by: "usr_anggun", uploaded_at: "2026-09-08T09:35:00+07:00",
   },
 ];
 

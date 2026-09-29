@@ -20,7 +20,7 @@ export const WORK_ORDERS: WorkOrder[] = [
     description: "BABY ISLAND — 4 set, finishing natural matt.",
     qty: 4, uom: "set", project_code: "25007",
     due_date: "2026-09-05", status: "OPEN",
-    created_at: "2026-08-24T08:00:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-24T08:00:00+07:00", created_by: "usr_made",
     /* Pinned to rev 1 — the only BOM that has ever existed in this data
        (D256). `bom_rev: null` on wo_07 is the honest other case: no catalogue
        product, so nothing to pin. */
@@ -34,7 +34,7 @@ export const WORK_ORDERS: WorkOrder[] = [
     description: "BABY ISLAND — 24 pcs, mengikuti meja wo_01.",
     qty: 24, uom: "pcs", project_code: "25007",
     due_date: "2026-09-12", status: "OPEN",
-    created_at: "2026-08-24T08:05:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-24T08:05:00+07:00", created_by: "usr_made",
     /* Pinned to rev 1 — the only BOM that has ever existed in this data
        (D256). `bom_rev: null` on wo_07 is the honest other case: no catalogue
        product, so nothing to pin. */
@@ -48,7 +48,7 @@ export const WORK_ORDERS: WorkOrder[] = [
     description: "VILLA SEMINYAK — HPL putih, handle hitam.",
     qty: 6, uom: "unit", project_code: "25009",
     due_date: "2026-09-09", status: "OPEN",
-    created_at: "2026-08-28T09:10:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-28T09:10:00+07:00", created_by: "usr_made",
     /* Pinned to rev 1 — the only BOM that has ever existed in this data
        (D256). `bom_rev: null` on wo_07 is the honest other case: no catalogue
        product, so nothing to pin. */
@@ -62,7 +62,7 @@ export const WORK_ORDERS: WorkOrder[] = [
     description: "STANDARD (showroom) — belum mulai, menunggu besi dari vendor.",
     qty: 10, uom: "unit", project_code: "25004",
     due_date: "2026-09-15", status: "OPEN",
-    created_at: "2026-09-01T08:30:00+08:00", created_by: "usr_made",
+    created_at: "2026-09-01T08:30:00+07:00", created_by: "usr_made",
     /* Rangka besinya dibuat vendor; bengkel tinggal finishing dan packing.
        Sudah lewat tanggal janji vendor — dan itu keterlambatan vendor, bukan
        keterlambatan bengkel, yang papan tidak boleh mencampuradukkannya. */
@@ -76,7 +76,7 @@ export const WORK_ORDERS: WorkOrder[] = [
     description: "VILLA SEMINYAK — selesai dan sudah dikirim.",
     qty: 8, uom: "unit", project_code: "25009",
     due_date: "2026-08-29", status: "DONE",
-    created_at: "2026-08-10T08:00:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-10T08:00:00+07:00", created_by: "usr_made",
     /* Pinned to rev 1 — the only BOM that has ever existed in this data
        (D256). `bom_rev: null` on wo_07 is the honest other case: no catalogue
        product, so nothing to pin. */
@@ -90,7 +90,7 @@ export const WORK_ORDERS: WorkOrder[] = [
     description: "VILLA SEMINYAK — 12 daun pintu.",
     qty: 12, uom: "daun", project_code: "25009",
     due_date: "2026-09-08", status: "OPEN",
-    created_at: "2026-08-30T08:00:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-30T08:00:00+07:00", created_by: "usr_made",
     /* Pinned to rev 1 — the only BOM that has ever existed in this data
        (D256). `bom_rev: null` on wo_07 is the honest other case: no catalogue
        product, so nothing to pin. */
@@ -104,7 +104,7 @@ export const WORK_ORDERS: WorkOrder[] = [
     description: "VILLA SEMINYAK — dibuat vendor, kembali untuk finishing & packing.",
     qty: 8, uom: "unit", project_code: "25009",
     due_date: "2026-09-16", status: "OPEN",
-    created_at: "2026-09-02T08:00:00+08:00", created_by: "usr_made",
+    created_at: "2026-09-02T08:00:00+07:00", created_by: "usr_made",
     /* Sudah kembali, jadi finishing boleh dicatat. Selama masih di vendor,
        API menolak pencatatan tahap apa pun (D255). */
     bom_rev: null,
@@ -127,7 +127,7 @@ const e = (
   worked_by_employee_id: link && link !== "team" ? link : null,
   worked_by_not_a_person: link === "team",
   source: "manual", source_ref: null, note,
-  recorded_by: "usr_made", recorded_at: `${work_date}T17:00:00+08:00`,
+  recorded_by: "usr_made", recorded_at: `${work_date}T17:00:00+07:00`,
 });
 
 export const PRODUCTION_PROGRESS: ProgressEntry[] = [
@@ -220,7 +220,7 @@ export const VENDOR_LEGS: VendorLeg[] = [
     sent_on: "2026-09-01", expected_back: "2026-09-09",
     returned_on: null, returned_qty: null,
     note: "Rangka besi dilas di Karya Logam, kayunya ikut dikirim ke sana.",
-    created_by: "usr_made", created_at: "2026-09-01T08:30:00+08:00",
+    created_by: "usr_made", created_at: "2026-09-01T08:30:00+07:00",
   },
   {
     id: "vlg_02", leg_no: "vnl-26-09-03_01", wo_id: "wo_04",
@@ -228,7 +228,7 @@ export const VENDOR_LEGS: VendorLeg[] = [
     sent_on: "2026-09-03", expected_back: "2026-09-08",
     returned_on: "2026-09-08", returned_qty: 10,
     note: null,
-    created_by: "usr_made", created_at: "2026-09-03T09:00:00+08:00",
+    created_by: "usr_made", created_at: "2026-09-03T09:00:00+07:00",
   },
   {
     id: "vlg_03", leg_no: "vnl-26-09-02_01", wo_id: "wo_02",
@@ -236,7 +236,7 @@ export const VENDOR_LEGS: VendorLeg[] = [
     sent_on: "2026-09-02", expected_back: "2026-09-10",
     returned_on: "2026-09-11", returned_qty: 18,
     note: "Dua rangka dikembalikan belum dijok — kainnya kurang, menunggu kiriman klien.",
-    created_by: "usr_made", created_at: "2026-09-02T10:15:00+08:00",
+    created_by: "usr_made", created_at: "2026-09-02T10:15:00+07:00",
   },
   {
     id: "vlg_04", leg_no: "vnl-26-09-10_01", wo_id: "wo_06",
@@ -244,6 +244,6 @@ export const VENDOR_LEGS: VendorLeg[] = [
     sent_on: "2026-09-10", expected_back: null,
     returned_on: null, returned_qty: null,
     note: "Belum ada janji tanggal kembali — tidak bisa disebut terlambat sampai ada.",
-    created_by: "usr_made", created_at: "2026-09-10T14:00:00+08:00",
+    created_by: "usr_made", created_at: "2026-09-10T14:00:00+07:00",
   },
 ];

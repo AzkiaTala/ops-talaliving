@@ -10,6 +10,7 @@ import { identity } from "@/demo/api";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
+import { officeClock } from "@/lib/office";
 
 /** The activity log — what each person did, and for how long we keep it.
  *
@@ -250,7 +251,7 @@ export default function ActivityPage() {
                           <span className="text-[13px] font-medium text-slate-800">{d.full_name}</span>
                           <span className="text-[12px] text-slate-500">
                             {tr(`${d.events} events`, `${d.events} kejadian`)}
-                            {d.first_at && ` · ${d.first_at.slice(11, 16)}–${d.last_at?.slice(11, 16)}`}
+                            {d.first_at && ` · ${officeClock(Date.parse(d.first_at))}–${d.last_at ? officeClock(Date.parse(d.last_at)) : ""}`}
                           </span>
                           <span className="flex-1" />
                           <Badge tone={d.changes > 0 ? "brand" : "slate"}>{tr(`${d.changes} changed`, `${d.changes} mengubah`)}</Badge>

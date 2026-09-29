@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { supabaseServer } from "@/lib/supabase/server";
 import { llmConfig, generate, parseJsonObject, type LlmMessage } from "@/lib/llm";
-import { officeToday } from "@/lib/office";
+import { OFFICE_TZ, officeToday } from "@/lib/office";
 
 /** `POST /api/assistant/explain` — John Lau answering *how do I…* with a model.
  *
@@ -253,7 +253,7 @@ function systemPrompt(
     "",
     "Kapan memilih alat: pengguna bertanya angka/daftar yang dijawab alat baca (misalnya hutang ke vendor, saldo rekening, baris yang menunggu persetujuan), atau meminta dibuatkan/disiapkan sesuatu yang ada alat tulisnya (misalnya baris PR, PO, pengajuan cuti/izin/sakit, pasar baru — lihat alat tulis di katalog). Pilih juga alat yang DITUTUP kalau itu yang diminta — sistem akan menolaknya dengan alasan resminya. Kalau tidak ada alat yang cocok, jawab sebagai panduan.",
     "Untuk alat tulis, isi `args` HANYA dengan yang benar-benar tertulis di kalimat pengguna. Jangan mengarang vendor, harga, atau jumlah; biarkan kosong, pengguna akan melengkapinya di draft.",
-    `Tanggal di args ditulis TTTT-BB-HH. Hari ini (kalender kantor, WITA) adalah ${officeToday()}.`,
+    `Tanggal di args ditulis TTTT-BB-HH. Hari ini (kalender kantor, ${OFFICE_TZ.short}) adalah ${officeToday()}.`,
     "",
     "Aturan:",
     "1. Jawab HANYA dari PENGETAHUAN PROSES di bawah. Kalau jawabannya tidak ada di sana, katakan terus terang bahwa kamu belum tahu dan sarankan bertanya ke IT. Jangan menebak nama tombol, layar, atau aturan.",

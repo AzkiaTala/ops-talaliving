@@ -99,8 +99,8 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-0000000000a1','2026-08-17', t,'manual','masuk pas libur',
          'ffffffff-0000-0000-0000-0000000000e1'
-    from unnest(array['2026-08-17 08:00+08','2026-08-17 12:00+08',
-                      '2026-08-17 12:45+08','2026-08-17 15:00+08']::timestamptz[]) t;
+    from unnest(array['2026-08-17 08:00+07','2026-08-17 12:00+07',
+                      '2026-08-17 12:45+07','2026-08-17 15:00+07']::timestamptz[]) t;
 
   select * into d from ops_hr.read_day('aaaa0000-0000-0000-0000-0000000000a1','2026-08-17');
   assert d.day_value = 0,      'coming in does not make it a working day, got ' || d.day_value;

@@ -19,7 +19,7 @@ import type { EmployeeIdentity } from "@/services/hr/contracts";
  *  `tidak_diketahui` bucket permanently empty and the rule it exists for
  *  untestable.
  */
-const at = "2026-09-20T09:00:00+08:00";
+const at = "2026-09-20T09:00:00+07:00";
 const by = "usr_wulan";
 
 const id = (

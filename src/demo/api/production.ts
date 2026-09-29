@@ -24,6 +24,7 @@ import {
 } from "./_kit";
 import { settingNumber } from "../settings";
 import { lineCoverage } from "../derive";
+import { officeStamp } from "@/lib/office";
 
 const SERVICE = "production" as const;
 
@@ -331,7 +332,7 @@ export async function receiveFromVendor(
         short_by: row.qty - input.returned_qty,
         promised: row.expected_back,
         late_days: row.expected_back && returned > row.expected_back
-          ? Math.round((Date.parse(`${returned}T00:00:00+08:00`) - Date.parse(`${row.expected_back}T00:00:00+08:00`)) / 86_400_000)
+          ? Math.round((Date.parse(officeStamp(returned)) - Date.parse(officeStamp(row.expected_back))) / 86_400_000)
           : 0,
         by: user.email,
       },
