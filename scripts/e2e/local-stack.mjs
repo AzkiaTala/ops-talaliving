@@ -30,6 +30,13 @@
  *    is refused, and a sign-in stamps `last_sign_in_at` — the two facts the
  *    directory reads.
  *
+ *    D329 adds `POST /auth/v1/admin/users` (createUser, confirmed, with a
+ *    password) and a `password` on the admin PUT. **A password set that way is
+ *    checked** — kept in this process's memory, never in the database — so a
+ *    walk proves the password IT was shown is the one that signs in, and that
+ *    the old one stops working after *Buat kata sandi baru*. Every other
+ *    account still takes any password.
+ *
  *    POSTGREST_BIN=/tmp/postgrest PGHOST=/tmp PGPORT=5433 node scripts/e2e/local-stack.mjs
  *
  *  Then run the app with the three variables it prints, and the walks in
@@ -130,6 +137,9 @@ function json(res, status, body) {
   res.writeHead(status, { "content-type": "application/json", ...cors });
   res.end(JSON.stringify(body));
 }
+/* D329: passwords IT issued, by user id. Memory only, like GoTrue's hash is
+   GoTrue's: nothing here writes one to the database. */
+const issued = new Map();
 const readBody = (req) => new Promise((ok) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => ok(d)); });
 
 async function auth(req, res, path) {
@@ -137,6 +147,9 @@ async function auth(req, res, path) {
     const body = JSON.parse((await readBody(req)) || "{}");
     const u = body.email ? userByEmail(body.email) : null;
     if (!u) return json(res, 400, { error: "invalid_grant", error_description: "Invalid login credentials" });
+    if (issued.has(u.id) && issued.get(u.id) !== body.password) {
+      return json(res, 400, { error: "invalid_grant", error_code: "invalid_credentials", error_description: "Invalid login credentials" });
+    }
     if (psql(`select coalesce(banned_until > now(), false) from auth.users where id = ${sq(u.id)}::uuid`) === "t") {
       return json(res, 400, { error_code: "user_banned", msg: "User is banned" });
     }
@@ -160,6 +173,27 @@ async function auth(req, res, path) {
           values (${sq(id)}::uuid, ${sq(body.email)}, ${sq(JSON.stringify(body.data ?? {}))}::jsonb, now())`);
     return json(res, 200, userJson(userById(id)));
   }
+  if (path.replace(/\?.*$/, "") === "/auth/v1/admin/users" && req.method === "POST") {
+    if (!isService(req)) return json(res, 401, { msg: "service key required" });
+    const body = JSON.parse((await readBody(req)) || "{}");
+    /* GoTrue's admin API checks the format only (checkmail.ValidateFormat):
+       `budi@talaliving.local` is accepted. */
+    if (!/^[^@\s]+@[^@\s]+$/.test(body.email ?? "")) {
+      return json(res, 400, { code: 400, error_code: "validation_failed", msg: "Unable to validate email address: invalid format" });
+    }
+    if (userByEmail(body.email)) {
+      return json(res, 422, { code: 422, error_code: "email_exists", msg: "A user with this email address has already been registered" });
+    }
+    if (typeof body.password === "string" && body.password.length < 6) {
+      return json(res, 422, { code: 422, error_code: "weak_password", msg: "Password should be at least 6 characters." });
+    }
+    const id = randomUUID();
+    psql(`insert into auth.users (id, email, raw_user_meta_data, email_confirmed_at)
+          values (${sq(id)}::uuid, ${sq(String(body.email).toLowerCase())}, ${sq(JSON.stringify(body.user_metadata ?? {}))}::jsonb,
+                  ${body.email_confirm ? "now()" : "null"})`);
+    if (body.password) issued.set(id, body.password);
+    return json(res, 200, userJson(userById(id)));
+  }
   const admin = path.match(/^\/auth\/v1\/admin\/users\/([0-9a-f-]{36})/);
   if (admin && req.method === "PUT") {
     if (!isService(req)) return json(res, 401, { msg: "service key required" });
@@ -169,6 +203,7 @@ async function auth(req, res, path) {
     if (body.ban_duration) {
       psql(`update auth.users set banned_until = ${body.ban_duration === "none" ? "null" : `now() + ${sq(body.ban_duration)}::interval`} where id = ${sq(u.id)}::uuid`);
     }
+    if (typeof body.password === "string") issued.set(u.id, body.password);
     return json(res, 200, userJson(u));
   }
   if (path.startsWith("/auth/v1/recover")) return json(res, 200, {});

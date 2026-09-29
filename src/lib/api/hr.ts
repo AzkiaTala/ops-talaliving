@@ -48,6 +48,7 @@ import type {
   LeaveKind, LeaveStatus, LeaveRequestView, LeaveBalance,
   TaskStatus, TaskRefKind, TaskView, TaskCadence, TaskRoutineView,
   Sex, Education, Citizenship, MaritalStatus, EmployeeIdentityView, WlkpRecap,
+  EmployeeAccount,
 } from "@/services/hr/contracts";
 import {
   EMPLOYEE_DOC_CHECKLIST, EMPLOYEE_DOC_LABEL, SENSITIVE_DOC_KINDS,
@@ -91,6 +92,35 @@ async function readEmployee(employeeNo: string): Promise<Result<Employee>> {
   if (error) return fromRows<Employee>(SERVICE, null, error);
   if (!data) return notFound(SERVICE, "employee_not_found", `No employee ${employeeNo}.`);
   return ok(SERVICE, data as unknown as Employee);
+}
+
+/* ------------------------------------------------------------------ */
+/* Which account is which employee (D329)                              */
+/* ------------------------------------------------------------------ */
+
+/** `ops_hr.v_employee_account`. IT and HR read it; anybody else gets an
+ *  empty list from the view's own condition, not a check repeated here. */
+export async function listEmployeeAccounts(): Promise<Result<EmployeeAccount[]>> {
+  const { data, error } = await db().from("v_employee_account").select("*").order("employee_no");
+  return fromRows<EmployeeAccount[]>(SERVICE, data as EmployeeAccount[] | null, error);
+}
+
+/** Link an account to an employee, or unlink it (`user_id` null). IT's
+ *  (`it.manage_users`); every refusal is the seam's. The row is read back
+ *  so the screen redraws both halves of the link. */
+export async function linkEmployeeAccount(
+  input: { employee_id: string; user_id: string | null },
+): Promise<Result<EmployeeAccount>> {
+  const { data, error } = await db().rpc("link_employee_account", {
+    p_employee_id: input.employee_id, p_user_id: input.user_id,
+  });
+  const res = fromSeam<unknown>(SERVICE, data, error);
+  if (res.error) return res;
+  const back = await db().from("v_employee_account").select("*")
+    .eq("employee_id", input.employee_id).maybeSingle();
+  if (back.error) return fromRows<EmployeeAccount>(SERVICE, null, back.error);
+  if (!back.data) return notFound(SERVICE, "employee_not_found", "No such employee.");
+  return { data: back.data as EmployeeAccount, meta: res.meta };
 }
 
 /** One form for the new hire and the change of terms, which is what the screen
