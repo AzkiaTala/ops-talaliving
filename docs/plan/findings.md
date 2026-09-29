@@ -7900,3 +7900,13 @@ fails to compile when the two disagree — tried with `+08:00`, and `tsc`
 refused it. The fourth time a copy of the office clock appeared (F17, F39,
 F63, here) is the argument for making the copy impossible to get wrong rather
 than for asking the next author to remember.
+
+**Applied, and raced.** `0190` went to production at 07:24:15 UTC on
+2026-09-29 (123 taps moved, the first now reading 07:39:51 WIB as the
+machine printed it). At 07:24:48 another session applied `0184`, which had
+not been applied until then, and `create or replace` put `tap_self`'s WITA
+label back. Migration numbers order the ladder; they do not order a
+production apply. A `create or replace` of a function another migration also
+defines is only as current as the last one to run. The smoke catches this on
+the ladder, but nothing catches it in production except reading
+`pg_proc` after an apply, which is how it was found.
