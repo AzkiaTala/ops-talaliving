@@ -223,6 +223,8 @@ const VIEW_CONTRACTS = {
   v_contract: { type: "ContractView", composed: ["clauses", "coverage", "conflicts"] },
   v_leave_request: "LeaveRequestView",
   v_task:          "TaskView",
+  /* Which account is which employee (D329): IT links, HR reads. */
+  v_employee_account: "EmployeeAccount",
   v_task_routine:  "TaskRoutineView",
   v_allowance_withholding: "AllowanceWithholdingView",
   v_pay_rule_set: "PayRuleSetView",

@@ -9,7 +9,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import { formatIDR } from "@/lib/format";
 import { hr } from "@/demo/api";
 import { useLoad } from "@/components/ui/loaded";
-import type { Employee, PayBasis } from "@/services/hr/contracts";
+import type { Employee, EmployeeAccount, PayBasis } from "@/services/hr/contracts";
 import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
 
@@ -21,9 +21,11 @@ import { useTr } from "@/lib/i18n";
  *  turns on, and it is never asked on the day it happens.
  */
 export function EmployeeDrawer({
-  employee, onClose, onSaved,
+  employee, account = null, onClose, onSaved,
 }: {
   employee: Employee | null;
+  /** The account this person signs in with, read-only: IT links it (D329). */
+  account?: EmployeeAccount | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -94,6 +96,22 @@ export function EmployeeDrawer({
       }
     >
       <div className="space-y-4">
+        {employee && (
+          <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 text-[12px]">
+            <p className="text-xs text-slate-500">{tr("Sign-in account", "Akun masuk")}</p>
+            {account?.user_email ? (
+              <p className="mt-0.5 break-all text-slate-800">
+                {account.user_email}
+                {account.user_is_active === false && <span className="text-slate-500"> — {tr("switched off", "nonaktif")}</span>}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-slate-500">{tr("None yet.", "Belum ada.")}</p>
+            )}
+            <p className="mt-1 text-[11px] text-slate-400">
+              {tr("IT makes accounts and links them, on IT → Users & access.", "IT yang membuat dan menautkan akun, di IT → Pengguna & akses.")}
+            </p>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="e-no" className="block text-xs text-slate-500">{tr("Number on the machine", "Nomor di mesin")}</label>

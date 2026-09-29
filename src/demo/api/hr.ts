@@ -15,12 +15,13 @@ import type {
   Task, TaskView, TaskRefKind, KpiView,
   ContractKind, ClauseKind, ClauseChecklistItem, EmploymentContract,
   ContractView, ContractDetail, ContractClause, ClauseConflict, TimesheetTotal, DayState,
-  EffectiveDaysCalendar,
+  EffectiveDaysCalendar, EmployeeAccount,
   TapReading, TapSelfResult, LocationJudgement, LocationVerdict, WorkSite, LocatedTapView,
 } from "@/services/hr/contracts";
 import {
   SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem, OFF_SITE_VERDICTS,
 } from "@/services/hr/contracts";
+import { instantInDay, isOvernight, dayBoundaryMinutes } from "@/services/hr/schedule-rules";
 import type { DocKind } from "@/services/documents/contracts";
 import type { DemoState } from "../state";
 import { getState, apply, newId, nextDocNumber, writeAudit, writeOutbox } from "../store";
@@ -33,7 +34,7 @@ import {
   employeeIdentityViews, wlkpRecap,
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
-import { officeToday as sharedOfficeToday, officeClock as sharedOfficeClock } from "@/lib/office";
+import { officeClock, officeToday as sharedOfficeToday } from "@/lib/office";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
@@ -74,6 +75,91 @@ export async function getEmployee(employeeNo: string): Promise<Result<Employee>>
   const found = getState().employees.find((e) => e.employee_no === employeeNo);
   if (!found) return notFound(SERVICE, "employee_not_found", `No employee ${employeeNo}.`);
   return ok(SERVICE, found);
+}
+
+/* ------------------------------------------------------------------ */
+/* Which account is which employee (D329)                              */
+/* ------------------------------------------------------------------ */
+
+function toEmployeeAccount(state: DemoState, e: Employee): EmployeeAccount {
+  const link = state.employee_accounts?.find((l) => l.employee_no === e.employee_no);
+  const user = link ? state.users.find((u) => u.id === link.user_id) : undefined;
+  return {
+    employee_id: e.id, employee_no: e.employee_no, full_name: e.full_name,
+    position: e.position ?? null, unit: e.unit ?? null, active: e.active,
+    user_id: user?.id ?? null, user_email: user?.email ?? null,
+    user_full_name: user?.full_name ?? null, user_is_active: user ? user.is_active : null,
+  };
+}
+
+/** `ops_hr.v_employee_account`: IT and HR read it, nobody else. */
+export async function listEmployeeAccounts(): Promise<Result<EmployeeAccount[]>> {
+  await latency();
+  const user = actingUser();
+  if (!user.is_active || !user.modules.some((m) => m.module === "it" || m.module === "hrd")) {
+    return ok(SERVICE, []);
+  }
+  const state = getState();
+  return ok(SERVICE, [...state.employees]
+    .sort((a, b) => a.employee_no.localeCompare(b.employee_no))
+    .map((e) => toEmployeeAccount(state, e)));
+}
+
+/** `ops_hr.link_employee_account` — same checks, same codes, same order.
+ *  `user_id` null unlinks. */
+export async function linkEmployeeAccount(
+  input: { employee_id: string; user_id: string | null },
+): Promise<Result<EmployeeAccount>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  const state = getState();
+  const emp = state.employees.find((e) => e.id === input.employee_id);
+  if (!emp) return notFound(SERVICE, "not_found", "No such employee.");
+  const current = state.employee_accounts.find((l) => l.employee_no === emp.employee_no);
+  const currentUser = current ? state.users.find((u) => u.id === current.user_id) : undefined;
+  const action = input.user_id ? "account.link" : "account.unlink";
+
+  if (!input.user_id) {
+    if (!current) return noop(SERVICE, toEmployeeAccount(state, emp));
+    apply((draft) => {
+      draft.employee_accounts = draft.employee_accounts.filter((l) => l.employee_no !== emp.employee_no);
+      writeAudit(draft, {
+        service: SERVICE, entity: "employee", entity_no: emp.employee_no, action, outcome: "ok",
+        reason: null, detail: { before: { user_id: current.user_id, email: currentUser?.email ?? null }, after: { user_id: null } },
+      });
+    });
+    return ok(SERVICE, toEmployeeAccount(getState(), emp));
+  }
+
+  const user = state.users.find((u) => u.id === input.user_id);
+  if (!user) return notFound(SERVICE, "not_found", "No such account.");
+  if (current?.user_id === user.id) return noop(SERVICE, toEmployeeAccount(state, emp));
+  if (current) {
+    return conflict(SERVICE, "employee_has_account",
+      `${emp.full_name} is already linked to ${currentUser?.email ?? current.user_id}. Unlink that account first.`,
+      { employee_id: emp.id, user_id: current.user_id, email: currentUser?.email ?? null });
+  }
+  const elsewhere = state.employee_accounts.find((l) => l.user_id === user.id);
+  if (elsewhere) {
+    const other = state.employees.find((e) => e.employee_no === elsewhere.employee_no);
+    return conflict(SERVICE, "account_linked_elsewhere",
+      `${user.email} is already linked to ${other?.full_name ?? ""} (${elsewhere.employee_no}). Unlink it there first.`,
+      { employee_id: other?.id ?? null, employee_no: elsewhere.employee_no, full_name: other?.full_name ?? null });
+  }
+  if (!emp.active) {
+    return refused(SERVICE, "employee_left",
+      `${emp.full_name} no longer works here — an account for them would open nothing of theirs.`,
+      { employee_id: emp.id, left_on: emp.left_on });
+  }
+  apply((draft) => {
+    draft.employee_accounts.push({ employee_no: emp.employee_no, user_id: user.id });
+    writeAudit(draft, {
+      service: SERVICE, entity: "employee", entity_no: emp.employee_no, action, outcome: "ok",
+      reason: null, detail: { before: { user_id: null }, after: { user_id: user.id, email: user.email } },
+    });
+  });
+  return ok(SERVICE, toEmployeeAccount(getState(), emp));
 }
 
 /** Adding somebody, or changing what they are paid.
@@ -293,23 +379,12 @@ export async function getDay(
 /* ------------------------------------------------------------------ */
 //
 // The real database resolves "who am I as an employee" through
-// `ops_hr.my_employee_id()` — `employees.user_id = auth.uid()`, a link the
-// demo's `Employee` fixture has never carried because nothing here needed it
-// before this build. Five of the six demo personas already have a matching
-// employee row by name (Evin, Putri, Anggun, Andi, Made); this table is that
-// same link, kept beside the fixture rather than added to the shared
-// contract, because widening `Employee` with a `user_id` column would touch
-// every screen that already destructures one. Wulan (HRD) and the shared IT
-// account deliberately map to nothing — the same ordinary case as a
-// production worker with no login, exercised here by an office account
-// instead.
-const SELF_EMPLOYEE_NO: Record<string, string> = {
-  usr_evin: "K-001", usr_putri: "K-004", usr_anggun: "K-007",
-  usr_andi: "K-011", usr_made: "K-014",
-};
-
+// `ops_hr.my_employee_id()` — `employees.user_id = auth.uid()`. The demo keeps
+// the same link in `state.employee_accounts`, beside the fixture rather than on
+// the shared `Employee` contract, and IT writes it from `/it/pengguna` with
+// `linkEmployeeAccount` (D329), exactly as the seam does.
 function myEmployee(state: DemoState): Employee | null {
-  const no = SELF_EMPLOYEE_NO[actingUser().id];
+  const no = state.employee_accounts?.find((l) => l.user_id === actingUser().id)?.employee_no;
   if (!no) return null;
   return state.employees.find((e) => e.employee_no === no) ?? null;
 }
@@ -464,7 +539,7 @@ export async function tapSelf(
       detail: { at, by: actingUser().email, verdict: where.verdict },
     });
     recordSelfActivity(draft, "attendance_tap", "attendance",
-      `Tap presensi pukul ${sharedOfficeClock(new Date(at))}${where.needs_note ? " · di luar area" : ""}`);
+      `Tap presensi pukul ${officeClock(new Date(at))}${where.needs_note ? " · di luar area" : ""}`);
   });
   const result: TapSelfResult = { id, at, work_date, tap_no, location };
   remember(SERVICE, "tap_self", idempotencyKey, result);
@@ -659,14 +734,21 @@ export async function addScan(
     );
   }
 
+  /* *The day* is the working day — for a guard, a night — so the calendar day
+     a typed time lands on is read off the day's own window: 07.05 against
+     Monday's shift is Tuesday 07.05 (D330). `work_date` is that calendar day,
+     exactly as the database stores it. */
+  const at = instantInDay(input.work_date, input.time, timesheetDay(state, emp, input.work_date).window_from);
+  const calendarDay = at.slice(0, 10);
+
   const user = actingUser();
   let row: AttendanceScan | null = null;
   apply((draft) => {
     row = {
       id: newId("scn"),
       employee_id: emp.id,
-      work_date: input.work_date,
-      at: `${input.work_date}T${input.time}:00+08:00`,
+      work_date: calendarDay,
+      at,
       verify: "MANUAL",
       location: null,
       source: "manual",
@@ -3794,6 +3876,10 @@ export async function listSchedules(): Promise<Result<{
      *  not a decision, and the difference is the point (D279). */
     inherited: number;
     units: string[];
+    /** End before start: the shift crosses midnight (D330). */
+    overnight: boolean;
+    /** Where this pattern's next working day begins, minutes after midnight. */
+    day_boundary_minutes: number;
   })[];
   /** Nobody has linked these, and their unit has no default either. */
   unlinked: { employee_no: string; full_name: string; unit: string }[];
@@ -3814,6 +3900,9 @@ export async function listSchedules(): Promise<Result<{
     inherited: active.filter((e) => !e.schedule_code && scheduleFor(rules, e)?.code === sc.code).length,
     units: Object.entries(rules.schedule_by_unit ?? {})
       .filter(([, code]) => code === sc.code).map(([u]) => u),
+    hours_unconfirmed: sc.hours_unconfirmed ?? false,
+    overnight: isOvernight(sc),
+    day_boundary_minutes: dayBoundaryMinutes(sc),
   }));
 
   return ok(SERVICE, {
@@ -3831,6 +3920,118 @@ export async function listSchedules(): Promise<Result<{
       })),
     week_pattern: rules.week_pattern,
   });
+}
+
+/** HRD sets one pattern's start, end and break (D330).
+ *
+ *  The rule book is IT's hands (D173), but *when does the guard start* is
+ *  HRD's to answer. So this writes exactly one pattern's clock as a **new
+ *  dated version** of the book in force on that date, with everything else
+ *  copied — and refuses what `ops_hr.set_schedule_hours` refuses, with the
+ *  same sentences. Saving clears `hours_unconfirmed`: typing the default in is
+ *  how it is confirmed (D288).
+ */
+export async function setScheduleHours(
+  input: {
+    code: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  await latency();
+  const cached = replayed<{ code: string; version: number; effective_from: string }>(
+    SERVICE, "setScheduleHours", idempotencyKey);
+  if (cached) return cached;
+
+  const denied = requireLevel(SERVICE, "hrd", "write");
+  if (denied) return denied;
+  if (!input.note?.trim()) {
+    return invalid(
+      SERVICE, "note_required",
+      "Tulis alasannya. Jam kerja yang berubah tanpa keterangan tidak bisa dijelaskan ke orang yang jamnya berubah.",
+      { field: "note" },
+    );
+  }
+
+  const state = getState();
+  const from = input.effective_from || sharedOfficeToday();
+  const sorted = [...state.pay_rule_sets].sort(
+    (a, b) => a.effective_from.localeCompare(b.effective_from) || a.version - b.version);
+  const base = sorted.filter((r) => r.effective_from <= from).pop();
+  if (!base) {
+    return conflict(SERVICE, "no_rule_book",
+      `Belum ada buku aturan gaji yang berlaku pada ${from}. IT menerbitkannya dulu.`);
+  }
+  const later = sorted.find((r) => r.effective_from > from);
+  if (later) {
+    return conflict(SERVICE, "later_version_exists",
+      `Versi ${later.version} berlaku mulai ${later.effective_from}, sesudah tanggal ini, dan tidak memuat perubahan ini — jamnya akan kembali pada tanggal itu. Pilih tanggal mulai ${later.effective_from} atau sesudahnya.`);
+  }
+  const old = (base.rules.schedules ?? []).find((sc) => sc.code === input.code);
+  if (!old) {
+    return notFound(SERVICE, "not_found",
+      `Tidak ada jadwal kerja bernama ${input.code} di buku aturan yang berlaku.`);
+  }
+
+  const { hours_unconfirmed: _dropped, ...kept } = old;
+  void _dropped;
+  const changed = {
+    ...kept,
+    start_minutes: input.start_minutes,
+    end_minutes: input.end_minutes,
+    break_minutes: input.break_minutes,
+  };
+  const rules: PayRules = {
+    ...base.rules,
+    schedules: (base.rules.schedules ?? []).map((sc) => (sc.code === input.code ? changed : sc)),
+  };
+  if (JSON.stringify(changed) === JSON.stringify(old)) {
+    return noop(SERVICE, { code: input.code, version: base.version, effective_from: base.effective_from });
+  }
+
+  const problem = scheduleProblem(rules.schedules ?? [], rules.schedule_by_unit ?? {});
+  if (problem) return invalid(SERVICE, problem.code, problem.message, { field: "schedules" });
+
+  const spent = state.payroll_runs
+    .filter((r) => r.status !== "DRAFT" && r.period_end >= from)
+    .sort((a, b) => a.period_start.localeCompare(b.period_start))[0];
+  if (spent) {
+    return conflict(SERVICE, "already_paid",
+      `${spent.run_no} sudah ditandatangani untuk periode yang berakhir ${from} atau sesudahnya. Aturan tidak bisa mundur melewati uang yang sudah dibayarkan — terbitkan yang baru berlaku setelahnya.`);
+  }
+  const clash = state.payroll_runs.find((r) => from > r.period_start && from <= r.period_end);
+  if (clash) {
+    return conflict(SERVICE, "inside_existing_run",
+      `${clash.run_no} mencakup tanggal itu, dan periode itu dihitung dengan aturan yang berlaku saat dibuka. Pilih tanggal di luar periode yang sudah ada.`);
+  }
+
+  const user = actingUser();
+  let version = 0;
+  apply((draft) => {
+    version = Math.max(0, ...draft.pay_rule_sets.map((r) => r.version)) + 1;
+    draft.pay_rule_sets.push({
+      id: newId("prs"), version, effective_from: from, note: input.note.trim(), rules,
+      created_by: user.id, created_at: new Date().toISOString(),
+    });
+    writeAudit(draft, {
+      service: SERVICE, entity: "schedule", entity_no: input.code,
+      action: "set_hours", outcome: "ok", reason: input.note.trim(),
+      detail: {
+        before: { start_minutes: old.start_minutes, end_minutes: old.end_minutes,
+                  break_minutes: old.break_minutes, hours_unconfirmed: old.hours_unconfirmed ?? false },
+        after: { start_minutes: input.start_minutes, end_minutes: input.end_minutes,
+                 break_minutes: input.break_minutes, version, effective_from: from },
+        by: user.email,
+      },
+    });
+  });
+  const answer = { code: input.code, version, effective_from: from };
+  remember(SERVICE, "setScheduleHours", idempotencyKey, answer);
+  return ok(SERVICE, answer);
 }
 
 /** Linking one person to a working pattern (Q53, D279).

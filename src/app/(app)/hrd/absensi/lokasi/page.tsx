@@ -27,7 +27,7 @@ import { cn } from "@/lib/cn";
  *  (D326, answer 1). Nothing here changes what a day is worth: taps stay facts,
  *  and HRD's day marks on `/hrd/absensi` decide the day (D142).
  */
-const ZONE = OFFICE_TZ.label.split(" ")[0];
+const ZONE = OFFICE_TZ.short;
 
 const VERDICT_TONE: Record<LocationVerdict, "green" | "amber" | "red" | "slate"> = {
   inside: "green", outside: "red", uncertain: "amber", no_location: "amber", no_site: "slate",

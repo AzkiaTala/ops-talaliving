@@ -26,7 +26,7 @@ import { cn } from "@/lib/cn";
  *  button when that lands (D331). The parent names the button (MASUK /
  *  PULANG, read from the day, D307) and hears about a written tap. */
 
-const ZONE = OFFICE_TZ.label.split(" ")[0];
+const ZONE = OFFICE_TZ.short;
 
 type Reading = TapReading & { denied: boolean };
 

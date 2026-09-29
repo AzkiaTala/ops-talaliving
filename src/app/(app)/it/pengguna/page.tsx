@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   UserCog, KeyRound, Check, UserPlus, Search, Mail, Power, PowerOff, Pencil, ShieldAlert, X,
+  Copy, Link2, Unlink, IdCard,
 } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader, type Tone } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
@@ -10,14 +11,16 @@ import { Paged } from "@/components/ui/pager";
 import { cn } from "@/lib/cn";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { isLiveMode } from "@/lib/live";
-import { identity } from "@/demo/api";
+import { identity, hr } from "@/demo/api";
 import {
   MODULES, MODULE_LABEL, LEVELS, LEVEL_LABEL, AUTHORITIES, AUTHORITY_LABEL,
   describeGrant, IT_ACCESS_RULE, type ModuleName, type ModuleLevel, type Authority,
 } from "@/lib/roles";
 import {
-  ACCOUNT_STATUS_LABEL, type AccountStatus, type UserDirectoryRow,
+  ACCOUNT_STATUS_LABEL, isUsernameOnly,
+  type AccountStatus, type UserDirectoryRow, type UserPasswordIssued,
 } from "@/services/identity/contracts";
+import type { EmployeeAccount } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
@@ -34,6 +37,12 @@ import { useTr } from "@/lib/i18n";
  *
  *  Every write here is decided by the database, as the person pressing the
  *  button; the screen only hides what it already knows will be refused.
+ *
+ *  **Adding a person is a password, not an email (D329).** The floor has no
+ *  work mailbox, so the default is: IT types a name and a username-shaped
+ *  address, the server makes a password, and IT sees it once to hand over.
+ *  The D325 invitation stays for people with a real mailbox. Each account can
+ *  be tied to its employee record — the link every self-service screen reads.
  */
 
 const STATUS_TONE: Record<AccountStatus, Tone> = { active: "green", pending: "amber", inactive: "slate" };
@@ -50,7 +59,15 @@ export default function UsersPage() {
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [issued, setIssued] = useState<UserPasswordIssued | null>(null);
+  const [links, reloadLinks] = useLoad(() => hr.listEmployeeAccounts(), []);
   const mayManage = can("it.manage_users");
+  const employees = useMemo(() => (links.status === "ready" ? links.data : []), [links]);
+  const linkOf = useMemo(() => {
+    const m = new Map<string, EmployeeAccount>();
+    for (const e of employees) if (e.user_id) m.set(e.user_id, e);
+    return m;
+  }, [employees]);
 
   return (
     <div>
@@ -71,9 +88,19 @@ export default function UsersPage() {
         }
       />
 
+      {issued && (
+        <Card className="mb-4">
+          <div className="px-5 py-4">
+            <PasswordCard issued={issued} onDone={() => setIssued(null)} />
+          </div>
+        </Card>
+      )}
+
       {adding && (
-        <InviteForm
+        <AddUserForm
+          employees={employees}
           onClose={() => setAdding(false)}
+          onIssued={(p) => { setIssued(p); reloadLinks(); }}
           /* Found by its address rather than left wherever the sort puts it —
              page three of the list is not where somebody who just added a
              person looks for them. */
@@ -156,6 +183,9 @@ export default function UsersPage() {
                             isSelf={session?.user.id === u.user.id}
                             onToggle={() => setOpen(open === u.user.id ? null : u.user.id)}
                             reload={reload}
+                            link={linkOf.get(u.user.id) ?? null}
+                            employees={employees}
+                            reloadLinks={reloadLinks}
                           />
                         ))}
                       </ul>
@@ -173,8 +203,9 @@ export default function UsersPage() {
 
 /* ── one person ─────────────────────────────────────────────────────────── */
 
-function UserRow({ u, expanded, isSelf, onToggle, reload }: {
+function UserRow({ u, expanded, isSelf, onToggle, reload, link, employees, reloadLinks }: {
   u: UserDirectoryRow; expanded: boolean; isSelf: boolean; onToggle: () => void; reload: () => void;
+  link: EmployeeAccount | null; employees: EmployeeAccount[]; reloadLinks: () => void;
 }) {
   const tr = useTr();
   return (
@@ -193,12 +224,14 @@ function UserRow({ u, expanded, isSelf, onToggle, reload }: {
         {u.authorities.map((a) => (
           <Badge key={a} tone={u.user.is_active ? "brand" : "slate"}>{AUTHORITY_LABEL[a]}</Badge>
         ))}
+        {link && <Badge tone="slate">{link.employee_no}</Badge>}
         {u.status !== "active" && <Badge tone={STATUS_TONE[u.status]} dot>{ACCOUNT_STATUS_LABEL[u.status]}</Badge>}
       </button>
 
       {expanded && (
         <div className="mt-3 space-y-4">
           <AccountPanel u={u} isSelf={isSelf} reload={reload} />
+          <EmployeeLinkPanel u={u} link={link} employees={employees} reload={reloadLinks} />
           <AccessPanel u={u} reload={reload} />
         </div>
       )}
@@ -219,6 +252,18 @@ function AccountPanel({ u, isSelf, reload }: { u: UserDirectoryRow; isSelf: bool
   const [name, setName] = useState(u.user.full_name);
   const [confirmOff, setConfirmOff] = useState(false);
   const [reason, setReason] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [issued, setIssued] = useState<UserPasswordIssued | null>(null);
+  const usernameOnly = isUsernameOnly(u.user.email);
+
+  async function resetPassword() {
+    setBusy(true);
+    const res = await identity.resetUserPassword(u.user.id);
+    setBusy(false);
+    setConfirmReset(false);
+    if (res.error) { toast("critical", tr("No new password", "Kata sandi baru tidak dibuat"), res.error.message); return; }
+    setIssued(res.data);
+  }
 
   async function saveName() {
     setBusy(true);
@@ -316,9 +361,33 @@ function AccountPanel({ u, isSelf, reload }: { u: UserDirectoryRow; isSelf: bool
           </p>
         )}
 
+        {issued && <PasswordCard issued={issued} onDone={() => setIssued(null)} />}
+
+        {confirmReset && (
+          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5">
+            <p className="text-amber-900">
+              {tr(
+                `Make a new password for ${u.user.full_name}? The old one stops working at once. You will see the new one once, to hand over.`,
+                `Buat kata sandi baru untuk ${u.user.full_name}? Kata sandi lama langsung tidak berlaku. Yang baru ditampilkan sekali, untuk diserahkan.`,
+              )}
+            </p>
+            <div className="flex gap-2">
+              <Button size="sm" icon={KeyRound} disabled={busy} onClick={resetPassword}>
+                {tr("Make a new password", "Buat kata sandi baru")}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmReset(false)}>{tr("Cancel", "Batal")}</Button>
+            </div>
+          </div>
+        )}
+
         {mayManage && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {u.user.is_active && (
+            {u.user.is_active && !isSelf && !confirmReset && !issued && (
+              <Button size="sm" variant="outline" icon={KeyRound} disabled={busy} onClick={() => setConfirmReset(true)}>
+                {tr("Make a new password", "Buat kata sandi baru")}
+              </Button>
+            )}
+            {u.user.is_active && !usernameOnly && (
               <Button size="sm" variant="outline" icon={Mail} disabled={busy} onClick={sendLink}>
                 {u.status === "pending"
                   ? tr("Send the invitation again", "Kirim ulang undangan")
@@ -481,29 +550,231 @@ function AccessPanel({ u, reload }: { u: UserDirectoryRow; reload: () => void })
   );
 }
 
+/* ── the employee record this account belongs to (D329) ──────────────── */
+
+/** Matches a name or an employee number, the two things IT is told. */
+function matches(e: EmployeeAccount, q: string): boolean {
+  const n = q.trim().toLowerCase();
+  return !n || e.full_name.toLowerCase().includes(n) || e.employee_no.toLowerCase().includes(n);
+}
+
+function EmployeeLinkPanel({ u, link, employees, reload }: {
+  u: UserDirectoryRow; link: EmployeeAccount | null; employees: EmployeeAccount[]; reload: () => void;
+}) {
+  const { can } = useSession();
+  const { toast } = useToast();
+  const tr = useTr();
+  const mayManage = can("it.manage_users");
+  const [picking, setPicking] = useState(false);
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+  const found = employees.filter((e) => e.active && matches(e, query)).slice(0, 8);
+
+  async function setLink(employeeId: string, userId: string | null) {
+    setBusy(true);
+    const res = await hr.linkEmployeeAccount({ employee_id: employeeId, user_id: userId });
+    setBusy(false);
+    if (res.error) { toast("critical", tr("Not linked", "Tidak ditautkan"), res.error.message); return; }
+    setPicking(false);
+    setQuery("");
+    toast("success",
+      userId ? tr("Linked to the employee", "Ditautkan ke karyawan") : tr("Link removed", "Tautan dilepas"),
+      `${res.data.employee_no} · ${res.data.full_name}`);
+    reload();
+  }
+
+  return (
+    <div>
+      <p className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-400">
+        <IdCard className="h-3 w-3" /> {tr("Employee record", "Data karyawan")}
+      </p>
+      <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-[12px]">
+        {link ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-slate-700">
+              <span className="font-mono text-[11px] text-slate-500">{link.employee_no}</span>{" · "}
+              {link.full_name}
+              {(link.position || link.unit) && (
+                <span className="text-slate-500"> — {[link.position, link.unit].filter(Boolean).join(", ")}</span>
+              )}
+            </span>
+            {!link.active && <Badge tone="slate">{tr("Has left", "Sudah keluar")}</Badge>}
+            {mayManage && (
+              <Button size="sm" variant="ghost" icon={Unlink} disabled={busy} onClick={() => setLink(link.employee_id, null)}>
+                {tr("Unlink", "Lepas tautan")}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <p className="text-slate-500">
+            {tr(
+              "Not linked to an employee record. Until it is, this account cannot use self-service — clocking in, payslips, leave.",
+              "Belum tertaut ke data karyawan. Selama belum, akun ini tidak bisa memakai layanan mandiri — presensi, slip gaji, izin.",
+            )}
+          </p>
+        )}
+
+        {mayManage && !link && !picking && (
+          <Button size="sm" variant="outline" icon={Link2} onClick={() => setPicking(true)}>
+            {tr("Link to an employee", "Tautkan ke karyawan")}
+          </Button>
+        )}
+
+        {picking && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-slate-400" />
+                <input
+                  value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
+                  placeholder={tr("Name or employee number", "Nama atau nomor karyawan")}
+                  className={cn(INPUT, "py-1.5 pl-8")}
+                />
+              </label>
+              <Button size="sm" variant="ghost" onClick={() => { setPicking(false); setQuery(""); }}>{tr("Cancel", "Batal")}</Button>
+            </div>
+            {found.length === 0 ? (
+              <p className="text-slate-500">{tr("No employee matches.", "Tidak ada karyawan yang cocok.")}</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                {found.map((e) => (
+                  <li key={e.employee_id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-mono text-[11px] text-slate-500">{e.employee_no}</span>{" · "}
+                      <span className="text-slate-800">{e.full_name}</span>
+                      {e.unit && <span className="text-slate-500"> — {e.unit}</span>}
+                      {e.user_email && (
+                        <span className="block text-[11px] text-slate-400">
+                          {tr("already has", "sudah punya")} {e.user_email}
+                        </span>
+                      )}
+                    </span>
+                    <Button
+                      size="sm" variant="outline" icon={Link2} disabled={busy || Boolean(e.user_id)}
+                      onClick={() => setLink(e.employee_id, u.user.id)}
+                    >
+                      {tr("Link", "Tautkan")}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── a password, shown once (D329) ──────────────────────────────────────── */
+
+/** The only place a generated password is ever shown. It lives in this
+ *  component's props and nowhere else: closing it is the end of it. */
+function PasswordCard({ issued, onDone }: { issued: UserPasswordIssued; onDone: () => void }) {
+  const { toast } = useToast();
+  const tr = useTr();
+  const live = isLiveMode();
+
+  async function copy(text: string, what: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("success", tr("Copied", "Disalin"), what);
+    } catch {
+      toast("warning", tr("Could not copy", "Tidak bisa menyalin"), tr("Select the text and copy it by hand.", "Pilih teksnya dan salin manual."));
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-3 text-[12px]">
+      <p className="text-[13px] font-semibold text-emerald-900">
+        {issued.kind === "created"
+          ? tr(`Account made for ${issued.full_name}`, `Akun dibuat untuk ${issued.full_name}`)
+          : tr(`New password for ${issued.full_name}`, `Kata sandi baru untuk ${issued.full_name}`)}
+      </p>
+      <dl className="grid gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+        <dt className="text-slate-500">{tr("Sign in with", "Masuk dengan")}</dt>
+        <dd className="break-all font-mono text-[13px] text-slate-800">{issued.email}</dd>
+        <dd>
+          <Button size="sm" variant="ghost" icon={Copy} onClick={() => copy(issued.email, issued.email)}>
+            {tr("Copy", "Salin")}
+          </Button>
+        </dd>
+        <dt className="text-slate-500">{tr("Password", "Kata sandi")}</dt>
+        <dd className="select-all font-mono text-lg tracking-wider text-slate-900" data-testid="issued-password">{issued.password}</dd>
+        <dd>
+          <Button size="sm" variant="ghost" icon={Copy} onClick={() => copy(issued.password, tr("Password", "Kata sandi"))}>
+            {tr("Copy", "Salin")}
+          </Button>
+        </dd>
+      </dl>
+      <p className="flex items-start gap-1.5 text-amber-800">
+        <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        {tr(
+          `Shown once. Copy it or write it down now and hand it to ${issued.full_name} in person. Once closed it cannot be shown again — if it is lost, make a new one.`,
+          `Hanya ditampilkan sekali. Salin atau catat sekarang dan serahkan langsung ke ${issued.full_name}. Setelah ditutup tidak bisa ditampilkan lagi — bila hilang, buat yang baru.`,
+        )}
+        {!live && ` ${tr("(Demo: any password signs in here.)", "(Demo: kata sandi apa pun bisa masuk.)")}`}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm" variant="outline" icon={Copy}
+          onClick={() => copy(`${tr("Email", "Email")}: ${issued.email}\n${tr("Password", "Kata sandi")}: ${issued.password}`, tr("Email and password", "Email dan kata sandi"))}
+        >
+          {tr("Copy both", "Salin keduanya")}
+        </Button>
+        <Button size="sm" icon={Check} onClick={onDone}>{tr("Done — handed over", "Selesai — sudah diserahkan")}</Button>
+      </div>
+    </div>
+  );
+}
+
 /* ── adding a person ────────────────────────────────────────────────────── */
 
-function InviteForm({ onClose, onAdded, onOpenExisting }: {
+/** `Budi Santoso` → `budi.santoso@talaliving.local`: a starting point IT
+ *  edits, never a rule. */
+function suggestUsername(name: string): string {
+  const slug = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9\s]/g, "").trim().split(/\s+/).slice(0, 2).join(".");
+  return slug ? `${slug}@talaliving.local` : "";
+}
+
+type AddMode = "password" | "invite";
+
+function AddUserForm({ employees, onClose, onIssued, onAdded, onOpenExisting }: {
+  employees: EmployeeAccount[];
   onClose: () => void;
+  onIssued: (issued: UserPasswordIssued) => void;
   onAdded: (userId: string, email: string) => void;
   onOpenExisting: (userId: string, email: string) => void;
 }) {
   const { toast } = useToast();
   const tr = useTr();
   const live = isLiveMode();
+  const [mode, setMode] = useState<AddMode>("password");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [employee, setEmployee] = useState<EmployeeAccount | null>(null);
+  const [empQuery, setEmpQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<{ field: string | null; message: string; existing: string | null } | null>(null);
   const ready = useMemo(() => name.trim().length > 0 && email.includes("@"), [name, email]);
+  const candidates = employees.filter((e) => e.active && !e.user_id && matches(e, empQuery)).slice(0, 6);
+
+  function pickEmployee(e: EmployeeAccount) {
+    setEmployee(e);
+    setEmpQuery("");
+    if (!name.trim()) setName(e.full_name);
+    if (!email.trim() && mode === "password") setEmail(suggestUsername(e.full_name));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setProblem(null);
-    const res = await identity.inviteUser({ email, full_name: name });
-    setBusy(false);
+    const res = mode === "password"
+      ? await identity.createUser({ email, full_name: name })
+      : await identity.inviteUser({ email, full_name: name });
     if (res.error) {
+      setBusy(false);
       const d = res.error.detail ?? {};
       setProblem({
         field: typeof d.field === "string" ? d.field : null,
@@ -512,9 +783,20 @@ function InviteForm({ onClose, onAdded, onOpenExisting }: {
       });
       return;
     }
-    toast("success", tr("User added", "Pengguna ditambahkan"), live
-      ? tr(`An invitation went to ${res.data.email}. Grant their modules now.`, `Undangan terkirim ke ${res.data.email}. Beri modulnya sekarang.`)
-      : tr("Demo: no email is sent. Grant their modules now.", "Demo: tidak ada email yang dikirim. Beri modulnya sekarang."));
+    /* The link is a second decision, the database's own: if it is refused
+       the account still exists, and the toast says why. */
+    if (employee) {
+      const linked = await hr.linkEmployeeAccount({ employee_id: employee.employee_id, user_id: res.data.user_id });
+      if (linked.error) toast("warning", tr("Account made, not linked", "Akun dibuat, belum tertaut"), linked.error.message);
+    }
+    setBusy(false);
+    if ("password" in res.data) {
+      onIssued(res.data as UserPasswordIssued);
+    } else {
+      toast("success", tr("User added", "Pengguna ditambahkan"), live
+        ? tr(`An invitation went to ${res.data.email}. Grant their modules now.`, `Undangan terkirim ke ${res.data.email}. Beri modulnya sekarang.`)
+        : tr("Demo: no email is sent. Grant their modules now.", "Demo: tidak ada email yang dikirim. Beri modulnya sekarang."));
+    }
     onAdded(res.data.user_id, res.data.email);
   }
 
@@ -527,13 +809,77 @@ function InviteForm({ onClose, onAdded, onOpenExisting }: {
               <UserPlus className="h-4 w-4 text-brand-600" /> {tr("Add a user", "Tambah pengguna")}
             </h2>
             <p className="mt-0.5 text-[12px] text-slate-500">
-              {tr(
-                "They get an email with a link to create their password. The account starts with no access at all — you grant modules on the next step.",
-                "Mereka menerima email berisi tautan untuk membuat kata sandi. Akunnya mulai tanpa akses sama sekali — modul diberikan di langkah berikutnya.",
-              )}
+              {mode === "password"
+                ? tr(
+                  "You get a password to hand over; nothing is emailed. The account starts with no modules; linking it to the employee record is what their self-service reads.",
+                  "Anda mendapat kata sandi untuk diserahkan; tidak ada email yang dikirim. Akun mulai tanpa modul; tautan ke data karyawan itulah yang dibaca layanan mandirinya.",
+                )
+                : tr(
+                  "They get an email with a link to create their password. The account starts with no access at all — you grant modules on the next step.",
+                  "Mereka menerima email berisi tautan untuk membuat kata sandi. Akunnya mulai tanpa akses sama sekali — modul diberikan di langkah berikutnya.",
+                )}
             </p>
           </div>
           <Button type="button" size="sm" variant="ghost" icon={X} onClick={onClose} aria-label={tr("Close", "Tutup")} />
+        </div>
+
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={tr("How they sign in", "Cara masuk")}>
+          <Button type="button" size="sm" icon={KeyRound} variant={mode === "password" ? "primary" : "outline"}
+            role="radio" aria-checked={mode === "password"} onClick={() => { setMode("password"); setProblem(null); }}>
+            {tr("With a password (recommended)", "Dengan kata sandi (disarankan)")}
+          </Button>
+          <Button type="button" size="sm" icon={Mail} variant={mode === "invite" ? "primary" : "outline"}
+            role="radio" aria-checked={mode === "invite"} onClick={() => { setMode("invite"); setProblem(null); }}>
+            {tr("Email invitation", "Undangan email")}
+          </Button>
+        </div>
+
+        <div>
+          <span className="block text-[13px] font-medium text-slate-700">
+            {tr("Employee", "Karyawan")} <span className="font-normal text-slate-400">({tr("optional", "opsional")})</span>
+          </span>
+          {employee ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px]">
+              <Badge tone="brand">{employee.employee_no}</Badge>
+              <span className="text-slate-800">{employee.full_name}</span>
+              <Button type="button" size="sm" variant="ghost" icon={X} onClick={() => setEmployee(null)}>{tr("Remove", "Hapus")}</Button>
+            </div>
+          ) : (
+            <>
+              <label className="relative mt-1.5 block">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <input
+                  value={empQuery} onChange={(e) => setEmpQuery(e.target.value)}
+                  placeholder={tr("Search by name or employee number", "Cari nama atau nomor karyawan")}
+                  className={cn(INPUT, "pl-8")}
+                />
+              </label>
+              {empQuery.trim() && (
+                candidates.length === 0 ? (
+                  <p className="mt-1 text-[12px] text-slate-500">
+                    {tr("No employee without an account matches.", "Tidak ada karyawan tanpa akun yang cocok.")}
+                  </p>
+                ) : (
+                  <ul className="mt-1 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-[13px]">
+                    {candidates.map((c) => (
+                      <li key={c.employee_id}>
+                        <button type="button" onClick={() => pickEmployee(c)} className="w-full px-3 py-2 text-left hover:bg-slate-50">
+                          <span className="font-mono text-[11px] text-slate-500">{c.employee_no}</span>{" · "}
+                          {c.full_name}{c.unit && <span className="text-slate-500"> — {c.unit}</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              )}
+              <p className="mt-1 text-[11px] text-slate-500">
+                {tr(
+                  "Links the account to their employee record, so they can clock in and see their payslip.",
+                  "Menautkan akun ke data karyawannya, supaya bisa presensi dan melihat slip gaji.",
+                )}
+              </p>
+            </>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -545,14 +891,27 @@ function InviteForm({ onClose, onAdded, onOpenExisting }: {
             />
           </label>
           <label className="block">
-            <span className="block text-[13px] font-medium text-slate-700">Email</span>
+            <span className="block text-[13px] font-medium text-slate-700">
+              {mode === "password" ? tr("Email (username)", "Email (nama pengguna)") : "Email"}
+            </span>
             <input
               type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off"
-              placeholder="nama@talaliving.com"
+              placeholder={mode === "password" ? "budi.gudang@talaliving.local" : "nama@talaliving.com"}
               className={cn(INPUT, "mt-1.5", problem?.field === "email" && "border-rose-300")}
             />
           </label>
         </div>
+        <p className="text-[11px] text-slate-500">
+          {mode === "password"
+            ? tr(
+              "Only a username — nothing is ever sent to it. No work mailbox: name.unit@talaliving.local (e.g. budi.gudang@talaliving.local). Has one: use it, and they can also get a password link later.",
+              "Hanya nama pengguna — tidak pernah dikirimi apa pun. Tanpa email kantor: nama.bagian@talaliving.local (mis. budi.gudang@talaliving.local). Punya email kantor: pakai itu, supaya nanti juga bisa dikirimi tautan kata sandi.",
+            )
+            : tr(
+              "The invitation is sent to this address, so it must be a real mailbox.",
+              "Undangan dikirim ke alamat ini, jadi harus kotak surat yang benar-benar ada.",
+            )}
+        </p>
 
         {problem && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-2 text-[13px] text-rose-900">
@@ -565,9 +924,13 @@ function InviteForm({ onClose, onAdded, onOpenExisting }: {
           </div>
         )}
 
-        <div className="flex gap-2">
-          <Button type="submit" icon={Mail} disabled={busy || !ready}>
-            {busy ? tr("Sending…", "Mengirim…") : tr("Add and send the invitation", "Tambah dan kirim undangan")}
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" icon={mode === "password" ? KeyRound : Mail} disabled={busy || !ready}>
+            {busy
+              ? tr("Working…", "Memproses…")
+              : mode === "password"
+                ? tr("Add and make a password", "Tambah dan buat kata sandi")
+                : tr("Add and send the invitation", "Tambah dan kirim undangan")}
           </Button>
           <Button type="button" variant="ghost" onClick={onClose}>{tr("Cancel", "Batal")}</Button>
         </div>

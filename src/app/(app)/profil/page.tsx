@@ -13,6 +13,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { EvidenceStrip } from "@/components/ui/evidence-strip";
 import { LocatedTap } from "@/components/attendance/located-tap";
 import { formatIDR, formatNumber } from "@/lib/format";
+import { OFFICE_TZ, officeClock, officeDay, officeToday, shiftDay } from "@/lib/office";
 import { hr, identity } from "@/demo/api";
 import {
   LEAVE_KIND_LABEL, OVERTIME_STAGE_LABEL, type LeaveKind,
@@ -158,7 +159,7 @@ function ActivityTab() {
             {list.map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-5 py-2.5 text-[13px]">
                 <span className="w-[130px] shrink-0 font-mono text-[11px] text-slate-400">
-                  {r.at.slice(0, 16).replace("T", " ")}
+                  {officeDay(new Date(r.at))} {officeClock(new Date(r.at))}
                 </span>
                 <span className="text-slate-700">{r.label}</span>
               </li>
@@ -172,17 +173,17 @@ function ActivityTab() {
 
 /* ── Presensi ─────────────────────────────────────────────────────────── */
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function AttendanceTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnType<typeof hr.myProfile>>["data"]>>[0] }) {
   const tr = useTr();
   const linked = me.status === "ready" ? me.data : null;
-  const from = new Date(Date.now() - 13 * 86_400_000).toISOString().slice(0, 10);
+  /* The office day, not UTC's (D327): before 08:00 WITA the UTC day is still
+     yesterday, and a 07:25 clock-in would sit outside `to` until it turned. */
   const [days, reloadDays] = useLoad(
-    () => (linked ? hr.attendanceFor({ employee_no: linked.employee_no, from, to: todayIso() })
-                  : Promise.resolve({ data: [] })),
+    () => {
+      const to = officeToday();
+      return linked ? hr.attendanceFor({ employee_no: linked.employee_no, from: shiftDay(to, -13), to })
+                    : Promise.resolve({ data: [] });
+    },
     [linked?.employee_no],
   );
 
@@ -236,7 +237,7 @@ function OvertimeTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnType<
   const { toast } = useToast();
   const tr = useTr();
   const [sheets, reload] = useLoad(() => hr.myOvertimeSheets(), []);
-  const [draft, setDraft] = useState({ work_date: todayIso(), hours: "", result_note: "", task: "" });
+  const [draft, setDraft] = useState({ work_date: officeToday(), hours: "", result_note: "", task: "" });
   const [busy, setBusy] = useState(false);
   const [justCreated, setJustCreated] = useState<string | null>(null);
   const linked = me.status === "ready" ? me.data : null;
@@ -258,7 +259,7 @@ function OvertimeTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnType<
       tr("Attach the screenshot evidence below, then wait for HRD.", "Lampirkan bukti tangkapan layar di bawah, lalu tunggu HRD."),
     );
     setJustCreated(res.data.sheet_no);
-    setDraft({ work_date: todayIso(), hours: "", result_note: "", task: "" });
+    setDraft({ work_date: officeToday(), hours: "", result_note: "", task: "" });
     reload();
   }
 
@@ -279,7 +280,7 @@ function OvertimeTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnType<
         <div className="px-5 py-4">
           <div className="grid gap-2 sm:grid-cols-[140px_100px_1fr]">
             <input
-              type="date" value={draft.work_date} max={todayIso()}
+              type="date" value={draft.work_date} max={officeToday()}
               onChange={(e) => setDraft({ ...draft, work_date: e.target.value })}
               aria-label={tr("Date", "Tanggal")}
               className="h-9 rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none"

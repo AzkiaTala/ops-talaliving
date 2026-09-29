@@ -46,6 +46,10 @@ export interface DemoUser extends User {
    *  leave both out — they stand for people already working here. When
    *  somebody last signed in is not stored: it is read from the trail. */
   invited_at?: string | null;
+  /** Set when IT made the account with a generated password (D329). Like an
+   *  invitation, the account is *pending* until its first sign-in. The
+   *  password itself is never kept — the demo accepts any. */
+  password_issued_at?: string | null;
   created_at?: string;
 }
 
@@ -219,6 +223,11 @@ export interface DemoState {
    *  on `employees`, because `employees` is readable by every payroll account
    *  and this is not (D196). */
   employee_identities: EmployeeIdentity[];
+  /** Which account is which employee — `ops_hr.employees.user_id` (0152),
+   *  kept beside the fixture rather than on `Employee` so the shared contract
+   *  does not widen. Written by `linkEmployeeAccount` (D329), read by every
+   *  self-service call as `my_employee_id()`. */
+  employee_accounts: { employee_no: string; user_id: string }[];
 
   /* --- production ------------------------------------------------- */
   /** What is being made, in what quantity, by when (D148). */

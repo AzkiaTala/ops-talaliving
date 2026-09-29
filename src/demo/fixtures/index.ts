@@ -145,6 +145,16 @@ export function initialState(): DemoState {
     tasks: TASKS,
     task_routines: TASK_ROUTINES,
     employee_identities: EMPLOYEE_IDENTITIES,
+    /* Five of the six personas are also on the roster (W7). Wulan (HRD) and
+       the shared IT account are not — the ordinary case of an account that is
+       nobody's employee record. */
+    employee_accounts: [
+      { employee_no: "K-001", user_id: "usr_evin" },
+      { employee_no: "K-004", user_id: "usr_putri" },
+      { employee_no: "K-007", user_id: "usr_anggun" },
+      { employee_no: "K-011", user_id: "usr_andi" },
+      { employee_no: "K-014", user_id: "usr_made" },
+    ],
     pay_rule_sets: PAY_RULE_SETS,
     employee_documents: EMPLOYEE_DOCUMENTS,
     employment_contracts: EMPLOYMENT_CONTRACTS,

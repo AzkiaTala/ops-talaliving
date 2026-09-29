@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Users, Plus, Wallet } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { hr } from "@/demo/api";
-import type { Employee } from "@/services/hr/contracts";
+import type { Employee, EmployeeAccount } from "@/services/hr/contracts";
 import { useSession } from "@/store/session";
 import { useTr } from "@/lib/i18n";
 import { EmployeeDrawer } from "./EmployeeDrawer";
@@ -28,6 +28,14 @@ export default function EmployeesPage() {
   const mayEdit = can("hrd.update");
   const [sched] = useLoad(() => hr.listSchedules(), []);
   const schedules = sched.status === "ready" ? sched.data.schedules : [];
+  /* Which account each person signs in with — read-only here; IT links it on
+     `/it/pengguna` (D329). */
+  const [accts] = useLoad(() => hr.listEmployeeAccounts(), []);
+  const accountOf = useMemo(() => {
+    const m = new Map<string, EmployeeAccount>();
+    if (accts.status === "ready") for (const a of accts.data) m.set(a.employee_id, a);
+    return m;
+  }, [accts]);
 
   const columns: Column<Employee>[] = [
     {
@@ -39,6 +47,12 @@ export default function EmployeesPage() {
           <p className="font-medium text-slate-800">{e.full_name}</p>
           <p className="text-[12px] text-slate-500">{e.position} · {e.unit}</p>
           <p className="font-mono text-[10px] text-slate-400">{e.employee_no}</p>
+          {accts.status === "ready" && (() => {
+            const a = accountOf.get(e.id);
+            return a?.user_email
+              ? <p className="break-all text-[11px] text-slate-500" title={tr("Signs in with this account", "Masuk dengan akun ini")}>{tr("account", "akun")}: {a.user_email}</p>
+              : <p className="text-[11px] text-slate-400">{tr("no account", "belum punya akun")}</p>;
+          })()}
         </div>
       ),
     },
@@ -203,6 +217,7 @@ export default function EmployeesPage() {
       {(adding || editing) && (
         <EmployeeDrawer
           employee={editing}
+          account={editing ? accountOf.get(editing.id) ?? null : null}
           onClose={() => { setAdding(false); setEditing(null); }}
           onSaved={() => { setAdding(false); setEditing(null); reload(); }}
         />
