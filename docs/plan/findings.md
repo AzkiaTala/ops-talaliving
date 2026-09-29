@@ -7580,6 +7580,45 @@ here:** real GoTrue sending a real invitation email. The invitation lands on
 Redirect URLs (`06-auth.md`). Supabase's built-in mail sends only a few
 messages an hour.
 
+## F183 · 2026-09-29 · the self-service screen was built for people who could not open it
+
+The owner asked whether this app can become a PWA for everybody: the
+production floor and the guards clocking in and out with location, reading
+their latest payslip and asking for leave, sick days and overtime, and staff
+doing all of that plus their modules (D326). Nearly everything the floor needs
+already exists on `/profil` (W7, D305–D307). None of the people it is for could
+use it, for three separate reasons, and none of them shows on the screen:
+
+1. **The shell sends an account with no module to `/no-access`**
+   (`src/app/(app)/layout.tsx`, `hasAnyModule`). A production worker needs no
+   module, because the self-service half is scoped by the account-to-employee
+   link rather than by a grant (D305). So the one audience the page was written
+   for is the one turned away at the door. Every walk of W7 was done by an
+   account that also held modules.
+2. **Nothing writes `ops_hr.employees.user_id`.** `0152` added the column and
+   `my_employee_id()` reads it. No seam and no screen sets it. The empty state
+   tells the person to *ask HRD to link this account*, and HRD has nowhere to
+   do it.
+3. **An account can only be made by an email invitation** (D325), and the floor
+   has no work email.
+
+And one that would have met them on the first morning. `/profil` reckons
+*today* and the tap's time with `toISOString()`, which is UTC, instead of
+`src/lib/office.ts`. At 07.25 WITA, five minutes before production starts, the
+toast says *Pukul 23:25* and the tap is missing from the list until 08.00.
+`tap_self` writes its activity label the same way in SQL (`to_char(v_at,
+'HH24:MI')` with no `at time zone`). F63 collapsed nine copies of the offset
+into one file; a screen written after it simply did not import it.
+
+The general shape: **a feature scoped by a different key from the rest of the
+app has to be walked by an account that holds only that key.**
+
+Two limits no code in this repo can remove, recorded so nobody promises them.
+A browser's location can be faked on Android and a web page cannot tell, which
+is one reason the fingerprint reader stays (D326, answer 5). And a PWA cannot
+read location while it is closed or the screen is off, so *every 15 or 30
+minutes* only holds while the app is open (W8).
+
 ## F184 · 2026-09-29 · `/profil` kept its own clock, and it was UTC's
 
 The first slice of the PWA program (D326, D327, `0184`). `/profil` is where a
