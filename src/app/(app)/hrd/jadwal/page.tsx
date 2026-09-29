@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, AlertTriangle, Users, Link2 } from "lucide-react";
+import { CalendarClock, AlertTriangle, Users, Link2, Moon, Pencil } from "lucide-react";
 import { Badge, Button, Card, CardHeader, EmptyState, PageHeader, StatCard } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Combobox } from "@/components/ui/combobox";
@@ -10,6 +10,10 @@ import { hr } from "@/demo/api";
 import { useToast } from "@/store/toast";
 import { useSession } from "@/store/session";
 import { useTr } from "@/lib/i18n";
+import { officeToday } from "@/lib/office";
+import { NumberInput } from "@/components/ui/number-input";
+import { dayBoundaryMinutes, isOvernight, scheduleHoursOf } from "@/services/hr/schedule-rules";
+import type { WorkSchedule } from "@/services/hr/contracts";
 
 /** Working patterns, and who is on them (Q53, D279).
  *
@@ -33,6 +37,7 @@ export default function SchedulePage() {
   const { can } = useSession();
   const mayEdit = can("hrd.update");
   const [data, reload] = useLoad(() => hr.listSchedules(), []);
+  const [editing, setEditing] = useState<string | null>(null);
 
   return (
     <div>
@@ -93,6 +98,7 @@ export default function SchedulePage() {
                       <th className="px-3 py-2 text-right font-medium">{tr("Per week", "Seminggu")}</th>
                       <th className="px-3 py-2 text-right font-medium">{tr("Per month", "Sebulan")}</th>
                       <th className="px-5 py-2 text-right font-medium">{tr("People", "Orang")}</th>
+                      {mayEdit && <th className="px-3 py-2" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -106,6 +112,21 @@ export default function SchedulePage() {
                         </td>
                         <td className="px-3 py-2.5 tabular-nums text-slate-600">
                           {clock(sc.start_minutes)} – {clock(sc.end_minutes)}
+                          {/* A default nobody has confirmed must not look like an
+                              answer (D288): the guard's 19.00–07.00 is D330's
+                              assumption until HRD saves it. */}
+                          {sc.hours_unconfirmed && (
+                            <Badge tone="amber" className="ml-1.5">{tr("unconfirmed", "belum dikonfirmasi")}</Badge>
+                          )}
+                          {sc.overnight && (
+                            <span className="mt-0.5 flex items-center gap-1 text-[11px] text-indigo-700">
+                              <Moon className="h-3 w-3" />
+                              {tr(
+                                `across midnight · the next day begins ${clock(sc.day_boundary_minutes)}`,
+                                `lewat tengah malam · hari berikutnya mulai ${clock(sc.day_boundary_minutes)}`,
+                              )}
+                            </span>
+                          )}
                           <span className="block text-[11px] text-slate-400">
                             {tr("break", "istirahat")} {sc.break_minutes == null ? "—" : `${sc.break_minutes} m`}
                             {/* Jumat disebut hanya kalau ia memang berbeda, dan
@@ -129,11 +150,27 @@ export default function SchedulePage() {
                             <span className="block text-[11px] text-slate-400">{tr(`${sc.inherited} via unit`, `${sc.inherited} ikut unit`)}</span>
                           )}
                         </td>
+                        {mayEdit && (
+                          <td className="px-3 py-2.5 text-right">
+                            <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditing(editing === sc.code ? null : sc.code)}>
+                              {tr("Hours", "Jam")}
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {d.schedules.filter((sc) => sc.hours_unconfirmed).map((sc) => (
+                <p key={`u-${sc.code}`} className="border-t border-slate-100 px-5 py-2 text-[12px] text-amber-800">
+                  <strong>{sc.name}:</strong>{" "}
+                  {tr(
+                    `${clock(sc.start_minutes)}–${clock(sc.end_minutes)} is a default nobody has confirmed. The owner said twelve hours across midnight, not from when — and whether guards rotate between day and night weeks has not been said either, so each person is on one pattern. Saving the hours here confirms them.`,
+                    `${clock(sc.start_minutes)}–${clock(sc.end_minutes)} adalah default yang belum dikonfirmasi siapa pun. Pemilik menyebut dua belas jam lewat tengah malam, bukan mulai jam berapa — dan apakah satpam bergilir minggu siang dan malam juga belum disebut, jadi setiap orang ada di satu pola. Menyimpan jamnya di sini berarti mengonfirmasinya.`,
+                  )}
+                </p>
+              ))}
               {d.schedules.filter((sc) => sc.hours.blocked_by).map((sc) => (
                 <p key={sc.code} className="border-t border-slate-100 px-5 py-2 text-[12px] text-amber-800">
                   <strong>{sc.name}:</strong> {sc.hours.blocked_by}{" "}
@@ -147,6 +184,16 @@ export default function SchedulePage() {
                 )}
               </p>
             </Card>
+
+            {mayEdit && editing && d.schedules.find((sc) => sc.code === editing) && (
+              <EditHours
+                key={editing}
+                schedule={d.schedules.find((sc) => sc.code === editing)!}
+                daysPerWeek={d.week_pattern === "5day" ? 5 : 6}
+                onClose={() => setEditing(null)}
+                onDone={() => { setEditing(null); reload(); }}
+              />
+            )}
 
             {d.unlinked.length > 0 ? (
               <Card>
@@ -242,5 +289,141 @@ function AssignRow({
         </>
       )}
     </li>
+  );
+}
+
+/** "HH:MM" from an `<input type="time">`, as minutes from midnight — or null
+ *  when the field is empty, which is an answer (*belum ditetapkan*), not 00.00. */
+function minutesOfClock(v: string): number | null {
+  if (!v) return null;
+  const [h, m] = v.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function clockInput(minutes: number | null): string {
+  return minutes == null ? "" : clock(minutes).replace(".", ":");
+}
+
+/** HRD sets one pattern's start, end and break (D330).
+ *
+ *  Saved as a new dated version of the rule book with everything else copied,
+ *  so the book's own history is *when did the guard's hours change and who
+ *  changed them*. The date defaults to today and cannot silently reach back
+ *  past money already paid — the seam refuses that, with the sentence.
+ *
+ *  What the form works out before saving is only what the reading will do
+ *  with it: whether the pattern crosses midnight, where the next day begins,
+ *  and the hours a day — the same pure functions the demo and `/it/aturan-gaji`
+ *  use, so this is a preview of the rule and not a second copy of it.
+ */
+function EditHours({
+  schedule, daysPerWeek, onClose, onDone,
+}: {
+  schedule: WorkSchedule;
+  daysPerWeek: number;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const tr = useTr();
+  const { toast } = useToast();
+  const [start, setStart] = useState(clockInput(schedule.start_minutes));
+  const [end, setEnd] = useState(clockInput(schedule.end_minutes));
+  const [breakMin, setBreakMin] = useState<number>(schedule.break_minutes ?? 0);
+  const [from, setFrom] = useState(officeToday());
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const draft: WorkSchedule = {
+    ...schedule,
+    start_minutes: minutesOfClock(start),
+    end_minutes: minutesOfClock(end),
+    break_minutes: breakMin,
+  };
+  const night = isOvernight(draft);
+  const hoursADay = scheduleHoursOf(draft, daysPerWeek).daily_hours;
+
+  async function save() {
+    setBusy(true);
+    const res = await hr.setScheduleHours({
+      code: schedule.code,
+      start_minutes: draft.start_minutes,
+      end_minutes: draft.end_minutes,
+      break_minutes: draft.break_minutes,
+      effective_from: from,
+      note,
+    });
+    setBusy(false);
+    if (res.error) {
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not saved yet", "Belum tersimpan"), res.error.message);
+      return;
+    }
+    toast("success", schedule.name, tr(
+      `Hours saved as rule book v${res.data.version}, in force from ${res.data.effective_from}.`,
+      `Jam tersimpan sebagai buku aturan v${res.data.version}, berlaku mulai ${res.data.effective_from}.`,
+    ));
+    onDone();
+  }
+
+  return (
+    <Card className="mb-4">
+      <CardHeader
+        title={tr(`Hours for ${schedule.name}`, `Jam untuk ${schedule.name}`)}
+        subtitle={tr(
+          "Saved as a new dated version of the rule book; every other rule is copied unchanged. An end earlier than the start is a night shift.",
+          "Disimpan sebagai versi buku aturan baru yang bertanggal; aturan lain disalin tanpa berubah. Jam pulang yang lebih awal dari jam masuk berarti shift malam.",
+        )}
+        icon={Pencil}
+      />
+      <div className="grid gap-3 px-5 pb-4 sm:grid-cols-3">
+        <label className="text-[12px] text-slate-600">
+          {tr("Start", "Masuk")}
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)}
+            className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("End", "Pulang")}
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)}
+            className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("Break (minutes)", "Istirahat (menit)")}
+          <NumberInput value={breakMin} onChange={setBreakMin} min={0} max={1440} className="mt-1" />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("In force from", "Berlaku mulai")}
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+            className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
+        </label>
+        <label className="text-[12px] text-slate-600 sm:col-span-2">
+          {tr("Why", "Alasan")}
+          <input value={note} onChange={(e) => setNote(e.target.value)}
+            placeholder={tr("Who said so — head of security, the owner…", "Siapa yang menetapkan — kepala keamanan, pemilik…")}
+            className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none" />
+        </label>
+      </div>
+      <div className="border-t border-slate-100 px-5 py-3 text-[12px] text-slate-600">
+        {hoursADay != null && (
+          <p>{tr(`${formatNumber(hoursADay)} working hours a day.`, `${formatNumber(hoursADay)} jam kerja sehari.`)}</p>
+        )}
+        {night && (
+          <p className="mt-0.5 flex items-center gap-1 text-indigo-700">
+            <Moon className="h-3 w-3" />
+            {tr(
+              `Night shift: taps before ${clock(dayBoundaryMinutes(draft))} are read into the night before, so the morning pulang counts on the day the shift started.`,
+              `Shift malam: tap sebelum ${clock(dayBoundaryMinutes(draft))} dibaca ke malam sebelumnya, jadi pulang pagi dihitung pada hari shift dimulai.`,
+            )}
+          </p>
+        )}
+        {schedule.hours_unconfirmed && (
+          <p className="mt-0.5 text-amber-800">
+            {tr("Saving confirms these hours — the unconfirmed mark goes.", "Menyimpan berarti mengonfirmasi jam ini — tanda belum dikonfirmasi hilang.")}
+          </p>
+        )}
+      </div>
+      <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
+        <Button size="sm" variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
+        <Button size="sm" onClick={save} disabled={busy || !note.trim()}>{tr("Save hours", "Simpan jam")}</Button>
+      </div>
+    </Card>
   );
 }

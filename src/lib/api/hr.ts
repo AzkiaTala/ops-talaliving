@@ -53,6 +53,7 @@ import {
   EMPLOYEE_DOC_CHECKLIST, EMPLOYEE_DOC_LABEL, SENSITIVE_DOC_KINDS,
   ADJUSTMENT_LABEL, SCHEME_LABEL,
 } from "@/services/hr/contracts";
+import { instantInDay, nextOfficeDay } from "@/services/hr/schedule-rules";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fromSeam, fromRows, notFound, invalid, ok, type Result } from "./_kit";
 
@@ -162,6 +163,10 @@ export async function listSchedules(): Promise<Result<{
     assigned: number;
     inherited: number;
     units: string[];
+    /** End before start: the shift crosses midnight (D330). */
+    overnight: boolean;
+    /** Where this pattern's next working day begins, minutes after midnight. */
+    day_boundary_minutes: number;
   })[];
   unlinked: { employee_no: string; full_name: string; unit: string }[];
   inherited: { employee_no: string; full_name: string; unit: string; schedule_code: string }[];
@@ -169,6 +174,35 @@ export async function listSchedules(): Promise<Result<{
 }>> {
   const { data, error } = await db().rpc("schedule_roll");
   return fromRows(SERVICE, data as never, error);
+}
+
+/** HRD sets one pattern's start, end and break (D330).
+ *
+ *  Written as a new dated version of the rule book in force on
+ *  `effective_from`, everything else copied — so *when did the guard's hours
+ *  change, and who changed them* is the book's own history. Saving clears
+ *  `hours_unconfirmed`: typing the default in is how it is confirmed. */
+export async function setScheduleHours(
+  input: {
+    code: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  const { data, error } = await db().rpc("set_schedule_hours", {
+    p_code: input.code,
+    p_start_minutes: input.start_minutes,
+    p_end_minutes: input.end_minutes,
+    p_break_minutes: input.break_minutes,
+    p_effective_from: input.effective_from,
+    p_note: input.note,
+    p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<{ code: string; version: number; effective_from: string }>(SERVICE, data, error);
 }
 
 /* ------------------------------------------------------------------ */
@@ -732,10 +766,18 @@ export async function addScan(
 ): Promise<Result<AttendanceScan>> {
   /* The contract carries the day and the clock time apart, because that is how
      somebody types it off a note; the seam takes the instant. WITA is the
-     office's zone and the one the machine prints in (F17). */
+     office's zone and the one the machine prints in (F17).
+
+     *The day* is the working day, and for a guard that is a night: 07.05
+     typed against Monday's shift is Tuesday 07.05 (D330). Which calendar day
+     a clock time lands on is read off the day's own window, so the database's
+     reading decides it and this file does not decide it again. */
+  const day = await readDays(input.work_date, input.work_date, undefined, input.employee_no);
+  if (day.error) return day as unknown as Result<AttendanceScan>;
+  const windowFrom = day.data[0]?.window_from ?? null;
   const { data, error } = await db().rpc("add_scan", {
     p_employee_no: input.employee_no,
-    p_at: `${input.work_date}T${input.time}:00+08`,
+    p_at: instantInDay(input.work_date, input.time, windowFrom),
     p_reason: input.reason,
     p_key: null,
   });
@@ -901,6 +943,9 @@ interface DayRow {
   fixable: string | null;
   issues: string[];
   notes: string[];
+  window_from: string;
+  window_to: string;
+  overnight: boolean;
 }
 
 interface ScanRow {
@@ -923,8 +968,16 @@ function slotOf(row: DayRow, at: string): ScanSlot | null {
 }
 
 function buildDay(row: DayRow, scans: ScanRow[], marks: DayMark[]): TimesheetDay {
-  const mine = scans.filter(
-    (s) => s.employee_id === row.employee_id && s.work_date === row.work_date);
+  /* The taps the reading read: its own window, not the calendar day. A guard's
+     07.05 pulang is stored on Tuesday and read into Monday night (D330), and
+     matching by `work_date` here would show it under the wrong day. */
+  const from = Date.parse(row.window_from);
+  const to = Date.parse(row.window_to);
+  const mine = scans.filter((s) => {
+    if (s.employee_id !== row.employee_id) return false;
+    const at = Date.parse(s.at);
+    return at >= from && at < to;
+  });
   const slots: Partial<Record<ScanSlot, string>> = {};
   if (row.in_at) slots.in = row.in_at;
   if (row.break_out_at) slots.break_out = row.break_out_at;
@@ -958,6 +1011,9 @@ function buildDay(row: DayRow, scans: ScanRow[], marks: DayMark[]): TimesheetDay
     pay: { value: row.day_value, why: row.why, fixable: row.fixable },
     issues: row.issues ?? [],
     notes: row.notes ?? [],
+    window_from: row.window_from,
+    window_to: row.window_to,
+    overnight: row.overnight,
   };
 }
 
@@ -973,8 +1029,10 @@ async function readDays(
         p_from: from, p_to: to, p_unit: unit ?? null, p_employee_no: employeeNo ?? null,
       }),
       db()
+        /* One calendar day past the range: the last day's window can reach
+           into the next morning for somebody on a night (D330). */
         .from("attendance_scans").select("id,employee_id,work_date,at,verify,source")
-        .gte("work_date", from).lte("work_date", to),
+        .gte("work_date", from).lte("work_date", nextOfficeDay(to)),
       db()
         .from("day_marks").select("id,employee_id,work_date,kind,reason,marked_by,marked_at")
         .gte("work_date", from).lte("work_date", to).is("withdrawn_at", null),
