@@ -10,6 +10,9 @@
 --                and is re-filed only when WIB puts it on another day; a self
 --                tap inside an APPROVED run is counted, not hidden
 --   guard      — running the file a second time moves nothing
+--   race       — a later `create or replace` that writes the WITA literal
+--                back (what `0184` did in production, 33 s after `0190`) is
+--                put right by `0191`, and `tap_self` has one signature only
 --   refusal    — an account with no employee link is still refused by
 --                `tap_self`; `tap_self`/`update_task` stay closed to PUBLIC
 --
@@ -165,12 +168,38 @@ begin
            where employee_id = 'aaaa1900-0000-0000-0000-000000000001' and at = v_at)
          = (v_at at time zone 'Asia/Jakarta')::date, 'the tap is filed under the WIB day';
 
-  assert not has_function_privilege('public','ops_hr.tap_self(text)','execute'), 'tap_self() opened to PUBLIC';
-  assert has_function_privilege('authenticated','ops_hr.tap_self(text)','execute'), 'authenticated cannot tap';
+  -- One tap_self: 0188 dropped tap_self(text), and nothing here may bring it
+  -- back as an overload PostgREST cannot choose between.
+  assert (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'ops_hr' and p.proname = 'tap_self') = 1, 'tap_self has an overload';
+  assert not has_function_privilege('public','ops_hr.tap_self(double precision,double precision,double precision,text,uuid,text)','execute'),
+    'tap_self() opened to PUBLIC';
+  assert has_function_privilege('authenticated','ops_hr.tap_self(double precision,double precision,double precision,text,uuid,text)','execute'),
+    'authenticated cannot tap';
   assert not has_function_privilege('public','ops_hr.update_task(text,text,text,text,date)','execute'),
     'update_task() opened to PUBLIC';
   assert has_function_privilege('authenticated','ops_hr.update_task(text,text,text,text,date)','execute'),
     'authenticated cannot update a task';
+end $$;
+
+-- ── race: a later file writes the literal back; 0191 puts it right ───────
+do $$
+begin
+  execute replace(pg_get_functiondef('ops_hr.wita_minutes(timestamptz)'::regprocedure),
+                  'ops_core.office_tz()', '''Asia/Makassar''');
+  assert (select prosrc like '%Asia/Makassar%' from pg_proc
+           where oid = 'ops_hr.wita_minutes(timestamptz)'::regprocedure), 'the race was not staged';
+end $$;
+
+\ir ../../migrations/0191_core_office_clock_sweep.sql
+
+do $$
+begin
+  assert ops_hr.wita_minutes('2026-09-29 00:25:00+00') = 7*60 + 25,
+    '0191 left wita_minutes on WITA: ' || ops_hr.wita_minutes('2026-09-29 00:25:00+00');
+  assert not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                      where n.nspname like 'ops\_%' and p.prosrc like '%Asia/Makassar%'),
+    'something still names WITA after 0191';
 end $$;
 
 rollback;

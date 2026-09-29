@@ -23,7 +23,7 @@ import type {
   ProductMove, ProductSetting,
 } from "@/services/inventory/contracts";
 import type {
-  Employee, AttendanceScan, DayMark, OvertimeSheet, OvertimeLine, PayrollRun,
+  Employee, AttendanceScan, WorkSite, LocationVerdict, DayMark, OvertimeSheet, OvertimeLine, PayrollRun,
   PayrollAdjustment, PayRuleSet, EmployeeDocument, LeaveRequest,
   AllowanceWithholding, ContributionRate, Enrolment, Task,
   EmploymentContract, ContractClause, ClauseChecklistItem, TaskRoutine,
@@ -83,6 +83,21 @@ export interface OutboxRow {
   payload: Record<string, unknown>;
   occurred_at: string;
   delivered_at: string | null;
+}
+
+/** `ops_hr.scan_locations` (0188). */
+export interface DemoScanLocation {
+  scan_id: string;
+  tap_no: string;
+  site_id: string | null;
+  lat: number | null;
+  lng: number | null;
+  accuracy_m: number | null;
+  distance_m: number | null;
+  radius_m: number | null;
+  verdict: LocationVerdict;
+  note: string | null;
+  photo_id: string | null;
 }
 
 export interface DemoState {
@@ -160,6 +175,11 @@ export interface DemoState {
   employees: Employee[];
   /** One row per tap on the reader. The day is derived (D141). */
   attendance_scans: AttendanceScan[];
+  /** Where a phone tap is judged against: the warehouse (D332, 0188). */
+  work_sites: WorkSite[];
+  /** A phone tap's reading, 1:1 with its scan (0188). The judgement is stored
+   *  as it was at the tap, the way the database stores it. */
+  scan_locations: DemoScanLocation[];
   /** What HRD says about a day that no reader can know (D142). */
   day_marks: DayMark[];
   /** Overtime is a sheet with lines on it — one night, many names for

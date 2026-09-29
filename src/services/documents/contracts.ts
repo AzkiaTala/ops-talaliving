@@ -60,6 +60,9 @@ export const DOC_KINDS = [
   "Surat Jalan Keluar",
   "BAST",
   "Foto Lokasi",
+  /** A photo taken at a clock-in away from the warehouse (D332). A face and a
+   *  place, so it is filed in the HRD drive, not with `Foto` in PROCUREMENT. */
+  "Foto Presensi",
   "Others",
 ] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
@@ -101,6 +104,7 @@ export const SUPPORTING_DOC_KINDS: DocKind[] = [
   "Surat Jalan Keluar",
   "BAST",
   "Foto Lokasi",
+  "Foto Presensi",
   "Others",
 ];
 
@@ -146,7 +150,12 @@ export type LinkEntity =
   /** A catalogue item, by its code — the 1–4 photos that show the floor what
    *  it is. Four is a cap the database holds; the last one cannot come off
    *  (`0168`). */
-  | "item";
+  | "item"
+  /** A leave request, by its number — the surat dokter a sick request carries
+   *  from the phone it was photographed on (`0187`, D331). */
+  | "leave_request"
+  /** One phone tap, by its `tap_no` — the off-site photo (D332, `0188`). */
+  | "attendance_scan";
 
 /** Which kinds make sense where. The full list is thirty kinds across HR,
  *  production and money, and a ledger row offered "Ijazah" or "KTP" is a
@@ -177,6 +186,7 @@ export const DOC_KINDS_FOR: Partial<Record<LinkEntity, readonly DocKind[]>> = {
   /* A catalogue item: what it looks like. Its purchases are ledger lines,
      reached through the item rather than filed on it. */
   item: ["Foto", "Others"],
+  leave_request: ["Surat Dokter", "Others"],
 };
 
 /** The photos an item carries (`0168`): at least one, at most four. */

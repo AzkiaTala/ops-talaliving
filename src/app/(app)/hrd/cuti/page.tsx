@@ -5,6 +5,7 @@ import { CalendarClock, Check, X, Plus, AlertTriangle } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Paged } from "@/components/ui/pager";
+import { EvidenceStrip } from "@/components/ui/evidence-strip";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { hr } from "@/demo/api";
@@ -217,9 +218,15 @@ export default function LeavePage() {
                             )}
                           </>
                         ) : r.kind === "sakit" ? (
-                          <span className="text-slate-500">
-                            {tr("Paid only if the doctor’s note is attached to the day.", "Dibayar hanya kalau surat dokternya dilampirkan pada harinya.")}
-                          </span>
+                          r.letter_attached ? (
+                            <span className="text-emerald-700">
+                              {tr("Doctor’s note attached — approving marks these days paid.", "Surat dokter terlampir — disetujui, hari-hari ini dibayar.")}
+                            </span>
+                          ) : (
+                            <span className="text-amber-700">
+                              {tr("No doctor’s note yet — approved without one, the days are unpaid until it arrives.", "Belum ada surat dokter — disetujui tanpa surat, harinya tidak dibayar sampai suratnya datang.")}
+                            </span>
+                          )
                         ) : (
                           <span className="text-slate-500">{tr("Permit recorded, unpaid.", "Izin tercatat, tidak dibayar.")}</span>
                         )}
@@ -229,6 +236,22 @@ export default function LeavePage() {
                           </span>
                         )}
                       </p>
+                      {/* The note itself, where the decision is made (D331). Filed
+                          against the request; approving carries it to each day,
+                          and one attached here later still turns the days paid
+                          (0187, D144). */}
+                      {r.kind === "sakit" && (
+                        <div className="mt-2 rounded-lg ring-1 ring-inset ring-slate-100">
+                          <EvidenceStrip
+                            entity="leave_request"
+                            entityNo={r.request_no}
+                            canEdit={mayEdit}
+                            defaultKind="Surat Dokter"
+                            slots={[{ kind: "Surat Dokter", label: tr("Doctor’s note", "Surat dokter") }]}
+                            onChanged={reloadRequests}
+                          />
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -310,6 +333,13 @@ export default function LeavePage() {
                               <span className="font-mono text-[10px] text-slate-400">{r.request_no}</span>
                             </span>
                             <span className="mt-0.5 block text-slate-600">{r.reason}</span>
+                            {r.kind === "sakit" && r.status === "APPROVED" && (
+                              <span className={cn("mt-0.5 block text-[11px]", r.letter_attached ? "text-emerald-700" : "text-amber-700")}>
+                                {r.letter_attached
+                                  ? tr("Doctor’s note attached — paid.", "Surat dokter terlampir — dibayar.")
+                                  : tr("No doctor’s note — unpaid until it arrives.", "Tanpa surat dokter — tidak dibayar sampai suratnya datang.")}
+                              </span>
+                            )}
                             {r.decision_note && (
                               <span className="mt-0.5 block text-[11px] text-slate-500">
                                 {r.decided_by_name}: {r.decision_note}

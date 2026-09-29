@@ -94,7 +94,19 @@ function readChoice(): Lang | null {
  *  edge rather than in the screen, so they need the answer without a render.
  */
 export function getActiveLang(): Lang {
-  return (hydrated ? readChoice() : null) ?? settingLang;
+  return (hydrated ? readChoice() : null) ?? (hydrated ? audienceLang : null) ?? settingLang;
+}
+
+/** The default for one kind of viewer, below their own choice and above the
+ *  company setting (D331). An employee-only account — the workshop floor and
+ *  the guards on `/saya` — reads Indonesian until they pick otherwise; every
+ *  other account keeps `DEFAULT_LANG`. Null clears it (a staff account in the
+ *  same browser after a sign-out). */
+let audienceLang: Lang | null = null;
+export function setAudienceLang(lang: Lang | null) {
+  if (lang === audienceLang) return;
+  audienceLang = lang;
+  for (const l of listeners) l();
 }
 
 /** Called once from `<LangHydrated />` in the root layout, after hydration:

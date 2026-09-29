@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, RotateCcw, LogOut } from "lucide-react";
+import { Menu, RotateCcw, LogOut, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
 import { GrantPicker, GrantPickerButton } from "./grant-picker";
 import { useSession } from "@/store/session";
@@ -43,7 +43,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
      * clipped to the header's 64px box instead of covering the viewport. The
      * symptom is a drawer that renders its header and nothing else. */
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur-md md:px-6">
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-slate-200 bg-white/90 px-4 backdrop-blur-md md:px-6">
         <button
           onClick={onMenuClick}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
@@ -62,12 +62,15 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
             wrong: it is how somebody decides whether the number they are about
             to change is real. So it is asked, not assumed. */}
         {!live && (
-          <span className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-inset ring-amber-200">
-            {tr("Demo · data is not real", "Demo · data tidak nyata")}
+          <span className="shrink-0 whitespace-nowrap rounded-md bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-inset ring-amber-200">
+            {/* On a phone the bar is full (D331 added *Saya* to it): one word
+                still says it, and the full sentence returns from `sm` up. */}
+            <span className="sm:hidden">Demo</span>
+            <span className="hidden sm:inline">{tr("Demo · data is not real", "Demo · data tidak nyata")}</span>
           </span>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
           {/* The viewer's own language, one click, remembered in this browser
               (D318). English is the default (D247). */}
           <div
@@ -138,6 +141,17 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               <span className="hidden md:inline">{tr("Sign out", "Keluar")}</span>
             </Button>
           )}
+
+          {/* Staff clock in from the same page the floor does (D331): one
+              `/saya` for everybody on the payroll, whatever else they hold. */}
+          <Link
+            href="/saya"
+            title={tr("Attendance, requests and pay — my own", "Presensi, pengajuan dan gaji — milik saya")}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-100"
+          >
+            <Fingerprint className="h-4 w-4" />
+            <span className="hidden sm:inline">{tr("Me", "Saya")}</span>
+          </Link>
 
           {/* Every account owns this page (W7) — self reset, self history,
               self presensi/lembur/cuti, own tasks and own payslip. The avatar

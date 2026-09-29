@@ -23,17 +23,23 @@
 -- ── 1. one name for the zone ──────────────────────────────────────────────
 --
 -- `ops_core.office_tz()` is the zone, stated once — the database twin of
--- `OFFICE_TZ` in `src/lib/office.ts` (F63). `office_day`, `wita_minutes`,
--- `tap_self` and `update_task` are recreated explicitly on it, with the same
--- signatures, grants and behaviour. `wita_minutes` keeps its name: renaming it
+-- `OFFICE_TZ` in `src/lib/office.ts` (F63). `office_day`, `wita_minutes` and
+-- `update_task` are recreated explicitly on it, with the same signatures,
+-- grants and behaviour. `tap_self` is **not**: D332's `0188` drops
+-- `tap_self(text)` and creates it with a location, and an explicit
+-- `tap_self(text)` here would put the old signature back beside it as an
+-- overload PostgREST cannot choose between. The sweep below rewrites whichever
+-- `tap_self` is current. (Production ran an earlier revision of this file,
+-- before `0188` existed, that did recreate `tap_self(text)`; `0184` was then
+-- applied over it. `0191` repeats the sweep for that order — F191.) `wita_minutes` keeps its name: renaming it
 -- means recreating every caller (`read_day`, `payroll_line_for`,
 -- `kpi_measures`, …), and those belong to D330's `0186`. Its body is the office
 -- clock now; the name is history.
 --
 -- ── 2. every other function that named the zone ───────────────────────────
 --
--- `read_day` prints left-over taps with `at time zone 'Asia/Makassar'`, and it
--- is D330's lane: `0186` rewrites it (and adds `day_begins`/`late_minutes`,
+-- `tap_self` (D327/D332) and `read_day` name the zone too. `read_day` is
+-- D330's lane: `0186` rewrites it (and adds `day_begins`/`late_minutes`,
 -- which name the zone too). Recreating it here from `0053`'s body would undo
 -- `0186` wherever `0186` ran first. So instead of copying a body, the sweep
 -- below takes **whatever definition is current** (`pg_get_functiondef`) and
@@ -119,40 +125,6 @@ language sql immutable as $$
   select (extract(hour from p_at at time zone ops_core.office_tz())::int) * 60
        + (extract(minute from p_at at time zone ops_core.office_tz())::int)
 $$;
-
--- `0184`'s body, the zone named by `office_tz()`. Same signature, same grants,
--- same behaviour. D332 builds on this version.
-create or replace function ops_hr.tap_self(p_key text default null)
-returns jsonb
-language plpgsql security definer set search_path = ops_hr, ops_core, pg_temp as $$
-declare
-  v_replayed jsonb; v_emp uuid; v_id uuid; v_at timestamptz := now(); v_res jsonb;
-begin
-  v_replayed := ops_core.idem_replay('hr','tap_self', p_key);
-  if v_replayed is not null then return v_replayed; end if;
-
-  v_emp := ops_hr.my_employee_id();
-  if v_emp is null then
-    return ops_core.refused('hr','attendance', null,'tap_self',
-      'no_employee_link',
-      'Akun ini belum tertaut ke data karyawan, jadi presensi tidak bisa dicatat sendiri. Minta HRD menautkannya.');
-  end if;
-
-  insert into ops_hr.attendance_scans
-    (employee_id, work_date, at, verify, source, recorded_by)
-  values (v_emp, ops_core.office_day(v_at), v_at, 'app', 'self', auth.uid())
-  returning id into v_id;
-
-  perform ops_core.record_activity_event('attendance_tap','attendance',
-    format('Tap presensi pukul %s', to_char(v_at at time zone ops_core.office_tz(), 'HH24:MI')));
-
-  v_res := ops_core.ok('hr','attendance', v_id::text,'tap_self',
-    jsonb_build_object('id', v_id, 'at', v_at, 'work_date', ops_core.office_day(v_at)));
-  return ops_core.idem_remember('hr','tap_self', p_key, v_res);
-end $$;
-
-revoke execute on function ops_hr.tap_self(text) from public;
-grant execute on function ops_hr.tap_self(text) to authenticated;
 
 -- `0152`'s body. The only change is the finish-day anchor: noon on the office
 -- clock, built from the date and the zone rather than a `+08` in a string.

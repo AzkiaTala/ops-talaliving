@@ -7829,6 +7829,111 @@ pattern per person). Rotation matters more than it looks. `schedule_code` on
 the employee is not dated, so moving somebody to another pattern today also
 changes how their past days read. A dated per-person schedule is the likely
 shape if the answer is yes.
+## F188 · 2026-09-29 · a letter for a day that does not exist yet, and the door that needed two reads
+
+Building `/saya` (D331) — the phone home of the workshop floor — taught four
+things.
+
+**1. The sick worker holds the letter before the day exists.** D144 pays a sick
+day only with the surat dokter, and `read_day` looks for it on the **day
+mark**. A mark is written when HRD approves the request. So at the one moment
+the worker has the paper in hand and a camera in the other — asking — there was
+nothing to attach it to, and the only road was HRD's `attach_surat_dokter`, one
+day at a time, after the fact. The letter now goes on the request
+(`leave_request`, `0187`), and approval copies it onto each sick mark in the
+range; a letter linked after approval is copied the moment it arrives, which is
+D144's own *it can arrive late and the day turns paid*. `read_day` was not
+touched: there is still one place that decides whether a sick day is paid, and
+it is not in this session's lane (D330). Matching marks by person, kind and date
+rather than by the `izn-…:` prefix in the mark's reason also covers a sick mark
+HRD typed by hand on one of those days.
+
+**2. "Anybody may link anything" stopped being harmless the moment a link
+changed pay.** `attach_link` is open to every signed-in person (0024) —
+evidence is additive and the trail names who did it. For a receipt that is
+fine. For a doctor's letter it meant a stranger could turn somebody's unpaid day
+into a paid one. `0187` adds a trigger: only the requester's own account or
+HRD may file a paper against a leave request. The general rule: **when a link
+starts to decide money, the entity it lands on needs its own gate.**
+
+**3. A new view column can break old functions.** `v_leave_request.has_letter`
+was the obvious name, and `check_shadowing` refused it: three HR functions
+(0048, 0049, 0053) have a PL/pgSQL local called `has_letter`, and Postgres
+rejects an ambiguous reference at run time, on the branch that reaches it. The
+column is `letter_attached`. Naming a column is not local to the file it is in.
+
+**4. The door now takes two reads, and "not yet known" must not look like
+"no".** Staff are decided by `identity.me()` alone; an account with no module
+needs `hr.myProfile()` too before anyone can say whether it goes to `/saya` or
+`/no-access`. The session store's `door` is `null` until both are in, and the
+shell waits on it — otherwise a worker would flash through `/no-access` on every
+load. A failed link read resolves to *not linked*, never *linked*, so the worst
+a broken read costs is a wrong refusal, not a wrong shell. Found on the way: at
+390px the staff topbar pushed its avatar off the edge once *Saya* joined it,
+and toasts started 24px off the left of the phone; both fixed.
+
+Walked at 390px (Playwright, demo): Karjo (employee-only) at 07:25 WITA — lands
+on `/saya`, Indonesian by default, clock 07:25, MASUK → *Masuk 07:25* →
+PULANG; `/dashboard` and `/` return to `/saya`, `/profil` opens; sakit refuses
+to send without the photo, then shows *Surat dokter terlampir*; a DRAFT run
+shows no slip, the approved one opens as a card; Akun says *Minta IT membuat
+yang baru*; switching to English sticks. Wulan sees the note on `/hrd/cuti`
+and approves → *paid*. Andi (staff) keeps the full shell and reaches `/saya`
+from the topbar. A module-less account with no link → `/no-access`. **Not
+verified here:** the live stack end to end (a real upload into the HRD drive's
+`ops-talaliving/CUTI IZIN SAKIT/SURAT DOKTER`), and a real low-end Android's
+camera; the database half is covered by `smoke/187_hr_sick_note.sql`.
+
+## F189 · 2026-09-29 · a location from a browser is evidence, not a lock, and the wait for one has two clocks
+
+D332 records where a phone tap was made and checks it against the warehouse.
+Four things came out of building and walking it.
+
+**A browser cannot tell a real GPS fix from a faked one.** On Android a
+"mock location" app, enabled in developer options, feeds any coordinates to
+every app, and the Geolocation API hands them to the page with a plausible
+accuracy. A native app can at least ask the OS whether the fix came from a
+mock provider; a PWA cannot. So the location is **evidence that adds**,
+never a gate: an off-site tap is written and flagged, the person's note and
+photo sit beside it, and HRD looks. This is part of why the fingerprint
+reader stays in use while this is tested (D326, answer 5). A rule that
+refused taps on location alone would be defeated by the people it was
+meant to catch, and it would lock out the honest person collecting timber at
+the supplier.
+
+**Judge the circle, not the dot.** The phone reports a point and "within
+`a` metres". Judging only the point would call a tap 140 m from the centre
+with ±30 m "inside" a 150 m site, though the person could be 170 m out. The
+database judges the whole circle: inside when all of it is on site, outside
+when none of it is, and *uncertain* in between, which asks for a note like
+any off-site tap. The cost is a few notes from people standing near the edge
+with a poor fix. That is the reason the radius is Q60, and why the settings
+screen shows how precise the reading was before anybody saves a point.
+
+**`getCurrentPosition`'s own timeout does not start until permission is
+granted.** A prompt nobody answers (on the walk: a context whose permission
+had been cleared, so the browser asked) left the button reading *Membaca
+lokasi…* for ever. The component now has its own 20-second guard, after which
+the tap goes on as *no location* and the form asks for a note. In the real
+world this is a worker who swipes the prompt away. Found on the walk, not by
+`tsc`.
+
+**The first walk of the HRD list read an empty list, and the fault was the
+walk.** The off-site form disappears the moment the tap is *sending*, not when
+it is written, and the walk navigated away in that gap. The demo store only
+persists on write, so two of three taps were lost. The walk now waits for the
+result line. It is worth writing down because the same gap exists for a
+person: a tap is recorded when the line *Tap tercatat · 07:25 WITA* appears,
+not when the form closes.
+
+Also: the phone's `tap_self(text)` could not simply gain parameters. A second
+signature is an overload, and PostgREST cannot choose between two functions
+that both accept `{p_key}`. `0188` drops the old one and creates the new one in
+the same file. Smoke `188` asserts there is exactly one, and smoke `102` now
+names the new signature in its grant checks. D327 landed first, so this
+branch updated its smoke `184` the same way; its no-argument `tap_self()`
+still passes, because a database with no site set judges nothing (`no_site`).
+
 
 ## F191 · 2026-09-29 · two errors of one hour that cancelled, until one of them was fixed
 
@@ -7910,3 +8015,15 @@ production apply. A `create or replace` of a function another migration also
 defines is only as current as the last one to run. The smoke catches this on
 the ladder, but nothing catches it in production except reading
 `pg_proc` after an apply, which is how it was found.
+
+**And then D332 merged.** `0188` drops `tap_self(text)` and creates it again
+with a location. `0190`'s explicit `create or replace tap_self(text)`, written
+before `0188` existed, would have put the old signature back beside the new
+one on the ladder: two functions that both accept `{p_key}`, and PostgREST
+refuses to choose. So `0190` no longer names `tap_self`; the sweep rewrites
+whichever one is current. That is the second time in one day a copied body was
+the wrong tool against a lane that moves. The sweep was right both times,
+because it reads the function it is fixing instead of remembering one.
+`0191` is the same sweep alone, for production's order (`0190`, `0184`,
+then `0188` whenever it lands): smoke `190` stages a function written back
+to WITA and proves `0191` puts it right.

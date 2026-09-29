@@ -48,6 +48,7 @@ import type {
   LeaveKind, LeaveStatus, LeaveRequestView, LeaveBalance,
   TaskStatus, TaskRefKind, TaskView, TaskCadence, TaskRoutineView,
   Sex, Education, Citizenship, MaritalStatus, EmployeeIdentityView, WlkpRecap,
+  TapReading, TapSelfResult, LocationJudgement, WorkSite, LocatedTapView,
   EmployeeAccount,
 } from "@/services/hr/contracts";
 import {
@@ -1175,12 +1176,65 @@ export async function myProfile(): Promise<Result<Employee | null>> {
 /** Presensi dari akun sendiri — a tap with a different machine behind it
  *  (0164). Not "clock in" or "clock out": a tap is a tap, and which slot it
  *  fills is a reading of the whole day, computed the same way whether the
- *  door's own reader produced it or a phone did (D141). */
+ *  door's own reader produced it or a phone did (D141).
+ *
+ *  Since `0188` (D332) it carries where the phone was, read once at the tap.
+ *  The database judges the reading against the warehouse; an off-site tap
+ *  without a note comes back as `off_site_needs_note` with the verdict in
+ *  `error.detail`, and the same call with a note (and optionally a photo
+ *  already uploaded as `Foto Presensi`) writes it, flagged. */
 export async function tapSelf(
+  input: Partial<TapReading> & { note?: string | null; photo_id?: string | null } = {},
   idempotencyKey?: string,
-): Promise<Result<{ id: string; at: string; work_date: string }>> {
-  const { data, error } = await db().rpc("tap_self", { p_key: idempotencyKey ?? null });
-  return fromSeam<{ id: string; at: string; work_date: string }>(SERVICE, data, error);
+): Promise<Result<TapSelfResult>> {
+  const { data, error } = await db().rpc("tap_self", {
+    p_lat: input.lat ?? null,
+    p_lng: input.lng ?? null,
+    p_accuracy_m: input.accuracy_m ?? null,
+    p_note: input.note ?? null,
+    p_photo_id: input.photo_id ?? null,
+    p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<TapSelfResult>(SERVICE, data, error);
+}
+
+/** Where a reading stands against the nearest active site — the same
+ *  judgement `tap_self` makes, for the settings screen's "test here". */
+export async function judgeLocation(input: TapReading): Promise<Result<LocationJudgement>> {
+  const { data, error } = await db().rpc("judge_location", {
+    p_lat: input.lat, p_lng: input.lng, p_accuracy_m: input.accuracy_m,
+  });
+  return fromRows<LocationJudgement>(SERVICE, data as LocationJudgement, error);
+}
+
+export async function listWorkSites(): Promise<Result<WorkSite[]>> {
+  const { data, error } = await db().from("work_sites")
+    .select("id,code,name,lat,lng,radius_m,active,updated_at").order("code");
+  return fromRows<WorkSite[]>(SERVICE, (data ?? []) as WorkSite[], error);
+}
+
+/** Set a site's centre and radius. HRD or IT; the seam decides. */
+export async function saveWorkSite(
+  input: { code: string; name: string; lat: number | null; lng: number | null; radius_m: number; active: boolean },
+  idempotencyKey?: string,
+): Promise<Result<WorkSite>> {
+  const { data, error } = await db().rpc("save_work_site", {
+    p_code: input.code, p_name: input.name, p_lat: input.lat, p_lng: input.lng,
+    p_radius_m: input.radius_m, p_active: input.active, p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<WorkSite>(SERVICE, data, error);
+}
+
+/** Phone taps with their reading, in a period of office days. HRD's review
+ *  reads the flagged ones; RLS narrows a self caller to their own. */
+export async function listLocatedTaps(
+  input: { from: string; to: string; flagged_only?: boolean },
+): Promise<Result<LocatedTapView[]>> {
+  let q = db().from("v_located_tap").select("*")
+    .gte("work_date", input.from).lte("work_date", input.to);
+  if (input.flagged_only) q = q.eq("flagged", true);
+  const { data, error } = await q.order("at", { ascending: false });
+  return fromRows<LocatedTapView[]>(SERVICE, (data ?? []) as LocatedTapView[], error);
 }
 
 /* ------------------------------------------------------------------ */
