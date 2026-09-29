@@ -23,8 +23,10 @@
  *  re-reads the product, so a screen always redraws from what was stored.
  */
 import { trNow } from "@/lib/i18n";
+import { BOM_RATE_GROUPS } from "@/services/production/contracts";
 import type {
   BomDiff, BomDiffLine, BomDiffShape, BomKind, BomLineView, BomRevisionView,
+  BomRateGroup, BomRateView, BomSuggestion,
   ProductDrawing, ProductDrawingEntry, ProductView, RateSource, WorkOrderRef,
   BomExplodedLine, BomExplosion, ProgressEntry, RouteCode, VendorLegView,
   WorkOrder, WorkOrderStatus, WorkOrderView, JobTrail,
@@ -101,6 +103,29 @@ interface BomLineRow {
   unit_rate: number | string | null;
   rate_source: string | null;
   catalogue_price: number | string | null;
+  /* 0182 */
+  part: string | null;
+  rate_code: string | null;
+  rate_name: string | null;
+  rate_group: BomRateGroup | null;
+}
+
+interface BomRateRow {
+  id: string;
+  code: string;
+  name: string;
+  rate_group: BomRateGroup;
+  uom: string;
+  /* `unit_rate` in the database — see 0182 on why not `rate`. */
+  unit_rate: number | string;
+  item_code: string | null;
+  item_name: string | null;
+  note: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  updated_by_name: string | null;
+  used_by: number;
 }
 
 /* PostgREST hands `numeric` back as a string where it cannot be a JS number
@@ -135,7 +160,15 @@ function toLine(r: BomLineRow): BomLineView {
     price_source: source(r.price_source) ?? "none",
     subtotal: num(r.subtotal),
     catalogue_price: num(r.catalogue_price),
+    part: r.part,
+    rate_code: r.rate_code,
+    rate_name: r.rate_name,
+    rate_group: r.rate_group,
   };
+}
+
+function toRate({ unit_rate, ...r }: BomRateRow): BomRateView {
+  return { ...r, rate: Number(unit_rate) };
 }
 
 function dimensionText(p: ProductSummaryRow): string | null {
@@ -158,23 +191,29 @@ function diffOf(
 ): BomDiff {
   const before = lines.filter((l) => l.rev === fromRev);
   const after = lines.filter((l) => l.rev === toRev);
-  const codes = [...new Set([...before, ...after].map((l) => l.ref_code))].sort();
+  /* A line is one material **for one part** (0182) — the same key the
+     database's unique index uses. */
+  const key = (l: BomLineView) => `${l.ref_code}\u0000${(l.part ?? "").trim().toLowerCase()}`;
+  const keys = [...new Set([...before, ...after].map(key))].sort();
   const shape = (l: BomLineView | undefined): BomDiffShape | null =>
     l ? { qty: l.qty, uom: l.uom, waste_percent: l.waste_percent, unit_price: l.unit_price } : null;
   const out: BomDiffLine[] = [];
-  for (const code of codes) {
-    const a = before.find((l) => l.ref_code === code);
-    const b = after.find((l) => l.ref_code === code);
+  for (const k of keys) {
+    const a = before.find((l) => key(l) === k);
+    const b = after.find((l) => key(l) === k);
     const sa = shape(a);
     const sb = shape(b);
+    const either = (b ?? a)!;
+    const head = { ref_code: either.ref_code, ref_name: either.ref_name, part: either.part ?? null };
     if (sa && sb) {
       if (sa.qty === sb.qty && sa.uom === sb.uom && sa.waste_percent === sb.waste_percent
-        && Math.round((sa.unit_price ?? -1) * 100) === Math.round((sb.unit_price ?? -1) * 100)) continue;
-      out.push({ ref_code: code, ref_name: b!.ref_name, change: "changed", before: sa, after: sb });
+        && Math.round((sa.unit_price ?? -1) * 100) === Math.round((sb.unit_price ?? -1) * 100)
+        && (a!.rate_code ?? null) === (b!.rate_code ?? null)) continue;
+      out.push({ ...head, change: "changed", before: sa, after: sb });
     } else if (sb) {
-      out.push({ ref_code: code, ref_name: b!.ref_name, change: "added", before: null, after: sb });
+      out.push({ ...head, change: "added", before: null, after: sb });
     } else {
-      out.push({ ref_code: code, ref_name: a!.ref_name, change: "removed", before: sa, after: null });
+      out.push({ ...head, change: "removed", before: sa, after: null });
     }
   }
   const miscalc = fromRev !== null
@@ -421,6 +460,10 @@ export async function saveBomComponent(
     unit_rate?: number | null;
     waste_percent?: number;
     note?: string | null;
+    /** Komponen — Kaki-kaki, Top (0182). */
+    part?: string | null;
+    /** The BOM rate list entry this line follows (0182). */
+    rate_code?: string | null;
   },
 ): Promise<Result<ProductView>> {
   const { data, error } = await db().rpc("save_bom_line", {
@@ -434,6 +477,8 @@ export async function saveBomComponent(
     p_unit_rate: input.unit_rate ?? null,
     p_waste_percent: input.waste_percent ?? 0,
     p_note: input.note ?? null,
+    p_part: input.part ?? null,
+    p_rate_code: input.rate_code ?? null,
   });
   return thenProduct(input.product_code, data, error);
 }
@@ -497,6 +542,98 @@ export async function createBomItem(
   const res = fromSeam<{ code: string; name?: string; existing: boolean }>(SERVICE, data, error);
   if (res.error) return res;
   return ok(SERVICE, { code: res.data.code, name: res.data.name ?? input.name.trim(), existing: res.data.existing });
+}
+
+/* ── the BOM rate list (0182, D324) ────────────────────────────────────── */
+
+export async function listBomRates(
+  opts: { include_inactive?: boolean } = {},
+): Promise<Result<BomRateView[]>> {
+  let q = db().from("v_bom_rate").select("*");
+  if (!opts.include_inactive) q = q.eq("active", true);
+  const { data, error } = await q.order("rate_group").order("name");
+  if (error) return fail(SERVICE, error);
+  const rows = ((data ?? []) as BomRateRow[]).map(toRate)
+    .sort((a, b) => BOM_RATE_GROUPS.indexOf(a.rate_group) - BOM_RATE_GROUPS.indexOf(b.rate_group)
+      || a.name.localeCompare(b.name));
+  return ok(SERVICE, rows);
+}
+
+/** Adding a rate, or changing one. The seam decides (`save_bom_rate`); this
+ *  re-reads the row so the screen redraws from what was stored. */
+export async function saveBomRate(
+  input: {
+    code?: string | null;
+    name: string;
+    rate_group: BomRateGroup;
+    uom: string;
+    rate: number;
+    item_code?: string | null;
+    note?: string | null;
+    active?: boolean;
+  },
+): Promise<Result<BomRateView>> {
+  const { data, error } = await db().rpc("save_bom_rate", {
+    p_code: input.code ?? null,
+    p_name: input.name,
+    p_rate_group: input.rate_group,
+    p_uom: input.uom,
+    p_rate: input.rate,
+    p_item_code: input.item_code ?? null,
+    p_note: input.note ?? null,
+    p_active: input.active ?? null,
+  });
+  const res = fromSeam<{ code: string }>(SERVICE, data, error);
+  if (res.error) return res;
+  const { data: row, error: rErr } = await db().from("v_bom_rate").select("*").eq("code", res.data.code).maybeSingle();
+  if (rErr) return fail(SERVICE, rErr);
+  if (!row) return notFound(SERVICE, "rate_not_found", `No rate ${res.data.code}.`);
+  return ok(SERVICE, toRate(row as BomRateRow));
+}
+
+/** A BOM proposed from the working drawing, by a language model (D324).
+ *
+ *  Not PostgREST: the model key and the Drive key cannot be in a browser, so
+ *  the request makes one hop through `/api/production/bom/suggest`, which
+ *  reads the drawing as the service account after the database has said this
+ *  person may read it. **It writes nothing** — the lines come back to be
+ *  checked, and each one a person keeps goes through `saveBomComponent`. */
+export async function suggestBom(
+  input: { product_code: string; attachment_id?: string | null },
+): Promise<Result<BomSuggestion>> {
+  let res: Response;
+  try {
+    res = await fetch("/api/production/bom/suggest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ product_code: input.product_code, attachment_id: input.attachment_id ?? null }),
+      credentials: "same-origin",
+    });
+  } catch (e) {
+    return {
+      error: {
+        code: "request_interrupted",
+        message: trNow(
+          `The request to read the drawing was cut off. Try again. (${String((e as Error).message)})`,
+          `Permintaan membaca gambar terputus. Coba lagi. (${String((e as Error).message)})`,
+        ),
+        outcome: "refused", status: 500,
+      },
+      meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+    };
+  }
+  const envelope = await res.json().catch(() => ({})) as { data?: BomSuggestion; error?: Result<never>["error"] };
+  if (!res.ok || envelope.error || !envelope.data) {
+    return {
+      error: envelope.error ?? {
+        code: "suggest_failed",
+        message: trNow(`The drawing could not be read (${res.status}).`, `Gambar tidak bisa dibaca (${res.status}).`),
+        outcome: "refused", status: res.status as never,
+      },
+      meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+    } as Result<never>;
+  }
+  return ok(SERVICE, envelope.data);
 }
 
 /** Filing a drawing against a product — through the documents seam, which is

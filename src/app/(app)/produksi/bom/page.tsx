@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, ListTree, Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Coins, ListTree, Plus, Search } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Paged } from "@/components/ui/pager";
@@ -33,6 +34,9 @@ export default function BomPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  /* Set when the drawer was opened by *New product* with a drawing: the BOM
+     opens and the AI reads the drawing at once (D324). */
+  const [autoSuggest, setAutoSuggest] = useState(false);
   const mayEdit = can("production.update");
 
   /* `?open=CODE` — an order line's item code links straight to its BOM. Read
@@ -49,12 +53,19 @@ export default function BomPage() {
         breadcrumb={tr("Production", "Produksi")}
         title={tr("Products & Bill of Materials", "Produk & Bill of Materials")}
         description={tr(
-          "Per item code: working drawing, components per unit (materials, sub-assemblies, labour) with their rates, and the production cost. Not a selling price.",
-          "Per item code: gambar kerja, komponen per unit (bahan, sub-rakitan, tenaga kerja) dengan rate masing-masing, dan biaya produksinya. Bukan harga jual.",
+          "Per item code: working drawing, components per unit — component, material, need, unit, rate — and the production cost. The AI can read the working drawing and propose the lines, with rates from the BOM rate list. Not a selling price.",
+          "Per item code: gambar kerja, komponen per unit — komponen, material, kebutuhan, satuan, rate — dan biaya produksinya. AI bisa membaca gambar kerja dan mengusulkan barisnya, dengan rate dari daftar rate BOM. Bukan harga jual.",
         )}
-        actions={mayEdit ? (
-          <Button icon={Plus} onClick={() => { setCreating(true); setOpen(null); }}>{tr("New product", "Produk baru")}</Button>
-        ) : undefined}
+        actions={
+          <div className="flex gap-2">
+            <Link href="/produksi/rate">
+              <Button variant="outline" icon={Coins}>{tr("BOM rates", "Daftar rate")}</Button>
+            </Link>
+            {mayEdit && (
+              <Button icon={Plus} onClick={() => { setCreating(true); setOpen(null); setAutoSuggest(false); }}>{tr("New product", "Produk baru")}</Button>
+            )}
+          </div>
+        }
       />
 
       <Loaded state={products} onRetry={reload}>
@@ -129,7 +140,7 @@ export default function BomPage() {
                         {shown.map((p) => (
                           <tr
                             key={p.id}
-                            onClick={() => { setOpen(p.product_code); setCreating(false); }}
+                            onClick={() => { setOpen(p.product_code); setCreating(false); setAutoSuggest(false); }}
                             className="cursor-pointer border-b border-slate-100 hover:bg-slate-50"
                           >
                             <td className="px-4 py-2">
@@ -187,8 +198,8 @@ export default function BomPage() {
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
                   <span>
                     {tr(
-                      "Production cost = materials + sub-assemblies + labour, plus the miscalculation percentage. A rate left empty follows the catalogue standard price, or the last purchase price; when the BOM is released, its rates are locked. A component with no rate is not counted as zero — the total is marked incomplete.",
-                      "Biaya produksi = bahan + sub-rakitan + tenaga kerja, ditambah persentase miskalkulasi. Rate yang tidak diisi mengikuti harga standar katalog, atau harga beli terakhir; saat BOM dirilis, rate-nya dikunci. Komponen tanpa rate tidak dihitung nol — totalnya ditandai belum lengkap.",
+                      "Production cost = materials + sub-assemblies + labour, plus the miscalculation percentage. A rate left empty follows the BOM rate list where the line was taken from it, otherwise the catalogue standard price or the last purchase price; when the BOM is released, its rates are locked. A component with no rate is not counted as zero — the total is marked incomplete.",
+                      "Biaya produksi = bahan + sub-rakitan + tenaga kerja, ditambah persentase miskalkulasi. Rate yang tidak diisi mengikuti daftar rate BOM bila barisnya diambil dari sana, selain itu harga standar katalog atau harga beli terakhir; saat BOM dirilis, rate-nya dikunci. Komponen tanpa rate tidak dihitung nol — totalnya ditandai belum lengkap.",
                     )}{" "}
                     <strong>{tr("Not a selling price.", "Bukan harga jual.")}</strong>
                   </span>
@@ -201,9 +212,12 @@ export default function BomPage() {
 
       {(open || creating) && (
         <ProductDrawer
+          key={open ?? "new"}
           productCode={open}
-          onClose={() => { setOpen(null); setCreating(false); }}
+          autoSuggest={autoSuggest}
+          onClose={() => { setOpen(null); setCreating(false); setAutoSuggest(false); }}
           onChanged={reload}
+          onCreated={(code, o) => { setCreating(false); setOpen(code); setAutoSuggest(o.autoSuggest); }}
         />
       )}
     </div>

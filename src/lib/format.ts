@@ -63,8 +63,10 @@ function compactNumber(value: number): string {
   return `${value}`;
 }
 
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat(activeLocale).format(value);
+/** `maxFractionDigits` for quantities that live below a thousandth — timber
+ *  in m³ per piece (0,0053) reads as 0,005 at `Intl`'s default of three. */
+export function formatNumber(value: number, maxFractionDigits?: number): string {
+  return new Intl.NumberFormat(activeLocale, maxFractionDigits == null ? undefined : { maximumFractionDigits: maxFractionDigits }).format(value);
 }
 
 export function formatDate(d: Date): string {

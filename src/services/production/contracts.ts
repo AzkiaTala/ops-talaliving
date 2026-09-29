@@ -687,6 +687,9 @@ export interface BomRevisionView extends BomRevision {
 export interface BomDiffLine {
   ref_code: string;
   ref_name: string | null;
+  /** The komponen the line is for (0182). A material moved from the legs to
+   *  the top is two lines of the diff, because it is two lines of the BOM. */
+  part: string | null;
   change: "added" | "removed" | "changed";
   before: BomDiffShape | null;
   after: BomDiffShape | null;
@@ -745,14 +748,24 @@ export interface BomComponent {
    *  numbers, and conflating them is how a workshop runs out (D149). */
   waste_percent: number;
   note: string | null;
+  /** *Komponen* — Kaki-kaki, Top, Rangka (0182, D324). The material is
+   *  `ref_code`; the part is what it is cut into. Two parts may use the same
+   *  material, so a line is one material **for one part**. Null on lines
+   *  written before it existed. Optional only because the demo's older
+   *  fixtures have none. */
+  part?: string | null;
+  /** The entry of the BOM rate list this line follows (`RT-0001`). Without a
+   *  typed rate, a draft line follows the list live; releasing freezes it with
+   *  `rate_source = "rate"`. */
+  rate_code?: string | null;
 }
 
 export type BomKind = "material" | "product" | "labour";
 
 /** Where a line's rate came from. `last` is the last price paid, `standard`
  *  the curated one, `sub_assembly` the sub-assembly's own released production
- *  cost, `manual` the estimator's. */
-export type RateSource = "manual" | "standard" | "last" | "sub_assembly";
+ *  cost, `manual` the estimator's, `rate` the BOM rate list's (0182). */
+export type RateSource = "manual" | "standard" | "last" | "sub_assembly" | "rate";
 
 export interface BomLineView extends BomComponent {
   /** Resolved at the seam by whoever reads it; `null` when the code no longer
@@ -766,8 +779,13 @@ export interface BomLineView extends BomComponent {
   price_source: RateSource | "none";
   subtotal: number | null;
   /** What the catalogue says today, beside whatever rate the line carries —
-   *  a manual rate far from the last price paid is a question worth seeing. */
+   *  a manual rate far from the last price paid is a question worth seeing.
+   *  For a line that follows the rate list, the list's figure today. */
   catalogue_price: number | null;
+  /** The followed rate's name and group, for the screen; null when the line
+   *  follows none. */
+  rate_name: string | null;
+  rate_group: BomRateGroup | null;
 }
 
 /** One purchasable material, after the sub-assemblies have been walked through.
@@ -787,7 +805,8 @@ export interface BomExplodedLine {
   qty: number;
   uom: string;
   unit_price: number | null;
-  price_source: "standard" | "last" | "none";
+  /** `rate` for a material that exists only on the BOM rate list (0182). */
+  price_source: "standard" | "last" | "rate" | "none";
   subtotal: number | null;
   /** Every chain of parents this material arrived by, product code by product
    *  code. The same screw reached through two different sub-assemblies is one
@@ -1061,6 +1080,113 @@ export interface ProductView extends Product {
   /** Components whose code no longer resolves. */
   broken_refs: number;
   warnings: string[];
+}
+
+/* ── The BOM rate list (0182, D324) ───────────────────────────────────────
+ *
+ *  *Selain items yang didapat dari transaksi perlu menyusun price rate sebagai
+ *  bahan BOM* — the owner. The item database is what procurement bought, at
+ *  what it paid. This is what the estimator costs a BOM at: kayu mindi grade A
+ *  per m³, finishing per m², a carpenter's day, packing per unit — including
+ *  things never bought as an item. A BOM line picks a rate, follows it while it
+ *  is a draft, and freezes it on release, exactly as it does a catalogue price.
+ */
+
+export type BomRateGroup = "kayu" | "material" | "finishing" | "labour" | "packing" | "lain";
+
+export const BOM_RATE_GROUPS: BomRateGroup[] = ["kayu", "material", "finishing", "labour", "packing", "lain"];
+
+export const BOM_RATE_GROUP_LABELS: Record<BomRateGroup, Message> = {
+  kayu: { en: "Timber", id: "Kayu" },
+  material: { en: "Other material", id: "Material lain" },
+  finishing: { en: "Finishing", id: "Finishing" },
+  labour: { en: "Labour", id: "Tenaga kerja" },
+  packing: { en: "Packing", id: "Packing" },
+  lain: { en: "Other", id: "Lain-lain" },
+};
+export const BOM_RATE_GROUP_LABEL = bilingual(BOM_RATE_GROUP_LABELS);
+
+/** Which kind of BOM line a rate becomes. Labour is costed as labour (it is
+ *  not bought and has no place on a purchase list); everything else as a
+ *  material. */
+export function rateLineKind(group: BomRateGroup): "material" | "labour" {
+  return group === "labour" ? "labour" : "material";
+}
+
+export interface BomRate {
+  id: string;
+  /** `RT-0001`, set once. A BOM line names it. */
+  code: string;
+  name: string;
+  rate_group: BomRateGroup;
+  /** m3, m2, lembar, hari, unit — free text, because a carpenter's day is a
+   *  unit a rate is quoted in and nothing is bought in. */
+  uom: string;
+  /** Rupiah per `uom`. */
+  rate: number;
+  /** The purchasable item this rate stands for, if any. A line priced from the
+   *  rate then still points at something procurement buys and the storeman
+   *  issues. */
+  item_code: string | null;
+  note: string | null;
+  /** Retired, not deleted — a released BOM froze the figure. */
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BomRateView extends BomRate {
+  item_name: string | null;
+  updated_by_name: string | null;
+  /** Products whose current BOM (the draft, else the newest release) follows
+   *  this rate — what a change here moves. */
+  used_by: number;
+}
+
+/** One line the AI proposes from a working drawing (D324).
+ *
+ *  A proposal and nothing more: the route that produces it writes nothing, and
+ *  a person adds the lines they agree with through `saveBomComponent`, as
+ *  themselves (D200's rule for a model's reading). The **rate is the list's,
+ *  never the model's** — the model only says which entry it thinks fits. */
+export interface BomSuggestionLine {
+  /** Komponen — Kaki-kaki, Top, Rangka samping. */
+  part: string;
+  kind: "material" | "labour";
+  /** The rate-list entry the model matched, checked against the list. Null
+   *  when it named something the list does not have. */
+  rate_code: string | null;
+  /** What the model called the material, verbatim — kept beside the match so
+   *  a wrong match is visible. */
+  material: string;
+  /** Per ONE unit of the product, net of waste, in `uom`. */
+  qty: number;
+  uom: string;
+  waste_percent: number;
+  /** From the rate list at the time of the proposal. Null when unmatched. */
+  rate: number | null;
+  /** How the quantity was worked out: `4 × 50×50×720 mm = 0,0072 m³`. */
+  working: string | null;
+  confidence: "high" | "medium" | "low";
+  /** What to check before adding it — a unit that differs from the rate's, a
+   *  quantity the drawing did not state. */
+  warnings: string[];
+}
+
+export interface BomSuggestion {
+  product_code: string;
+  /** The drawing that was read. */
+  drawing: { attachment_id: string; filename: string } | null;
+  /** `model` when a language model read the drawing; `sandbox` when the demo
+   *  worked the lines out from the product's size, because the sandbox has no
+   *  model. The screen says which. */
+  source: "model" | "sandbox";
+  summary: string | null;
+  lines: BomSuggestionLine[];
+  /** What the reading assumed — a thickness not on the drawing, a finish. */
+  assumptions: string[];
+  /** Text on the drawing it could not read with confidence. */
+  unread: string[];
 }
 
 /* ── Desain: the drafters' queue ───────────────────────────────────────────

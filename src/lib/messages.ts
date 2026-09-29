@@ -72,6 +72,7 @@ export const MESSAGES = {
     workAttribution: m("Who did the work", "Penautan nama"),
     vendorWork: m("Goods at vendors", "Barang di vendor"),
     bom: m("Products & BOM", "Produk & BOM"),
+    bomRates: m("BOM rates", "Rate BOM"),
     schedule: m("Job Orders", "Job Order"),
 
     johnLau: m("John Lau", "John Lau"),

@@ -7446,3 +7446,63 @@ not *Masuk*. `harness.mjs`, `walk-procurement.mjs` and `walk-john-lau.mjs`
 pressed *Masuk*. They would have timed out at the first step the next time
 anyone ran them. CI does not run them, and nothing else noticed. They now
 accept either label.
+
+## F181 · 2026-09-28 · a BOM line became *one material for one part*, and five places still looked it up by material alone
+
+The owner asked for a column before the component (*komponen – material –
+kebutuhan per item – satuan – rate*, e.g. *Kaki-kaki – kayu mindi grade A –
+0,23 – m3*), a BOM rate list apart from the items database (kayu per grade,
+finishing, labour, packing), and an AI that reads the uploaded gambar kerja
+and proposes the lines with rates from that list (D324, `0182`).
+
+**The part changed what a line is.** Until now a revision held one line per
+material (`component_once`), and every piece of code that had to find *the
+same line* in another revision found it by `ref_code`: the draft copy of a
+released line being edited (`save_bom_line`), the copy being removed
+(`remove_bom_line`), the release's *nothing changed* comparison, and both
+layers' diffs. With parts, kayu mindi is on the legs and on the top, so
+matching by material alone would have edited the legs when somebody changed
+the top. All five now match by material **and** part, and so does the unique
+index. The smoke file (`182`) edits and removes one part of a released
+revision and checks the other part is untouched.
+
+**A new column named `rate` failed a guard for code it never touches.**
+`check_shadowing.sh` treats every column name in `ops_*` as off-limits to a
+PL/pgSQL local, and four payroll functions (`0050`–`0119`) declare a local
+`rate`. Nothing in them reads `bom_rates`, so nothing was actually ambiguous,
+but the guard is global on purpose: it cannot know which function will join
+which table next year. Editing four applied HR migrations to satisfy it would
+have made the repository disagree with production. The column is `unit_rate`,
+like the BOM line's own, and the contract keeps `rate`.
+
+**A server route cannot import a value from a contracts module.**
+`src/services/*/contracts.ts` also holds the screens' bilingual labels, which
+import `useSyncExternalStore` through `src/lib/i18n.ts`. `bom-vision.ts`
+imported `rateLineKind` from the production contracts, `tsc` and lint passed,
+and the route failed to compile on its first request in the live walk. The
+nota reader had always imported types only, for this reason, and nothing said
+so. Now `bom-vision.ts` says so.
+
+**The demo rounded before it multiplied.** `productView` priced a line as
+`rate × round(qty × (1 + waste), 4)`, while `v_product_bom` and the demo's own
+`bomCost` use the unrounded quantity. On a sheet of plywood the difference is
+nothing. On a 0,0053 m³ leg of mindi with 12% waste it is 0,6% (Rp 34.220
+against Rp 34.429), so the line subtotals stopped adding up to the cost below
+them. The same scale hid the quantity itself: `formatNumber` stops at
+`Intl`'s three decimals, so 0,0053 m³ read as 0,005. It now takes an optional
+precision, and the BOM table asks for four.
+
+**What the AI is and is not trusted with.** It proposes; it writes nothing. It
+is shown the rate list's names and units and **no figures**, and it answers
+with a code. The figure is read from the list on the server, and a code it
+invents becomes *not on the list*. A unit that differs from the rate's, or a
+quantity no one unit could need (over 3 m³ of timber, 60 m² of finishing), stays
+on the line as a warning and lowers its confidence. A line reaches the BOM
+only when a person ticks it and presses *Add*, through `save_bom_line`, as
+themselves. **Not verified here:** a real model reading a real drawing from
+Drive. This environment has no Drive credentials. The route was walked against
+local PostgREST as far as `not_on_drive`, with 401/403/404/422/501 each
+checked, and the validator was run on a hand-written model reply that had
+comma decimals, `m³`, a duplicate pair, an invented code and an unreadable
+quantity. The sandbox has no model, so it works the lines out from the
+product's size and says so on screen.
