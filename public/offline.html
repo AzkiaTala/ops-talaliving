@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2f6b52">
+<title>Tidak ada koneksi · No connection — Ops Talaliving</title>
+<!--
+  Shown by the service worker (public/sw.js) when a page is opened with no
+  network (D328). Static and self-contained on purpose: it must render with
+  nothing but itself and the one icon the worker keeps beside it. Both
+  languages at once, because the reader's choice lives in the app, and the app
+  is exactly what could not load.
+-->
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px 16px; background: #f2faf6; color: #1e293b;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    width: 100%; max-width: 400px; background: #fff; border: 1px solid #c6e8d5;
+    border-radius: 16px; padding: 28px 24px; text-align: center;
+  }
+  img { width: 56px; height: 56px; border-radius: 14px; }
+  h1 { margin: 16px 0 4px; font-size: 18px; }
+  h2 { margin: 0; font-size: 15px; font-weight: 500; color: #64748b; }
+  p { margin: 12px 0 0; font-size: 14px; line-height: 1.5; }
+  p.en { color: #64748b; margin-top: 4px; }
+  hr { border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0 0; }
+  button {
+    margin-top: 20px; width: 100%; border: 0; border-radius: 10px; padding: 12px 16px;
+    background: #2f6b52; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  button:active { background: #275544; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/icons/icon-192.png" alt="">
+  <h1>Tidak ada koneksi internet</h1>
+  <h2 lang="en">No internet connection</h2>
+  <p>Presensi, slip gaji, dan pengajuan butuh internet. Tidak ada yang tersimpan di HP ini — nyalakan data atau Wi-Fi, lalu coba lagi.</p>
+  <p class="en" lang="en">Attendance, payslips and requests need the internet. Nothing is kept on this phone — turn on data or Wi-Fi, then try again.</p>
+  <button type="button" onclick="location.reload()">Coba lagi · Try again</button>
+</main>
+<script>
+  /* Back as soon as the network is. */
+  window.addEventListener("online", function () { location.reload(); });
+</script>
+</body>
+</html>
