@@ -13,6 +13,7 @@ import { ITEM_PHOTO_MAX, ITEM_PHOTO_MIN } from "@/services/documents/contracts";
 import { getState, apply, newId, writeAudit, writeOutbox } from "../store";
 import { latency, actingUser, conflict, replayed, remember } from "./_kit";
 import { settingNumber } from "../settings";
+import { selfEmployeeId, carrySickNote } from "../self-link";
 
 const SERVICE = "documents" as const;
 
@@ -197,6 +198,18 @@ export async function link(
       `Barang ${input.entity_no} sudah punya ${ITEM_PHOTO_MAX} foto. Hapus satu dulu sebelum menambah.`);
   }
 
+  /* A leave request's papers are the requester's own or HRD's (`0187`'s
+     trigger, which answers 42501 / 23503 — `fail()` turns those into
+     `refused` / `not_found`). */
+  if (input.entity === "leave_request") {
+    const req = state.leave_requests.find((r) => r.request_no === input.entity_no);
+    if (!req) return notFound(SERVICE, "not_found", `Tidak ada pengajuan ${input.entity_no}.`);
+    const me = actingUser();
+    if (req.employee_id !== selfEmployeeId(state, me.id) && !me.modules.some((m) => m.module === "hrd" && m.level !== "read")) {
+      return refused(SERVICE, "not_permitted", "Surat untuk pengajuan orang lain hanya bisa dilampirkan HRD.");
+    }
+  }
+
   const user = actingUser();
   const row: AttachmentLink = {
     id: newId("lnk"), attachment_id: input.attachment_id,
@@ -205,6 +218,9 @@ export async function link(
   };
   apply((draft) => {
     draft.attachment_links.push(row);
+    /* A letter that arrives after approval turns the days paid the moment it
+       does (D144, 0187's trigger). */
+    if (input.entity === "leave_request") carrySickNote(draft, input.entity_no, row.linked_at);
     writeAudit(draft, {
       service: SERVICE, entity: input.entity, entity_no: input.entity_no, action: "link", outcome: "ok", reason: null,
       detail: { kind: input.kind, file: draft.attachments.find((a) => a.id === input.attachment_id)?.filename ?? null },

@@ -10,6 +10,15 @@ import { JohnLauDock } from "@/components/john-lau/dock";
 import { NotLive } from "@/components/not-live";
 import { isRouteLive } from "@/lib/live";
 import { ActivityRecorder } from "@/components/activity-recorder";
+import { EmployeeShell } from "@/components/layout/employee-shell";
+import { setAudienceLang } from "@/lib/i18n";
+
+/** What an employee-only account may open (D331). `/set-password` lives
+ *  outside this layout and is never bounced. Everything else goes to `/saya`. */
+const EMPLOYEE_ROUTES = ["/saya", "/profil"];
+function employeeMayOpen(pathname: string): boolean {
+  return EMPLOYEE_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
+}
 
 /** The application shell.
  *
@@ -23,7 +32,7 @@ import { ActivityRecorder } from "@/components/activity-recorder";
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { ready, hasAnyModule, needsSignIn } = useSession();
+  const { ready, needsSignIn, door, session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -55,14 +64,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.replace(here && here !== "/" ? `/signin?next=${encodeURIComponent(here)}` : "/signin");
       return;
     }
-    if (!hasAnyModule) router.replace("/no-access");
-  }, [ready, hasAnyModule, needsSignIn, router]);
+    /* **A third door (D331).** No module used to mean `/no-access`. But a
+       production worker needs no module: their self-service is scoped by the
+       account-to-employee link, not by a grant (D305) — so the one audience
+       `/profil` was written for was the one turned away (F183). Now: no
+       module and a link lands on `/saya`, and may open only that and
+       `/profil`; no module and no link is still `/no-access`. */
+    if (door === "none") router.replace("/no-access");
+    if (door === "employee" && !employeeMayOpen(pathname)) router.replace("/saya");
+  }, [ready, needsSignIn, door, pathname, router]);
 
-  if (!ready) {
+  /* Indonesian for the floor unless they have chosen (D331); everybody else
+     keeps the default (D318). Cleared on the way out, so a staff account in
+     the same browser afterwards is not left reading the floor's language. */
+  useEffect(() => {
+    setAudienceLang(door === "employee" ? "id" : null);
+  }, [door]);
+
+  if (!ready || door === null || door === "none" || (door === "employee" && !employeeMayOpen(pathname))) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-100">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600" />
       </div>
+    );
+  }
+
+  if (door === "employee") {
+    return (
+      <Suspense fallback={null}>
+        <EmployeeShell name={session?.user.full_name ?? ""}>
+          {live ? children : <NotLive module={pathname.split("/")[1]} />}
+        </EmployeeShell>
+        <ActivityRecorder />
+      </Suspense>
     );
   }
 

@@ -35,7 +35,7 @@ type Phase =
   | { at: "reading" }
   | { at: "sending" }
   | { at: "form"; reading: Reading; where: LocationJudgement }
-  | { at: "done"; where: LocationJudgement; at_: string };
+  | { at: "done"; where: LocationJudgement; at_: string; denied: boolean };
 
 /** One reading, at the tap. High accuracy, nothing cached, and a timeout a
  *  person standing at the warehouse door will tolerate. */
@@ -107,11 +107,15 @@ export function useWhereLine() {
 }
 
 export function LocatedTap({
-  label, tone = "brand", onTapped, className,
+  label, tone = "brand", size = "md", disabled = false, onTapped, className,
 }: {
   /** What the button says. The parent reads the day to decide it (D307). */
   label?: string;
   tone?: "brand" | "amber";
+  /** `lg` is `/saya`'s thumb-sized button. */
+  size?: "md" | "lg";
+  /** While the parent is still reading the day, so the label is not a guess. */
+  disabled?: boolean;
   onTapped?: (r: TapSelfResult) => void;
   className?: string;
 }) {
@@ -127,9 +131,9 @@ export function LocatedTap({
 
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.preview); }, [photo]);
 
-  function written(r: TapSelfResult) {
+  function written(r: TapSelfResult, denied: boolean) {
     const clock = `${officeClock(new Date(r.at))} ${ZONE}`;
-    const line = whereLine(r.location);
+    const line = whereLine(r.location, denied);
     toast(
       r.location.needs_note ? "warning" : "success",
       tr(`Tap recorded · ${clock}`, `Tap tercatat · ${clock}`),
@@ -137,7 +141,7 @@ export function LocatedTap({
         ? tr(`${line.text}. Flagged for HRD with your note.`, `${line.text}. Ditandai untuk HRD beserta keterangan Anda.`)
         : line.text + ".",
     );
-    setPhase({ at: "done", where: r.location, at_: r.at });
+    setPhase({ at: "done", where: r.location, at_: r.at, denied });
     setNote("");
     setPhoto(null);
     onTapped?.(r);
@@ -148,7 +152,7 @@ export function LocatedTap({
     const reading = await readOnce();
     setPhase({ at: "sending" });
     const res = await hr.tapSelf({ lat: reading.lat, lng: reading.lng, accuracy_m: reading.accuracy_m }, newKey());
-    if (!res.error) return written(res.data);
+    if (!res.error) return written(res.data, reading.denied);
     if (res.error.code === "off_site_needs_note" && res.error.detail) {
       setPhase({ at: "form", reading, where: res.error.detail as unknown as LocationJudgement });
       return;
@@ -178,7 +182,7 @@ export function LocatedTap({
       lat: reading.lat, lng: reading.lng, accuracy_m: reading.accuracy_m,
       note: note.trim(), photo_id: photo?.id ?? null,
     }, newKey());
-    if (!res.error) return written(res.data);
+    if (!res.error) return written(res.data, reading.denied);
     setPhase({ at: "form", reading, where: phase.where });
     toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
   }
@@ -191,13 +195,14 @@ export function LocatedTap({
         <button
           type="button"
           onClick={press}
-          disabled={busy}
+          disabled={busy || disabled}
           className={cn(
-            "flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-[19px] font-bold tracking-wide text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60",
+            "flex w-full items-center justify-center gap-3 rounded-2xl font-bold tracking-wide text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60",
+            size === "lg" ? "h-20 text-[22px]" : "h-16 text-[19px]",
             tone === "amber" ? "bg-amber-600 active:bg-amber-700" : "bg-brand-600 active:bg-brand-700",
           )}
         >
-          <Fingerprint className="h-7 w-7" />
+          <Fingerprint className={size === "lg" ? "h-8 w-8" : "h-7 w-7"} />
           {phase.at === "reading" ? tr("Reading location…", "Membaca lokasi…")
             : phase.at === "sending" ? tr("Recording…", "Mencatat…")
             : label ?? tr("Tap attendance", "Tap presensi")}
@@ -205,7 +210,7 @@ export function LocatedTap({
       )}
 
       {phase.at === "done" && (() => {
-        const line = whereLine(phase.where);
+        const line = whereLine(phase.where, phase.denied);
         return (
           <p data-testid="where" className={cn(
             "flex items-center justify-center gap-1.5 text-[13px] font-medium",

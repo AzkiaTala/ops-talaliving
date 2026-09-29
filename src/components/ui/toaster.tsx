@@ -16,7 +16,9 @@ export function Toaster() {
   const { toasts, dismissToast } = useToast();
   const tr = useTr();
   return (
-    <div className="pointer-events-none fixed bottom-4 left-4 right-4 z-[60] flex flex-col gap-3 sm:bottom-6 sm:left-auto sm:right-6 sm:w-full sm:max-w-sm">
+    /* A 16px gutter on phones (D328); above the bottom tab bar in the
+       employee shell (D331). */
+    <div className="pointer-events-none fixed bottom-4 left-4 right-4 z-[60] flex flex-col gap-3 sm:bottom-6 sm:left-auto sm:right-6 sm:w-full sm:max-w-sm [[data-shell=employee]_&]:bottom-[calc(88px+env(safe-area-inset-bottom))]">
       {toasts.map((t) => {
         const c = config[t.level];
         const Icon = c.icon;

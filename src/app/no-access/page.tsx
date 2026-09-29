@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
@@ -15,9 +16,15 @@ import { useTr } from "@/lib/i18n";
  *  is being signed in as somebody else.
  */
 export default function NoAccessPage() {
-  const { session, setModules } = useSession();
+  const { session, setModules, door } = useSession();
   const router = useRouter();
   const tr = useTr();
+
+  /* An employee-only account has somewhere to be (D331) — a bookmark of this
+     page from before its link existed should not strand it here. */
+  useEffect(() => {
+    if (door === "employee") router.replace("/saya");
+  }, [door, router]);
 
   /* Switched off by IT (0183) is a different sentence and a different next
      step from *nothing granted yet*: nobody is about to grant this account

@@ -151,6 +151,9 @@ export type LinkEntity =
    *  it is. Four is a cap the database holds; the last one cannot come off
    *  (`0168`). */
   | "item"
+  /** A leave request, by its number — the surat dokter a sick request carries
+   *  from the phone it was photographed on (`0187`, D331). */
+  | "leave_request"
   /** One phone tap, by its `tap_no` — the off-site photo (D332, `0188`). */
   | "attendance_scan";
 
@@ -183,6 +186,7 @@ export const DOC_KINDS_FOR: Partial<Record<LinkEntity, readonly DocKind[]>> = {
   /* A catalogue item: what it looks like. Its purchases are ledger lines,
      reached through the item rather than filed on it. */
   item: ["Foto", "Others"],
+  leave_request: ["Surat Dokter", "Others"],
 };
 
 /** The photos an item carries (`0168`): at least one, at most four. */

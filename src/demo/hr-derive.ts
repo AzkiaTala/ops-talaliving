@@ -1785,6 +1785,9 @@ export function leaveRequestView(state: DemoState, r: LeaveRequest): LeaveReques
     clashes: dates.filter((d) => state.day_marks.some(
       (m) => m.work_date === d && (m.employee_id === r.employee_id || m.employee_id === null),
     )),
+    letter_attached: state.attachment_links.some(
+      (l) => l.entity === "leave_request" && l.entity_no === r.request_no && l.kind === "Surat Dokter",
+    ),
   };
 }
 
