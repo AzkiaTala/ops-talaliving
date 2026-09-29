@@ -196,9 +196,10 @@ export function GrantPickerButton({ onOpen }: { onOpen: () => void }) {
   const { session } = useSession();
   const tr = useTr();
   return (
-    <Button variant="outline" size="sm" icon={ShieldCheck} onClick={onOpen}>
+    /* Icon only on a phone: the topbar also carries *Saya* since D331, and at
+       390px the word pushed the avatar off the edge. */
+    <Button variant="outline" size="sm" icon={ShieldCheck} onClick={onOpen} title={tr("Demo access", "Akses demo")} aria-label={tr("Demo access", "Akses demo")}>
       <span className="hidden sm:inline">{session?.user.full_name ?? tr("Demo access", "Akses demo")}</span>
-      <span className="sm:hidden">{tr("Access", "Akses")}</span>
     </Button>
   );
 }

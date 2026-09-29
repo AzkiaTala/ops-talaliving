@@ -146,7 +146,10 @@ export type LinkEntity =
   /** A catalogue item, by its code — the 1–4 photos that show the floor what
    *  it is. Four is a cap the database holds; the last one cannot come off
    *  (`0168`). */
-  | "item";
+  | "item"
+  /** A leave request, by its number — the surat dokter a sick request carries
+   *  from the phone it was photographed on (`0187`, D331). */
+  | "leave_request";
 
 /** Which kinds make sense where. The full list is thirty kinds across HR,
  *  production and money, and a ledger row offered "Ijazah" or "KTP" is a
@@ -177,6 +180,7 @@ export const DOC_KINDS_FOR: Partial<Record<LinkEntity, readonly DocKind[]>> = {
   /* A catalogue item: what it looks like. Its purchases are ledger lines,
      reached through the item rather than filed on it. */
   item: ["Foto", "Others"],
+  leave_request: ["Surat Dokter", "Others"],
 };
 
 /** The photos an item carries (`0168`): at least one, at most four. */

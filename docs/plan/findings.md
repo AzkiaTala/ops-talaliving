@@ -7579,3 +7579,58 @@ here:** real GoTrue sending a real invitation email. The invitation lands on
 `/set-password` only if that origin is in Authentication → URL Configuration →
 Redirect URLs (`06-auth.md`). Supabase's built-in mail sends only a few
 messages an hour.
+
+## F188 · 2026-09-29 · a letter for a day that does not exist yet, and the door that needed two reads
+
+Building `/saya` (D331) — the phone home of the workshop floor — taught four
+things.
+
+**1. The sick worker holds the letter before the day exists.** D144 pays a sick
+day only with the surat dokter, and `read_day` looks for it on the **day
+mark**. A mark is written when HRD approves the request. So at the one moment
+the worker has the paper in hand and a camera in the other — asking — there was
+nothing to attach it to, and the only road was HRD's `attach_surat_dokter`, one
+day at a time, after the fact. The letter now goes on the request
+(`leave_request`, `0187`), and approval copies it onto each sick mark in the
+range; a letter linked after approval is copied the moment it arrives, which is
+D144's own *it can arrive late and the day turns paid*. `read_day` was not
+touched: there is still one place that decides whether a sick day is paid, and
+it is not in this session's lane (D330). Matching marks by person, kind and date
+rather than by the `izn-…:` prefix in the mark's reason also covers a sick mark
+HRD typed by hand on one of those days.
+
+**2. "Anybody may link anything" stopped being harmless the moment a link
+changed pay.** `attach_link` is open to every signed-in person (0024) —
+evidence is additive and the trail names who did it. For a receipt that is
+fine. For a doctor's letter it meant a stranger could turn somebody's unpaid day
+into a paid one. `0187` adds a trigger: only the requester's own account or
+HRD may file a paper against a leave request. The general rule: **when a link
+starts to decide money, the entity it lands on needs its own gate.**
+
+**3. A new view column can break old functions.** `v_leave_request.has_letter`
+was the obvious name, and `check_shadowing` refused it: three HR functions
+(0048, 0049, 0053) have a PL/pgSQL local called `has_letter`, and Postgres
+rejects an ambiguous reference at run time, on the branch that reaches it. The
+column is `letter_attached`. Naming a column is not local to the file it is in.
+
+**4. The door now takes two reads, and "not yet known" must not look like
+"no".** Staff are decided by `identity.me()` alone; an account with no module
+needs `hr.myProfile()` too before anyone can say whether it goes to `/saya` or
+`/no-access`. The session store's `door` is `null` until both are in, and the
+shell waits on it — otherwise a worker would flash through `/no-access` on every
+load. A failed link read resolves to *not linked*, never *linked*, so the worst
+a broken read costs is a wrong refusal, not a wrong shell. Found on the way: at
+390px the staff topbar pushed its avatar off the edge once *Saya* joined it,
+and toasts started 24px off the left of the phone; both fixed.
+
+Walked at 390px (Playwright, demo): Karjo (employee-only) at 07:25 WITA — lands
+on `/saya`, Indonesian by default, clock 07:25, MASUK → *Masuk 07:25* →
+PULANG; `/dashboard` and `/` return to `/saya`, `/profil` opens; sakit refuses
+to send without the photo, then shows *Surat dokter terlampir*; a DRAFT run
+shows no slip, the approved one opens as a card; Akun says *Minta IT membuat
+yang baru*; switching to English sticks. Wulan sees the note on `/hrd/cuti`
+and approves → *paid*. Andi (staff) keeps the full shell and reaches `/saya`
+from the topbar. A module-less account with no link → `/no-access`. **Not
+verified here:** the live stack end to end (a real upload into the HRD drive's
+`ops-talaliving/CUTI IZIN SAKIT/SURAT DOKTER`), and a real low-end Android's
+camera; the database half is covered by `smoke/187_hr_sick_note.sql`.

@@ -33,6 +33,7 @@ import {
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
 import { officeToday as sharedOfficeToday } from "@/lib/office";
+import { selfEmployeeId, carrySickNote } from "../self-link";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
@@ -302,15 +303,10 @@ export async function getDay(
 // account deliberately map to nothing — the same ordinary case as a
 // production worker with no login, exercised here by an office account
 // instead.
-const SELF_EMPLOYEE_NO: Record<string, string> = {
-  usr_evin: "K-001", usr_putri: "K-004", usr_anggun: "K-007",
-  usr_andi: "K-011", usr_made: "K-014",
-};
 
 function myEmployee(state: DemoState): Employee | null {
-  const no = SELF_EMPLOYEE_NO[actingUser().id];
-  if (!no) return null;
-  return state.employees.find((e) => e.employee_no === no) ?? null;
+  const id = selfEmployeeId(state, actingUser().id);
+  return id ? state.employees.find((e) => e.id === id) ?? null : null;
 }
 
 function noEmployeeLink() {
@@ -2222,6 +2218,8 @@ export async function decideLeave(
         });
         marked.push(date);
       }
+      /* The surat dokter on the request becomes the surat dokter on each day (D144, 0187). */
+      carrySickNote(draft, row.request_no, new Date().toISOString());
     }
 
     writeAudit(draft, {

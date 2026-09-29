@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { forgetAll } from "@/lib/api-cache";
-import { identity } from "@/demo/api";
+import { identity, hr } from "@/demo/api";
 import type { Result } from "@/services/_shared/envelope";
 import { hasPermission, type ModuleGrant, type ModuleName, type ModuleLevel } from "@/lib/roles";
 import type { Session, Authority } from "@/services/identity/contracts";
@@ -37,6 +37,20 @@ interface SessionValue {
    *  one of them somewhere useless — and in demo mode there is nothing to sign
    *  in to at all, so it is always false there. */
   needsSignIn: boolean;
+  /** Which door this account walks through (D331), once it is known:
+   *
+   *    `staff`     — holds a module: the full shell, `/saya` one tap away;
+   *    `employee`  — no module, but linked to an employee row (`hr.myProfile()`
+   *                  answers one): the phone shell, `/saya` and `/profil` only;
+   *    `none`      — neither: `/no-access`, which says who to ask.
+   *
+   *  Null until the session and the link have both been read. The link is read
+   *  through `hr.myProfile()` — the same `my_employee_id()` every self seam
+   *  uses — rather than widened onto `identity.me()`, so the self-service half
+   *  is scoped by one key everywhere (D305). */
+  door: "staff" | "employee" | "none" | null;
+  /** The linked employee's number, when there is one. */
+  employeeNo: string | null;
   refresh: () => Promise<void>;
   /** Real sign-in. In demo mode the password is ignored and the screen says so;
    *  against the database it is Supabase Auth, and `record_sign_in()` writes the
@@ -59,6 +73,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
      every remembered answer goes — one person's screens are never drawn from
      another's reads. */
   const cachedFor = useRef<string | null>(null);
+  /* The account ↔ employee link, for the user it was read for. Keyed, because
+     the demo's persona switch changes the session without a refresh. */
+  const [link, setLink] = useState<{ userId: string; employeeNo: string | null } | null>(null);
+  const userId = session?.user.id ?? null;
+  const active = Boolean(session?.user.is_active);
+
+  useEffect(() => {
+    if (!userId) return;
+    if (!active) { setLink({ userId, employeeNo: null }); return; }
+    let live = true;
+    void hr.myProfile().then((res) => {
+      /* A failed read is *not linked*, never *linked*: the worst it costs is
+         `/no-access` for a worker until the next load, never a staff shell
+         for somebody who should not have one. */
+      if (live) setLink({ userId, employeeNo: res.data?.employee_no ?? null });
+    });
+    return () => { live = false; };
+  }, [userId, active]);
 
   const refresh = useCallback(async () => {
     const res = await identity.me();
@@ -86,16 +118,29 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  const hasAnyModule = active && (session?.modules.length ?? 0) > 0;
+  const linkKnown = link !== null && link.userId === userId;
+  const employeeNo = linkKnown ? link.employeeNo : null;
+  /* No session at all is `none`: the shell sends it to `/signin` when that is
+     the problem, and to `/no-access` when it is anything else. */
+  const door: SessionValue["door"] = !session
+    ? "none"
+    : hasAnyModule ? "staff"
+    : !linkKnown ? null
+    : employeeNo ? "employee" : "none";
+
   const value: SessionValue = {
     session,
     ready,
+    door,
+    employeeNo,
     can: (permission) => hasPermission(session?.permissions ?? [], permission),
     hasAuthority: (authority) => (session?.authorities ?? []).includes(authority),
     /* A switched-off account still lists what it held (so switching it back
        on restores it) and holds none of it (0183) — so it has no module in
        any sense the shell cares about, and lands on `/no-access`, which says
        *switched off* rather than *nothing granted yet*. */
-    hasAnyModule: Boolean(session?.user.is_active) && (session?.modules.length ?? 0) > 0,
+    hasAnyModule,
     needsSignIn,
     refresh,
     signIn: async (email, password) => {

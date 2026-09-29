@@ -16,7 +16,9 @@ export function Toaster() {
   const { toasts, dismissToast } = useToast();
   const tr = useTr();
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-[60] flex w-full max-w-sm flex-col gap-3">
+    /* Never wider than the phone (it used to start 24px off the left edge at
+       390px), and above the bottom tab bar in the employee shell (D331). */
+    <div className="pointer-events-none fixed bottom-6 right-6 z-[60] flex w-[calc(100vw-3rem)] max-w-sm flex-col gap-3 [[data-shell=employee]_&]:bottom-[calc(88px+env(safe-area-inset-bottom))]">
       {toasts.map((t) => {
         const c = config[t.level];
         const Icon = c.icon;

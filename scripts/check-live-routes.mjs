@@ -326,6 +326,12 @@ const MODULE_OF = {
      it calls (`identity`, `hr`) are actually live, not that the file
      compiled. Its own pseudo-module below is that guard, not a grant. */
   profil: "profil",
+  /* `/saya` (D331) — the phone home of every employee, and the only screen an
+     employee-only account opens besides `/profil`. Same reasoning as `profil`:
+     scoped by the account ↔ employee link, not a grant, so it rides the same
+     pseudo-module and opens exactly when `identity`, `hr` and `documents`
+     answer every call it makes. */
+  saya: "profil",
 };
 
 /* The modules this deployment opens. Procurement and accounting are the two the
