@@ -93,7 +93,9 @@
   // `GOOGLE_PRIVATE_KEY` is **not** here and never will be. It is a Secret,
   // set once in the dashboard or with `wrangler secret put`, encrypted at rest
   // and unreadable afterwards. Secrets are managed apart from `vars` precisely
-  // so that a deploy cannot touch them.
+  // so that a deploy cannot touch them. `SUPABASE_SERVICE_ROLE_KEY` is the
+  // same kind of thing, for the same reason: IT → Users & access needs it to
+  // invite people and block a sign-in (D325).
   "vars": {
     "GOOGLE_SERVICE_ACCOUNT_EMAIL": "capture-worker@john-lau-v01.iam.gserviceaccount.com"
   }

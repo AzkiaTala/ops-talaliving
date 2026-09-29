@@ -125,7 +125,7 @@ const VIEW_CONTRACTS = {
   v_client_activity:   "ClientActivityView",
 
   /* ── core ────────────────────────────────────────────────────────────── */
-  v_user_access:     "AccessRow",
+  v_user_access:     "DirectoryRow",
   v_attachment:      "AttachmentRow",
   v_attachment_link: "LinkRow",
   v_activity_log_retention: "RetentionStatus",

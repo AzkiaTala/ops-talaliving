@@ -21,10 +21,21 @@ create schema auth;
 -- `ops_core.users` from it, so the shim has to carry the column or the trigger
 -- cannot be exercised locally, which would leave the one piece of auth wiring
 -- that runs on every sign-in as the one piece nothing tests.
+--
+-- The five timestamps are GoTrue's, named and typed as GoTrue names them.
+-- `0183` reads them for the IT directory — who was invited and never came,
+-- who last signed in when, whose sign-in is blocked — and a shim without them
+-- would leave the one view IT manages people from as the one view nothing
+-- tests.
 create table if not exists auth.users (
   id                  uuid primary key default gen_random_uuid(),
   email               text unique,
-  raw_user_meta_data  jsonb not null default '{}'::jsonb
+  raw_user_meta_data  jsonb not null default '{}'::jsonb,
+  created_at          timestamptz default now(),
+  invited_at          timestamptz,
+  email_confirmed_at  timestamptz,
+  last_sign_in_at     timestamptz,
+  banned_until        timestamptz
 );
 
 -- The signed-in user, as the API sets it. Supabase reads a JWT claim; locally

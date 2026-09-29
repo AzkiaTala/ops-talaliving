@@ -9,7 +9,7 @@ import "server-only";
  *  than reached for.
  */
 import { createServerClient } from "@supabase/ssr";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type GoTrueAdminApi } from "@supabase/supabase-js";
 import { publicConfig, serviceRoleKey } from "./env";
 
 /** Minimal shape of Next's cookie store — enough to avoid importing
@@ -52,4 +52,34 @@ export function supabaseAdmin(): SupabaseClient {
   return createClient(url, serviceRoleKey(), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+/** GoTrue's admin API, and **only** that — the one use of the service role
+ *  key inside a request somebody made (D325).
+ *
+ *  Creating an account, re-sending an invitation and blocking a sign-in are
+ *  things only GoTrue can do, and GoTrue only lets the service role ask. So
+ *  `/api/identity/users` needs the key — but it must never become the thing
+ *  that decides, or ADR-002 is a comment. Two rules make that structural
+ *  rather than a matter of care:
+ *
+ *  - the route asks the database first, **as the person**, through a seam
+ *    that checks `it.manage_users` and writes the trail; it calls this only
+ *    on that seam's yes, and only for the account the seam named;
+ *  - this returns `auth.admin`, not a client. There is no `.from()` on it, so
+ *    the key cannot read or write a table even by mistake — which is the
+ *    mistake `supabaseAdmin()` above would allow.
+ */
+export function authAdmin(): GoTrueAdminApi {
+  const { url } = publicConfig();
+  return createClient(url, serviceRoleKey(), {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  }).auth.admin;
+}
+
+/** Whether `authAdmin()` can work on this deployment. Asked before anything
+ *  is decided, so an unconfigured Worker says so in a sentence instead of
+ *  after the database has recorded an invitation nobody could send. */
+export function authAdminConfigured(): boolean {
+  return Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 }

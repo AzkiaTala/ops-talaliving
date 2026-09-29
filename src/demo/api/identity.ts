@@ -1,13 +1,13 @@
 /** Implements `/api/v1/identity` from `03-api.md`. */
-import { ok, noop, invalid, notFound, refused, type Result } from "@/services/_shared/envelope";
+import { ok, noop, invalid, notFound, refused, conflict, type Result } from "@/services/_shared/envelope";
 import type {
   Session, Authority, ModuleName, ModuleLevel,
   ActivityEvent, ActivityDaily, RetentionStatus, AuditRowView, AppSetting, Approver,
-  MyActivityEvent,
+  MyActivityEvent, UserDirectoryRow, UserLinkSent, UserActiveChange,
 } from "@/services/identity/contracts";
 import { expandPermissions } from "@/lib/roles";
 import { getState, apply, newId, writeAudit } from "../store";
-import type { DemoUser } from "../state";
+import type { DemoState, DemoUser } from "../state";
 import { latency, actingUser, requireModule, requireLevel } from "./_kit";
 import { officeDay as sharedOfficeDay } from "@/lib/office";
 
@@ -18,8 +18,51 @@ function toSession(user: DemoUser): Session {
     user: { id: user.id, email: user.email, full_name: user.full_name, is_active: user.is_active },
     modules: user.modules,
     authorities: user.authorities,
-    permissions: expandPermissions(user.modules),
+    /* Nothing for a switched-off account, whatever it still lists — the same
+       answer `v_my_access` gives since 0183. */
+    permissions: user.is_active ? expandPermissions(user.modules) : [],
   };
+}
+
+/** The directory row. The demo keeps no sign-in timestamp: the last one is
+ *  read from the trail, which is where the database's view gets the same
+ *  fact from GoTrue. A fixture person with no sign-in in the trail is still
+ *  `active` — they stand for people already working here — and only somebody
+ *  invited from the screen is `pending` until they first sign in. */
+function toDirectoryRow(user: DemoUser, state: DemoState = getState()): UserDirectoryRow {
+  const last = state.audit_log.find((a) =>
+    a.action === "sign_in" && a.outcome === "ok" && a.entity_no.toLowerCase() === user.email.toLowerCase());
+  const lastAt = last?.at ?? null;
+  const pending = Boolean(user.invited_at) && (!lastAt || lastAt < (user.invited_at as string));
+  return {
+    ...toSession(user),
+    status: !user.is_active ? "inactive" : pending ? "pending" : "active",
+    created_at: user.created_at ?? "2026-01-01T00:00:00+08:00",
+    invited_at: user.invited_at ?? null,
+    last_sign_in_at: lastAt,
+    left_on: null,
+    sign_in_blocked: !user.is_active,
+  };
+}
+
+/** The same tidying `ops_core.update_user` does: one space between words,
+ *  none at the ends. */
+function tidyName(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim();
+}
+
+/** The name rule, stated once for the two seams that take a name, with the
+ *  database's codes (`0183`). */
+function nameProblem(name: string) {
+  if (!name) {
+    return invalid(SERVICE, "name_required",
+      "A name is required — it is what every approval and payslip shows.", { field: "full_name" });
+  }
+  if (name.length > 120) {
+    return invalid(SERVICE, "name_too_long", "A name is at most 120 characters.",
+      { field: "full_name", max: 120 });
+  }
+  return null;
 }
 
 /** `GET /identity/me`. The frontend `can()` is fed from `permissions`, which is
@@ -29,9 +72,12 @@ export async function me(): Promise<Result<Session>> {
   return ok(SERVICE, toSession(actingUser()));
 }
 
-export async function listUsers(): Promise<Result<Session[]>> {
+export async function listUsers(): Promise<Result<UserDirectoryRow[]>> {
   await latency();
-  return ok(SERVICE, getState().users.map(toSession));
+  const state = getState();
+  const rows = state.users.map((u) => toDirectoryRow(u, state));
+  rows.sort((a, b) => a.user.full_name.localeCompare(b.user.full_name));
+  return ok(SERVICE, rows);
 }
 
 /** The demo's half. It reads the same thing from the sandbox's own users, and
@@ -81,6 +127,7 @@ export async function signIn(email: string, _password: string): Promise<Result<S
     return refused(SERVICE, "sign_in_failed",
       "That email and password do not match an account here.");
   }
+  if (!user.is_active) return inactiveSignIn(user);
 
   apply((draft) => {
     draft.session_user_id = user.id;
@@ -107,12 +154,27 @@ export async function signOut(): Promise<Result<null>> {
   return ok(SERVICE, null);
 }
 
+/** A switched-off account does not get in — the real client signs it
+ *  straight back out with the same code, and `record_sign_in` writes the
+ *  same refusal (0183). */
+function inactiveSignIn(user: DemoUser): Result<never> {
+  apply((draft) => {
+    writeAudit(draft, {
+      service: SERVICE, entity: "session", entity_no: user.email,
+      action: "sign_in", outcome: "refused", reason: "the account is switched off",
+    });
+  });
+  return refused(SERVICE, "account_inactive",
+    "Akun ini sudah dinonaktifkan. Hubungi IT jika ini keliru.");
+}
+
 /** Demo only: switch which person is acting, so permissions can be shown
  *  working rather than described. Deleted in Phase 2 along with this layer. */
 export async function actAs(userId: string): Promise<Result<Session>> {
   await latency();
   const user = getState().users.find((u) => u.id === userId);
   if (!user) return notFound(SERVICE, "user_not_found", "User not found.");
+  if (!user.is_active) return inactiveSignIn(user);
   apply((draft) => {
     /* In Phase 1 this is "act as"; in Phase 2 it is a sign-in. Either way it is
      * a recorded fact: an access trail with no session events cannot answer
@@ -171,6 +233,137 @@ export async function setAuthorities(
   });
   if (!updated) return notFound(SERVICE, "user_not_found", "User not found.");
   return ok(SERVICE, toSession(updated));
+}
+
+/* ── Managing people (D325) ───────────────────────────────────────────────
+ *
+ *  The demo's half of `ops_core.update_user`, `set_user_active`,
+ *  `invite_user` and `request_user_link` — same checks, same codes, same
+ *  order, so a refusal rehearsed here is the sentence the database says.
+ *  There is no GoTrue and no mail: an invitation adds the person at once, and
+ *  a link is only a line in the trail.
+ */
+
+export async function updateUser(
+  userId: string,
+  input: { full_name: string },
+): Promise<Result<UserDirectoryRow>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  const user = getState().users.find((u) => u.id === userId);
+  if (!user) return notFound(SERVICE, "user_not_found", "No such user.");
+  const name = tidyName(input.full_name ?? "");
+  const bad = nameProblem(name);
+  if (bad) return bad;
+  if (name === user.full_name) return noop(SERVICE, toDirectoryRow(user));
+
+  apply((draft) => {
+    const u = draft.users.find((x) => x.id === userId)!;
+    writeAudit(draft, {
+      service: SERVICE, entity: "user", entity_no: u.email,
+      action: "profile.update", outcome: "ok", reason: null,
+      detail: { before: u.full_name, after: name },
+    });
+    u.full_name = name;
+  });
+  const saved = getState().users.find((u) => u.id === userId)!;
+  return ok(SERVICE, toDirectoryRow(saved));
+}
+
+export async function setUserActive(
+  userId: string,
+  input: { active: boolean; reason?: string | null },
+): Promise<Result<UserActiveChange>> {
+  await latency();
+  if (typeof input.active !== "boolean") {
+    return invalid(SERVICE, "active_required", "Say whether the account is to be switched on or off.",
+      { field: "active" });
+  }
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  if (userId === getState().session_user_id) {
+    return refused(SERVICE, "self_service_refused",
+      "You cannot switch off your own account — ask another IT administrator.");
+  }
+  const user = getState().users.find((u) => u.id === userId);
+  if (!user) return notFound(SERVICE, "user_not_found", "No such user.");
+
+  /* No GoTrue here, so the sign-in follows the account exactly — which is
+     what the real one does once the server has its key. */
+  const change: UserActiveChange = {
+    user_id: userId, is_active: input.active,
+    sign_in: input.active ? "allowed" : "blocked", sign_in_detail: null,
+  };
+  if (user.is_active === input.active) return noop(SERVICE, change);
+
+  const reason = input.reason?.trim() || null;
+  apply((draft) => {
+    const u = draft.users.find((x) => x.id === userId)!;
+    u.is_active = input.active;
+    writeAudit(draft, {
+      service: SERVICE, entity: "user", entity_no: u.email,
+      action: input.active ? "user.reactivate" : "user.deactivate", outcome: "ok", reason,
+      detail: { before: { is_active: !input.active }, after: { is_active: input.active, reason } },
+    });
+  });
+  return ok(SERVICE, change);
+}
+
+export async function inviteUser(
+  input: { email: string; full_name: string },
+): Promise<Result<UserLinkSent>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  const email = (input.email ?? "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return invalid(SERVICE, "email_invalid", "That is not an email address.", { field: "email" });
+  }
+  const name = tidyName(input.full_name ?? "");
+  const bad = nameProblem(name);
+  if (bad) return bad;
+  const existing = getState().users.find((u) => u.email.toLowerCase() === email);
+  if (existing) {
+    return conflict(SERVICE, "already_registered", "That address already has an account here.",
+      { user_id: existing.id, is_active: existing.is_active });
+  }
+
+  /* Holding nothing, like every new account (D24): IT grants on the row that
+     opens next. */
+  const id = newId("usr");
+  const now = new Date().toISOString();
+  apply((draft) => {
+    draft.users.push({
+      id, email, full_name: name, is_active: true,
+      modules: [], authorities: [], invited_at: now, created_at: now,
+    });
+    writeAudit(draft, {
+      service: SERVICE, entity: "user", entity_no: email,
+      action: "invite", outcome: "ok", reason: "demo: no mail is sent",
+    });
+  });
+  return ok(SERVICE, { user_id: id, email, kind: "invite" });
+}
+
+export async function sendUserLink(userId: string): Promise<Result<UserLinkSent>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  const user = getState().users.find((u) => u.id === userId);
+  if (!user) return notFound(SERVICE, "user_not_found", "No such user.");
+  if (!user.is_active) {
+    return refused(SERVICE, "user_inactive",
+      "Switch the account back on first — a link into an account that holds nothing opens nothing.");
+  }
+  const kind = toDirectoryRow(user).status === "pending" ? "invite" : "recovery";
+  apply((draft) => {
+    writeAudit(draft, {
+      service: SERVICE, entity: "user", entity_no: user.email,
+      action: "link.send", outcome: "ok", reason: `demo: no mail is sent (${kind})`,
+    });
+  });
+  return ok(SERVICE, { user_id: userId, email: user.email, kind });
 }
 
 /* ── Audit, activity, and the two retention rules ─────────────────────────

@@ -23,6 +23,13 @@
  *    `auth.users` — this is a test harness, and it refuses to run against a
  *    database that is not local (the same guard as `rebuild.sh`).
  *
+ *    The IT user screen (D325) adds three, reached only by the server with
+ *    the service key it prints: `POST /auth/v1/invite` (a row in
+ *    `auth.users`, which fires `provision_user`), `PUT /auth/v1/admin/users/:id`
+ *    (the ban) and `POST /auth/v1/recover`. A banned account's password grant
+ *    is refused, and a sign-in stamps `last_sign_in_at` — the two facts the
+ *    directory reads.
+ *
  *    POSTGREST_BIN=/tmp/postgrest PGHOST=/tmp PGPORT=5433 node scripts/e2e/local-stack.mjs
  *
  *  Then run the app with the three variables it prints, and the walks in
@@ -62,6 +69,9 @@ function verify(token) {
   return JSON.parse(Buffer.from(b, "base64url").toString());
 }
 const anonKey = sign({ role: "anon", iss: "e2e", iat: 0, exp: 4102444800 });
+const serviceKey = sign({ role: "service_role", iss: "e2e", iat: 0, exp: 4102444800 });
+const isService = (req) => verify((req.headers.authorization ?? "").replace(/^Bearer /i, ""))?.role === "service_role";
+const sq = (v) => `'${String(v).replace(/'/g, "''")}'`;
 
 /* ── the database side PostgREST needs ────────────────────────────────── */
 psql(`do $$ begin
@@ -127,8 +137,41 @@ async function auth(req, res, path) {
     const body = JSON.parse((await readBody(req)) || "{}");
     const u = body.email ? userByEmail(body.email) : null;
     if (!u) return json(res, 400, { error: "invalid_grant", error_description: "Invalid login credentials" });
+    if (psql(`select coalesce(banned_until > now(), false) from auth.users where id = ${sq(u.id)}::uuid`) === "t") {
+      return json(res, 400, { error_code: "user_banned", msg: "User is banned" });
+    }
+    psql(`update auth.users set last_sign_in_at = now(), email_confirmed_at = coalesce(email_confirmed_at, now()) where id = ${sq(u.id)}::uuid`);
     return json(res, 200, session(u));
   }
+  /* GoTrue's admin half, for `/api/identity/users` — service key only. */
+  if (path.startsWith("/auth/v1/invite")) {
+    if (!isService(req)) return json(res, 401, { msg: "service key required" });
+    const body = JSON.parse((await readBody(req)) || "{}");
+    const found = userByEmail(body.email);
+    if (found) {
+      if (psql(`select email_confirmed_at is not null from auth.users where id = ${sq(found.id)}::uuid`) === "t") {
+        return json(res, 422, { code: 422, error_code: "email_exists", msg: "A user with this email address has already been registered" });
+      }
+      psql(`update auth.users set invited_at = now() where id = ${sq(found.id)}::uuid`);
+      return json(res, 200, userJson(found));
+    }
+    const id = randomUUID();
+    psql(`insert into auth.users (id, email, raw_user_meta_data, invited_at)
+          values (${sq(id)}::uuid, ${sq(body.email)}, ${sq(JSON.stringify(body.data ?? {}))}::jsonb, now())`);
+    return json(res, 200, userJson(userById(id)));
+  }
+  const admin = path.match(/^\/auth\/v1\/admin\/users\/([0-9a-f-]{36})/);
+  if (admin && req.method === "PUT") {
+    if (!isService(req)) return json(res, 401, { msg: "service key required" });
+    const body = JSON.parse((await readBody(req)) || "{}");
+    const u = userById(admin[1]);
+    if (!u) return json(res, 404, { error_code: "user_not_found", msg: "User not found" });
+    if (body.ban_duration) {
+      psql(`update auth.users set banned_until = ${body.ban_duration === "none" ? "null" : `now() + ${sq(body.ban_duration)}::interval`} where id = ${sq(u.id)}::uuid`);
+    }
+    return json(res, 200, userJson(u));
+  }
+  if (path.startsWith("/auth/v1/recover")) return json(res, 200, {});
   if (path.startsWith("/auth/v1/user")) {
     const claims = verify((req.headers.authorization ?? "").replace(/^Bearer /i, ""));
     const u = claims?.sub ? userById(claims.sub) : null;
@@ -155,4 +198,5 @@ createServer(async (req, res) => {
   console.log(`NEXT_PUBLIC_USE_SUPABASE=1`);
   console.log(`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:${PORT}`);
   console.log(`NEXT_PUBLIC_SUPABASE_ANON_KEY=${anonKey}`);
+  console.log(`SUPABASE_SERVICE_ROLE_KEY=${serviceKey}`);
 });
