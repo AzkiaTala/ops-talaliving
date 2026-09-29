@@ -17,7 +17,7 @@ import { useSession } from "@/store/session";
 import { useTr } from "@/lib/i18n";
 import { RateForm } from "./RateForm";
 
-/** The estimator's price list a BOM is costed from (0180, D323).
+/** The estimator's price list a BOM is costed from (0182, D324).
  *
  *  *Selain items yang didapat dari transaksi perlu menyusun price rate sebagai
  *  bahan BOM* — the owner. The item database says what procurement paid; this

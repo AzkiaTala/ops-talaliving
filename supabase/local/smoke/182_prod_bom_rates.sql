@@ -1,4 +1,4 @@
--- prod — the BOM rate list and the *komponen* on a line (0180, D323).
+-- prod — the BOM rate list and the *komponen* on a line (0182, D324).
 --
 --   REFUSALS     a rate with no name, a negative rate, an unknown group, a
 --                linked item that does not exist, two active rates with one

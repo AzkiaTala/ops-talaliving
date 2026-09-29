@@ -97,7 +97,7 @@ const VIEW_CONTRACTS = {
      because nothing past these rows is cast. */
   v_product_summary: "ProductSummaryRow",
   v_product_bom:     "BomLineRow",
-  /* The BOM rate list (0180): read into a private flat shape and converted
+  /* The BOM rate list (0182): read into a private flat shape and converted
      by `toRate`, which only turns `rate` into a number. */
   v_bom_rate:        "BomRateRow",
   /* The order screens (0111): rows carry every field of `ProjectView` /

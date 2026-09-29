@@ -5,7 +5,7 @@ import "server-only";
 import type { BomRate, BomSuggestion, BomSuggestionLine } from "@/services/production/contracts";
 
 /** Reading a gambar kerja with a language model, into a BOM somebody checks
- *  (D323).
+ *  (D324).
  *
  *  The owner's brief: *setelah user tambah produk otomatis dia ke halaman BOM,
  *  lalu dari gambar kerja yang di-upload langsung dibaca oleh AI, lalu
@@ -172,7 +172,7 @@ export function toBomSuggestion(
     });
   }
 
-  /* One material for one part is one line on a BOM (0180's unique index), so
+  /* One material for one part is one line on a BOM (0182's unique index), so
      two proposals for the same pair are added together here rather than
      refused one at a time when the estimator presses *Add*. */
   const merged: BomSuggestionLine[] = [];

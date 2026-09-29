@@ -494,7 +494,7 @@ export async function fetchThumbnail(fileId: string, width: number): Promise<Res
 }
 
 /** The bytes of one Drive file, for a server route that has to hand a
- *  document to somebody else — the working drawing to the model (D323).
+ *  document to somebody else — the working drawing to the model (D324).
  *
  *  The same order and the same reason as `fetchThumbnail`: `drive.file` for
  *  what the app made, `drive.readonly` for what it did not. Who may read the

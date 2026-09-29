@@ -787,7 +787,7 @@ function openDraft(productId: string, by: string, byEmail: string): number {
       created_at: new Date().toISOString(), created_by: by,
     });
     for (const b of draft.bom_components.filter((x) => x.product_id === productId && x.rev === from)) {
-      /* A line that follows the rate list goes back to following it (0180). */
+      /* A line that follows the rate list goes back to following it (0182). */
       const keep = b.rate_source === "manual" || (b.kind === "labour" && !b.rate_code);
       draft.bom_components.push({
         ...b, id: newId("bom"), rev,
@@ -835,9 +835,9 @@ export async function saveBomComponent(
     unit_rate?: number | null;
     waste_percent?: number;
     note?: string | null;
-    /** Komponen — Kaki-kaki, Top (0180). */
+    /** Komponen — Kaki-kaki, Top (0182). */
     part?: string | null;
-    /** The BOM rate list entry this line follows (0180). */
+    /** The BOM rate list entry this line follows (0182). */
     rate_code?: string | null;
   },
 ): Promise<Result<ProductView>> {
@@ -1370,7 +1370,7 @@ export async function setLabourCost(
 }
 
 /* ------------------------------------------------------------------ */
-/* The BOM rate list (0180, D323)                                        */
+/* The BOM rate list (0182, D324)                                        */
 /* ------------------------------------------------------------------ */
 
 function rateView(state: ReturnType<typeof getState>, r: BomRate): BomRateView {
@@ -1406,7 +1406,7 @@ export async function listBomRates(
   return ok(SERVICE, rows);
 }
 
-/** Adding a rate, or changing one (0180's `save_bom_rate`). A changed figure
+/** Adding a rate, or changing one (0182's `save_bom_rate`). A changed figure
  *  moves every draft that follows it and no released revision. */
 export async function saveBomRate(
   input: {
@@ -1466,7 +1466,7 @@ export async function saveBomRate(
   return ok(SERVICE, rateView(getState(), saved));
 }
 
-/** A BOM proposed from the working drawing (D323).
+/** A BOM proposed from the working drawing (D324).
  *
  *  The live build sends the drawing to a language model through
  *  `/api/production/bom/suggest`. **The sandbox has no model**, so it works

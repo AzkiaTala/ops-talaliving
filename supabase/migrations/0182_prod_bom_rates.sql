@@ -1,5 +1,5 @@
--- 0180_prod_bom_rates.sql — a price-rate list for estimating a BOM, a
--- *komponen* on every BOM line, and the seams that keep both honest (D323).
+-- 0182_prod_bom_rates.sql — a price-rate list for estimating a BOM, a
+-- *komponen* on every BOM line, and the seams that keep both honest (D324).
 --
 -- ── What the owner asked ──────────────────────────────────────────────────
 --
@@ -36,7 +36,7 @@
 --    follows the catalogue; releasing freezes it with `rate_source = 'rate'`.
 -- 4. `ops_prod.save_bom_rate`: the one road to change the list, behind
 --    `production.update` — the authority that edits a BOM (default taken in
---    D323; the owner may move it to procurement).
+--    D324; the owner may move it to procurement).
 
 -- ── 1. the rate list ──────────────────────────────────────────────────────
 

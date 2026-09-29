@@ -286,7 +286,7 @@ export function bomAt(state: DemoState, product: Product, rev: number | null): B
   return state.bom_components.filter((b) => b.product_id === product.id && b.rev === rev);
 }
 
-/** The rate a line is costed at, and where it came from (0109, 0180).
+/** The rate a line is costed at, and where it came from (0109, 0182).
  *
  *  A line's own rate wins — typed by the estimator while drafting, or frozen
  *  on release. Without one, a line that follows the BOM rate list takes the
@@ -299,7 +299,7 @@ export function lineRate(
   seen: string[] = [],
 ): { rate: number | null; source: RateSource | "none" } {
   if (b.unit_rate != null) return { rate: b.unit_rate, source: b.rate_source ?? "manual" };
-  /* Following the rate list (0180): the list's figure today. */
+  /* Following the rate list (0182): the list's figure today. */
   if (b.rate_code) {
     const r = (state.bom_rates ?? []).find((x) => x.code === b.rate_code);
     if (r) return { rate: r.rate, source: "rate" };
@@ -331,7 +331,7 @@ function refName(state: DemoState, b: BomComponent): string | null {
 }
 
 /** A line's identity inside one revision: the material **for one part**
- *  (0180). Two parts of the same table may both be kayu mindi. */
+ *  (0182). Two parts of the same table may both be kayu mindi. */
 export function lineKey(b: { ref_code: string; part?: string | null }): string {
   return `${b.ref_code}\u0000${(b.part ?? "").trim().toLowerCase()}`;
 }
@@ -450,7 +450,7 @@ export function productView(state: DemoState, product: Product, rev?: number | n
       price_source: source,
       /* From the unrounded quantity, as `v_product_bom` and `bomCost` do.
          Rounding `qty_with_waste` to four places first moved a 0,0053 m³
-         leg by 0,6% — invisible on a sheet of plywood, not on timber (F176). */
+         leg by 0,6% — invisible on a sheet of plywood, not on timber (F181). */
       subtotal: rate == null ? null : Math.round(b.qty * (1 + b.waste_percent / 100) * rate),
       catalogue_price: followed?.rate ?? item?.standard_price ?? item?.last_price ?? null,
       rate_name: followed?.name ?? null,
@@ -596,7 +596,7 @@ export function explodeBom(
     const item = state.items.find((i) => i.code === code);
     if (item?.standard_price != null) return { price: item.standard_price, source: "standard" };
     if (item?.last_price != null) return { price: item.last_price, source: "last" };
-    /* A material that exists only on the rate list (0180). */
+    /* A material that exists only on the rate list (0182). */
     const r = (state.bom_rates ?? []).find((x) => x.code === code);
     if (r) return { price: r.rate, source: "rate" };
     return { price: null, source: "none" };

@@ -21,7 +21,7 @@ export const RATE_UNITS = ["m3", "m2", "m1", "lembar", "batang", "kg", "ltr", "s
 
 const inputCls = "h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none";
 
-/** One rate, new or existing (0180's `save_bom_rate`). Used by the rate list
+/** One rate, new or existing (0182's `save_bom_rate`). Used by the rate list
  *  and, inline, by the AI suggestion when the model names a material the list
  *  does not have yet — the estimator types its rate once, and every later
  *  BOM finds it. */

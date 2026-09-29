@@ -203,7 +203,7 @@ BOM_COMPONENTS.push(
 );
 for (const r of BOM_REVISIONS) r.miscalc_percent = r.product_id === "prd_01" ? 7.5 : 5;
 
-/* The *komponen* each line is for (0180, D323). Written onto both of the meja's
+/* The *komponen* each line is for (0182, D324). Written onto both of the meja's
    revisions and the kursi's, the same way on each, so the draft's diff still
    shows only what actually changed. */
 const PARTS: Record<string, Record<string, string>> = {
@@ -225,7 +225,7 @@ for (const b of BOM_COMPONENTS) {
   if (part) b.part = part;
 }
 
-/** The estimator's rate list (0180, D323): what a BOM is costed at, apart from
+/** The estimator's rate list (0182, D324): what a BOM is costed at, apart from
  *  what procurement last paid. Sample figures for the sandbox — the real list
  *  is typed by the business, not seeded. Some rates stand for an item in the
  *  database (`item_code`), so a line priced from them still points at

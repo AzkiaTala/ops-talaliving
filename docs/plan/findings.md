@@ -7385,13 +7385,13 @@ in the demo. The owner also asked for cut lines on the sheet: a dashed
 outline per label, on by default for plain A4 and off for pre-cut sticker
 sheets.
 
-## F176 · 2026-09-28 · a BOM line became *one material for one part*, and five places still looked it up by material alone
+## F181 · 2026-09-28 · a BOM line became *one material for one part*, and five places still looked it up by material alone
 
 The owner asked for a column before the component (*komponen – material –
 kebutuhan per item – satuan – rate*, e.g. *Kaki-kaki – kayu mindi grade A –
 0,23 – m3*), a BOM rate list apart from the items database (kayu per grade,
 finishing, labour, packing), and an AI that reads the uploaded gambar kerja
-and proposes the lines with rates from that list (D323, `0180`).
+and proposes the lines with rates from that list (D324, `0182`).
 
 **The part changed what a line is.** Until now a revision held one line per
 material (`component_once`), and every piece of code that had to find *the
@@ -7401,7 +7401,7 @@ released line being edited (`save_bom_line`), the copy being removed
 layers' diffs. With parts, kayu mindi is on the legs and on the top, so
 matching by material alone would have edited the legs when somebody changed
 the top. All five now match by material **and** part, and so does the unique
-index. The smoke file (`180`) edits and removes one part of a released
+index. The smoke file (`182`) edits and removes one part of a released
 revision and checks the other part is untouched.
 
 **A new column named `rate` failed a guard for code it never touches.**

@@ -35,7 +35,7 @@ export default function BomPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   /* Set when the drawer was opened by *New product* with a drawing: the BOM
-     opens and the AI reads the drawing at once (D323). */
+     opens and the AI reads the drawing at once (D324). */
   const [autoSuggest, setAutoSuggest] = useState(false);
   const mayEdit = can("production.update");
 

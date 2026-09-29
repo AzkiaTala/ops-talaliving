@@ -103,7 +103,7 @@ interface BomLineRow {
   unit_rate: number | string | null;
   rate_source: string | null;
   catalogue_price: number | string | null;
-  /* 0180 */
+  /* 0182 */
   part: string | null;
   rate_code: string | null;
   rate_name: string | null;
@@ -116,7 +116,7 @@ interface BomRateRow {
   name: string;
   rate_group: BomRateGroup;
   uom: string;
-  /* `unit_rate` in the database — see 0180 on why not `rate`. */
+  /* `unit_rate` in the database — see 0182 on why not `rate`. */
   unit_rate: number | string;
   item_code: string | null;
   item_name: string | null;
@@ -191,7 +191,7 @@ function diffOf(
 ): BomDiff {
   const before = lines.filter((l) => l.rev === fromRev);
   const after = lines.filter((l) => l.rev === toRev);
-  /* A line is one material **for one part** (0180) — the same key the
+  /* A line is one material **for one part** (0182) — the same key the
      database's unique index uses. */
   const key = (l: BomLineView) => `${l.ref_code}\u0000${(l.part ?? "").trim().toLowerCase()}`;
   const keys = [...new Set([...before, ...after].map(key))].sort();
@@ -460,9 +460,9 @@ export async function saveBomComponent(
     unit_rate?: number | null;
     waste_percent?: number;
     note?: string | null;
-    /** Komponen — Kaki-kaki, Top (0180). */
+    /** Komponen — Kaki-kaki, Top (0182). */
     part?: string | null;
-    /** The BOM rate list entry this line follows (0180). */
+    /** The BOM rate list entry this line follows (0182). */
     rate_code?: string | null;
   },
 ): Promise<Result<ProductView>> {
@@ -544,7 +544,7 @@ export async function createBomItem(
   return ok(SERVICE, { code: res.data.code, name: res.data.name ?? input.name.trim(), existing: res.data.existing });
 }
 
-/* ── the BOM rate list (0180, D323) ────────────────────────────────────── */
+/* ── the BOM rate list (0182, D324) ────────────────────────────────────── */
 
 export async function listBomRates(
   opts: { include_inactive?: boolean } = {},
@@ -591,7 +591,7 @@ export async function saveBomRate(
   return ok(SERVICE, toRate(row as BomRateRow));
 }
 
-/** A BOM proposed from the working drawing, by a language model (D323).
+/** A BOM proposed from the working drawing, by a language model (D324).
  *
  *  Not PostgREST: the model key and the Drive key cannot be in a browser, so
  *  the request makes one hop through `/api/production/bom/suggest`, which

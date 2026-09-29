@@ -7,7 +7,7 @@ import { BOM_SYSTEM, bomPrompt, toBomSuggestion } from "@/lib/bom-vision";
 import type { BomRate } from "@/services/production/contracts";
 
 /** `POST /api/production/bom/suggest` — a product's gambar kerja, read by a
- *  model into a proposed BOM (D323).
+ *  model into a proposed BOM (D324).
  *
  *  A server route for the reason `/api/inventory/nota/read` is one: neither
  *  the model key nor the Drive key may be in a browser. And like the nota
@@ -125,7 +125,7 @@ export async function POST(request: Request): Promise<Response> {
   const { data: rateRows, error: rErr } = await sb.schema("ops_prod").from("bom_rates")
     .select("*").eq("active", true).order("rate_group").order("name");
   if (rErr) return refuse(500, "database_error", rErr.message);
-  /* `unit_rate` in the table (0180); `rate` in the contract. */
+  /* `unit_rate` in the table (0182); `rate` in the contract. */
   const rates: BomRate[] = ((rateRows ?? []) as (Omit<BomRate, "rate"> & { unit_rate: number | string })[])
     .map(({ unit_rate, ...r }) => ({ ...r, rate: Number(unit_rate) }));
 

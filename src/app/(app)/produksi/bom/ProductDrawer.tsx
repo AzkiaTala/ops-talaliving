@@ -46,7 +46,7 @@ export function ProductDrawer({
   productCode: string | null;
   onClose: () => void;
   onChanged: () => void;
-  /** A new product was saved: open its BOM (owner, D323 — *setelah user
+  /** A new product was saved: open its BOM (owner, D324 — *setelah user
    *  tambah produk otomatis dia ke halaman BOM*). */
   onCreated?: (productCode: string, opts: { autoSuggest: boolean }) => void;
   /** Read the working drawing with the AI as soon as the BOM opens, when there
@@ -84,7 +84,7 @@ function ExistingProduct({
   const [suggest, setSuggest] = useState<SuggestState>({ status: "idle" });
   const runs = useRef(0);
 
-  /* Reading a drawing writes nothing (D200, D323): the answer is a list the
+  /* Reading a drawing writes nothing (D200, D324): the answer is a list the
      estimator checks, and each line they keep is added as themselves. */
   async function runSuggest(attachmentId?: string, filename?: string | null) {
     setSuggest({ status: "loading", filename: filename ?? null });
@@ -923,7 +923,7 @@ function AddLine({ p, busy, run, settle, onDone }: PartProps & { onDone: () => v
       product_code: p.product_code,
       kind,
       /* From the rate list the seam works the material out itself: the item
-         the rate stands for, else the rate (0180). */
+         the rate stands for, else the rate (0182). */
       ref_code: mode === "labour" || mode === "rate" ? undefined : ref?.code,
       label: mode === "labour" ? label : null,
       qty, uom, unit_rate: rate,
@@ -1147,7 +1147,7 @@ interface ReviewRow extends BomSuggestionLine {
 }
 
 /** What the AI read from the working drawing, as rows the estimator checks
- *  (D323). Every field is editable; a row is added only when ticked, and only
+ *  (D324). Every field is editable; a row is added only when ticked, and only
  *  through `saveBomComponent`, as the person pressing the button. Rates are
  *  the list's, never the model's — a material the list does not have cannot be
  *  added until a rate is chosen or typed into the list. */
@@ -1568,7 +1568,7 @@ function NewProduct({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  /* Saved, then straight to its BOM (D323): with a working drawing the AI is
+  /* Saved, then straight to its BOM (D324): with a working drawing the AI is
      already reading it by the time the drawer opens. The drawing is filed
      after the product exists, because it is filed **against** the product. */
   async function create() {

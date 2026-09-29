@@ -687,7 +687,7 @@ export interface BomRevisionView extends BomRevision {
 export interface BomDiffLine {
   ref_code: string;
   ref_name: string | null;
-  /** The komponen the line is for (0180). A material moved from the legs to
+  /** The komponen the line is for (0182). A material moved from the legs to
    *  the top is two lines of the diff, because it is two lines of the BOM. */
   part: string | null;
   change: "added" | "removed" | "changed";
@@ -748,7 +748,7 @@ export interface BomComponent {
    *  numbers, and conflating them is how a workshop runs out (D149). */
   waste_percent: number;
   note: string | null;
-  /** *Komponen* — Kaki-kaki, Top, Rangka (0180, D323). The material is
+  /** *Komponen* — Kaki-kaki, Top, Rangka (0182, D324). The material is
    *  `ref_code`; the part is what it is cut into. Two parts may use the same
    *  material, so a line is one material **for one part**. Null on lines
    *  written before it existed. Optional only because the demo's older
@@ -764,7 +764,7 @@ export type BomKind = "material" | "product" | "labour";
 
 /** Where a line's rate came from. `last` is the last price paid, `standard`
  *  the curated one, `sub_assembly` the sub-assembly's own released production
- *  cost, `manual` the estimator's, `rate` the BOM rate list's (0180). */
+ *  cost, `manual` the estimator's, `rate` the BOM rate list's (0182). */
 export type RateSource = "manual" | "standard" | "last" | "sub_assembly" | "rate";
 
 export interface BomLineView extends BomComponent {
@@ -805,7 +805,7 @@ export interface BomExplodedLine {
   qty: number;
   uom: string;
   unit_price: number | null;
-  /** `rate` for a material that exists only on the BOM rate list (0180). */
+  /** `rate` for a material that exists only on the BOM rate list (0182). */
   price_source: "standard" | "last" | "rate" | "none";
   subtotal: number | null;
   /** Every chain of parents this material arrived by, product code by product
@@ -1082,7 +1082,7 @@ export interface ProductView extends Product {
   warnings: string[];
 }
 
-/* ── The BOM rate list (0180, D323) ───────────────────────────────────────
+/* ── The BOM rate list (0182, D324) ───────────────────────────────────────
  *
  *  *Selain items yang didapat dari transaksi perlu menyusun price rate sebagai
  *  bahan BOM* — the owner. The item database is what procurement bought, at
@@ -1143,7 +1143,7 @@ export interface BomRateView extends BomRate {
   used_by: number;
 }
 
-/** One line the AI proposes from a working drawing (D323).
+/** One line the AI proposes from a working drawing (D324).
  *
  *  A proposal and nothing more: the route that produces it writes nothing, and
  *  a person adds the lines they agree with through `saveBomComponent`, as
