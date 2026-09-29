@@ -168,6 +168,25 @@ export interface UserActiveChange {
   sign_in_detail: string | null;
 }
 
+/** A password the server generated and GoTrue now holds (D329): a new
+ *  account's first one, or a replacement. **Shown to IT once**, from this
+ *  answer, and kept nowhere else — not in a table, the trail, the activity
+ *  log or the browser's storage. */
+export interface UserPasswordIssued {
+  user_id: string;
+  email: string;
+  full_name: string;
+  password: string;
+  kind: "created" | "reset";
+}
+
+/** An address under `.local` is a username, not a mailbox (D329): the
+ *  convention for people with no work email. Nothing is ever sent to it, so
+ *  the screen offers a new password instead of a link. */
+export function isUsernameOnly(email: string): boolean {
+  return email.trim().toLowerCase().endsWith(".local");
+}
+
 /** Somebody a question can be addressed to, and the authority that makes them
  *  the right person for it.
  *

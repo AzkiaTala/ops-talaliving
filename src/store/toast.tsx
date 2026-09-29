@@ -10,11 +10,20 @@ export interface Toast {
   level: ToastLevel;
   title: string;
   message?: string;
+  /** One button beside the message. A toast that carries one stays until it
+   *  is used or closed: an offer that vanishes after four seconds is an offer
+   *  nobody got to take. */
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
 }
 
 interface ToastValue {
   toasts: Toast[];
-  toast: (level: ToastLevel, title: string, message?: string) => void;
+  toast: (level: ToastLevel, title: string, message?: string, action?: ToastAction) => void;
   dismissToast: (id: number) => void;
 }
 
@@ -34,13 +43,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (level: ToastLevel, title: string, message?: string) => {
+    (level: ToastLevel, title: string, message?: string, action?: ToastAction) => {
       const id = Date.now() + Math.random();
-      setToasts((prev) => [...prev, { id, level, title: stripRefs(title), message: stripRefs(message) }]);
+      setToasts((prev) => [...prev, { id, level, title: stripRefs(title), message: stripRefs(message), action }]);
       // Kesalahan dibiarkan sampai ditutup sendiri: pesan yang hilang setelah
       // empat detik adalah pesan yang tidak sempat dibaca orang yang sedang
       // menatap bagian lain layar.
-      if (level !== "critical") {
+      if (level !== "critical" && !action) {
         window.setTimeout(() => dismissToast(id), 4000);
       }
     },

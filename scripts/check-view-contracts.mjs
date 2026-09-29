@@ -223,9 +223,13 @@ const VIEW_CONTRACTS = {
   v_contract: { type: "ContractView", composed: ["clauses", "coverage", "conflicts"] },
   v_leave_request: "LeaveRequestView",
   v_task:          "TaskView",
+  /* Which account is which employee (D329): IT links, HR reads. */
+  v_employee_account: "EmployeeAccount",
   v_task_routine:  "TaskRoutineView",
   v_allowance_withholding: "AllowanceWithholdingView",
   v_pay_rule_set: "PayRuleSetView",
+  /* Phone taps with their reading (0188, D332). */
+  v_located_tap: "LocatedTapView",
   /* Read for `stage`, `payable` and `total_hours` and merged onto the sheet
      rows; nothing is cast into a contract from it. */
   v_overtime_claim:  null,

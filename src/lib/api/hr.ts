@@ -48,11 +48,14 @@ import type {
   LeaveKind, LeaveStatus, LeaveRequestView, LeaveBalance,
   TaskStatus, TaskRefKind, TaskView, TaskCadence, TaskRoutineView,
   Sex, Education, Citizenship, MaritalStatus, EmployeeIdentityView, WlkpRecap,
+  TapReading, TapSelfResult, LocationJudgement, WorkSite, LocatedTapView,
+  EmployeeAccount,
 } from "@/services/hr/contracts";
 import {
   EMPLOYEE_DOC_CHECKLIST, EMPLOYEE_DOC_LABEL, SENSITIVE_DOC_KINDS,
   ADJUSTMENT_LABEL, SCHEME_LABEL,
 } from "@/services/hr/contracts";
+import { instantInDay, nextOfficeDay } from "@/services/hr/schedule-rules";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fromSeam, fromRows, notFound, invalid, ok, type Result } from "./_kit";
 
@@ -90,6 +93,35 @@ async function readEmployee(employeeNo: string): Promise<Result<Employee>> {
   if (error) return fromRows<Employee>(SERVICE, null, error);
   if (!data) return notFound(SERVICE, "employee_not_found", `No employee ${employeeNo}.`);
   return ok(SERVICE, data as unknown as Employee);
+}
+
+/* ------------------------------------------------------------------ */
+/* Which account is which employee (D329)                              */
+/* ------------------------------------------------------------------ */
+
+/** `ops_hr.v_employee_account`. IT and HR read it; anybody else gets an
+ *  empty list from the view's own condition, not a check repeated here. */
+export async function listEmployeeAccounts(): Promise<Result<EmployeeAccount[]>> {
+  const { data, error } = await db().from("v_employee_account").select("*").order("employee_no");
+  return fromRows<EmployeeAccount[]>(SERVICE, data as EmployeeAccount[] | null, error);
+}
+
+/** Link an account to an employee, or unlink it (`user_id` null). IT's
+ *  (`it.manage_users`); every refusal is the seam's. The row is read back
+ *  so the screen redraws both halves of the link. */
+export async function linkEmployeeAccount(
+  input: { employee_id: string; user_id: string | null },
+): Promise<Result<EmployeeAccount>> {
+  const { data, error } = await db().rpc("link_employee_account", {
+    p_employee_id: input.employee_id, p_user_id: input.user_id,
+  });
+  const res = fromSeam<unknown>(SERVICE, data, error);
+  if (res.error) return res;
+  const back = await db().from("v_employee_account").select("*")
+    .eq("employee_id", input.employee_id).maybeSingle();
+  if (back.error) return fromRows<EmployeeAccount>(SERVICE, null, back.error);
+  if (!back.data) return notFound(SERVICE, "employee_not_found", "No such employee.");
+  return { data: back.data as EmployeeAccount, meta: res.meta };
 }
 
 /** One form for the new hire and the change of terms, which is what the screen
@@ -162,6 +194,10 @@ export async function listSchedules(): Promise<Result<{
     assigned: number;
     inherited: number;
     units: string[];
+    /** End before start: the shift crosses midnight (D330). */
+    overnight: boolean;
+    /** Where this pattern's next working day begins, minutes after midnight. */
+    day_boundary_minutes: number;
   })[];
   unlinked: { employee_no: string; full_name: string; unit: string }[];
   inherited: { employee_no: string; full_name: string; unit: string; schedule_code: string }[];
@@ -169,6 +205,35 @@ export async function listSchedules(): Promise<Result<{
 }>> {
   const { data, error } = await db().rpc("schedule_roll");
   return fromRows(SERVICE, data as never, error);
+}
+
+/** HRD sets one pattern's start, end and break (D330).
+ *
+ *  Written as a new dated version of the rule book in force on
+ *  `effective_from`, everything else copied — so *when did the guard's hours
+ *  change, and who changed them* is the book's own history. Saving clears
+ *  `hours_unconfirmed`: typing the default in is how it is confirmed. */
+export async function setScheduleHours(
+  input: {
+    code: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  const { data, error } = await db().rpc("set_schedule_hours", {
+    p_code: input.code,
+    p_start_minutes: input.start_minutes,
+    p_end_minutes: input.end_minutes,
+    p_break_minutes: input.break_minutes,
+    p_effective_from: input.effective_from,
+    p_note: input.note,
+    p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<{ code: string; version: number; effective_from: string }>(SERVICE, data, error);
 }
 
 /* ------------------------------------------------------------------ */
@@ -732,10 +797,18 @@ export async function addScan(
 ): Promise<Result<AttendanceScan>> {
   /* The contract carries the day and the clock time apart, because that is how
      somebody types it off a note; the seam takes the instant. WITA is the
-     office's zone and the one the machine prints in (F17). */
+     office's zone and the one the machine prints in (F17).
+
+     *The day* is the working day, and for a guard that is a night: 07.05
+     typed against Monday's shift is Tuesday 07.05 (D330). Which calendar day
+     a clock time lands on is read off the day's own window, so the database's
+     reading decides it and this file does not decide it again. */
+  const day = await readDays(input.work_date, input.work_date, undefined, input.employee_no);
+  if (day.error) return day as unknown as Result<AttendanceScan>;
+  const windowFrom = day.data[0]?.window_from ?? null;
   const { data, error } = await db().rpc("add_scan", {
     p_employee_no: input.employee_no,
-    p_at: `${input.work_date}T${input.time}:00+08`,
+    p_at: instantInDay(input.work_date, input.time, windowFrom),
     p_reason: input.reason,
     p_key: null,
   });
@@ -901,6 +974,9 @@ interface DayRow {
   fixable: string | null;
   issues: string[];
   notes: string[];
+  window_from: string;
+  window_to: string;
+  overnight: boolean;
 }
 
 interface ScanRow {
@@ -923,8 +999,16 @@ function slotOf(row: DayRow, at: string): ScanSlot | null {
 }
 
 function buildDay(row: DayRow, scans: ScanRow[], marks: DayMark[]): TimesheetDay {
-  const mine = scans.filter(
-    (s) => s.employee_id === row.employee_id && s.work_date === row.work_date);
+  /* The taps the reading read: its own window, not the calendar day. A guard's
+     07.05 pulang is stored on Tuesday and read into Monday night (D330), and
+     matching by `work_date` here would show it under the wrong day. */
+  const from = Date.parse(row.window_from);
+  const to = Date.parse(row.window_to);
+  const mine = scans.filter((s) => {
+    if (s.employee_id !== row.employee_id) return false;
+    const at = Date.parse(s.at);
+    return at >= from && at < to;
+  });
   const slots: Partial<Record<ScanSlot, string>> = {};
   if (row.in_at) slots.in = row.in_at;
   if (row.break_out_at) slots.break_out = row.break_out_at;
@@ -958,6 +1042,9 @@ function buildDay(row: DayRow, scans: ScanRow[], marks: DayMark[]): TimesheetDay
     pay: { value: row.day_value, why: row.why, fixable: row.fixable },
     issues: row.issues ?? [],
     notes: row.notes ?? [],
+    window_from: row.window_from,
+    window_to: row.window_to,
+    overnight: row.overnight,
   };
 }
 
@@ -973,8 +1060,10 @@ async function readDays(
         p_from: from, p_to: to, p_unit: unit ?? null, p_employee_no: employeeNo ?? null,
       }),
       db()
+        /* One calendar day past the range: the last day's window can reach
+           into the next morning for somebody on a night (D330). */
         .from("attendance_scans").select("id,employee_id,work_date,at,verify,source")
-        .gte("work_date", from).lte("work_date", to),
+        .gte("work_date", from).lte("work_date", nextOfficeDay(to)),
       db()
         .from("day_marks").select("id,employee_id,work_date,kind,reason,marked_by,marked_at")
         .gte("work_date", from).lte("work_date", to).is("withdrawn_at", null),
@@ -1086,12 +1175,65 @@ export async function myProfile(): Promise<Result<Employee | null>> {
 /** Presensi dari akun sendiri — a tap with a different machine behind it
  *  (0164). Not "clock in" or "clock out": a tap is a tap, and which slot it
  *  fills is a reading of the whole day, computed the same way whether the
- *  door's own reader produced it or a phone did (D141). */
+ *  door's own reader produced it or a phone did (D141).
+ *
+ *  Since `0188` (D332) it carries where the phone was, read once at the tap.
+ *  The database judges the reading against the warehouse; an off-site tap
+ *  without a note comes back as `off_site_needs_note` with the verdict in
+ *  `error.detail`, and the same call with a note (and optionally a photo
+ *  already uploaded as `Foto Presensi`) writes it, flagged. */
 export async function tapSelf(
+  input: Partial<TapReading> & { note?: string | null; photo_id?: string | null } = {},
   idempotencyKey?: string,
-): Promise<Result<{ id: string; at: string; work_date: string }>> {
-  const { data, error } = await db().rpc("tap_self", { p_key: idempotencyKey ?? null });
-  return fromSeam<{ id: string; at: string; work_date: string }>(SERVICE, data, error);
+): Promise<Result<TapSelfResult>> {
+  const { data, error } = await db().rpc("tap_self", {
+    p_lat: input.lat ?? null,
+    p_lng: input.lng ?? null,
+    p_accuracy_m: input.accuracy_m ?? null,
+    p_note: input.note ?? null,
+    p_photo_id: input.photo_id ?? null,
+    p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<TapSelfResult>(SERVICE, data, error);
+}
+
+/** Where a reading stands against the nearest active site — the same
+ *  judgement `tap_self` makes, for the settings screen's "test here". */
+export async function judgeLocation(input: TapReading): Promise<Result<LocationJudgement>> {
+  const { data, error } = await db().rpc("judge_location", {
+    p_lat: input.lat, p_lng: input.lng, p_accuracy_m: input.accuracy_m,
+  });
+  return fromRows<LocationJudgement>(SERVICE, data as LocationJudgement, error);
+}
+
+export async function listWorkSites(): Promise<Result<WorkSite[]>> {
+  const { data, error } = await db().from("work_sites")
+    .select("id,code,name,lat,lng,radius_m,active,updated_at").order("code");
+  return fromRows<WorkSite[]>(SERVICE, (data ?? []) as WorkSite[], error);
+}
+
+/** Set a site's centre and radius. HRD or IT; the seam decides. */
+export async function saveWorkSite(
+  input: { code: string; name: string; lat: number | null; lng: number | null; radius_m: number; active: boolean },
+  idempotencyKey?: string,
+): Promise<Result<WorkSite>> {
+  const { data, error } = await db().rpc("save_work_site", {
+    p_code: input.code, p_name: input.name, p_lat: input.lat, p_lng: input.lng,
+    p_radius_m: input.radius_m, p_active: input.active, p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<WorkSite>(SERVICE, data, error);
+}
+
+/** Phone taps with their reading, in a period of office days. HRD's review
+ *  reads the flagged ones; RLS narrows a self caller to their own. */
+export async function listLocatedTaps(
+  input: { from: string; to: string; flagged_only?: boolean },
+): Promise<Result<LocatedTapView[]>> {
+  let q = db().from("v_located_tap").select("*")
+    .gte("work_date", input.from).lte("work_date", input.to);
+  if (input.flagged_only) q = q.eq("flagged", true);
+  const { data, error } = await q.order("at", { ascending: false });
+  return fromRows<LocatedTapView[]>(SERVICE, (data ?? []) as LocatedTapView[], error);
 }
 
 /* ------------------------------------------------------------------ */

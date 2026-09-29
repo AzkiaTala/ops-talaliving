@@ -126,6 +126,14 @@ export function initialState(): DemoState {
 
     employees: EMPLOYEES,
     attendance_scans: ATTENDANCE_SCANS,
+    /* The sandbox has a warehouse point so a phone can be judged against it;
+       the real database seeds none (0188) — somebody stands there and sets it.
+       Near the Denpasar office the demo already reckons time from. */
+    work_sites: [{
+      id: "site_gudang", code: "GUDANG", name: "Gudang", lat: -8.6705, lng: 115.2126,
+      radius_m: 150, active: true, updated_at: "2026-09-29T00:00:00.000Z",
+    }],
+    scan_locations: [],
     day_marks: DAY_MARKS,
     overtime_sheets: OVERTIME_SHEETS,
     overtime_lines: OVERTIME_LINES,
@@ -137,6 +145,20 @@ export function initialState(): DemoState {
     tasks: TASKS,
     task_routines: TASK_ROUTINES,
     employee_identities: EMPLOYEE_IDENTITIES,
+    /* Five of the six office personas are also on the roster (W7), and Karjo
+       from the workshop floor (D331). Wulan (HRD) and
+       the shared IT account are not — the ordinary case of an account that is
+       nobody's employee record. */
+    employee_accounts: [
+      { employee_no: "K-001", user_id: "usr_evin" },
+      { employee_no: "K-004", user_id: "usr_putri" },
+      { employee_no: "K-007", user_id: "usr_anggun" },
+      { employee_no: "K-011", user_id: "usr_andi" },
+      { employee_no: "K-014", user_id: "usr_made" },
+      /* Karjo, a daily worker with no module: the employee-only account whose
+         whole app is `/saya` (D331). */
+      { employee_no: "B-009", user_id: "usr_karjo" },
+    ],
     pay_rule_sets: PAY_RULE_SETS,
     employee_documents: EMPLOYEE_DOCUMENTS,
     employment_contracts: EMPLOYMENT_CONTRACTS,

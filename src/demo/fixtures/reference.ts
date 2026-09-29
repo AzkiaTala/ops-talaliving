@@ -105,6 +105,17 @@ export const USERS: DemoUser[] = [
     authorities: [],
   },
   {
+    /* Karjo, a daily worker in the workshop — the employee-only account
+     * (D326, D331). No module and no authority: his whole app is `/saya`,
+     * reached through the account ↔ employee link (`src/demo/self-link.ts`)
+     * rather than a grant. The address is one IT typed as plain text and
+     * nothing is ever sent to (D329), which is why `/saya` tells him to ask IT
+     * for a new password instead of mailing a link. */
+    id: "usr_karjo", email: "karjo@pekerja.talaliving.com", full_name: "Karjo", is_active: true,
+    modules: [],
+    authorities: [],
+  },
+  {
     id: "usr_shared", email: "it@talaliving.com", full_name: "IT / Shared", is_active: true,
     modules: [
       { module: "dashboard", level: "read" },

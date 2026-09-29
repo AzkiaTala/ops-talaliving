@@ -23,7 +23,7 @@ import type {
   ProductMove, ProductSetting,
 } from "@/services/inventory/contracts";
 import type {
-  Employee, AttendanceScan, DayMark, OvertimeSheet, OvertimeLine, PayrollRun,
+  Employee, AttendanceScan, WorkSite, LocationVerdict, DayMark, OvertimeSheet, OvertimeLine, PayrollRun,
   PayrollAdjustment, PayRuleSet, EmployeeDocument, LeaveRequest,
   AllowanceWithholding, ContributionRate, Enrolment, Task,
   EmploymentContract, ContractClause, ClauseChecklistItem, TaskRoutine,
@@ -46,6 +46,10 @@ export interface DemoUser extends User {
    *  leave both out — they stand for people already working here. When
    *  somebody last signed in is not stored: it is read from the trail. */
   invited_at?: string | null;
+  /** Set when IT made the account with a generated password (D329). Like an
+   *  invitation, the account is *pending* until its first sign-in. The
+   *  password itself is never kept — the demo accepts any. */
+  password_issued_at?: string | null;
   created_at?: string;
 }
 
@@ -79,6 +83,21 @@ export interface OutboxRow {
   payload: Record<string, unknown>;
   occurred_at: string;
   delivered_at: string | null;
+}
+
+/** `ops_hr.scan_locations` (0188). */
+export interface DemoScanLocation {
+  scan_id: string;
+  tap_no: string;
+  site_id: string | null;
+  lat: number | null;
+  lng: number | null;
+  accuracy_m: number | null;
+  distance_m: number | null;
+  radius_m: number | null;
+  verdict: LocationVerdict;
+  note: string | null;
+  photo_id: string | null;
 }
 
 export interface DemoState {
@@ -156,6 +175,11 @@ export interface DemoState {
   employees: Employee[];
   /** One row per tap on the reader. The day is derived (D141). */
   attendance_scans: AttendanceScan[];
+  /** Where a phone tap is judged against: the warehouse (D332, 0188). */
+  work_sites: WorkSite[];
+  /** A phone tap's reading, 1:1 with its scan (0188). The judgement is stored
+   *  as it was at the tap, the way the database stores it. */
+  scan_locations: DemoScanLocation[];
   /** What HRD says about a day that no reader can know (D142). */
   day_marks: DayMark[];
   /** Overtime is a sheet with lines on it — one night, many names for
@@ -199,6 +223,11 @@ export interface DemoState {
    *  on `employees`, because `employees` is readable by every payroll account
    *  and this is not (D196). */
   employee_identities: EmployeeIdentity[];
+  /** Which account is which employee — `ops_hr.employees.user_id` (0152),
+   *  kept beside the fixture rather than on `Employee` so the shared contract
+   *  does not widen. Written by `linkEmployeeAccount` (D329), read by every
+   *  self-service call as `my_employee_id()`. */
+  employee_accounts: { employee_no: string; user_id: string }[];
 
   /* --- production ------------------------------------------------- */
   /** What is being made, in what quantity, by when (D148). */

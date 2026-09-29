@@ -71,6 +71,27 @@ export interface Employee {
   note: string | null;
 }
 
+/** Which sign-in an employee uses, if any (D329, `ops_hr.v_employee_account`).
+ *
+ *  The link `my_employee_id()` reads, with both halves named, for the two
+ *  screens that ask: IT → Pengguna & akses links and unlinks it, HR →
+ *  Karyawan shows it. Name, number, unit and position only — nothing about
+ *  pay, because IT reads it too. Null `user_id` is normal: most of the floor
+ *  had no account before D329. */
+export interface EmployeeAccount {
+  employee_id: string;
+  employee_no: string;
+  full_name: string;
+  position: string | null;
+  unit: string | null;
+  /** Still works here. A left employee can be unlinked, never linked. */
+  active: boolean;
+  user_id: string | null;
+  user_email: string | null;
+  user_full_name: string | null;
+  user_is_active: boolean | null;
+}
+
 /** Where a scan came from. `import` is the machine's own export; `manual` is a
  *  person putting in what the machine missed, which always carries a reason
  *  (D137); `self` is the person themselves, tapped from their own signed-in
@@ -229,6 +250,17 @@ export interface TimesheetDay {
    *  *The rule could not fit the taps* and *something here is worth a second
    *  look* are different sentences, and only the first one blocks. */
   notes: string[];
+  /** The instants this day's taps were read from: `[window_from, window_to)`.
+   *  Midnight to midnight WITA for an ordinary pattern; for somebody on a
+   *  night (D330) the day claims the next morning, up to the middle of the
+   *  off-duty gap — so a guard's 07.05 pulang is on the evening it began,
+   *  while the tap's own `work_date` stays the calendar day it happened on.
+   *  Carried so a client lists the taps the reading read and decides nothing
+   *  again. */
+  window_from: string;
+  window_to: string;
+  /** Read as a shift that crosses midnight. */
+  overnight: boolean;
 }
 
 /** Overtime arrives as a **sheet**, and there are two kinds of sheet.
@@ -1521,6 +1553,10 @@ export interface LeaveRequestView extends LeaveRequest {
   unpaid_days: number;
   /** Set when the person already has a mark on one of these days. */
   clashes: string[];
+  /** A surat dokter is filed against the request itself (0187). Approving
+   *  carries it to each sick day, which is what makes those days paid (D144);
+   *  one that arrives after approval is carried the moment it is linked. */
+  letter_attached: boolean;
 }
 
 /** What somebody has left. Computed from the marks, never stored — the same
@@ -1997,3 +2033,95 @@ export interface EffectiveDaysCalendar {
 // refuse with — otherwise the form and the database disagree about the form.
 export { scheduleProblem, scheduleProblems, scheduleHoursOf, SCHEDULE_CASES } from "./schedule-rules";
 export type { ScheduleShape, ScheduleProblem, ScheduleHoursShape } from "./schedule-rules";
+
+/* ------------------------------------------------------------------ */
+/* Presensi berlokasi (D332, 0188)                                     */
+/* ------------------------------------------------------------------ */
+//
+// A tap from the phone carries where it was made, read once at the tap and
+// never in the background (W8). The database judges it against the nearest
+// active work site (the warehouse). Off-site is recorded and flagged, never
+// refused: what is refused is an off-site tap with no note, and the refusal
+// (`off_site_needs_note`, 422) carries the verdict in `error.detail`, which is
+// what tells the phone to show the form.
+
+/** How a reading stood against the site, judged by its whole accuracy circle:
+ *  `inside` the whole circle is within the radius; `outside` none of it is;
+ *  `uncertain` it straddles the edge (or the phone gave no accuracy);
+ *  `no_location` the phone gave no point (permission denied, no fix);
+ *  `no_site` no active site has a point yet, so nothing was judged. */
+export type LocationVerdict = "inside" | "outside" | "uncertain" | "no_location" | "no_site";
+
+/** The verdicts that need a note and are flagged for HRD. */
+export const OFF_SITE_VERDICTS: readonly LocationVerdict[] = ["outside", "uncertain", "no_location"];
+
+/** What the phone read at the tap. All null when it could not read one. */
+export interface TapReading {
+  lat: number | null;
+  lng: number | null;
+  accuracy_m: number | null;
+}
+
+/** `ops_hr.judge_location` — where a reading stands. */
+export interface LocationJudgement {
+  verdict: LocationVerdict;
+  /** From the site's centre, metres. Null with no point or no site. */
+  distance_m: number | null;
+  accuracy_m: number | null;
+  site_code: string | null;
+  site_name: string | null;
+  radius_m: number | null;
+  /** `outside`, `uncertain`, `no_location`: the tap needs a note. */
+  needs_note: boolean;
+}
+
+export interface TapSelfResult {
+  id: string;
+  at: string;
+  work_date: string;
+  /** The tap's public code: `B-1841/2026-09-29T07:25:03.000000` (office clock). */
+  tap_no: string;
+  location: LocationJudgement;
+}
+
+/** A place a phone tap is judged against. One active row today: the
+ *  warehouse. No seeded point: HRD or IT sets it standing there. */
+export interface WorkSite {
+  id: string;
+  /** Public code, `GUDANG`. */
+  code: string;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+  radius_m: number;
+  active: boolean;
+  updated_at: string;
+}
+
+/** The radius a new site starts with. An open question (D332). */
+export const DEFAULT_SITE_RADIUS_M = 150;
+
+/** `ops_hr.v_located_tap` — one phone tap and its reading, for HRD's review. */
+export interface LocatedTapView {
+  tap_no: string;
+  scan_id: string;
+  employee_no: string;
+  full_name: string;
+  unit: string | null;
+  at: string;
+  work_date: string;
+  verdict: LocationVerdict;
+  flagged: boolean;
+  lat: number | null;
+  lng: number | null;
+  accuracy_m: number | null;
+  distance_m: number | null;
+  radius_m: number | null;
+  site_code: string | null;
+  site_name: string | null;
+  note: string | null;
+  photo_id: string | null;
+  /** Drive's own link for the photo, when the live upload recorded one. */
+  photo_link: string | null;
+  photo_filename: string | null;
+}

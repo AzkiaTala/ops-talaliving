@@ -15,11 +15,13 @@ import type {
   Task, TaskView, TaskRefKind, KpiView,
   ContractKind, ClauseKind, ClauseChecklistItem, EmploymentContract,
   ContractView, ContractDetail, ContractClause, ClauseConflict, TimesheetTotal, DayState,
-  EffectiveDaysCalendar,
+  EffectiveDaysCalendar, EmployeeAccount,
+  TapReading, TapSelfResult, LocationJudgement, LocationVerdict, WorkSite, LocatedTapView,
 } from "@/services/hr/contracts";
 import {
-  SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem,
+  SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem, OFF_SITE_VERDICTS,
 } from "@/services/hr/contracts";
+import { instantInDay, isOvernight, dayBoundaryMinutes } from "@/services/hr/schedule-rules";
 import type { DocKind } from "@/services/documents/contracts";
 import type { DemoState } from "../state";
 import { getState, apply, newId, nextDocNumber, writeAudit, writeOutbox } from "../store";
@@ -32,7 +34,8 @@ import {
   employeeIdentityViews, wlkpRecap,
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
-import { officeToday as sharedOfficeToday } from "@/lib/office";
+import { officeClock, officeToday as sharedOfficeToday } from "@/lib/office";
+import { carrySickNote } from "../self-link";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
@@ -73,6 +76,91 @@ export async function getEmployee(employeeNo: string): Promise<Result<Employee>>
   const found = getState().employees.find((e) => e.employee_no === employeeNo);
   if (!found) return notFound(SERVICE, "employee_not_found", `No employee ${employeeNo}.`);
   return ok(SERVICE, found);
+}
+
+/* ------------------------------------------------------------------ */
+/* Which account is which employee (D329)                              */
+/* ------------------------------------------------------------------ */
+
+function toEmployeeAccount(state: DemoState, e: Employee): EmployeeAccount {
+  const link = state.employee_accounts?.find((l) => l.employee_no === e.employee_no);
+  const user = link ? state.users.find((u) => u.id === link.user_id) : undefined;
+  return {
+    employee_id: e.id, employee_no: e.employee_no, full_name: e.full_name,
+    position: e.position ?? null, unit: e.unit ?? null, active: e.active,
+    user_id: user?.id ?? null, user_email: user?.email ?? null,
+    user_full_name: user?.full_name ?? null, user_is_active: user ? user.is_active : null,
+  };
+}
+
+/** `ops_hr.v_employee_account`: IT and HR read it, nobody else. */
+export async function listEmployeeAccounts(): Promise<Result<EmployeeAccount[]>> {
+  await latency();
+  const user = actingUser();
+  if (!user.is_active || !user.modules.some((m) => m.module === "it" || m.module === "hrd")) {
+    return ok(SERVICE, []);
+  }
+  const state = getState();
+  return ok(SERVICE, [...state.employees]
+    .sort((a, b) => a.employee_no.localeCompare(b.employee_no))
+    .map((e) => toEmployeeAccount(state, e)));
+}
+
+/** `ops_hr.link_employee_account` — same checks, same codes, same order.
+ *  `user_id` null unlinks. */
+export async function linkEmployeeAccount(
+  input: { employee_id: string; user_id: string | null },
+): Promise<Result<EmployeeAccount>> {
+  await latency();
+  const denied = requireLevel(SERVICE, "it", "admin");
+  if (denied) return denied;
+  const state = getState();
+  const emp = state.employees.find((e) => e.id === input.employee_id);
+  if (!emp) return notFound(SERVICE, "not_found", "No such employee.");
+  const current = state.employee_accounts.find((l) => l.employee_no === emp.employee_no);
+  const currentUser = current ? state.users.find((u) => u.id === current.user_id) : undefined;
+  const action = input.user_id ? "account.link" : "account.unlink";
+
+  if (!input.user_id) {
+    if (!current) return noop(SERVICE, toEmployeeAccount(state, emp));
+    apply((draft) => {
+      draft.employee_accounts = draft.employee_accounts.filter((l) => l.employee_no !== emp.employee_no);
+      writeAudit(draft, {
+        service: SERVICE, entity: "employee", entity_no: emp.employee_no, action, outcome: "ok",
+        reason: null, detail: { before: { user_id: current.user_id, email: currentUser?.email ?? null }, after: { user_id: null } },
+      });
+    });
+    return ok(SERVICE, toEmployeeAccount(getState(), emp));
+  }
+
+  const user = state.users.find((u) => u.id === input.user_id);
+  if (!user) return notFound(SERVICE, "not_found", "No such account.");
+  if (current?.user_id === user.id) return noop(SERVICE, toEmployeeAccount(state, emp));
+  if (current) {
+    return conflict(SERVICE, "employee_has_account",
+      `${emp.full_name} is already linked to ${currentUser?.email ?? current.user_id}. Unlink that account first.`,
+      { employee_id: emp.id, user_id: current.user_id, email: currentUser?.email ?? null });
+  }
+  const elsewhere = state.employee_accounts.find((l) => l.user_id === user.id);
+  if (elsewhere) {
+    const other = state.employees.find((e) => e.employee_no === elsewhere.employee_no);
+    return conflict(SERVICE, "account_linked_elsewhere",
+      `${user.email} is already linked to ${other?.full_name ?? ""} (${elsewhere.employee_no}). Unlink it there first.`,
+      { employee_id: other?.id ?? null, employee_no: elsewhere.employee_no, full_name: other?.full_name ?? null });
+  }
+  if (!emp.active) {
+    return refused(SERVICE, "employee_left",
+      `${emp.full_name} no longer works here — an account for them would open nothing of theirs.`,
+      { employee_id: emp.id, left_on: emp.left_on });
+  }
+  apply((draft) => {
+    draft.employee_accounts.push({ employee_no: emp.employee_no, user_id: user.id });
+    writeAudit(draft, {
+      service: SERVICE, entity: "employee", entity_no: emp.employee_no, action, outcome: "ok",
+      reason: null, detail: { before: { user_id: null }, after: { user_id: user.id, email: user.email } },
+    });
+  });
+  return ok(SERVICE, toEmployeeAccount(getState(), emp));
 }
 
 /** Adding somebody, or changing what they are paid.
@@ -292,23 +380,12 @@ export async function getDay(
 /* ------------------------------------------------------------------ */
 //
 // The real database resolves "who am I as an employee" through
-// `ops_hr.my_employee_id()` — `employees.user_id = auth.uid()`, a link the
-// demo's `Employee` fixture has never carried because nothing here needed it
-// before this build. Five of the six demo personas already have a matching
-// employee row by name (Evin, Putri, Anggun, Andi, Made); this table is that
-// same link, kept beside the fixture rather than added to the shared
-// contract, because widening `Employee` with a `user_id` column would touch
-// every screen that already destructures one. Wulan (HRD) and the shared IT
-// account deliberately map to nothing — the same ordinary case as a
-// production worker with no login, exercised here by an office account
-// instead.
-const SELF_EMPLOYEE_NO: Record<string, string> = {
-  usr_evin: "K-001", usr_putri: "K-004", usr_anggun: "K-007",
-  usr_andi: "K-011", usr_made: "K-014",
-};
-
+// `ops_hr.my_employee_id()` — `employees.user_id = auth.uid()`. The demo keeps
+// the same link in `state.employee_accounts`, beside the fixture rather than on
+// the shared `Employee` contract, and IT writes it from `/it/pengguna` with
+// `linkEmployeeAccount` (D329), exactly as the seam does.
 function myEmployee(state: DemoState): Employee | null {
-  const no = SELF_EMPLOYEE_NO[actingUser().id];
+  const no = state.employee_accounts?.find((l) => l.user_id === actingUser().id)?.employee_no;
   if (!no) return null;
   return state.employees.find((e) => e.employee_no === no) ?? null;
 }
@@ -338,19 +415,105 @@ export async function myProfile(): Promise<Result<Employee | null>> {
   return ok(SERVICE, myEmployee(getState()));
 }
 
+/* ── Presensi berlokasi (D332, 0188) ──────────────────────────────────── */
+
+/** Great-circle metres — `ops_hr.distance_m`. */
+function distanceM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = (d: number) => (d * Math.PI) / 180;
+  const a = Math.sin(r(lat2 - lat1) / 2) ** 2
+    + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(r(lng2 - lng1) / 2) ** 2;
+  return 2 * 6371008.8 * Math.asin(Math.sqrt(a));
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** `ops_hr.judge_location`: the nearest active site with a point, and the
+ *  reading's whole accuracy circle against its radius. */
+function judge(state: DemoState, reading: Partial<TapReading>): LocationJudgement & { site_id: string | null } {
+  const lat = reading.lat ?? null, lng = reading.lng ?? null, acc = reading.accuracy_m ?? null;
+  const sites = state.work_sites
+    .filter((w) => w.active && w.lat !== null && w.lng !== null)
+    .map((w) => ({ w, d: lat === null || lng === null ? 0 : distanceM(lat, lng, w.lat!, w.lng!) }))
+    .sort((a, b) => a.d - b.d || a.w.code.localeCompare(b.w.code));
+  const hit = sites[0];
+  let verdict: LocationVerdict;
+  if (!hit) verdict = "no_site";
+  else if (lat === null || lng === null) verdict = "no_location";
+  else if (acc !== null && hit.d + acc <= hit.w.radius_m) verdict = "inside";
+  else if (acc !== null && hit.d - acc > hit.w.radius_m) verdict = "outside";
+  else verdict = "uncertain";
+  return {
+    verdict,
+    distance_m: hit && lat !== null && lng !== null ? round1(hit.d) : null,
+    accuracy_m: acc === null ? null : round1(acc),
+    site_id: hit?.w.id ?? null,
+    site_code: hit?.w.code ?? null,
+    site_name: hit?.w.name ?? null,
+    radius_m: hit?.w.radius_m ?? null,
+    needs_note: OFF_SITE_VERDICTS.includes(verdict),
+  };
+}
+
+/** The office clock as `YYYY-MM-DDTHH:MM:SS.ffffff`, for the tap's code. */
+function officeStamp(iso: string): string {
+  const d = new Date(new Date(iso).getTime() + 8 * 3_600_000).toISOString();
+  return `${d.slice(0, 23)}000`;
+}
+
 /** A tap from the person's own session, not the reader at the door — one
  *  more row on the same pile `read_day` already knows how to read (D141).
  *  `source: "manual"` in the fixture only because the demo's own
  *  `ScanSource` predates this build; the real database spells it `self`
- *  (0164) and the distinction is cosmetic, never read by the derivation. */
-export async function tapSelf(): Promise<Result<{ id: string; at: string; work_date: string }>> {
+ *  (0164) and the distinction is cosmetic, never read by the derivation.
+ *
+ *  With the phone's reading since D332: judged against the warehouse, and an
+ *  off-site tap needs a note — refused without one, written and flagged with
+ *  one, never refused outright. */
+export async function tapSelf(
+  input: Partial<TapReading> & { note?: string | null; photo_id?: string | null } = {},
+  idempotencyKey?: string,
+): Promise<Result<TapSelfResult>> {
   await latency();
+  const cached = replayed<TapSelfResult>(SERVICE, "tap_self", idempotencyKey);
+  if (cached) return cached;
   const state = getState();
   const emp = myEmployee(state);
   if (!emp) return noEmployeeLink();
 
+  const lat = input.lat ?? null, lng = input.lng ?? null, acc = input.accuracy_m ?? null;
+  if ((lat === null) !== (lng === null)
+      || (lat !== null && (lat < -90 || lat > 90)) || (lng !== null && (lng < -180 || lng > 180))
+      || (acc !== null && acc < 0)) {
+    return invalid(SERVICE, "bad_location", "Lokasi dari HP tidak utuh atau tidak masuk akal.", { field: "lat" });
+  }
+
+  const where = judge(state, input);
+  const note = input.note?.trim() || null;
+  if (where.needs_note && !note) {
+    const { site_id: _omit, ...detail } = where;
+    return invalid(
+      SERVICE, "off_site_needs_note",
+      where.verdict === "outside"
+        ? `Anda di luar area ${where.site_name} (${Math.round(where.distance_m ?? 0)} m dari titiknya). Tulis keterangan, lalu tap lagi.`
+        : where.verdict === "uncertain"
+          ? "Lokasi HP kurang tepat untuk memastikan Anda di area. Tulis keterangan, lalu tap lagi."
+          : "Lokasi tidak terbaca. Tulis keterangan, lalu tap lagi.",
+      { ...detail, field: "note" },
+    );
+  }
+
+  if (input.photo_id) {
+    const photo = state.attachments.find((a) => a.id === input.photo_id);
+    if (!photo) return invalid(SERVICE, "photo_not_found", "Foto tidak ditemukan. Unggah ulang.", { field: "photo_id" });
+    if (photo.uploaded_by !== actingUser().id) {
+      return refused(SERVICE, "photo_not_yours", "Foto presensi harus diunggah dari akun yang sama.");
+    }
+  }
+
   const at = new Date().toISOString();
   const work_date = sharedOfficeToday();
+  const tap_no = `${emp.employee_no}/${officeStamp(at)}`;
+  const { site_id, ...location } = where;
   let id = "";
   apply((draft) => {
     id = newId("scn");
@@ -360,14 +523,113 @@ export async function tapSelf(): Promise<Result<{ id: string; at: string; work_d
       import_id: null, reason: null,
       recorded_by: actingUser().id, recorded_at: at,
     });
-    writeAudit(draft, {
-      service: SERVICE, entity: "attendance", entity_no: `${emp.employee_no}/${work_date}`,
-      action: "tap_self", outcome: "ok", reason: null,
-      detail: { at, by: actingUser().email },
+    draft.scan_locations.push({
+      scan_id: id, tap_no, site_id, lat, lng,
+      accuracy_m: where.accuracy_m, distance_m: where.distance_m, radius_m: where.radius_m,
+      verdict: where.verdict, note, photo_id: input.photo_id ?? null,
     });
-    recordSelfActivity(draft, "attendance_tap", "attendance", `Tap presensi pukul ${at.slice(11, 16)}`);
+    if (input.photo_id) {
+      draft.attachment_links.push({
+        id: newId("lnk"), attachment_id: input.photo_id, entity: "attendance_scan",
+        entity_no: tap_no, kind: "Foto Presensi", linked_by: actingUser().id, linked_at: at,
+      });
+    }
+    writeAudit(draft, {
+      service: SERVICE, entity: "attendance", entity_no: tap_no,
+      action: "tap_self", outcome: "ok", reason: null,
+      detail: { at, by: actingUser().email, verdict: where.verdict },
+    });
+    recordSelfActivity(draft, "attendance_tap", "attendance",
+      `Tap presensi pukul ${officeClock(new Date(at))}${where.needs_note ? " · di luar area" : ""}`);
   });
-  return ok(SERVICE, { id, at, work_date });
+  const result: TapSelfResult = { id, at, work_date, tap_no, location };
+  remember(SERVICE, "tap_self", idempotencyKey, result);
+  return ok(SERVICE, result);
+}
+
+export async function judgeLocation(input: TapReading): Promise<Result<LocationJudgement>> {
+  await latency();
+  const { site_id: _omit, ...j } = judge(getState(), input);
+  return ok(SERVICE, j);
+}
+
+export async function listWorkSites(): Promise<Result<WorkSite[]>> {
+  await latency();
+  return ok(SERVICE, getState().work_sites.slice().sort((a, b) => a.code.localeCompare(b.code)));
+}
+
+/** `ops_hr.save_work_site` — HRD or IT, keyed by code. */
+export async function saveWorkSite(
+  input: { code: string; name: string; lat: number | null; lng: number | null; radius_m: number; active: boolean },
+  idempotencyKey?: string,
+): Promise<Result<WorkSite>> {
+  await latency();
+  const cached = replayed<WorkSite>(SERVICE, "save_work_site", idempotencyKey);
+  if (cached) return cached;
+  if (requireLevel(SERVICE, "hrd", "write") && requireLevel(SERVICE, "it", "write")) {
+    return refused(SERVICE, "not_permitted", "Titik lokasi kerja diatur oleh HRD atau IT.");
+  }
+  const code = input.code.trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{2,20}$/.test(code)) {
+    return invalid(SERVICE, "bad_code", "Kode lokasi 2–20 huruf besar/angka, mis. GUDANG.", { field: "code" });
+  }
+  if (!input.name.trim()) return invalid(SERVICE, "name_required", "Lokasi butuh nama.", { field: "name" });
+  if (input.lat === null || input.lng === null || !Number.isFinite(input.lat) || !Number.isFinite(input.lng)
+      || input.lat < -90 || input.lat > 90 || input.lng < -180 || input.lng > 180) {
+    return invalid(SERVICE, "point_required", "Titik tengah (lintang dan bujur) harus diisi dan masuk akal.", { field: "lat" });
+  }
+  if (!Number.isFinite(input.radius_m) || input.radius_m < 20 || input.radius_m > 2000) {
+    return invalid(SERVICE, "bad_radius", "Radius antara 20 dan 2000 meter.", { field: "radius_m", min: 20, max: 2000 });
+  }
+  const updated_at = new Date().toISOString();
+  let saved: WorkSite | null = null;
+  apply((draft) => {
+    const row = draft.work_sites.find((w) => w.code === code);
+    const next: WorkSite = {
+      id: row?.id ?? newId("site"), code, name: input.name.trim(),
+      lat: input.lat, lng: input.lng, radius_m: Math.round(input.radius_m), active: input.active, updated_at,
+    };
+    if (row) Object.assign(row, next); else draft.work_sites.push(next);
+    saved = next;
+    writeAudit(draft, {
+      service: SERVICE, entity: "work_site", entity_no: code, action: "save", outcome: "ok", reason: null,
+      detail: { lat: input.lat, lng: input.lng, radius_m: input.radius_m, active: input.active },
+    });
+  });
+  remember(SERVICE, "save_work_site", idempotencyKey, saved!);
+  return ok(SERVICE, saved!);
+}
+
+/** `ops_hr.v_located_tap`, in a period of office days. HRD reads every
+ *  person's; anybody else reads only their own (the policy on 0188). */
+export async function listLocatedTaps(
+  input: { from: string; to: string; flagged_only?: boolean },
+): Promise<Result<LocatedTapView[]>> {
+  await latency();
+  const state = getState();
+  const hrd = !requireModule(SERVICE, "hrd");
+  const mine = myEmployee(state)?.id ?? null;
+  const rows: LocatedTapView[] = [];
+  for (const l of state.scan_locations) {
+    const s = state.attendance_scans.find((x) => x.id === l.scan_id);
+    if (!s || s.work_date < input.from || s.work_date > input.to) continue;
+    if (!hrd && s.employee_id !== mine) continue;
+    const flagged = OFF_SITE_VERDICTS.includes(l.verdict);
+    if (input.flagged_only && !flagged) continue;
+    const e = state.employees.find((x) => x.id === s.employee_id);
+    const w = state.work_sites.find((x) => x.id === l.site_id);
+    const photo = l.photo_id ? state.attachments.find((a) => a.id === l.photo_id) : undefined;
+    rows.push({
+      tap_no: l.tap_no, scan_id: s.id,
+      employee_no: e?.employee_no ?? "", full_name: e?.full_name ?? "", unit: e?.unit ?? null,
+      at: s.at, work_date: s.work_date, verdict: l.verdict, flagged,
+      lat: l.lat, lng: l.lng, accuracy_m: l.accuracy_m, distance_m: l.distance_m, radius_m: l.radius_m,
+      site_code: w?.code ?? null, site_name: w?.name ?? null, note: l.note,
+      photo_id: l.photo_id, photo_link: null, photo_filename: photo?.filename ?? null,
+    });
+  }
+  rows.sort((a, b) => b.at.localeCompare(a.at));
+  return ok(SERVICE, rows);
 }
 
 /** Taking the machine's export.
@@ -473,14 +735,21 @@ export async function addScan(
     );
   }
 
+  /* *The day* is the working day — for a guard, a night — so the calendar day
+     a typed time lands on is read off the day's own window: 07.05 against
+     Monday's shift is Tuesday 07.05 (D330). `work_date` is that calendar day,
+     exactly as the database stores it. */
+  const at = instantInDay(input.work_date, input.time, timesheetDay(state, emp, input.work_date).window_from);
+  const calendarDay = at.slice(0, 10);
+
   const user = actingUser();
   let row: AttendanceScan | null = null;
   apply((draft) => {
     row = {
       id: newId("scn"),
       employee_id: emp.id,
-      work_date: input.work_date,
-      at: `${input.work_date}T${input.time}:00+08:00`,
+      work_date: calendarDay,
+      at,
       verify: "MANUAL",
       location: null,
       source: "manual",
@@ -2222,6 +2491,8 @@ export async function decideLeave(
         });
         marked.push(date);
       }
+      /* The surat dokter on the request becomes the surat dokter on each day (D144, 0187). */
+      carrySickNote(draft, row.request_no, new Date().toISOString());
     }
 
     writeAudit(draft, {
@@ -3608,6 +3879,10 @@ export async function listSchedules(): Promise<Result<{
      *  not a decision, and the difference is the point (D279). */
     inherited: number;
     units: string[];
+    /** End before start: the shift crosses midnight (D330). */
+    overnight: boolean;
+    /** Where this pattern's next working day begins, minutes after midnight. */
+    day_boundary_minutes: number;
   })[];
   /** Nobody has linked these, and their unit has no default either. */
   unlinked: { employee_no: string; full_name: string; unit: string }[];
@@ -3628,6 +3903,9 @@ export async function listSchedules(): Promise<Result<{
     inherited: active.filter((e) => !e.schedule_code && scheduleFor(rules, e)?.code === sc.code).length,
     units: Object.entries(rules.schedule_by_unit ?? {})
       .filter(([, code]) => code === sc.code).map(([u]) => u),
+    hours_unconfirmed: sc.hours_unconfirmed ?? false,
+    overnight: isOvernight(sc),
+    day_boundary_minutes: dayBoundaryMinutes(sc),
   }));
 
   return ok(SERVICE, {
@@ -3645,6 +3923,118 @@ export async function listSchedules(): Promise<Result<{
       })),
     week_pattern: rules.week_pattern,
   });
+}
+
+/** HRD sets one pattern's start, end and break (D330).
+ *
+ *  The rule book is IT's hands (D173), but *when does the guard start* is
+ *  HRD's to answer. So this writes exactly one pattern's clock as a **new
+ *  dated version** of the book in force on that date, with everything else
+ *  copied — and refuses what `ops_hr.set_schedule_hours` refuses, with the
+ *  same sentences. Saving clears `hours_unconfirmed`: typing the default in is
+ *  how it is confirmed (D288).
+ */
+export async function setScheduleHours(
+  input: {
+    code: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  await latency();
+  const cached = replayed<{ code: string; version: number; effective_from: string }>(
+    SERVICE, "setScheduleHours", idempotencyKey);
+  if (cached) return cached;
+
+  const denied = requireLevel(SERVICE, "hrd", "write");
+  if (denied) return denied;
+  if (!input.note?.trim()) {
+    return invalid(
+      SERVICE, "note_required",
+      "Tulis alasannya. Jam kerja yang berubah tanpa keterangan tidak bisa dijelaskan ke orang yang jamnya berubah.",
+      { field: "note" },
+    );
+  }
+
+  const state = getState();
+  const from = input.effective_from || sharedOfficeToday();
+  const sorted = [...state.pay_rule_sets].sort(
+    (a, b) => a.effective_from.localeCompare(b.effective_from) || a.version - b.version);
+  const base = sorted.filter((r) => r.effective_from <= from).pop();
+  if (!base) {
+    return conflict(SERVICE, "no_rule_book",
+      `Belum ada buku aturan gaji yang berlaku pada ${from}. IT menerbitkannya dulu.`);
+  }
+  const later = sorted.find((r) => r.effective_from > from);
+  if (later) {
+    return conflict(SERVICE, "later_version_exists",
+      `Versi ${later.version} berlaku mulai ${later.effective_from}, sesudah tanggal ini, dan tidak memuat perubahan ini — jamnya akan kembali pada tanggal itu. Pilih tanggal mulai ${later.effective_from} atau sesudahnya.`);
+  }
+  const old = (base.rules.schedules ?? []).find((sc) => sc.code === input.code);
+  if (!old) {
+    return notFound(SERVICE, "not_found",
+      `Tidak ada jadwal kerja bernama ${input.code} di buku aturan yang berlaku.`);
+  }
+
+  const { hours_unconfirmed: _dropped, ...kept } = old;
+  void _dropped;
+  const changed = {
+    ...kept,
+    start_minutes: input.start_minutes,
+    end_minutes: input.end_minutes,
+    break_minutes: input.break_minutes,
+  };
+  const rules: PayRules = {
+    ...base.rules,
+    schedules: (base.rules.schedules ?? []).map((sc) => (sc.code === input.code ? changed : sc)),
+  };
+  if (JSON.stringify(changed) === JSON.stringify(old)) {
+    return noop(SERVICE, { code: input.code, version: base.version, effective_from: base.effective_from });
+  }
+
+  const problem = scheduleProblem(rules.schedules ?? [], rules.schedule_by_unit ?? {});
+  if (problem) return invalid(SERVICE, problem.code, problem.message, { field: "schedules" });
+
+  const spent = state.payroll_runs
+    .filter((r) => r.status !== "DRAFT" && r.period_end >= from)
+    .sort((a, b) => a.period_start.localeCompare(b.period_start))[0];
+  if (spent) {
+    return conflict(SERVICE, "already_paid",
+      `${spent.run_no} sudah ditandatangani untuk periode yang berakhir ${from} atau sesudahnya. Aturan tidak bisa mundur melewati uang yang sudah dibayarkan — terbitkan yang baru berlaku setelahnya.`);
+  }
+  const clash = state.payroll_runs.find((r) => from > r.period_start && from <= r.period_end);
+  if (clash) {
+    return conflict(SERVICE, "inside_existing_run",
+      `${clash.run_no} mencakup tanggal itu, dan periode itu dihitung dengan aturan yang berlaku saat dibuka. Pilih tanggal di luar periode yang sudah ada.`);
+  }
+
+  const user = actingUser();
+  let version = 0;
+  apply((draft) => {
+    version = Math.max(0, ...draft.pay_rule_sets.map((r) => r.version)) + 1;
+    draft.pay_rule_sets.push({
+      id: newId("prs"), version, effective_from: from, note: input.note.trim(), rules,
+      created_by: user.id, created_at: new Date().toISOString(),
+    });
+    writeAudit(draft, {
+      service: SERVICE, entity: "schedule", entity_no: input.code,
+      action: "set_hours", outcome: "ok", reason: input.note.trim(),
+      detail: {
+        before: { start_minutes: old.start_minutes, end_minutes: old.end_minutes,
+                  break_minutes: old.break_minutes, hours_unconfirmed: old.hours_unconfirmed ?? false },
+        after: { start_minutes: input.start_minutes, end_minutes: input.end_minutes,
+                 break_minutes: input.break_minutes, version, effective_from: from },
+        by: user.email,
+      },
+    });
+  });
+  const answer = { code: input.code, version, effective_from: from };
+  remember(SERVICE, "setScheduleHours", idempotencyKey, answer);
+  return ok(SERVICE, answer);
 }
 
 /** Linking one person to a working pattern (Q53, D279).

@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseServer, authAdmin, authAdminConfigured } from "@/lib/supabase/server";
 import { publicConfig } from "@/lib/supabase/env";
 import { fromSeam, ok, noop, type Result } from "@/lib/api/_kit";
-import type { UserLinkSent, UserActiveChange } from "@/services/identity/contracts";
+import { generatePassword } from "@/lib/generated-password";
+import type { UserLinkSent, UserActiveChange, UserPasswordIssued } from "@/services/identity/contracts";
 
 /** `POST /api/identity/users` — the part of managing people only GoTrue can do
  *  (D325).
@@ -39,17 +40,34 @@ import type { UserLinkSent, UserActiveChange } from "@/services/identity/contrac
  *  (the new person's), and PKCE cannot span two browsers. `/set-password`
  *  reads that fragment itself, because the application's own client is PKCE
  *  and refuses it (F182).
+ *
+ *  ## Accounts with a password instead of a mailbox (D329)
+ *
+ *  `create` and `reset_password` are the floor's way in: no mail at all. The
+ *  seam decides (`create_user`, `request_user_password`), then this route
+ *  generates a password and hands it to GoTrue's admin API — `createUser` with
+ *  `email_confirm: true`, or `updateUserById`. The password exists in this
+ *  request, in GoTrue's hash, and in the one answer IT's screen shows. It is
+ *  never passed to the database, never logged, and the answer is `no-store`.
  */
 
 type Body =
   | { action: "invite"; email?: unknown; full_name?: unknown }
   | { action: "link"; user_id?: unknown }
-  | { action: "set_active"; user_id?: unknown; active?: unknown; reason?: unknown };
+  | { action: "set_active"; user_id?: unknown; active?: unknown; reason?: unknown }
+  | { action: "create"; email?: unknown; full_name?: unknown }
+  | { action: "reset_password"; user_id?: unknown };
 
 const SERVICE = "identity" as const;
 
 function answer<T>(res: Result<T>): Response {
   return Response.json(res, { status: res.error ? res.error.status : 200 });
+}
+
+/** An answer carrying a password: nothing between here and IT's screen may
+ *  keep a copy. */
+function secret<T>(res: Result<T>): Response {
+  return Response.json(res, { status: 200, headers: { "cache-control": "no-store" } });
 }
 
 function refuse(status: number, code: string, message: string, detail?: Record<string, unknown>): Response {
@@ -195,7 +213,52 @@ export async function POST(request: Request): Promise<Response> {
       return answer(decided.meta.outcome === "noop" ? noop(SERVICE, change) : ok(SERVICE, change));
     }
 
+    /* ── a new account, with a password IT hands over (D329) ──────────── */
+    case "create": {
+      if (!authAdminConfigured()) return refuse(501, "auth_admin_not_configured", NOT_CONFIGURED);
+
+      const { data, error } = await db.rpc("create_user", {
+        p_email: typeof body.email === "string" ? body.email : "",
+        p_full_name: typeof body.full_name === "string" ? body.full_name : "",
+      });
+      const decided = fromSeam<{ email: string; full_name: string }>(SERVICE, data, error);
+      if (decided.error) return answer(decided);
+
+      const { email, full_name } = decided.data;
+      const password = generatePassword();
+      /* Confirmed on creation: the address is a username, and nobody is going
+         to click a link in it. No mail is sent. */
+      const made = await authAdmin().createUser({
+        email, password, email_confirm: true, user_metadata: { full_name },
+      });
+      if (made.error) return fromGoTrue(made.error);
+
+      return secret(ok<UserPasswordIssued>(SERVICE, {
+        user_id: made.data.user.id, email, full_name, password, kind: "created",
+      }));
+    }
+
+    /* ── a new password for an existing account (D329) ─────────────────── */
+    case "reset_password": {
+      const userId = asId(body.user_id);
+      if (!userId) return refuse(422, "user_required", "Say whose account.", { field: "user_id" });
+      if (!authAdminConfigured()) return refuse(501, "auth_admin_not_configured", NOT_CONFIGURED);
+
+      const { data, error } = await db.rpc("request_user_password", { p_user_id: userId });
+      const decided = fromSeam<{ email: string; full_name: string }>(SERVICE, data, error);
+      if (decided.error) return answer(decided);
+
+      const password = generatePassword();
+      const set = await authAdmin().updateUserById(userId, { password });
+      if (set.error) return fromGoTrue(set.error);
+
+      return secret(ok<UserPasswordIssued>(SERVICE, {
+        user_id: userId, email: decided.data.email, full_name: decided.data.full_name,
+        password, kind: "reset",
+      }));
+    }
+
     default:
-      return refuse(400, "unknown_action", "Expected action invite, link or set_active.");
+      return refuse(400, "unknown_action", "Expected action invite, create, link, reset_password or set_active.");
   }
 }
