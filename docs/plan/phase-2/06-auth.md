@@ -88,9 +88,24 @@ provider. `requestPasswordReset` returns a 500 only when the server refuses the
 request outright; a mail accepted and then dropped looks like success from here,
 because from here it is.
 
-## What is deliberately still manual
+## Creating accounts — in the application since D325
 
-Granting modules is in the application (`/it/pengguna`), and creating accounts
-is not. That is D24 rather than an omission: a sign-up form is a door into a
-workspace nobody invited anybody to. Inviting a person is a decision about a
-person, and it stays with whoever is allowed to make it.
+Granting modules was in the application from the start (`/it/pengguna`), and
+creating accounts was deliberately not: a sign-up form is a door into a
+workspace nobody invited anybody to, and inviting a person is a decision about
+a person that stays with whoever is allowed to make it (D24).
+
+Since D325 that person makes it in the application: IT → Users & access →
+*Add user*, behind `it.manage_users`. There is still no sign-up form. What is
+new is the route to GoTrue, and it needs three settings outside the repository:
+
+| Setting | Where | Without it |
+|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Cloudflare → Workers → `ops-talaliving` → Settings → Variables and Secrets, as a **Secret** (never a build variable, never `NEXT_PUBLIC_`) | *Add user* and re-sending an invitation refuse with a sentence naming this secret; switching an account off still removes all access but does not block the sign-in, and the screen says so |
+| Redirect URLs include each origin's `/**` | Authentication → URL Configuration (above) | the invitation lands on Site URL instead of `/set-password` |
+| A real SMTP sender | Authentication → Emails → SMTP (above) | a few invitations an hour, then *Batas kirim email tercapai* |
+
+The key is used for GoTrue's admin API only, and only after the database has
+said yes as the person asking (`/api/identity/users`, `authAdmin()` in
+`src/lib/supabase/server.ts`). An invitation link is an implicit grant, which
+the application's PKCE client refuses; `/set-password` reads it itself (F182).

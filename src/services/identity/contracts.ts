@@ -105,9 +105,67 @@ export interface UserAccess {
 }
 
 /** What `GET /identity/me` returns. `permissions` is the flattened union the
- *  frontend `can()` reads — derived, never stored. */
+ *  frontend `can()` reads — derived, never stored. Empty for an account that
+ *  has been switched off, whatever it still holds (0183). */
 export interface Session extends UserAccess {
   permissions: string[];
+}
+
+/* ── Managing people (D325) ───────────────────────────────────────────────
+ *
+ *  `/it/pengguna` granted modules and authorities from the start; these are
+ *  the rest of an account — adding one, correcting a name, switching one off,
+ *  sending a link to set a password.
+ */
+
+/** Three answers to the question IT asks of a row, derived on read (A3):
+ *
+ *  - `inactive` — switched off; holds nothing, whatever it still lists.
+ *  - `pending`  — has never signed in. Invited and not arrived, or made by
+ *                 hand and never used; the next step is a link, not a grant.
+ *  - `active`   — everybody else. */
+export type AccountStatus = "active" | "pending" | "inactive";
+
+export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, Message> = {
+  active: { en: "Active", id: "Aktif" },
+  pending: { en: "Not signed in yet", id: "Belum pernah masuk" },
+  inactive: { en: "Switched off", id: "Nonaktif" },
+};
+export const ACCOUNT_STATUS_LABEL = bilingual(ACCOUNT_STATUS_LABELS);
+
+/** One row of the IT directory: a session's shape plus the account's life,
+ *  most of it read from GoTrue's own record rather than kept twice. */
+export interface UserDirectoryRow extends Session {
+  status: AccountStatus;
+  created_at: string;
+  invited_at: string | null;
+  last_sign_in_at: string | null;
+  left_on: string | null;
+  /** GoTrue's ban, read rather than assumed: an account can be switched off
+   *  here and still able to sign in, if the server had no key that day. */
+  sign_in_blocked: boolean;
+}
+
+/** A link was sent: the invitation (again), or a recovery link. Which one is
+ *  the database's choice, from whether the address was ever confirmed. */
+export interface UserLinkSent {
+  user_id: string;
+  email: string;
+  kind: "invite" | "recovery";
+}
+
+/** An account switched on or off, and what happened to its sign-in.
+ *
+ *  Two facts, because they can differ. `is_active` is ours and is what takes
+ *  access away. `sign_in` is GoTrue's: `blocked`/`allowed` when the server
+ *  applied it, `not_configured` when this deployment has no key to ask with,
+ *  `failed` when GoTrue said no — and in the last two the screen says the
+ *  person can still reach the sign-in page, and see nothing behind it. */
+export interface UserActiveChange {
+  user_id: string;
+  is_active: boolean;
+  sign_in: "blocked" | "allowed" | "not_configured" | "failed";
+  sign_in_detail: string | null;
 }
 
 /** Somebody a question can be addressed to, and the authority that makes them

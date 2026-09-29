@@ -46,7 +46,8 @@ export default function RolesPage() {
           <p>{tr(IT_ACCESS_RULE.en, IT_ACCESS_RULE.id)}</p>
           <Loaded state={users}>
             {(rows) => {
-              const holders = rows.filter((u) => u.modules.some((m) => m.module === "it"));
+              /* Switched off holds nothing (0183), so it is not a holder. */
+              const holders = rows.filter((u) => u.user.is_active && u.modules.some((m) => m.module === "it"));
               return (
                 <ul className="mt-2 space-y-1">
                   {holders.map((u) => {
@@ -120,7 +121,7 @@ export default function RolesPage() {
             />
             <ul className="divide-y divide-slate-100">
               {AUTHORITIES.map((a) => {
-                const holders = all.filter((u) => u.authorities.includes(a));
+                const holders = all.filter((u) => u.user.is_active && u.authorities.includes(a));
                 return (
                   <li key={a} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
                     <span className="min-w-[220px] text-[13px] font-medium text-slate-800">

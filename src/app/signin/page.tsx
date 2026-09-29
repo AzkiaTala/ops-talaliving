@@ -256,17 +256,24 @@ function PersonaList() {
           {state.users.map((u) => (
             <button
               key={u.id}
+              /* Switched off from IT → Users (D325): the demo refuses the sign-in
+                 the way the database does, so the picker says so rather than
+                 offering a door that opens onto the previous person's screen. */
+              disabled={!u.is_active}
               onClick={async () => {
                 await actAs(u.id);
                 router.push(afterSignIn());
               }}
-              className="group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-brand-50/40"
+              className="group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-brand-50/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
                 {u.full_name.charAt(0)}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-slate-800">{u.full_name}</span>
+                <span className="block text-sm font-semibold text-slate-800">
+                  {u.full_name}
+                  {!u.is_active && <span className="ml-2 text-[11px] font-normal text-slate-500">{tr("switched off", "nonaktif")}</span>}
+                </span>
                 <span className="block font-mono text-[11px] text-slate-400">{u.email}</span>
                 <span className="mt-1.5 flex flex-wrap gap-1">
                   {u.modules.slice(0, 4).map((m) => (

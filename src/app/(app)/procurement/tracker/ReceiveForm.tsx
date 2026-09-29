@@ -136,7 +136,7 @@ export function ReceiveForm({
             className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-brand-400 focus:outline-none"
           >
             <option value="">{tr("me — I checked it myself", "saya — saya memeriksanya sendiri")}</option>
-            {people.status === "ready" && people.data.map((s) => (
+            {people.status === "ready" && people.data.filter((s) => s.user.is_active).map((s) => (
               <option key={s.user.id} value={s.user.id}>{s.user.full_name}</option>
             ))}
           </select>

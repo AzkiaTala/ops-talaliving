@@ -13,6 +13,7 @@
 import type {
   Session, Authority, ModuleName, ModuleLevel, ModuleGrant, AuditRowView,
   ActivityEvent, ActivityDaily, RetentionStatus, Approver, MyActivityEvent,
+  UserDirectoryRow, AccountStatus, UserLinkSent, UserActiveChange,
 } from "@/services/identity/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromRows, fromSeam, invalid, notFound, ok, type Result } from "./_kit";
@@ -58,6 +59,19 @@ interface AccessRow {
   modules: ModuleGrant[];
   authorities: Authority[];
   permissions: string[];
+}
+
+/** `v_user_access` adds the account's life to the same shape (0183). Kept as
+ *  its own row type because `v_my_access` does not carry it — a person is not
+ *  shown when they were invited — and `check-view-contracts.mjs` compares this
+ *  one against the directory view column by column. */
+interface DirectoryRow extends AccessRow {
+  status: AccountStatus;
+  created_at: string;
+  invited_at: string | null;
+  last_sign_in_at: string | null;
+  left_on: string | null;
+  sign_in_blocked: boolean;
 }
 
 function toSession(row: AccessRow): Session {
@@ -127,11 +141,22 @@ export async function recordSignIn(): Promise<void> {
   if (error) console.warn("sign-in not recorded:", error.message);
 }
 
-export async function listUsers(): Promise<Result<Session[]>> {
-  const sb = supabaseBrowser();
+function toDirectoryRow(row: DirectoryRow): UserDirectoryRow {
+  return {
+    ...toSession(row),
+    status: row.status,
+    created_at: row.created_at,
+    invited_at: row.invited_at,
+    last_sign_in_at: row.last_sign_in_at,
+    left_on: row.left_on,
+    sign_in_blocked: row.sign_in_blocked,
+  };
+}
+
+export async function listUsers(): Promise<Result<UserDirectoryRow[]>> {
   const { data, error } = await db().from("v_user_access").select("*").order("full_name");
   if (error) return fail(SERVICE, error);
-  return ok(SERVICE, (data as AccessRow[]).map(toSession));
+  return ok(SERVICE, (data as DirectoryRow[]).map(toDirectoryRow));
 }
 
 /** Who a question can be addressed to.
@@ -186,13 +211,95 @@ export async function setAuthorities(
 /** The seam returns what it wrote; the screen wants the whole session, with
  *  `permissions` expanded. Reading it back through the view rather than
  *  rebuilding it here keeps one definition of what a grant unlocks. */
-async function readBack(userId: string): Promise<Result<Session>> {
-  const sb = supabaseBrowser();
+async function readBack(userId: string): Promise<Result<UserDirectoryRow>> {
   const { data, error } = await db()
     .from("v_user_access").select("*").eq("id", userId).maybeSingle();
   if (error) return fail(SERVICE, error);
   if (!data) return notFound(SERVICE, "user_not_found", "User not found.");
-  return ok(SERVICE, toSession(data as AccessRow));
+  return ok(SERVICE, toDirectoryRow(data as DirectoryRow));
+}
+
+/* ------------------------------------------------------------------ */
+/* Managing people (D325)                                              */
+/* ------------------------------------------------------------------ */
+
+/** Correct somebody's name. A seam from the browser like any other: nothing
+ *  about a name needs GoTrue. `it.manage_users`, refused by the database. */
+export async function updateUser(
+  userId: string,
+  input: { full_name: string },
+): Promise<Result<UserDirectoryRow>> {
+  const { data, error } = await db().rpc("update_user", {
+    p_user_id: userId, p_full_name: input.full_name,
+  });
+  const res = fromSeam<unknown>(SERVICE, data, error);
+  if (res.error) return res;
+  return readBack(userId);
+}
+
+/** `POST /api/identity/users`. The three acts only GoTrue can do go through
+ *  the server, which puts each to the database as this person before it asks
+ *  GoTrue anything — so every refusal that comes back is the database's own,
+ *  relayed whole, or a sentence about the deployment (no key, mail limits). */
+async function usersRoute<T>(body: Record<string, unknown>): Promise<Result<T>> {
+  let res: Response;
+  try {
+    res = await fetch("/api/identity/users", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    return {
+      error: {
+        code: "network_failed",
+        message: `Server tidak terjangkau. Coba lagi. (${String((e as Error).message)})`,
+        outcome: "refused", status: 500,
+      },
+      meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+    };
+  }
+  let envelope: Result<T>;
+  try {
+    envelope = await res.json() as Result<T>;
+  } catch {
+    return {
+      error: {
+        code: "bad_response",
+        message: `Server menjawab ${res.status} tanpa isi yang bisa dibaca.`,
+        outcome: "refused", status: 500,
+      },
+      meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+    };
+  }
+  return envelope;
+}
+
+/** Add a person: the database decides, GoTrue creates the account and mails
+ *  the invitation, `provision_user` makes the profile — holding nothing (D24). */
+export async function inviteUser(
+  input: { email: string; full_name: string },
+): Promise<Result<UserLinkSent>> {
+  return usersRoute<UserLinkSent>({ action: "invite", ...input });
+}
+
+/** Send somebody a link to set their password — the invitation again if they
+ *  never confirmed, a recovery link otherwise. The database picks. */
+export async function sendUserLink(userId: string): Promise<Result<UserLinkSent>> {
+  return usersRoute<UserLinkSent>({ action: "link", user_id: userId });
+}
+
+/** Switch an account off or back on. The database part always happens (that
+ *  is what takes access away); the answer says whether GoTrue also blocked, or
+ *  unblocked, the sign-in. */
+export async function setUserActive(
+  userId: string,
+  input: { active: boolean; reason?: string | null },
+): Promise<Result<UserActiveChange>> {
+  return usersRoute<UserActiveChange>({
+    action: "set_active", user_id: userId, active: input.active, reason: input.reason ?? null,
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -420,7 +527,24 @@ export async function signIn(email: string, password: string): Promise<Result<Se
     };
   }
   await recordSignIn();
-  return me();
+  const who = await me();
+  /* A switched-off account. GoTrue lets it in when the server had no key to
+     block it with (0183); the database already gives it nothing, and
+     `record_sign_in` has written the refusal. Ending the session here keeps
+     the person from arriving at a shell with no menu and no explanation. */
+  if (who.data && !who.data.user.is_active) {
+    await sb.auth.signOut();
+    return {
+      error: {
+        code: "account_inactive",
+        message: "Akun ini sudah dinonaktifkan. Hubungi IT jika ini keliru.",
+        outcome: "refused",
+        status: 403,
+      },
+      meta: { request_id: "", service: SERVICE, version: "1", outcome: "refused" },
+    };
+  }
+  return who;
 }
 
 export async function signOut(): Promise<Result<null>> {

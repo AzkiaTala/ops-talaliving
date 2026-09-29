@@ -9,6 +9,7 @@ import { identity } from "@/demo/api";
 import { isLiveMode } from "@/lib/live";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTr } from "@/lib/i18n";
+import { useSession } from "@/store/session";
 
 /** Set a password.
  *
@@ -26,14 +27,22 @@ import { useTr } from "@/lib/i18n";
  *  anybody without a profile to `/signin`, and somebody halfway through a
  *  recovery is exactly that person.
  *
- *  ## It does not read the token
+ *  ## Two kinds of link, and the SDK reads only one
  *
- *  `supabase-js` does, on its own, when the client is first used in a tab with
- *  `#access_token=…` in the URL — and then strips it from the address bar so it
- *  does not sit in history or in a shared screenshot. All this page does is wait
- *  for that to finish, which is what `onAuthStateChange` is for. Parsing the
- *  fragment by hand here would be a second implementation of something the SDK
- *  already does correctly, racing the first.
+ *  A link somebody asked for themselves — *lupa kata sandi* on the sign-in page
+ *  — is PKCE: it comes back as `?code=…`, and `supabase-js` exchanges it on its
+ *  own, in the browser that asked. This page just waits for that, which is
+ *  what `onAuthStateChange` is for.
+ *
+ *  A link somebody else caused — IT inviting a person, or sending them a link
+ *  from `/it/pengguna` (D325) — cannot be PKCE: the verifier lives in the
+ *  browser that asked, which is IT's, not the person's. GoTrue sends those as
+ *  an implicit grant, the session in `#access_token=…`. **The application's
+ *  client is PKCE and refuses that URL** (*Not a valid PKCE flow url*), so the
+ *  invitation would have opened on *this link cannot be used* every time
+ *  (F182). So this page reads that fragment itself — only that shape, only
+ *  here — hands the two tokens to `setSession`, and strips them from the
+ *  address bar so they do not sit in history or in a screenshot.
  *
  *  ## Two ways in, one form
  *
@@ -90,12 +99,16 @@ type Phase = "checking" | "ready" | "no-session" | "done";
 
 function Form() {
   const router = useRouter();
+  const { refresh } = useSession();
   const [phase, setPhase] = useState<Phase>("checking");
   const [linkError, setLinkError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* Arrived from an invitation rather than a recovery link: the first
+     password, not a replacement for one. */
+  const [invited, setInvited] = useState(false);
   const tr = useTr();
 
   useEffect(() => {
@@ -105,9 +118,23 @@ function Form() {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const failed = hash.get("error_description") ?? hash.get("error");
     if (failed) setLinkError(failed.replace(/\+/g, " "));
+    if (hash.get("type") === "invite") setInvited(true);
 
     const sb = supabaseBrowser();
     let alive = true;
+
+    /* The implicit grant the PKCE client will not read (F182). Out of the
+       address bar first, whatever happens next: a live token in history is
+       worse than a failed link. */
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    if (accessToken && refreshToken) {
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+      void sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ error: e }) => {
+        if (!alive) return;
+        if (e) { setLinkError(e.message); setPhase("no-session"); }
+      });
+    }
 
     /* The session may already be there — somebody changing a password they
        know — or it may be a moment away, still being read out of the URL. Both
@@ -138,6 +165,11 @@ function Form() {
     if (res.error) { setError(res.error.message); return; }
 
     setPhase("done");
+    /* The shell asked who is signed in when this page first loaded — before
+       an invitation's session existed, since that one is set from the
+       fragment afterwards (F182). Asked again, or the push below lands on the
+       sign-in form with a session in hand. */
+    await refresh();
     /* Signed in already — the recovery session is a session. Straight to work
        rather than back to a form that would ask for the password just set. */
     setTimeout(() => router.push("/dashboard"), 1400);
@@ -189,9 +221,13 @@ function Form() {
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-4">
-        <h1 className="text-base font-semibold text-slate-800">{tr("Create a password", "Buat kata sandi")}</h1>
+        <h1 className="text-base font-semibold text-slate-800">
+          {invited ? tr("Welcome — create your password", "Selamat datang — buat kata sandi Anda") : tr("Create a password", "Buat kata sandi")}
+        </h1>
         <p className="mt-1 text-sm text-slate-500">
-          {tr("Once saved, you are signed in straight away. The recovery link is used up.", "Setelah tersimpan, Anda langsung masuk. Tautan pemulihannya hangus.")}
+          {invited
+            ? tr("You were invited by IT. Once saved, you are signed in straight away; IT decides which modules you can open.", "Anda diundang oleh IT. Setelah tersimpan, Anda langsung masuk; IT yang menentukan modul apa yang bisa Anda buka.")
+            : tr("Once saved, you are signed in straight away. The recovery link is used up.", "Setelah tersimpan, Anda langsung masuk. Tautan pemulihannya hangus.")}
         </p>
       </div>
 

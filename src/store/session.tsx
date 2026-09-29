@@ -91,7 +91,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     ready,
     can: (permission) => hasPermission(session?.permissions ?? [], permission),
     hasAuthority: (authority) => (session?.authorities ?? []).includes(authority),
-    hasAnyModule: (session?.modules.length ?? 0) > 0,
+    /* A switched-off account still lists what it held (so switching it back
+       on restores it) and holds none of it (0183) — so it has no module in
+       any sense the shell cares about, and lands on `/no-access`, which says
+       *switched off* rather than *nothing granted yet*. */
+    hasAnyModule: Boolean(session?.user.is_active) && (session?.modules.length ?? 0) > 0,
     needsSignIn,
     refresh,
     signIn: async (email, password) => {

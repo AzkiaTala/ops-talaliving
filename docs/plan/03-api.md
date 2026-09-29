@@ -93,8 +93,11 @@ All three or none. Never a business row without its audit row.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/me` | user, **module grants**, **authorities**, resolved permission list. The frontend `can()` is the union of these (D23, D24) |
-| GET | `/users` | `it.manage_users` |
-| POST | `/users` | invite; Supabase Auth handles the credential |
+| GET | `/users` | `it.read`. Each row carries the account's life from GoTrue — `status` (`active` · `pending` = never signed in · `inactive`), `invited_at`, `last_sign_in_at`, `sign_in_blocked` — derived on read (`v_user_access`, 0183) |
+| POST | `/users` | invite (D325). **`POST /api/identity/users {action: "invite", email, full_name}`** — the one server route here: `ops_core.invite_user` decides **as the caller** (`it.manage_users`; 422 `email_invalid` / `name_required`; 409 `already_registered` with `user_id` and `is_active`), then GoTrue sends the invitation with the service key, landing on `/set-password`. `provision_user` makes the profile, holding nothing (D24). 501 `auth_admin_not_configured` without `SUPABASE_SERVICE_ROLE_KEY`, asked before anything is recorded |
+| PATCH | `/users/{id}` | `{full_name}` — `ops_core.update_user`, from the browser. `it.manage_users`; tidies whitespace; 422 on blank or >120; `noop` when unchanged; the trail keeps the old name |
+| POST | `/users/{id}/active` | **`POST /api/identity/users {action: "set_active", user_id, active, reason?}`**. `ops_core.set_user_active` first, as the caller: `it.manage_users`, **403 `self_service_refused` for your own account**, `noop` when already so. An inactive account holds no permission and no authority (`has_permission`/`has_authority` read `is_active`), grants kept. Then GoTrue's ban (`876000h` / `none`); the answer's `sign_in` says `blocked` · `allowed` · `not_configured` · `failed`. Re-sending on a `noop` applies a ban that was missed |
+| POST | `/users/{id}/link` | **`POST /api/identity/users {action: "link", user_id}`**. `ops_core.request_user_link` picks the kind — `invite` again for an unconfirmed address (service key), `recovery` otherwise (anon, implicit flow). 403 `user_inactive` for a switched-off account |
 | PUT | `/users/{id}/modules` | grant or revoke a module and its level. **`it` at `admin`**; append-only history in audit. In Phase 1 this had no guard at all until M35 — anybody acting could grant themselves anything |
 | PUT | `/users/{id}/authorities` | grant or revoke `approve_goods` · `approve_funds` · `approve_overtime` · `post_ledger` · `resolve_inbox`. **Separate from modules, deliberately** (D24). **`it` at `admin`** |
 | GET | `/modules`, `/authorities` | the catalogs, read from the database |

@@ -42,6 +42,11 @@ import type { ClientActivity } from "@/services/crm/contracts";
 export interface DemoUser extends User {
   modules: ModuleGrant[];
   authorities: Authority[];
+  /** Set when IT invited the person from `/it/pengguna` (D325). The fixtures
+   *  leave both out — they stand for people already working here. When
+   *  somebody last signed in is not stored: it is read from the trail. */
+  invited_at?: string | null;
+  created_at?: string;
 }
 
 /** One audit row per mutation, always. Business rows and their audit row are

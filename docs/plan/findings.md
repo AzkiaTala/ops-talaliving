@@ -7506,3 +7506,76 @@ checked, and the validator was run on a hand-written model reply that had
 comma decimals, `m³`, a duplicate pair, an invented code and an unreadable
 quantity. The sandbox has no model, so it works the lines out from the
 product's size and says so on screen.
+
+## F182 · 2026-09-29 · *nonaktif* was a badge, and an invitation could never have opened
+
+The owner asked for user management in IT (D325, `0183`): add a person,
+correct a name, switch an account off, send a password link. Three things were
+found before any of it could be true.
+
+**`users.is_active` existed since `0002` and nothing read it.** The IT screen
+drew a *nonaktif* badge from it. `has_permission` and `has_authority` never
+looked at it, so an account marked inactive kept every grant, including
+`approve_funds`. The badge described a lock that did not exist. Both functions
+now join `users` on `is_active` (one primary-key probe; `0154` already makes
+every policy call them once per statement), and `v_my_access` /
+`v_user_access` expand no permissions for an inactive account, so `can()` and
+`has_permission()` still agree. The grants themselves stay in `user_modules`:
+switching an account back on gives back exactly what it held. All 109 smoke
+files stayed green after the change. `183_core_user_admin.sql` proves the
+inactive account answers false to both functions, disappears from
+`approvers()`, keeps its grants, and gets them back.
+
+**The browser client is PKCE, and every link somebody else causes is
+implicit.** An invitation (and a recovery link requested by IT for somebody
+else) is opened in a different browser from the one that asked, so GoTrue
+sends the session in `#access_token=…`. `auth-js` sees that URL, compares it
+with the client's `flowType: "pkce"` (set by `@supabase/ssr`), and throws *Not
+a valid PKCE flow url*. `/set-password` would have said *this link cannot be
+used* to every person IT ever invited. The auth-js source shows it
+(`_getSessionFromURL`), and so does its own doc comment: *PKCE is not
+supported when using `inviteUserByEmail`*. The page now reads that fragment
+shape itself, hands the two tokens to `setSession`, and strips them from the
+address bar. For the same reason, *send a password link* is sent from the
+server with an implicit anon client, not from IT's browser. That needs no
+service key.
+
+**The walk found a third one, and no type or unit check could have.** After
+Dewi saved her first password, `router.push("/dashboard")` landed on
+`/signin?next=/dashboard`, with a session in hand. The session provider lives
+in the root layout and asked `me()` when `/set-password` first loaded, before
+the fragment's session existed. The PKCE recovery path never hit this because
+`getSession()` waits for the code exchange. The page now refreshes the session
+after saving.
+
+**The service key, and the line it does not cross.** Creating an account,
+re-sending an invitation and banning a sign-in are GoTrue's, and GoTrue takes
+them only from the service role. That is the first use of the key in a request
+a person made, so the route (`/api/identity/users`) puts every action to the
+database **as that person** first, and acts on GoTrue only after the seam says
+yes, for the address or account the seam named. `authAdmin()` returns
+`auth.admin` rather than a client, so the key cannot reach a table even by
+mistake. Without the key, invite refuses before anything is recorded. Switch-off
+still happens in the database (that is what removes access) and the screen
+says the sign-in is not blocked yet, with a button to block it later.
+
+**A refusal that could never fire was left out.** *Don't switch off the last
+administrator* sounds necessary. But the caller must hold `it.manage_users`
+(admin on `it`), must be active, and may not switch off themselves, so every
+time an administrator is switched off another active one is doing it. The
+self refusal carries it.
+
+**Walked, three ways.** `scripts/e2e/local-stack.mjs` gained the three GoTrue
+endpoints the route calls (invite, admin user update, recover), and a banned
+account's password grant is refused. Walked in a browser: live with the key
+(invite → profile made by `provision_user` → grant on the same row → resend →
+rename → recovery link → switch off with a reason → ban → Budi refused at sign
+in → Dewi opens her invitation → welcome form → dashboard → switch back on,
+ban lifted); live without the key (invite names the secret and records
+nothing; switch-off removes access, the stub still lets Budi authenticate, the
+app signs him straight out as *dinonaktifkan*, and the trail has the refused
+sign-in); and the demo at phone width, in both languages. **Not verified
+here:** real GoTrue sending a real invitation email. The invitation lands on
+`/set-password` only if that origin is in Authentication → URL Configuration →
+Redirect URLs (`06-auth.md`). Supabase's built-in mail sends only a few
+messages an hour.

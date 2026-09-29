@@ -19,6 +19,34 @@ export default function NoAccessPage() {
   const router = useRouter();
   const tr = useTr();
 
+  /* Switched off by IT (0183) is a different sentence and a different next
+     step from *nothing granted yet*: nobody is about to grant this account
+     anything, and the demo's self-grant would be the wrong button. */
+  if (session && !session.user.is_active) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
+        <Card className="w-full max-w-md p-8 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+            <Lock className="h-6 w-6" />
+          </span>
+          <h1 className="mt-5 text-lg font-semibold text-slate-800">{tr("This account is switched off", "Akun ini dinonaktifkan")}</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            {tr("The account", "Akun")} <span className="font-medium text-slate-700">{session.user.email}</span>{" "}
+            {tr(
+              "has been switched off by IT, so it can no longer open anything. If that is a mistake, ask IT to switch it back on.",
+              "telah dinonaktifkan oleh IT, jadi tidak bisa membuka apa pun lagi. Jika ini keliru, minta IT mengaktifkannya kembali.",
+            )}
+          </p>
+          <div className="mt-6">
+            <Link href="/signin">
+              <Button variant="outline" className="w-full">{tr("Sign in as someone else", "Masuk sebagai orang lain")}</Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
       <Card className="w-full max-w-md p-8 text-center">
