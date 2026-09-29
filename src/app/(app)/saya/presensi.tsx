@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Fingerprint, MapPin } from "lucide-react";
 import { Badge, Card } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { hr } from "@/demo/api";
+import { LocatedTap } from "@/components/attendance/located-tap";
 import type { TimesheetDay } from "@/services/hr/contracts";
 import { officeClock, officeDay, officeToday, shiftDay } from "@/lib/office";
 import { formatNumber } from "@/lib/format";
-import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { useDayLabel } from "./shared";
@@ -37,8 +36,6 @@ export function readToday(day: TimesheetDay | undefined) {
 export function PresensiTab({ employeeNo }: { employeeNo: string }) {
   const tr = useTr();
   const day = useDayLabel();
-  const { toast } = useToast();
-  const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   /* One tick a second, so the minute flips when the office clock does. */
@@ -55,18 +52,6 @@ export function PresensiTab({ employeeNo }: { employeeNo: string }) {
   );
   const todayRow = days.status === "ready" ? days.data.find((d) => d.work_date === today) : undefined;
   const reading = readToday(todayRow);
-
-  async function tap() {
-    setBusy(true);
-    const res = await hr.tapSelf();
-    setBusy(false);
-    if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
-      return;
-    }
-    toast("success", tr("Tap recorded", "Tap tercatat"), tr(`At ${officeClock(new Date(res.data.at))}.`, `Pukul ${officeClock(new Date(res.data.at))}.`));
-    reload();
-  }
 
   const secs = String(new Date(now).getUTCSeconds()).padStart(2, "0");
   const label = reading.next === "masuk" ? tr("CLOCK IN", "MASUK")
@@ -92,31 +77,23 @@ export function PresensiTab({ employeeNo }: { employeeNo: string }) {
           <p className="text-[13px] text-slate-500">{tr(`In ${reading.inAt}`, `Masuk ${reading.inAt}`)}</p>
         )}
 
-        <button
-          type="button"
-          onClick={tap}
-          disabled={busy || days.status === "loading"}
-          className={cn(
-            "mt-5 flex h-20 w-full items-center justify-center gap-3 rounded-2xl text-[22px] font-bold tracking-wide text-white shadow-sm transition active:scale-[0.99] disabled:opacity-60",
-            reading.next === "pulang" ? "bg-amber-600 active:bg-amber-700" : "bg-brand-600 active:bg-brand-700",
-          )}
-        >
-          <Fingerprint className="h-8 w-8" />
-          {busy ? tr("Recording…", "Mencatat…") : label}
-        </button>
+        {/* D332: the tap reads where the phone is, once, at the press, and is
+            judged against the warehouse. Off-site opens the form (location,
+            optional photo, required note) and is recorded and flagged. */}
+        <LocatedTap
+          className="mt-5"
+          size="lg"
+          label={label}
+          tone={reading.next === "pulang" ? "amber" : "brand"}
+          disabled={days.status === "loading"}
+          onTapped={() => reload()}
+        />
         {reading.next === "lagi" && (
           <p className="mt-2 text-[12px] text-slate-500">
             {tr("Overtime? Tap when it starts and when it ends.", "Lembur? Tap saat mulai dan saat selesai.")}
           </p>
         )}
 
-        {/* Location (D332) goes here: the reading of where this tap was made,
-            and the off-site form — location, photo, note — when it was not
-            made at the warehouse. Deliberately empty in D331. */}
-        <div data-slot="location" className="mt-4 flex items-center justify-center gap-1.5 text-[12px] text-slate-400">
-          <MapPin className="h-3.5 w-3.5" />
-          {tr("Location is not recorded yet.", "Lokasi belum dicatat.")}
-        </div>
       </Card>
 
       <Card>

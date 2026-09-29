@@ -47,8 +47,9 @@ begin
   -- reads when they ask whether this is set up.
   select count(*) into n from ops_core.doc_kind_drive;
   -- 26 since `0101` added the receiving report; 29 since `0132` added the
-  -- BAST, our own surat jalan and the site photo, all in PROJECT MANAGER.
-  assert n = 29, format('every kind is mapped, got %s', n);
+  -- BAST, our own surat jalan and the site photo, all in PROJECT MANAGER;
+  -- 30 since `0188` added the off-site clock-in photo, in HRD (D332).
+  assert n = 30, format('every kind is mapped, got %s', n);
 end $$;
 
 /* ── the boundary that had to survive the move ─────────────────────────── */
@@ -161,7 +162,8 @@ begin
 
   select * into r from ops_core.v_drive_readiness where slug = 'hrd';
   assert r.has_folder, 'HRD is ready';
-  assert r.kinds = 11, format('and takes eleven kinds of document, got %s', r.kinds);
+  -- Twelve since `0188`: the off-site clock-in photo (D332).
+  assert r.kinds = 12, format('and takes twelve kinds of document, got %s', r.kinds);
 
   select * into r from ops_core.v_drive_readiness where slug = 'backup';
   assert r.has_parent, 'BACKUP has a module folder';

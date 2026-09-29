@@ -16,9 +16,10 @@ import type {
   ContractKind, ClauseKind, ClauseChecklistItem, EmploymentContract,
   ContractView, ContractDetail, ContractClause, ClauseConflict, TimesheetTotal, DayState,
   EffectiveDaysCalendar, EmployeeAccount,
+  TapReading, TapSelfResult, LocationJudgement, LocationVerdict, WorkSite, LocatedTapView,
 } from "@/services/hr/contracts";
 import {
-  SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem,
+  SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem, OFF_SITE_VERDICTS,
 } from "@/services/hr/contracts";
 import { instantInDay, isOvernight, dayBoundaryMinutes } from "@/services/hr/schedule-rules";
 import type { DocKind } from "@/services/documents/contracts";
@@ -414,19 +415,105 @@ export async function myProfile(): Promise<Result<Employee | null>> {
   return ok(SERVICE, myEmployee(getState()));
 }
 
+/* ── Presensi berlokasi (D332, 0188) ──────────────────────────────────── */
+
+/** Great-circle metres — `ops_hr.distance_m`. */
+function distanceM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = (d: number) => (d * Math.PI) / 180;
+  const a = Math.sin(r(lat2 - lat1) / 2) ** 2
+    + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(r(lng2 - lng1) / 2) ** 2;
+  return 2 * 6371008.8 * Math.asin(Math.sqrt(a));
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** `ops_hr.judge_location`: the nearest active site with a point, and the
+ *  reading's whole accuracy circle against its radius. */
+function judge(state: DemoState, reading: Partial<TapReading>): LocationJudgement & { site_id: string | null } {
+  const lat = reading.lat ?? null, lng = reading.lng ?? null, acc = reading.accuracy_m ?? null;
+  const sites = state.work_sites
+    .filter((w) => w.active && w.lat !== null && w.lng !== null)
+    .map((w) => ({ w, d: lat === null || lng === null ? 0 : distanceM(lat, lng, w.lat!, w.lng!) }))
+    .sort((a, b) => a.d - b.d || a.w.code.localeCompare(b.w.code));
+  const hit = sites[0];
+  let verdict: LocationVerdict;
+  if (!hit) verdict = "no_site";
+  else if (lat === null || lng === null) verdict = "no_location";
+  else if (acc !== null && hit.d + acc <= hit.w.radius_m) verdict = "inside";
+  else if (acc !== null && hit.d - acc > hit.w.radius_m) verdict = "outside";
+  else verdict = "uncertain";
+  return {
+    verdict,
+    distance_m: hit && lat !== null && lng !== null ? round1(hit.d) : null,
+    accuracy_m: acc === null ? null : round1(acc),
+    site_id: hit?.w.id ?? null,
+    site_code: hit?.w.code ?? null,
+    site_name: hit?.w.name ?? null,
+    radius_m: hit?.w.radius_m ?? null,
+    needs_note: OFF_SITE_VERDICTS.includes(verdict),
+  };
+}
+
+/** The office clock as `YYYY-MM-DDTHH:MM:SS.ffffff`, for the tap's code. */
+function officeStamp(iso: string): string {
+  const d = new Date(new Date(iso).getTime() + 8 * 3_600_000).toISOString();
+  return `${d.slice(0, 23)}000`;
+}
+
 /** A tap from the person's own session, not the reader at the door — one
  *  more row on the same pile `read_day` already knows how to read (D141).
  *  `source: "manual"` in the fixture only because the demo's own
  *  `ScanSource` predates this build; the real database spells it `self`
- *  (0164) and the distinction is cosmetic, never read by the derivation. */
-export async function tapSelf(): Promise<Result<{ id: string; at: string; work_date: string }>> {
+ *  (0164) and the distinction is cosmetic, never read by the derivation.
+ *
+ *  With the phone's reading since D332: judged against the warehouse, and an
+ *  off-site tap needs a note — refused without one, written and flagged with
+ *  one, never refused outright. */
+export async function tapSelf(
+  input: Partial<TapReading> & { note?: string | null; photo_id?: string | null } = {},
+  idempotencyKey?: string,
+): Promise<Result<TapSelfResult>> {
   await latency();
+  const cached = replayed<TapSelfResult>(SERVICE, "tap_self", idempotencyKey);
+  if (cached) return cached;
   const state = getState();
   const emp = myEmployee(state);
   if (!emp) return noEmployeeLink();
 
+  const lat = input.lat ?? null, lng = input.lng ?? null, acc = input.accuracy_m ?? null;
+  if ((lat === null) !== (lng === null)
+      || (lat !== null && (lat < -90 || lat > 90)) || (lng !== null && (lng < -180 || lng > 180))
+      || (acc !== null && acc < 0)) {
+    return invalid(SERVICE, "bad_location", "Lokasi dari HP tidak utuh atau tidak masuk akal.", { field: "lat" });
+  }
+
+  const where = judge(state, input);
+  const note = input.note?.trim() || null;
+  if (where.needs_note && !note) {
+    const { site_id: _omit, ...detail } = where;
+    return invalid(
+      SERVICE, "off_site_needs_note",
+      where.verdict === "outside"
+        ? `Anda di luar area ${where.site_name} (${Math.round(where.distance_m ?? 0)} m dari titiknya). Tulis keterangan, lalu tap lagi.`
+        : where.verdict === "uncertain"
+          ? "Lokasi HP kurang tepat untuk memastikan Anda di area. Tulis keterangan, lalu tap lagi."
+          : "Lokasi tidak terbaca. Tulis keterangan, lalu tap lagi.",
+      { ...detail, field: "note" },
+    );
+  }
+
+  if (input.photo_id) {
+    const photo = state.attachments.find((a) => a.id === input.photo_id);
+    if (!photo) return invalid(SERVICE, "photo_not_found", "Foto tidak ditemukan. Unggah ulang.", { field: "photo_id" });
+    if (photo.uploaded_by !== actingUser().id) {
+      return refused(SERVICE, "photo_not_yours", "Foto presensi harus diunggah dari akun yang sama.");
+    }
+  }
+
   const at = new Date().toISOString();
   const work_date = sharedOfficeToday();
+  const tap_no = `${emp.employee_no}/${officeStamp(at)}`;
+  const { site_id, ...location } = where;
   let id = "";
   apply((draft) => {
     id = newId("scn");
@@ -436,14 +523,113 @@ export async function tapSelf(): Promise<Result<{ id: string; at: string; work_d
       import_id: null, reason: null,
       recorded_by: actingUser().id, recorded_at: at,
     });
-    writeAudit(draft, {
-      service: SERVICE, entity: "attendance", entity_no: `${emp.employee_no}/${work_date}`,
-      action: "tap_self", outcome: "ok", reason: null,
-      detail: { at, by: actingUser().email },
+    draft.scan_locations.push({
+      scan_id: id, tap_no, site_id, lat, lng,
+      accuracy_m: where.accuracy_m, distance_m: where.distance_m, radius_m: where.radius_m,
+      verdict: where.verdict, note, photo_id: input.photo_id ?? null,
     });
-    recordSelfActivity(draft, "attendance_tap", "attendance", `Tap presensi pukul ${officeClock(new Date(at))}`);
+    if (input.photo_id) {
+      draft.attachment_links.push({
+        id: newId("lnk"), attachment_id: input.photo_id, entity: "attendance_scan",
+        entity_no: tap_no, kind: "Foto Presensi", linked_by: actingUser().id, linked_at: at,
+      });
+    }
+    writeAudit(draft, {
+      service: SERVICE, entity: "attendance", entity_no: tap_no,
+      action: "tap_self", outcome: "ok", reason: null,
+      detail: { at, by: actingUser().email, verdict: where.verdict },
+    });
+    recordSelfActivity(draft, "attendance_tap", "attendance",
+      `Tap presensi pukul ${officeClock(new Date(at))}${where.needs_note ? " · di luar area" : ""}`);
   });
-  return ok(SERVICE, { id, at, work_date });
+  const result: TapSelfResult = { id, at, work_date, tap_no, location };
+  remember(SERVICE, "tap_self", idempotencyKey, result);
+  return ok(SERVICE, result);
+}
+
+export async function judgeLocation(input: TapReading): Promise<Result<LocationJudgement>> {
+  await latency();
+  const { site_id: _omit, ...j } = judge(getState(), input);
+  return ok(SERVICE, j);
+}
+
+export async function listWorkSites(): Promise<Result<WorkSite[]>> {
+  await latency();
+  return ok(SERVICE, getState().work_sites.slice().sort((a, b) => a.code.localeCompare(b.code)));
+}
+
+/** `ops_hr.save_work_site` — HRD or IT, keyed by code. */
+export async function saveWorkSite(
+  input: { code: string; name: string; lat: number | null; lng: number | null; radius_m: number; active: boolean },
+  idempotencyKey?: string,
+): Promise<Result<WorkSite>> {
+  await latency();
+  const cached = replayed<WorkSite>(SERVICE, "save_work_site", idempotencyKey);
+  if (cached) return cached;
+  if (requireLevel(SERVICE, "hrd", "write") && requireLevel(SERVICE, "it", "write")) {
+    return refused(SERVICE, "not_permitted", "Titik lokasi kerja diatur oleh HRD atau IT.");
+  }
+  const code = input.code.trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{2,20}$/.test(code)) {
+    return invalid(SERVICE, "bad_code", "Kode lokasi 2–20 huruf besar/angka, mis. GUDANG.", { field: "code" });
+  }
+  if (!input.name.trim()) return invalid(SERVICE, "name_required", "Lokasi butuh nama.", { field: "name" });
+  if (input.lat === null || input.lng === null || !Number.isFinite(input.lat) || !Number.isFinite(input.lng)
+      || input.lat < -90 || input.lat > 90 || input.lng < -180 || input.lng > 180) {
+    return invalid(SERVICE, "point_required", "Titik tengah (lintang dan bujur) harus diisi dan masuk akal.", { field: "lat" });
+  }
+  if (!Number.isFinite(input.radius_m) || input.radius_m < 20 || input.radius_m > 2000) {
+    return invalid(SERVICE, "bad_radius", "Radius antara 20 dan 2000 meter.", { field: "radius_m", min: 20, max: 2000 });
+  }
+  const updated_at = new Date().toISOString();
+  let saved: WorkSite | null = null;
+  apply((draft) => {
+    const row = draft.work_sites.find((w) => w.code === code);
+    const next: WorkSite = {
+      id: row?.id ?? newId("site"), code, name: input.name.trim(),
+      lat: input.lat, lng: input.lng, radius_m: Math.round(input.radius_m), active: input.active, updated_at,
+    };
+    if (row) Object.assign(row, next); else draft.work_sites.push(next);
+    saved = next;
+    writeAudit(draft, {
+      service: SERVICE, entity: "work_site", entity_no: code, action: "save", outcome: "ok", reason: null,
+      detail: { lat: input.lat, lng: input.lng, radius_m: input.radius_m, active: input.active },
+    });
+  });
+  remember(SERVICE, "save_work_site", idempotencyKey, saved!);
+  return ok(SERVICE, saved!);
+}
+
+/** `ops_hr.v_located_tap`, in a period of office days. HRD reads every
+ *  person's; anybody else reads only their own (the policy on 0188). */
+export async function listLocatedTaps(
+  input: { from: string; to: string; flagged_only?: boolean },
+): Promise<Result<LocatedTapView[]>> {
+  await latency();
+  const state = getState();
+  const hrd = !requireModule(SERVICE, "hrd");
+  const mine = myEmployee(state)?.id ?? null;
+  const rows: LocatedTapView[] = [];
+  for (const l of state.scan_locations) {
+    const s = state.attendance_scans.find((x) => x.id === l.scan_id);
+    if (!s || s.work_date < input.from || s.work_date > input.to) continue;
+    if (!hrd && s.employee_id !== mine) continue;
+    const flagged = OFF_SITE_VERDICTS.includes(l.verdict);
+    if (input.flagged_only && !flagged) continue;
+    const e = state.employees.find((x) => x.id === s.employee_id);
+    const w = state.work_sites.find((x) => x.id === l.site_id);
+    const photo = l.photo_id ? state.attachments.find((a) => a.id === l.photo_id) : undefined;
+    rows.push({
+      tap_no: l.tap_no, scan_id: s.id,
+      employee_no: e?.employee_no ?? "", full_name: e?.full_name ?? "", unit: e?.unit ?? null,
+      at: s.at, work_date: s.work_date, verdict: l.verdict, flagged,
+      lat: l.lat, lng: l.lng, accuracy_m: l.accuracy_m, distance_m: l.distance_m, radius_m: l.radius_m,
+      site_code: w?.code ?? null, site_name: w?.name ?? null, note: l.note,
+      photo_id: l.photo_id, photo_link: null, photo_filename: photo?.filename ?? null,
+    });
+  }
+  rows.sort((a, b) => b.at.localeCompare(a.at));
+  return ok(SERVICE, rows);
 }
 
 /** Taking the machine's export.

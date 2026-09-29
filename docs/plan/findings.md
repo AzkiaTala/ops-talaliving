@@ -7883,3 +7883,53 @@ from the topbar. A module-less account with no link → `/no-access`. **Not
 verified here:** the live stack end to end (a real upload into the HRD drive's
 `ops-talaliving/CUTI IZIN SAKIT/SURAT DOKTER`), and a real low-end Android's
 camera; the database half is covered by `smoke/187_hr_sick_note.sql`.
+
+## F189 · 2026-09-29 · a location from a browser is evidence, not a lock, and the wait for one has two clocks
+
+D332 records where a phone tap was made and checks it against the warehouse.
+Four things came out of building and walking it.
+
+**A browser cannot tell a real GPS fix from a faked one.** On Android a
+"mock location" app, enabled in developer options, feeds any coordinates to
+every app, and the Geolocation API hands them to the page with a plausible
+accuracy. A native app can at least ask the OS whether the fix came from a
+mock provider; a PWA cannot. So the location is **evidence that adds**,
+never a gate: an off-site tap is written and flagged, the person's note and
+photo sit beside it, and HRD looks. This is part of why the fingerprint
+reader stays in use while this is tested (D326, answer 5). A rule that
+refused taps on location alone would be defeated by the people it was
+meant to catch, and it would lock out the honest person collecting timber at
+the supplier.
+
+**Judge the circle, not the dot.** The phone reports a point and "within
+`a` metres". Judging only the point would call a tap 140 m from the centre
+with ±30 m "inside" a 150 m site, though the person could be 170 m out. The
+database judges the whole circle: inside when all of it is on site, outside
+when none of it is, and *uncertain* in between, which asks for a note like
+any off-site tap. The cost is a few notes from people standing near the edge
+with a poor fix. That is the reason the radius is Q60, and why the settings
+screen shows how precise the reading was before anybody saves a point.
+
+**`getCurrentPosition`'s own timeout does not start until permission is
+granted.** A prompt nobody answers (on the walk: a context whose permission
+had been cleared, so the browser asked) left the button reading *Membaca
+lokasi…* for ever. The component now has its own 20-second guard, after which
+the tap goes on as *no location* and the form asks for a note. In the real
+world this is a worker who swipes the prompt away. Found on the walk, not by
+`tsc`.
+
+**The first walk of the HRD list read an empty list, and the fault was the
+walk.** The off-site form disappears the moment the tap is *sending*, not when
+it is written, and the walk navigated away in that gap. The demo store only
+persists on write, so two of three taps were lost. The walk now waits for the
+result line. It is worth writing down because the same gap exists for a
+person: a tap is recorded when the line *Tap tercatat · 07:25 WITA* appears,
+not when the form closes.
+
+Also: the phone's `tap_self(text)` could not simply gain parameters. A second
+signature is an overload, and PostgREST cannot choose between two functions
+that both accept `{p_key}`. `0188` drops the old one and creates the new one in
+the same file. Smoke `188` asserts there is exactly one, and smoke `102` now
+names the new signature in its grant checks. D327 landed first, so this
+branch updated its smoke `184` the same way; its no-argument `tap_self()`
+still passes, because a database with no site set judges nothing (`no_site`).

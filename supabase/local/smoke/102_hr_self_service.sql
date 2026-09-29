@@ -233,11 +233,11 @@ end $$;
 reset role;
 do $$
 begin
-  assert not has_function_privilege('public','ops_hr.tap_self(text)','execute'),
+  assert not has_function_privilege('public','ops_hr.tap_self(double precision,double precision,double precision,text,uuid,text)','execute'),
     'tap_self() terbuka untuk PUBLIC';
   assert not has_function_privilege('public','ops_hr.report_overtime_self(date,numeric,text,text,text)','execute'),
     'report_overtime_self() terbuka untuk PUBLIC';
-  assert has_function_privilege('authenticated','ops_hr.tap_self(text)','execute'),
+  assert has_function_privilege('authenticated','ops_hr.tap_self(double precision,double precision,double precision,text,uuid,text)','execute'),
     'authenticated tidak bisa memanggil tap_self()';
 end $$;
 
