@@ -20,6 +20,7 @@ import type {
 import {
   SENSITIVE_DOC_KINDS, SCHEME_LABELS, maskDocNo, clauseValueOk, scheduleProblem,
 } from "@/services/hr/contracts";
+import { instantInDay, isOvernight, dayBoundaryMinutes } from "@/services/hr/schedule-rules";
 import type { DocKind } from "@/services/documents/contracts";
 import type { DemoState } from "../state";
 import { getState, apply, newId, nextDocNumber, writeAudit, writeOutbox } from "../store";
@@ -32,7 +33,7 @@ import {
   employeeIdentityViews, wlkpRecap,
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
-import { officeToday as sharedOfficeToday } from "@/lib/office";
+import { officeClock, officeToday as sharedOfficeToday } from "@/lib/office";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
@@ -439,7 +440,7 @@ export async function tapSelf(): Promise<Result<{ id: string; at: string; work_d
       action: "tap_self", outcome: "ok", reason: null,
       detail: { at, by: actingUser().email },
     });
-    recordSelfActivity(draft, "attendance_tap", "attendance", `Tap presensi pukul ${at.slice(11, 16)}`);
+    recordSelfActivity(draft, "attendance_tap", "attendance", `Tap presensi pukul ${officeClock(new Date(at))}`);
   });
   return ok(SERVICE, { id, at, work_date });
 }
@@ -547,14 +548,21 @@ export async function addScan(
     );
   }
 
+  /* *The day* is the working day — for a guard, a night — so the calendar day
+     a typed time lands on is read off the day's own window: 07.05 against
+     Monday's shift is Tuesday 07.05 (D330). `work_date` is that calendar day,
+     exactly as the database stores it. */
+  const at = instantInDay(input.work_date, input.time, timesheetDay(state, emp, input.work_date).window_from);
+  const calendarDay = at.slice(0, 10);
+
   const user = actingUser();
   let row: AttendanceScan | null = null;
   apply((draft) => {
     row = {
       id: newId("scn"),
       employee_id: emp.id,
-      work_date: input.work_date,
-      at: `${input.work_date}T${input.time}:00+08:00`,
+      work_date: calendarDay,
+      at,
       verify: "MANUAL",
       location: null,
       source: "manual",
@@ -3682,6 +3690,10 @@ export async function listSchedules(): Promise<Result<{
      *  not a decision, and the difference is the point (D279). */
     inherited: number;
     units: string[];
+    /** End before start: the shift crosses midnight (D330). */
+    overnight: boolean;
+    /** Where this pattern's next working day begins, minutes after midnight. */
+    day_boundary_minutes: number;
   })[];
   /** Nobody has linked these, and their unit has no default either. */
   unlinked: { employee_no: string; full_name: string; unit: string }[];
@@ -3702,6 +3714,9 @@ export async function listSchedules(): Promise<Result<{
     inherited: active.filter((e) => !e.schedule_code && scheduleFor(rules, e)?.code === sc.code).length,
     units: Object.entries(rules.schedule_by_unit ?? {})
       .filter(([, code]) => code === sc.code).map(([u]) => u),
+    hours_unconfirmed: sc.hours_unconfirmed ?? false,
+    overnight: isOvernight(sc),
+    day_boundary_minutes: dayBoundaryMinutes(sc),
   }));
 
   return ok(SERVICE, {
@@ -3719,6 +3734,118 @@ export async function listSchedules(): Promise<Result<{
       })),
     week_pattern: rules.week_pattern,
   });
+}
+
+/** HRD sets one pattern's start, end and break (D330).
+ *
+ *  The rule book is IT's hands (D173), but *when does the guard start* is
+ *  HRD's to answer. So this writes exactly one pattern's clock as a **new
+ *  dated version** of the book in force on that date, with everything else
+ *  copied — and refuses what `ops_hr.set_schedule_hours` refuses, with the
+ *  same sentences. Saving clears `hours_unconfirmed`: typing the default in is
+ *  how it is confirmed (D288).
+ */
+export async function setScheduleHours(
+  input: {
+    code: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  await latency();
+  const cached = replayed<{ code: string; version: number; effective_from: string }>(
+    SERVICE, "setScheduleHours", idempotencyKey);
+  if (cached) return cached;
+
+  const denied = requireLevel(SERVICE, "hrd", "write");
+  if (denied) return denied;
+  if (!input.note?.trim()) {
+    return invalid(
+      SERVICE, "note_required",
+      "Tulis alasannya. Jam kerja yang berubah tanpa keterangan tidak bisa dijelaskan ke orang yang jamnya berubah.",
+      { field: "note" },
+    );
+  }
+
+  const state = getState();
+  const from = input.effective_from || sharedOfficeToday();
+  const sorted = [...state.pay_rule_sets].sort(
+    (a, b) => a.effective_from.localeCompare(b.effective_from) || a.version - b.version);
+  const base = sorted.filter((r) => r.effective_from <= from).pop();
+  if (!base) {
+    return conflict(SERVICE, "no_rule_book",
+      `Belum ada buku aturan gaji yang berlaku pada ${from}. IT menerbitkannya dulu.`);
+  }
+  const later = sorted.find((r) => r.effective_from > from);
+  if (later) {
+    return conflict(SERVICE, "later_version_exists",
+      `Versi ${later.version} berlaku mulai ${later.effective_from}, sesudah tanggal ini, dan tidak memuat perubahan ini — jamnya akan kembali pada tanggal itu. Pilih tanggal mulai ${later.effective_from} atau sesudahnya.`);
+  }
+  const old = (base.rules.schedules ?? []).find((sc) => sc.code === input.code);
+  if (!old) {
+    return notFound(SERVICE, "not_found",
+      `Tidak ada jadwal kerja bernama ${input.code} di buku aturan yang berlaku.`);
+  }
+
+  const { hours_unconfirmed: _dropped, ...kept } = old;
+  void _dropped;
+  const changed = {
+    ...kept,
+    start_minutes: input.start_minutes,
+    end_minutes: input.end_minutes,
+    break_minutes: input.break_minutes,
+  };
+  const rules: PayRules = {
+    ...base.rules,
+    schedules: (base.rules.schedules ?? []).map((sc) => (sc.code === input.code ? changed : sc)),
+  };
+  if (JSON.stringify(changed) === JSON.stringify(old)) {
+    return noop(SERVICE, { code: input.code, version: base.version, effective_from: base.effective_from });
+  }
+
+  const problem = scheduleProblem(rules.schedules ?? [], rules.schedule_by_unit ?? {});
+  if (problem) return invalid(SERVICE, problem.code, problem.message, { field: "schedules" });
+
+  const spent = state.payroll_runs
+    .filter((r) => r.status !== "DRAFT" && r.period_end >= from)
+    .sort((a, b) => a.period_start.localeCompare(b.period_start))[0];
+  if (spent) {
+    return conflict(SERVICE, "already_paid",
+      `${spent.run_no} sudah ditandatangani untuk periode yang berakhir ${from} atau sesudahnya. Aturan tidak bisa mundur melewati uang yang sudah dibayarkan — terbitkan yang baru berlaku setelahnya.`);
+  }
+  const clash = state.payroll_runs.find((r) => from > r.period_start && from <= r.period_end);
+  if (clash) {
+    return conflict(SERVICE, "inside_existing_run",
+      `${clash.run_no} mencakup tanggal itu, dan periode itu dihitung dengan aturan yang berlaku saat dibuka. Pilih tanggal di luar periode yang sudah ada.`);
+  }
+
+  const user = actingUser();
+  let version = 0;
+  apply((draft) => {
+    version = Math.max(0, ...draft.pay_rule_sets.map((r) => r.version)) + 1;
+    draft.pay_rule_sets.push({
+      id: newId("prs"), version, effective_from: from, note: input.note.trim(), rules,
+      created_by: user.id, created_at: new Date().toISOString(),
+    });
+    writeAudit(draft, {
+      service: SERVICE, entity: "schedule", entity_no: input.code,
+      action: "set_hours", outcome: "ok", reason: input.note.trim(),
+      detail: {
+        before: { start_minutes: old.start_minutes, end_minutes: old.end_minutes,
+                  break_minutes: old.break_minutes, hours_unconfirmed: old.hours_unconfirmed ?? false },
+        after: { start_minutes: input.start_minutes, end_minutes: input.end_minutes,
+                 break_minutes: input.break_minutes, version, effective_from: from },
+        by: user.email,
+      },
+    });
+  });
+  const answer = { code: input.code, version, effective_from: from };
+  remember(SERVICE, "setScheduleHours", idempotencyKey, answer);
+  return ok(SERVICE, answer);
 }
 
 /** Linking one person to a working pattern (Q53, D279).

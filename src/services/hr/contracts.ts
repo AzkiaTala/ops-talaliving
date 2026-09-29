@@ -250,6 +250,17 @@ export interface TimesheetDay {
    *  *The rule could not fit the taps* and *something here is worth a second
    *  look* are different sentences, and only the first one blocks. */
   notes: string[];
+  /** The instants this day's taps were read from: `[window_from, window_to)`.
+   *  Midnight to midnight WITA for an ordinary pattern; for somebody on a
+   *  night (D330) the day claims the next morning, up to the middle of the
+   *  off-duty gap — so a guard's 07.05 pulang is on the evening it began,
+   *  while the tap's own `work_date` stays the calendar day it happened on.
+   *  Carried so a client lists the taps the reading read and decides nothing
+   *  again. */
+  window_from: string;
+  window_to: string;
+  /** Read as a shift that crosses midnight. */
+  overnight: boolean;
 }
 
 /** Overtime arrives as a **sheet**, and there are two kinds of sheet.
