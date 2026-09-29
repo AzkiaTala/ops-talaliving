@@ -7934,6 +7934,17 @@ names the new signature in its grant checks. D327 landed first, so this
 branch updated its smoke `184` the same way; its no-argument `tap_self()`
 still passes, because a database with no site set judges nothing (`no_site`).
 
+**Applied to production on a clock the ladder did not have yet.** When
+`0188` went to production, D334's `0190` (the office clock is WIB) was already
+there but not on `main`, and `0184` had been applied after it, putting WITA
+back into `tap_self`. Applying `0188` word for word would have labelled
+phone taps an hour off from the reader's. The owner said *use WIB*, so the two
+`'Asia/Makassar'` literals went in as `ops_core.office_tz()`, which is exactly
+what `0190`'s sweep does to any function it finds. The ladder reaches the
+same state once D334 merges, if D334 drops `tap_self(text)` rather than
+recreating it. The lesson is F167's again: the order migrations reach
+production is not the order they sit in the ladder, and a file that names a
+zone is a file that can be wrong about which one.
 
 ## F191 · 2026-09-29 · two errors of one hour that cancelled, until one of them was fixed
 
@@ -8024,6 +8035,10 @@ refuses to choose. So `0190` no longer names `tap_self`; the sweep rewrites
 whichever one is current. That is the second time in one day a copied body was
 the wrong tool against a lane that moves. The sweep was right both times,
 because it reads the function it is fixing instead of remembering one.
-`0191` is the same sweep alone, for production's order (`0190`, `0184`,
-then `0188` whenever it lands): smoke `190` stages a function written back
-to WITA and proves `0191` puts it right.
+After `0184`, D332 applied `0188` to production with the two literals
+already written as `ops_core.office_tz()` (F189), which is what the sweep
+would have done to them. Production was read back after that: one
+`tap_self`, on the office clock, and no `ops_*` function or view naming
+WITA. A sweep-only `0191` was drafted for the race and dropped once
+production no longer needed it: a migration with no job is one more thing
+to read in the ladder.

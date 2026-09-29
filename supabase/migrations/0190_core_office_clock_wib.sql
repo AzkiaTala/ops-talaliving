@@ -31,7 +31,7 @@
 -- overload PostgREST cannot choose between. The sweep below rewrites whichever
 -- `tap_self` is current. (Production ran an earlier revision of this file,
 -- before `0188` existed, that did recreate `tap_self(text)`; `0184` was then
--- applied over it. `0191` repeats the sweep for that order — F191.) `wita_minutes` keeps its name: renaming it
+-- applied over it, and D332 applied `0188` on `office_tz()` — F191.) `wita_minutes` keeps its name: renaming it
 -- means recreating every caller (`read_day`, `payroll_line_for`,
 -- `kpi_measures`, …), and those belong to D330's `0186`. Its body is the office
 -- clock now; the name is history.

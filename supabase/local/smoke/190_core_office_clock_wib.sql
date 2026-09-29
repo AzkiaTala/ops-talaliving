@@ -10,9 +10,8 @@
 --                and is re-filed only when WIB puts it on another day; a self
 --                tap inside an APPROVED run is counted, not hidden
 --   guard      — running the file a second time moves nothing
---   race       — a later `create or replace` that writes the WITA literal
---                back (what `0184` did in production, 33 s after `0190`) is
---                put right by `0191`, and `tap_self` has one signature only
+--   one tap    — `tap_self` has one signature: `0190` leaves it to the
+--                sweep rather than bring `tap_self(text)` back beside `0188`'s
 --   refusal    — an account with no employee link is still refused by
 --                `tap_self`; `tap_self`/`update_task` stay closed to PUBLIC
 --
@@ -180,26 +179,6 @@ begin
     'update_task() opened to PUBLIC';
   assert has_function_privilege('authenticated','ops_hr.update_task(text,text,text,text,date)','execute'),
     'authenticated cannot update a task';
-end $$;
-
--- ── race: a later file writes the literal back; 0191 puts it right ───────
-do $$
-begin
-  execute replace(pg_get_functiondef('ops_hr.wita_minutes(timestamptz)'::regprocedure),
-                  'ops_core.office_tz()', '''Asia/Makassar''');
-  assert (select prosrc like '%Asia/Makassar%' from pg_proc
-           where oid = 'ops_hr.wita_minutes(timestamptz)'::regprocedure), 'the race was not staged';
-end $$;
-
-\ir ../../migrations/0191_core_office_clock_sweep.sql
-
-do $$
-begin
-  assert ops_hr.wita_minutes('2026-09-29 00:25:00+00') = 7*60 + 25,
-    '0191 left wita_minutes on WITA: ' || ops_hr.wita_minutes('2026-09-29 00:25:00+00');
-  assert not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                      where n.nspname like 'ops\_%' and p.prosrc like '%Asia/Makassar%'),
-    'something still names WITA after 0191';
 end $$;
 
 rollback;
