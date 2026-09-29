@@ -3927,6 +3927,111 @@ export async function listSchedules(): Promise<Result<{
   });
 }
 
+/** HRD adds a working pattern (D335).
+ *
+ *  The same act as `ops_hr.add_schedule`: the new pattern is appended to a new
+ *  dated version of the book in force on that date, everything else copied,
+ *  and it refuses what the seam refuses with the same sentences — including a
+ *  code already in the book, which is an edit made with the row's own *Jam*
+ *  button rather than an addition.
+ */
+export async function addSchedule(
+  input: {
+    code: string;
+    name: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    friday_break_minutes: number | null;
+    friday_end_minutes: number | null;
+    pattern_note: string | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  await latency();
+  const cached = replayed<{ code: string; version: number; effective_from: string }>(
+    SERVICE, "addSchedule", idempotencyKey);
+  if (cached) return cached;
+
+  const denied = requireLevel(SERVICE, "hrd", "write");
+  if (denied) return denied;
+  if (!input.note?.trim()) {
+    return invalid(
+      SERVICE, "note_required",
+      "Tulis alasannya. Pola kerja yang muncul tanpa keterangan tidak bisa dijelaskan ke orang yang dipasang padanya.",
+      { field: "note" },
+    );
+  }
+
+  const state = getState();
+  const code = (input.code ?? "").trim();
+  const from = input.effective_from || sharedOfficeToday();
+  const sorted = [...state.pay_rule_sets].sort(
+    (a, b) => a.effective_from.localeCompare(b.effective_from) || a.version - b.version);
+  const base = sorted.filter((r) => r.effective_from <= from).pop();
+  if (!base) {
+    return conflict(SERVICE, "no_rule_book",
+      `Belum ada buku aturan gaji yang berlaku pada ${from}. IT menerbitkannya dulu.`);
+  }
+  const later = sorted.find((r) => r.effective_from > from);
+  if (later) {
+    return conflict(SERVICE, "later_version_exists",
+      `Versi ${later.version} berlaku mulai ${later.effective_from}, sesudah tanggal ini, dan tidak memuat pola ini — polanya akan hilang pada tanggal itu. Pilih tanggal mulai ${later.effective_from} atau sesudahnya.`);
+  }
+  if ((base.rules.schedules ?? []).some((sc) => sc.code === code)) {
+    return conflict(SERVICE, "schedule_exists",
+      `Pola ${code} sudah ada di buku aturan. Ubah jamnya dengan tombol Jam di barisnya.`);
+  }
+
+  const added: WorkSchedule = {
+    code,
+    name: (input.name ?? "").trim(),
+    start_minutes: input.start_minutes,
+    end_minutes: input.end_minutes,
+    break_minutes: input.break_minutes,
+    friday_break_minutes: input.friday_break_minutes,
+    friday_end_minutes: input.friday_end_minutes,
+    note: input.pattern_note?.trim() || null,
+  };
+  const rules: PayRules = { ...base.rules, schedules: [...(base.rules.schedules ?? []), added] };
+
+  const problem = scheduleProblem(rules.schedules ?? [], rules.schedule_by_unit ?? {});
+  if (problem) return invalid(SERVICE, problem.code, problem.message, { field: "schedules" });
+
+  const spent = state.payroll_runs
+    .filter((r) => r.status !== "DRAFT" && r.period_end >= from)
+    .sort((a, b) => a.period_start.localeCompare(b.period_start))[0];
+  if (spent) {
+    return conflict(SERVICE, "already_paid",
+      `${spent.run_no} sudah ditandatangani untuk periode yang berakhir ${from} atau sesudahnya. Aturan tidak bisa mundur melewati uang yang sudah dibayarkan — terbitkan yang baru berlaku setelahnya.`);
+  }
+  const clash = state.payroll_runs.find((r) => from > r.period_start && from <= r.period_end);
+  if (clash) {
+    return conflict(SERVICE, "inside_existing_run",
+      `${clash.run_no} mencakup tanggal itu, dan periode itu dihitung dengan aturan yang berlaku saat dibuka. Pilih tanggal di luar periode yang sudah ada.`);
+  }
+
+  const user = actingUser();
+  let version = 0;
+  apply((draft) => {
+    version = Math.max(0, ...draft.pay_rule_sets.map((r) => r.version)) + 1;
+    draft.pay_rule_sets.push({
+      id: newId("prs"), version, effective_from: from, note: input.note.trim(), rules,
+      created_by: user.id, created_at: new Date().toISOString(),
+    });
+    writeAudit(draft, {
+      service: SERVICE, entity: "schedule", entity_no: code,
+      action: "add", outcome: "ok", reason: input.note.trim(),
+      detail: { after: { ...added, version, effective_from: from }, by: user.email },
+    });
+  });
+  const answer = { code, version, effective_from: from };
+  remember(SERVICE, "addSchedule", idempotencyKey, answer);
+  return ok(SERVICE, answer);
+}
+
 /** HRD sets one pattern's start, end and break (D330).
  *
  *  The rule book is IT's hands (D173), but *when does the guard start* is

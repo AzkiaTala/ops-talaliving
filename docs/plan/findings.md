@@ -8081,3 +8081,32 @@ would have done to them. Production was read back after that: one
 WITA. A sweep-only `0191` was drafted for the race and dropped once
 production no longer needed it: a migration with no job is one more thing
 to read in the ladder.
+
+---
+
+## F192 · 2026-09-29 · production had no guard pattern to set the hours of
+
+D330 gave HRD a way to set an **existing** pattern's hours and wrote the guard
+default only where a SATPAM pattern already had no hours. Applied to
+production, it wrote nothing: production's book holds PRODUKSI and KANTOR and
+no guard pattern at all. The demo fixture had five patterns since M57, and
+production was seeded later from answers only (D288, F138). That was the right
+call for the numbers and it meant that *which patterns exist* never reached
+production either. The check that caught it was the one before applying:
+reading the production book rather than assuming it looked like the demo's.
+
+The fix is not a migration that invents the pattern. That would be F138
+again, a default written into a real company's book. The fix is a door: HRD
+adds the pattern and types its hours, which are then HRD's statement and not
+the system's guess, so the new pattern carries no `hours_unconfirmed`.
+
+**Scope held on purpose.** Removing a pattern and changing a unit's default
+stay in IT's full editor. A pattern can have people on it, and removing it
+strands them (`schedules_in_use_lost`). A unit default changes what a whole
+unit is measured against. Both are pay-policy decisions (D173), not *what
+patterns exist*.
+
+**One line of test setup, worth recording.** The smoke file first inserted
+taps directly with `source = 'import'` and hit `import_scan_has_import`. An
+import tap must name its import. The file uses `add_scan` instead, the seam
+HRD actually uses, which is the better test anyway.
