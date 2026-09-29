@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarCheck, Upload, AlertTriangle, Clock, Flag, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarCheck, Upload, AlertTriangle, Clock, Flag, ChevronLeft, ChevronRight, Moon } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { usePaged } from "@/components/ui/pager";
@@ -201,6 +201,9 @@ export default function TimesheetPage() {
                                 )}
                                 title={day.issues.join(" · ") || day.mark?.reason || ""}
                               >
+                                {day.overnight && day.state !== "off" && (
+                                  <Moon className="mr-0.5 inline h-2.5 w-2.5 align-[-1px]" aria-label={tr("night shift", "shift malam")} />
+                                )}
                                 {day.state === "off" ? "—"
                                   : day.state === "marked" ? DAY_MARK_SHORT[day.mark!.kind]
                                     : day.state === "review" ? tr(`${day.scans.length} tap`, `${day.scans.length} tap`)
@@ -223,6 +226,9 @@ export default function TimesheetPage() {
                 <span className="rounded border border-amber-300 bg-amber-50 px-1.5 text-amber-900">{tr("n tap", "n tap")}</span> {tr("needs reading", "perlu dibaca")}
                 <span className="rounded border border-violet-200 bg-violet-50 px-1.5 text-violet-800">{tr("marked", "ditandai")}</span> {tr("HRD said what happened", "HRD menyatakan apa yang terjadi")}
                 <span className="rounded border border-slate-100 bg-slate-50 px-1.5 text-slate-400">—</span> {tr("no tap at all", "tidak ada tap sama sekali")}
+                {/* A night belongs to the day it started (D330): its morning
+                    taps are counted in the evening's cell, not the next day's. */}
+                <span className="inline-flex items-center gap-1"><Moon className="h-3 w-3 text-indigo-600" /> {tr("night shift, counted on the day it started", "shift malam, dihitung pada hari mulainya")}</span>
               </p>
             </Card>
 

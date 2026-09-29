@@ -65,6 +65,10 @@ export const EMPLOYEES: Employee[] = [
   { id: "emp_w136", employee_no: "B-136", full_name: "Nursih", position: "Daily worker", unit: "Workshop", pay_basis: "daily", base_rate: 130_000, allowance_rate: 15_000, daily_hours: 8, joined_on: "2024-01-02", paid_leave_days: 0, active: true, left_on: null, note: null },
   { id: "emp_w137", employee_no: "B-137", full_name: "Musamah", position: "Daily worker", unit: "Workshop", pay_basis: "daily", base_rate: 135_000, allowance_rate: 15_000, daily_hours: 8, joined_on: "2024-01-02", paid_leave_days: 9, active: true, left_on: null, note: null },
   { id: "emp_w138", employee_no: "B-138", full_name: "Painah", position: "Daily worker", unit: "Workshop", pay_basis: "daily", base_rate: 140_000, allowance_rate: 15_000, daily_hours: 8, joined_on: "2024-01-02", paid_leave_days: 6, active: true, left_on: null, note: null },
+  /* Satpam malam (D330). Bergabung sesudah run terakhir ditutup, jadi tidak ada
+     slip lama yang berubah; ada di sini supaya satu minggu malam bisa dilihat
+     di /hrd/absensi dan dibuktikan terbaca sebagai hari kerja, bukan pecahan. */
+  { id: "emp_s201", employee_no: "S-201", full_name: "Yusuf Satpam", position: "Satpam", unit: "Warehouse", pay_basis: "daily", base_rate: 150_000, allowance_rate: 15_000, daily_hours: 12, joined_on: "2026-09-15", paid_leave_days: 12, active: true, left_on: null, note: "Shift malam 12 jam — jamnya default D330, belum dikonfirmasi.", schedule_code: "SATPAM" },
 ];
 
 /** The machine's own export, unedited. One row per tap. */
@@ -1053,6 +1057,20 @@ export const ATTENDANCE_SCANS: AttendanceScan[] = [
   { id: "scn_0979", employee_id: "emp_w138", work_date: "2026-09-03", at: "2026-09-03T12:01:06+08:00", verify: "FP", location: "104", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-03T23:59:00+08:00" },
   { id: "scn_0980", employee_id: "emp_w138", work_date: "2026-09-03", at: "2026-09-03T12:47:01+08:00", verify: "FP", location: "104", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-03T23:59:00+08:00" },
   { id: "scn_0981", employee_id: "emp_w138", work_date: "2026-09-03", at: "2026-09-03T16:29:38+08:00", verify: "FACE", location: "104", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-03T23:59:00+08:00" },
+  /* Satpam malam (D330): tap pagi tersimpan pada hari kalendernya, dan
+     dibaca ke malam yang memulainya. Malam 26 September tidak punya tap
+     pagi — hari itu `review`, persis seperti hari satu-tap siapa pun. */
+  { id: "scn_s001", employee_id: "emp_s201", work_date: "2026-09-23", at: "2026-09-23T19:02:10+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-23T23:59:00+08:00" },
+  { id: "scn_s002", employee_id: "emp_s201", work_date: "2026-09-24", at: "2026-09-24T07:05:30+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-24T23:59:00+08:00" },
+  { id: "scn_s003", employee_id: "emp_s201", work_date: "2026-09-24", at: "2026-09-24T18:58:02+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-24T23:59:00+08:00" },
+  { id: "scn_s004", employee_id: "emp_s201", work_date: "2026-09-25", at: "2026-09-25T00:30:00+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-25T23:59:00+08:00" },
+  { id: "scn_s005", employee_id: "emp_s201", work_date: "2026-09-25", at: "2026-09-25T00:52:40+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-25T23:59:00+08:00" },
+  { id: "scn_s006", employee_id: "emp_s201", work_date: "2026-09-25", at: "2026-09-25T07:01:15+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-25T23:59:00+08:00" },
+  { id: "scn_s007", employee_id: "emp_s201", work_date: "2026-09-25", at: "2026-09-25T19:21:44+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-25T23:59:00+08:00" },
+  { id: "scn_s008", employee_id: "emp_s201", work_date: "2026-09-26", at: "2026-09-26T07:00:09+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-26T23:59:00+08:00" },
+  { id: "scn_s009", employee_id: "emp_s201", work_date: "2026-09-26", at: "2026-09-26T19:00:31+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-26T23:59:00+08:00" },
+  { id: "scn_s010", employee_id: "emp_s201", work_date: "2026-09-28", at: "2026-09-28T19:04:05+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-28T23:59:00+08:00" },
+  { id: "scn_s011", employee_id: "emp_s201", work_date: "2026-09-29", at: "2026-09-29T06:58:47+08:00", verify: "FP", location: "POS", source: "import", import_id: "imp_seed01", reason: null, recorded_by: null, recorded_at: "2026-09-29T23:59:00+08:00" },
 ];
 
 /** What HRD said about two of these days.
