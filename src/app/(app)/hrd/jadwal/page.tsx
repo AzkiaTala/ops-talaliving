@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, AlertTriangle, Users, Link2, Moon, Pencil } from "lucide-react";
+import { CalendarClock, AlertTriangle, Users, Link2, Moon, Pencil, Plus } from "lucide-react";
 import { Badge, Button, Card, CardHeader, EmptyState, PageHeader, StatCard } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Combobox } from "@/components/ui/combobox";
@@ -38,6 +38,7 @@ export default function SchedulePage() {
   const mayEdit = can("hrd.update");
   const [data, reload] = useLoad(() => hr.listSchedules(), []);
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   return (
     <div>
@@ -85,7 +86,19 @@ export default function SchedulePage() {
                   `Pola ${d.week_pattern === "5day" ? "lima" : "enam"} hari kerja seminggu. Jam seminggu menghitung Jumat dengan panjangnya sendiri kalau istirahatnya beda — selisih setengah jam pada satu hari dari enam hampir satu jam seminggu.`,
                 )}
                 icon={CalendarClock}
-                action={<SourceBadge state={data} />}
+                action={
+                  <div className="flex items-center gap-2">
+                    {/* HRD adds a pattern here rather than asking IT to
+                        republish the whole rule book (D335). */}
+                    {mayEdit && (
+                      <Button size="sm" variant="outline" icon={Plus}
+                        onClick={() => { setAdding(true); setEditing(null); }}>
+                        {tr("Add pattern", "Tambah pola")}
+                      </Button>
+                    )}
+                    <SourceBadge state={data} />
+                  </div>
+                }
               />
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-[13px]">
@@ -152,7 +165,7 @@ export default function SchedulePage() {
                         </td>
                         {mayEdit && (
                           <td className="px-3 py-2.5 text-right">
-                            <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditing(editing === sc.code ? null : sc.code)}>
+                            <Button size="sm" variant="ghost" icon={Pencil} onClick={() => { setEditing(editing === sc.code ? null : sc.code); setAdding(false); }}>
                               {tr("Hours", "Jam")}
                             </Button>
                           </td>
@@ -184,6 +197,15 @@ export default function SchedulePage() {
                 )}
               </p>
             </Card>
+
+            {mayEdit && adding && (
+              <AddSchedule
+                existing={d.schedules.map((sc) => sc.code)}
+                daysPerWeek={d.week_pattern === "5day" ? 5 : 6}
+                onClose={() => setAdding(false)}
+                onDone={() => { setAdding(false); reload(); }}
+              />
+            )}
 
             {mayEdit && editing && d.schedules.find((sc) => sc.code === editing) && (
               <EditHours
@@ -423,6 +445,181 @@ function EditHours({
       <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
         <Button size="sm" variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
         <Button size="sm" onClick={save} disabled={busy || !note.trim()}>{tr("Save hours", "Simpan jam")}</Button>
+      </div>
+    </Card>
+  );
+}
+
+/** An optional minutes field: empty is null — *nobody has said* (D274), or
+ *  for Friday *same as any other day* (D289) — never zero. */
+function optionalMinutes(v: string): number | null {
+  if (v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** HRD adds a working pattern (D335).
+ *
+ *  A new dated version of the rule book with this pattern appended and every
+ *  other rule copied, refused on the same terms as the database — a night
+ *  such as 19.00–07.00 is fine, an equal start and end is not. What the form
+ *  shows before saving is the rule the reading will apply, from the same pure
+ *  functions the demo and `/it/aturan-gaji` use. Removing a pattern and a
+ *  unit's default stay with IT: people can be on a pattern, and a unit default
+ *  changes what a whole unit is measured against.
+ */
+function AddSchedule({
+  existing, daysPerWeek, onClose, onDone,
+}: {
+  existing: string[];
+  daysPerWeek: number;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const tr = useTr();
+  const { toast } = useToast();
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [breakMin, setBreakMin] = useState("");
+  const [fridayBreak, setFridayBreak] = useState("");
+  const [fridayEnd, setFridayEnd] = useState("");
+  const [patternNote, setPatternNote] = useState("");
+  const [from, setFrom] = useState(officeToday());
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const draft: WorkSchedule = {
+    code, name,
+    start_minutes: minutesOfClock(start),
+    end_minutes: minutesOfClock(end),
+    break_minutes: optionalMinutes(breakMin),
+    friday_break_minutes: optionalMinutes(fridayBreak),
+    friday_end_minutes: minutesOfClock(fridayEnd),
+    note: patternNote.trim() || null,
+  };
+  const night = isOvernight(draft);
+  const hours = scheduleHoursOf(draft, daysPerWeek);
+  const taken = existing.includes(code.trim());
+
+  async function save() {
+    setBusy(true);
+    const res = await hr.addSchedule({
+      code: code.trim(),
+      name,
+      start_minutes: draft.start_minutes,
+      end_minutes: draft.end_minutes,
+      break_minutes: draft.break_minutes,
+      friday_break_minutes: draft.friday_break_minutes,
+      friday_end_minutes: draft.friday_end_minutes,
+      pattern_note: draft.note,
+      effective_from: from,
+      note,
+    });
+    setBusy(false);
+    if (res.error) {
+      toast(res.error.status === 409 ? "critical" : "warning", tr("Not saved yet", "Belum tersimpan"), res.error.message);
+      return;
+    }
+    toast("success", name || res.data.code, tr(
+      `Pattern added as rule book v${res.data.version}, in force from ${res.data.effective_from}. Assign people to it from the list below or from their employee record.`,
+      `Pola ditambahkan sebagai buku aturan v${res.data.version}, berlaku mulai ${res.data.effective_from}. Pasang orangnya dari daftar di bawah atau dari data karyawannya.`,
+    ));
+    onDone();
+  }
+
+  const field = "mt-1 h-9 w-full rounded-lg border border-slate-200 px-2 text-sm focus:border-brand-400 focus:outline-none";
+
+  return (
+    <Card className="mb-4">
+      <CardHeader
+        title={tr("Add a work pattern", "Tambah pola kerja")}
+        subtitle={tr(
+          "Saved as a new dated version of the rule book with this pattern added; every other rule is copied unchanged. An end earlier than the start is a night shift. Leave a time empty if nobody has said it yet — it stays blank, never 00.00.",
+          "Disimpan sebagai versi buku aturan baru yang bertanggal dengan pola ini ditambahkan; aturan lain disalin tanpa berubah. Jam pulang yang lebih awal dari jam masuk berarti shift malam. Kosongkan jam yang belum pernah disebut — tetap kosong, bukan 00.00.",
+        )}
+        icon={Plus}
+      />
+      <div className="grid gap-3 px-5 pb-4 sm:grid-cols-3">
+        <label className="text-[12px] text-slate-600">
+          {tr("Code", "Kode")}
+          <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+            placeholder="SATPAM" className={`${field} font-mono`} />
+          {taken && (
+            <span className="mt-0.5 block text-[11px] text-amber-800">
+              {tr("Already a pattern — change its hours with the Hours button on its row.", "Sudah ada — ubah jamnya dengan tombol Jam di barisnya.")}
+            </span>
+          )}
+        </label>
+        <label className="text-[12px] text-slate-600 sm:col-span-2">
+          {tr("Name", "Nama")}
+          <input value={name} onChange={(e) => setName(e.target.value)}
+            placeholder={tr("Security — 12 hours", "Satpam — 12 jam")} className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("Start", "Masuk")}
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("End", "Pulang")}
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("Break (minutes)", "Istirahat (menit)")}
+          <input inputMode="numeric" value={breakMin} onChange={(e) => setBreakMin(e.target.value.replace(/[^0-9]/g, ""))}
+            placeholder="60" className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("Friday break (minutes, optional)", "Istirahat Jumat (menit, opsional)")}
+          <input inputMode="numeric" value={fridayBreak} onChange={(e) => setFridayBreak(e.target.value.replace(/[^0-9]/g, ""))}
+            className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("Friday end (optional)", "Pulang Jumat (opsional)")}
+          <input type="time" value={fridayEnd} onChange={(e) => setFridayEnd(e.target.value)} className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600">
+          {tr("In force from", "Berlaku mulai")}
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600 sm:col-span-3">
+          {tr("About this pattern (optional)", "Keterangan pola (opsional)")}
+          <input value={patternNote} onChange={(e) => setPatternNote(e.target.value)}
+            placeholder={tr("Warehouse guard post, rotates…", "Pos jaga gudang, bergilir…")} className={field} />
+        </label>
+        <label className="text-[12px] text-slate-600 sm:col-span-3">
+          {tr("Why", "Alasan")}
+          <input value={note} onChange={(e) => setNote(e.target.value)}
+            placeholder={tr("Who decided — the owner, head of security…", "Siapa yang memutuskan — pemilik, kepala keamanan…")}
+            className={field} />
+        </label>
+      </div>
+      <div className="border-t border-slate-100 px-5 py-3 text-[12px] text-slate-600">
+        {hours.daily_hours != null ? (
+          <p>{tr(
+            `${formatNumber(hours.daily_hours)} working hours a day · ${formatNumber(hours.weekly_hours as number)} a week.`,
+            `${formatNumber(hours.daily_hours)} jam kerja sehari · ${formatNumber(hours.weekly_hours as number)} seminggu.`,
+          )}</p>
+        ) : (
+          <p className="text-slate-500">{hours.blocked_by}</p>
+        )}
+        {night && (
+          <p className="mt-0.5 flex items-center gap-1 text-indigo-700">
+            <Moon className="h-3 w-3" />
+            {tr(
+              `Night shift: taps before ${clock(dayBoundaryMinutes(draft))} are read into the night before, so the morning pulang counts on the day the shift started.`,
+              `Shift malam: tap sebelum ${clock(dayBoundaryMinutes(draft))} dibaca ke malam sebelumnya, jadi pulang pagi dihitung pada hari shift dimulai.`,
+            )}
+          </p>
+        )}
+      </div>
+      <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
+        <Button size="sm" variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
+        <Button size="sm" icon={Plus} onClick={save}
+          disabled={busy || !code.trim() || !name.trim() || !note.trim() || taken}>
+          {tr("Add pattern", "Tambah pola")}
+        </Button>
       </div>
     </Card>
   );
