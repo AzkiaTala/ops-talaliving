@@ -7579,3 +7579,53 @@ here:** real GoTrue sending a real invitation email. The invitation lands on
 `/set-password` only if that origin is in Authentication → URL Configuration →
 Redirect URLs (`06-auth.md`). Supabase's built-in mail sends only a few
 messages an hour.
+
+## F185 · 2026-09-29 · a service worker is a client-held copy, and three things about the host decided how it could know it was stale
+
+D328 made the app installable. The worker is the part that can go wrong
+quietly, because it is exactly what F24 warned about: a copy held in the
+browser that keeps answering after the server has moved on. So it holds only
+what cannot go stale (content-hashed `/_next/static/*` and the icons) and
+nothing that belongs to a person. Three things were learned getting that to
+hold under Cloudflare, not under `next start`.
+
+**A new build has to change a byte the browser checks.** `public/` is copied as
+is, so `sw.js` is the same file in every build and the browser would never see
+an update. `next.config.mjs` now makes one id per build (commit + time, kept in
+the environment because Next evaluates the config again in its workers and
+they must agree), uses it as Next's build id, and writes it to
+`public/sw-version.js` (not committed). `sw.js` imports that file, and the
+browser compares imported scripts byte for byte on an update check, so a new
+build is a new worker. It waits; the page offers *A new version is available →
+Reload*; Reload tells the waiting worker to take over and the page reloads on
+`controllerchange` — but only if a worker was already in control, or the very
+first visit would reload for nothing. Proved with two builds under
+`cf:preview`: toast, reload, one cache left.
+
+**Workers static assets ignore `next.config` headers, and `_headers` works.**
+`public/_headers` reaches `.open-next/assets`, wrangler reports *Parsed 3 valid
+header rules*, and `sw.js` / `sw-version.js` come back `Cache-Control:
+no-cache`. The worker is also registered with `updateViaCache: "none"`, so the
+check skips the HTTP cache even if a header is ever lost.
+
+**The asset server redirects `/offline.html` to `/offline`.** `cache.add` would
+have stored a redirected response, and a browser refuses to give a navigation a
+response that was redirected, so the offline page would have failed exactly
+when it was needed. The worker fetches it and stores the body as a new
+`Response`, which works whether or not the host redirects.
+
+Two things about testing it. Playwright's `setOffline` does not reach a service
+worker's own `fetch` in Chromium, so the first offline walk loaded the app from
+the real network and looked like the fallback was broken. Stopping the server
+is the honest test: the navigation fails, the worker answers `/offline.html`,
+and `/api/*` and a POST fail rather than being served from cache. And a
+non-persistent Playwright context is incognito, where Chrome never offers
+installation; the Android path needed a persistent profile, where
+`beforeinstallprompt` fired and `Page.getInstallabilityErrors` was empty.
+
+At 390px the demo topbar had no room left: the sandbox's *Reset* and *Access*
+already squeeze the *Demo · data is not real* badge onto three lines, and the
+install button pushed the avatar 30px off screen. Live mode has neither sandbox
+control, so the button is always shown live and from `sm` up in the demo. The
+toaster was also wider than a phone (`w-full` plus `right-6` put its left edge
+off screen); it now keeps a 16px gutter on both sides below `sm`.
