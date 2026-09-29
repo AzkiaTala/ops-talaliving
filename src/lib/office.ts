@@ -20,6 +20,8 @@
 export const OFFICE_TZ = {
   /** WITA, UTC+8. Bali. */
   offset_hours: 8,
+  /** What a time on screen is suffixed with, e.g. *Pukul 07:25 WITA*. */
+  short: "WITA",
   label: "WITA (UTC+8)",
   city: "Denpasar",
 } as const;

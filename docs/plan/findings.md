@@ -7580,6 +7580,57 @@ here:** real GoTrue sending a real invitation email. The invitation lands on
 Redirect URLs (`06-auth.md`). Supabase's built-in mail sends only a few
 messages an hour.
 
+## F184 · 2026-09-29 · `/profil` kept its own clock, and it was UTC's
+
+The first slice of the PWA program (D326, D327, `0184`). `/profil` is where a
+production worker taps presensi from a phone, and it carried a private
+`todayIso()` — `new Date().toISOString().slice(0, 10)` — instead of
+`src/lib/office.ts`, which exists precisely because that expression is the
+UTC day (F17, F39, F63). Between 00:00 and 08:00 WITA the UTC day is still
+yesterday. Production starts at 07.30, so this is every morning clock-in:
+
+- the attendance list asked for `to = yesterday`, and a 07:25 tap did not
+  appear until 08:00 — to the worker it looked as if the tap was lost;
+- the toast printed `at.slice(11, 16)` of a UTC timestamp: *Pukul 23:25*;
+- overtime defaulted to, and was capped at, yesterday;
+- the Activity tab printed the UTC timestamp as a local one;
+- `tap_self` wrote its label with `to_char(v_at, 'HH24:MI')`, which renders in
+  the session's zone — UTC on Supabase — while the rest of HR already wrote
+  `at time zone 'Asia/Makassar'` (`0048`, `0049`, `0053`).
+
+**Why nothing caught it.** The walks and screenshots run in the afternoon
+UTC, which is evening WITA, and between 08:00 and 24:00 WITA the two days
+agree. The bug lives in exactly the eight hours nobody tests in. So the smoke
+(`184`) pins the session to `timezone = 'UTC'` and asserts the label differs
+from the UTC rendering, and the browser walk installs a fake clock at 07:25
+WITA; both were run against the old code first and failed there.
+
+**The same shape elsewhere — recorded, not fixed here (one feature per
+branch).** `grep -rn "toISOString().slice(0, 10)" src`, read one by one.
+Pure day arithmetic on a `YYYY-MM-DD` string in UTC (`shiftDay`'s pattern) is
+correct and left out. These take *today* as the UTC day:
+
+- `hrd/kontrak/[no]/page.tsx:106` — contract `ended_on`;
+- `hrd/payroll/[run]/PayRun.tsx:39` — payment date default;
+- `hrd/payroll/minggu/page.tsx:76, 194` — the week shown, and *this week*
+  (on a Monday before 08:00 WITA it opens last week);
+- `procurement/po/[po]/PayPo.tsx:39`, `procurement/pr/PayFromLine.tsx:44`,
+  `procurement/rounds/TransferForm.tsx:53` — payment/transfer date defaults;
+- `accounting/ledger/NewEntry.tsx:50` — journal date default;
+- `accounting/verifikasi/page.tsx:517` — document date fallback;
+- demo layer: `demo/api/hr.ts:194` (`joined_on`), `demo/api/accounting.ts:495`
+  (void stamp), `demo/api/documents.ts:146` (`document_date`).
+
+And two that start from the right day but lose it by parsing midnight in a
+local zone and printing UTC, so they land one day early in a WITA browser:
+
+- `inventory/label/page.tsx:82` — `daysAgo()` parses `${officeToday()}T00:00:00`
+  as browser-local time;
+- `demo/api/hr.ts:1590` — `probation_until` parses `T00:00:00+08:00`.
+
+A later branch can fix these together; `officeToday()` and `shiftDay()`
+cover all of them.
+
 ## F185 · 2026-09-29 · a service worker is a client-held copy, and three things about the host decided how it could know it was stale
 
 D328 made the app installable. The worker is the part that can go wrong
