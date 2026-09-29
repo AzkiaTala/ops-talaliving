@@ -32,7 +32,7 @@ import {
   employeeIdentityViews, wlkpRecap,
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
-import { officeToday as sharedOfficeToday } from "@/lib/office";
+import { officeClock, officeToday as sharedOfficeToday } from "@/lib/office";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
@@ -365,7 +365,7 @@ export async function tapSelf(): Promise<Result<{ id: string; at: string; work_d
       action: "tap_self", outcome: "ok", reason: null,
       detail: { at, by: actingUser().email },
     });
-    recordSelfActivity(draft, "attendance_tap", "attendance", `Tap presensi pukul ${at.slice(11, 16)}`);
+    recordSelfActivity(draft, "attendance_tap", "attendance", `Tap presensi pukul ${officeClock(new Date(at))}`);
   });
   return ok(SERVICE, { id, at, work_date });
 }
