@@ -7945,3 +7945,46 @@ same state once D334 merges, if D334 drops `tap_self(text)` rather than
 recreating it. The lesson is F167's again: the order migrations reach
 production is not the order they sit in the ladder, and a file that names a
 zone is a file that can be wrong about which one.
+
+## F190 · 2026-09-29 · an ask is not a record, and a screen that was never live hides that
+
+D333 lets an employee ask for overtime from the phone, with a deliverable,
+and has HRD or leadership approve it. Four things came out of building it.
+
+**The same table held two different acts.** A staff sheet HRD keyed from
+signed paper is a record — D146 is right that it is paid unless somebody
+turns it off. The sheet `report_overtime_self` wrote (0165) went into the
+same table with the same `kind = 'staff'`, so it inherited *paid by default*
+without anyone deciding it should: a button anybody with a login could press
+was worth money until HRD noticed. The only thing telling the two apart was
+the sentence `0165` happened to put in `purpose`. `via` is now a column and
+the stage view reads it first. The lesson is older than this module: when a
+second road onto a table appears, ask whether it writes the same *fact* or
+only the same *shape*.
+
+**Deliverable and result are asked at different moments, so they cannot be
+required at the same one.** The deliverable is known before the night — it
+is the thing the approver weighs — so it is required up front and asking on
+the evening itself is allowed. The result exists only afterwards, so it may
+follow; approval is where it becomes mandatory. Requiring both at
+submission (as 0165 did for the result) quietly forces people to ask after
+the fact or to invent the result.
+
+**`/hrd/lembur` had never been live.** The real client had no
+`createOvertimeSheet`, `addOvertimeLine`, `decideOvertimeSheet`,
+`getOvertimeSheet`, `attachOvertimeDoc` or `importOvertimeForm`, so the
+route guard kept the screen dark in production even though the seams had
+existed since `0054`. An approval queue added there would have been demo-only
+without anybody noticing, because the demo walk passes. Writing the six
+functions made the route live (`check-live-routes` said so on its own).
+Before putting a feature on a screen, check the screen is in `LIVE_ROUTES`.
+
+**Leadership decides by authority, and RLS answers by module.** The
+Direktur holds `approve_overtime` and no HR module, so `overtime_lines` and
+`employees` return nothing to him — a queue built on the admin screen's
+reads would show sheet numbers with no names. The queue is one definer
+function that answers only to HRD or the authority, instead of widening two
+table policies. The raw rows stay closed (smoke `189` checks that), and the
+sidebar learned `orAuthority`, since a menu gated only by module permissions
+could not show the one screen where his decision is made.
+
