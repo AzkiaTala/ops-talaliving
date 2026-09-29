@@ -1553,6 +1553,10 @@ export interface LeaveRequestView extends LeaveRequest {
   unpaid_days: number;
   /** Set when the person already has a mark on one of these days. */
   clashes: string[];
+  /** A surat dokter is filed against the request itself (0187). Approving
+   *  carries it to each sick day, which is what makes those days paid (D144);
+   *  one that arrives after approval is carried the moment it is linked. */
+  letter_attached: boolean;
 }
 
 /** What somebody has left. Computed from the marks, never stored — the same

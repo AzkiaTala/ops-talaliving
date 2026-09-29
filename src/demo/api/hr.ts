@@ -34,6 +34,7 @@ import {
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
 import { officeClock, officeToday as sharedOfficeToday } from "@/lib/office";
+import { carrySickNote } from "../self-link";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
@@ -2304,6 +2305,8 @@ export async function decideLeave(
         });
         marked.push(date);
       }
+      /* The surat dokter on the request becomes the surat dokter on each day (D144, 0187). */
+      carrySickNote(draft, row.request_no, new Date().toISOString());
     }
 
     writeAudit(draft, {
