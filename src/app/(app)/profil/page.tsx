@@ -12,7 +12,7 @@ import { Loaded, useLoad } from "@/components/ui/loaded";
 import { Tabs } from "@/components/ui/tabs";
 import { EvidenceStrip } from "@/components/ui/evidence-strip";
 import { formatIDR, formatNumber } from "@/lib/format";
-import { officeClock, officeDay, officeToday, shiftDay } from "@/lib/office";
+import { OFFICE_TZ, officeClock, officeDay, officeToday, shiftDay } from "@/lib/office";
 import { hr, identity } from "@/demo/api";
 import {
   LEAVE_KIND_LABEL, OVERTIME_STAGE_LABEL, type LeaveKind,
@@ -197,7 +197,7 @@ function AttendanceTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnTyp
       return;
     }
     const clock = officeClock(new Date(res.data.at));
-    toast("success", tr("Tap recorded", "Tap tercatat"), tr(`At ${clock} WITA.`, `Pukul ${clock} WITA.`));
+    toast("success", tr("Tap recorded", "Tap tercatat"), tr(`At ${clock} ${OFFICE_TZ.short}.`, `Pukul ${clock} ${OFFICE_TZ.short}.`));
     reloadDays();
   }
 
