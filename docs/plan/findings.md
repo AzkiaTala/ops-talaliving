@@ -7934,6 +7934,18 @@ names the new signature in its grant checks. D327 landed first, so this
 branch updated its smoke `184` the same way; its no-argument `tap_self()`
 still passes, because a database with no site set judges nothing (`no_site`).
 
+**Applied to production on a clock the ladder did not have yet.** When
+`0188` went to production, D334's `0190` (the office clock is WIB) was already
+there but not on `main`, and `0184` had been applied after it, putting WITA
+back into `tap_self`. Applying `0188` word for word would have labelled
+phone taps an hour off from the reader's. The owner said *use WIB*, so the two
+`'Asia/Makassar'` literals went in as `ops_core.office_tz()`, which is exactly
+what `0190`'s sweep does to any function it finds. The ladder reaches the
+same state once D334 merges, if D334 drops `tap_self(text)` rather than
+recreating it. The lesson is F167's again: the order migrations reach
+production is not the order they sit in the ladder, and a file that names a
+zone is a file that can be wrong about which one.
+
 ---
 
 ## F192 · 2026-09-29 · production had no guard pattern to set the hours of
@@ -7962,4 +7974,3 @@ patterns exist*.
 taps directly with `source = 'import'` and hit `import_scan_has_import`. An
 import tap must name its import. The file uses `add_scan` instead, the seam
 HRD actually uses, which is the better test anyway.
-
