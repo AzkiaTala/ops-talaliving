@@ -1,7 +1,7 @@
 import {
   Coins,
   BellRing, FileSignature,
-  LayoutDashboard, Users, CalendarCheck, FileBadge, Wallet,
+  LayoutDashboard, Users, CalendarCheck, MapPin, FileBadge, Wallet,
   ShoppingCart, ClipboardList, FileText, PackageCheck, Boxes, TreePine,
   Landmark, BookOpen, TrendingUp, PiggyBank, Receipt,
   Megaphone, UserRound, Target, HandCoins, MessageSquare,
@@ -64,6 +64,7 @@ export const NAV: NavSection[] = [
       { label: "Employees", labelKey: "employees", href: "/hrd/karyawan", icon: Users, permission: "hrd.read", badge: "core" },
       { label: "Work schedules", labelKey: "workSchedules", href: "/hrd/jadwal", icon: CalendarClock, permission: "hrd.read", badge: "new" },
       { label: "Attendance", labelKey: "attendance", href: "/hrd/absensi", icon: CalendarCheck, permission: "hrd.read" },
+      { label: "Attendance by location", labelKey: "locatedTaps", href: "/hrd/absensi/lokasi", icon: MapPin, permission: "hrd.read", badge: "new" },
       { label: "Overtime", labelKey: "overtime", href: "/hrd/lembur", icon: Clock, permission: "hrd.read", badge: "new" },
       { label: "Employee Files", labelKey: "employeeFiles", href: "/hrd/berkas-201", icon: FileBadge, permission: "hrd.read", badge: "new" },
       { label: "Employment contracts", labelKey: "contracts", href: "/hrd/kontrak", icon: ScrollText, permission: "hrd.read", badge: "new" },

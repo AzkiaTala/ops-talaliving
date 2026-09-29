@@ -18,6 +18,7 @@ export const MESSAGES = {
     hr: m("HR", "SDM"),
     employees: m("Employees", "Karyawan"),
     attendance: m("Attendance", "Absensi"),
+    locatedTaps: m("Attendance by location", "Presensi berlokasi"),
     overtime: m("Overtime", "Lembur"),
     employeeFiles: m("Employee Files", "Berkas 201"),
     leave: m("Leave & Permits", "Cuti & izin"),

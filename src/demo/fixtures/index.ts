@@ -126,6 +126,14 @@ export function initialState(): DemoState {
 
     employees: EMPLOYEES,
     attendance_scans: ATTENDANCE_SCANS,
+    /* The sandbox has a warehouse point so a phone can be judged against it;
+       the real database seeds none (0188) — somebody stands there and sets it.
+       Near the Denpasar office the demo already reckons time from. */
+    work_sites: [{
+      id: "site_gudang", code: "GUDANG", name: "Gudang", lat: -8.6705, lng: 115.2126,
+      radius_m: 150, active: true, updated_at: "2026-09-29T00:00:00.000Z",
+    }],
+    scan_locations: [],
     day_marks: DAY_MARKS,
     overtime_sheets: OVERTIME_SHEETS,
     overtime_lines: OVERTIME_LINES,

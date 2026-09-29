@@ -60,6 +60,9 @@ export const DOC_KINDS = [
   "Surat Jalan Keluar",
   "BAST",
   "Foto Lokasi",
+  /** A photo taken at a clock-in away from the warehouse (D332). A face and a
+   *  place, so it is filed in the HRD drive, not with `Foto` in PROCUREMENT. */
+  "Foto Presensi",
   "Others",
 ] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
@@ -101,6 +104,7 @@ export const SUPPORTING_DOC_KINDS: DocKind[] = [
   "Surat Jalan Keluar",
   "BAST",
   "Foto Lokasi",
+  "Foto Presensi",
   "Others",
 ];
 
@@ -146,7 +150,9 @@ export type LinkEntity =
   /** A catalogue item, by its code — the 1–4 photos that show the floor what
    *  it is. Four is a cap the database holds; the last one cannot come off
    *  (`0168`). */
-  | "item";
+  | "item"
+  /** One phone tap, by its `tap_no` — the off-site photo (D332, `0188`). */
+  | "attendance_scan";
 
 /** Which kinds make sense where. The full list is thirty kinds across HR,
  *  production and money, and a ledger row offered "Ijazah" or "KTP" is a

@@ -11,6 +11,7 @@ import {
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { Tabs } from "@/components/ui/tabs";
 import { EvidenceStrip } from "@/components/ui/evidence-strip";
+import { LocatedTap } from "@/components/attendance/located-tap";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { hr, identity } from "@/demo/api";
 import {
@@ -176,9 +177,7 @@ function todayIso(): string {
 }
 
 function AttendanceTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnType<typeof hr.myProfile>>["data"]>>[0] }) {
-  const { toast } = useToast();
   const tr = useTr();
-  const [busy, setBusy] = useState(false);
   const linked = me.status === "ready" ? me.data : null;
   const from = new Date(Date.now() - 13 * 86_400_000).toISOString().slice(0, 10);
   const [days, reloadDays] = useLoad(
@@ -186,18 +185,6 @@ function AttendanceTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnTyp
                   : Promise.resolve({ data: [] })),
     [linked?.employee_no],
   );
-
-  async function tap() {
-    setBusy(true);
-    const res = await hr.tapSelf();
-    setBusy(false);
-    if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", tr("Not recorded", "Tidak tercatat"), res.error.message);
-      return;
-    }
-    toast("success", tr("Tap recorded", "Tap tercatat"), tr(`At ${res.data.at.slice(11, 16)}.`, `Pukul ${res.data.at.slice(11, 16)}.`));
-    reloadDays();
-  }
 
   if (me.status === "loading") return null;
   if (!linked) return <NoEmployeeLink />;
@@ -211,8 +198,10 @@ function AttendanceTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnTyp
           "Tap dari sesi ini sendiri, bukan dari mesin di pintu — satu tap seperti tap lainnya. Yang menentukan masuk atau pulang adalah bacaan hari itu, bukan tombolnya.",
         )}
         icon={Fingerprint}
-        action={<Button icon={Fingerprint} disabled={busy} onClick={tap}>{busy ? tr("Recording…", "Mencatat…") : tr("Tap attendance", "Tap presensi")}</Button>}
       />
+      {/* D332: the tap reads the phone's location once and is judged against
+          the warehouse. `/saya` takes this component when D331 lands. */}
+      <LocatedTap className="border-b border-slate-100 px-5 pb-4 pt-1" onTapped={() => reloadDays()} />
       <Loaded state={days} onRetry={reloadDays}>
         {(rows) => (
           <ul className="divide-y divide-slate-100">
