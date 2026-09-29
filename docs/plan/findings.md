@@ -7580,6 +7580,45 @@ here:** real GoTrue sending a real invitation email. The invitation lands on
 Redirect URLs (`06-auth.md`). Supabase's built-in mail sends only a few
 messages an hour.
 
+## F183 · 2026-09-29 · the self-service screen was built for people who could not open it
+
+The owner asked whether this app can become a PWA for everybody: the
+production floor and the guards clocking in and out with location, reading
+their latest payslip and asking for leave, sick days and overtime, and staff
+doing all of that plus their modules (D326). Nearly everything the floor needs
+already exists on `/profil` (W7, D305–D307). None of the people it is for could
+use it, for three separate reasons, and none of them shows on the screen:
+
+1. **The shell sends an account with no module to `/no-access`**
+   (`src/app/(app)/layout.tsx`, `hasAnyModule`). A production worker needs no
+   module, because the self-service half is scoped by the account-to-employee
+   link rather than by a grant (D305). So the one audience the page was written
+   for is the one turned away at the door. Every walk of W7 was done by an
+   account that also held modules.
+2. **Nothing writes `ops_hr.employees.user_id`.** `0152` added the column and
+   `my_employee_id()` reads it. No seam and no screen sets it. The empty state
+   tells the person to *ask HRD to link this account*, and HRD has nowhere to
+   do it.
+3. **An account can only be made by an email invitation** (D325), and the floor
+   has no work email.
+
+And one that would have met them on the first morning. `/profil` reckons
+*today* and the tap's time with `toISOString()`, which is UTC, instead of
+`src/lib/office.ts`. At 07.25 WITA, five minutes before production starts, the
+toast says *Pukul 23:25* and the tap is missing from the list until 08.00.
+`tap_self` writes its activity label the same way in SQL (`to_char(v_at,
+'HH24:MI')` with no `at time zone`). F63 collapsed nine copies of the offset
+into one file; a screen written after it simply did not import it.
+
+The general shape: **a feature scoped by a different key from the rest of the
+app has to be walked by an account that holds only that key.**
+
+Two limits no code in this repo can remove, recorded so nobody promises them.
+A browser's location can be faked on Android and a web page cannot tell, which
+is one reason the fingerprint reader stays (D326, answer 5). And a PWA cannot
+read location while it is closed or the screen is off, so *every 15 or 30
+minutes* only holds while the app is open (W8).
+
 ## F184 · 2026-09-29 · `/profil` kept its own clock, and it was UTC's
 
 The first slice of the PWA program (D326, D327, `0184`). `/profil` is where a
@@ -7945,6 +7984,103 @@ same state once D334 merges, if D334 drops `tap_self(text)` rather than
 recreating it. The lesson is F167's again: the order migrations reach
 production is not the order they sit in the ladder, and a file that names a
 zone is a file that can be wrong about which one.
+
+## F191 · 2026-09-29 · two errors of one hour that cancelled, until one of them was fixed
+
+D334. The fingerprint machine writes WIB wall-clock time with no zone; every
+import since `0044` glued `+08:00` onto it, and every reader since `0004`
+read the result back in `Asia/Makassar`. A 07:25 tap was stored as 23:25 UTC
+— an hour before it happened — and printed as 07:25, because the reader made
+the same mistake in the other direction. **Nothing on any screen was wrong,
+and every stored instant was.** That is why it survived: the only symptom of
+two cancelling errors is the day somebody fixes one of them. Moving the
+readers to WIB alone would have made every historical tap read 06:25.
+
+So the zone and the data move in one migration (`0190`), and the data move
+is chosen by what each row *is*, not by where it sits:
+
+- `import` and `manual` rows are wall-clock times a person or a machine
+  wrote, with a zone we guessed. They move +1 h and read exactly as written.
+- `self` rows are `now()` on the server — real instants. They do not move;
+  what changes is only how they are printed, and the ones between 23:00 and
+  24:00 WIB change day, which is the correction.
+
+**"Do not touch the approved runs" turned out to mean "do shift their
+taps".** A payroll run stores no lines; `payroll_line_for` reads `read_day`
+live. Leaving an approved period's machine taps unshifted would have changed
+its lateness and slot placement under WIB. Shifting them is what keeps the
+wall clock — and so the run — identical. The only rows whose reading moves
+inside a closed run are self taps, and the migration counts them into its
+marker row instead of guessing (production: none, and no runs at all yet).
+
+**A migration that recreates a function from an old body races the lanes.**
+`read_day` names the zone, and D330's `0186` rewrites `read_day`. Copying
+`0053`'s body here would have silently undone `0186` wherever it ran first.
+The sweep instead rewrites the literal inside *whatever definition is
+current* (`pg_get_functiondef`) and then refuses to commit if any `ops_*`
+function or view still names `Asia/Makassar` or a `+08` literal — proved by
+applying D330's `0186` under it locally. Smoke `190` repeats the check, so
+the next migration that writes the literal fails the ladder.
+
+**Printing a timestamp by slicing its characters is a zone decision nobody
+made.** `/hrd/absensi`'s day drawer and `/it/aktivitas` showed
+`at.slice(11, 16)`. The demo's fixtures carried the office offset, so the
+slice read right there; PostgREST hands back `+00:00` (production's session
+zone is UTC, checked), so on the real layer the drawer printed 23:25 for a
+07:25 tap. The demo's timesheet reader did the same to a demo self tap
+(`Z`). All three read `officeClock()` now. The rule: a stamp's text is not
+its clock; only `src/lib/office.ts` says what time it was.
+
+Also found on the way: `src/demo/store.ts` kept a private `officeDay` with its
+own `8` — and a browser-offset term that made it right only in a UTC browser —
+a fourteenth copy F63 missed. It calls the shared one now. The demo's
+`tapSelf` wrote `source: "manual"`, so the demo could not tell a phone tap
+from an HRD one, which is the exact line D334's data rule draws.
+
+Fixture stamps were rewritten `+08:00` → `+07:00`: they were authored as
+office wall-clock times, and the demo should read as the real layer does
+after `0190` — the machine's 07:25 still 07:25.
+
+**After merging D330 (`0186`, already applied to production).** D330 landed
+while this branch was open and brought the office clock back into six
+places: `instantInDay` (`schedule-rules.ts`), the day drawer's `witaDay` /
+`witaClock` (`8 * 3_600_000`), and `dayBeginsAt` / `shiftDayOf` /
+`lateMinutesOf` / the night's `outFrom` in the demo's `hr-derive.ts`, plus
+`'Asia/Makassar'` in `read_day`, `day_begins` and `late_minutes` and `+08` in
+smoke `186`. The sweep in `0190` rewrites the three functions exactly as
+designed; the app copies now call `office.ts`. `schedule-rules.ts` may import
+nothing (its check script loads it bare), so it restates the offset as
+`OFFICE_OFFSET`, and `office.ts` exports a type (`OfficeOffsetAgrees`) that
+fails to compile when the two disagree — tried with `+08:00`, and `tsc`
+refused it. The fourth time a copy of the office clock appeared (F17, F39,
+F63, here) is the argument for making the copy impossible to get wrong rather
+than for asking the next author to remember.
+
+**Applied, and raced.** `0190` went to production at 07:24:15 UTC on
+2026-09-29 (123 taps moved, the first now reading 07:39:51 WIB as the
+machine printed it). At 07:24:48 another session applied `0184`, which had
+not been applied until then, and `create or replace` put `tap_self`'s WITA
+label back. Migration numbers order the ladder; they do not order a
+production apply. A `create or replace` of a function another migration also
+defines is only as current as the last one to run. The smoke catches this on
+the ladder, but nothing catches it in production except reading
+`pg_proc` after an apply, which is how it was found.
+
+**And then D332 merged.** `0188` drops `tap_self(text)` and creates it again
+with a location. `0190`'s explicit `create or replace tap_self(text)`, written
+before `0188` existed, would have put the old signature back beside the new
+one on the ladder: two functions that both accept `{p_key}`, and PostgREST
+refuses to choose. So `0190` no longer names `tap_self`; the sweep rewrites
+whichever one is current. That is the second time in one day a copied body was
+the wrong tool against a lane that moves. The sweep was right both times,
+because it reads the function it is fixing instead of remembering one.
+After `0184`, D332 applied `0188` to production with the two literals
+already written as `ops_core.office_tz()` (F189), which is what the sweep
+would have done to them. Production was read back after that: one
+`tap_self`, on the office clock, and no `ops_*` function or view naming
+WITA. A sweep-only `0191` was drafted for the race and dropped once
+production no longer needed it: a migration with no job is one more thing
+to read in the ladder.
 
 ---
 

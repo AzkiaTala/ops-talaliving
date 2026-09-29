@@ -31,10 +31,10 @@ export const DELIVERIES: Delivery[] = [
     id: "dlv_01", delivery_no: "krm-26-09-02_01", project_code: "25009",
     dispatched_on: "2026-09-02", vehicle: "Colt diesel B 9421 KJ", driver: "Sukirman",
     status: "ARRIVED",
-    received_by: "Pak Yoga (site manager)", received_at: "2026-09-02T14:30:00+08:00",
+    received_by: "Pak Yoga (site manager)", received_at: "2026-09-02T14:30:00+07:00",
     surat_jalan_attachment_id: "att_60", photo_attachment_id: "att_61",
     note: "Delapan nakas, dibongkar di carport.", cancelled_reason: null,
-    created_by: "usr_made", created_at: "2026-09-02T07:40:00+08:00",
+    created_by: "usr_made", created_at: "2026-09-02T07:40:00+07:00",
   },
   {
     /* Two of the three finished dining tables. The third is made and still in
@@ -46,17 +46,17 @@ export const DELIVERIES: Delivery[] = [
     received_by: null, received_at: null,
     surat_jalan_attachment_id: "att_63", photo_attachment_id: null,
     note: "Dua set naik duluan; satu lagi menunggu truk berikutnya.", cancelled_reason: null,
-    created_by: "usr_made", created_at: "2026-09-08T08:05:00+08:00",
+    created_by: "usr_made", created_at: "2026-09-08T08:05:00+07:00",
   },
   {
     /* June, and nothing in production knows about it. */
     id: "dlv_04", delivery_no: "krm-26-06-11_01", project_code: "25012",
     dispatched_on: "2026-06-11", vehicle: "Colt diesel B 9421 KJ", driver: "Sukirman",
     status: "ARRIVED",
-    received_by: "Ibu Ratna (GA)", received_at: "2026-06-11T13:00:00+08:00",
+    received_by: "Ibu Ratna (GA)", received_at: "2026-06-11T13:00:00+07:00",
     surat_jalan_attachment_id: "att_64", photo_attachment_id: "att_65",
     note: null, cancelled_reason: null,
-    created_by: "usr_made", created_at: "2026-06-11T07:00:00+08:00",
+    created_by: "usr_made", created_at: "2026-06-11T07:00:00+07:00",
   },
 ];
 
@@ -71,18 +71,18 @@ export const INSTALLATIONS: Installation[] = [
     id: "ins_01", install_no: "pas-26-09-04_01", project_code: "25009",
     visit_date: "2026-09-04", crew: "Tim Wayan (3 orang)", status: "DONE",
     note: "Lima nakas terpasang di kamar utama dan dua kamar anak; tiga menunggu kamar tamu selesai dicat.",
-    cancelled_reason: null, created_by: "usr_made", created_at: "2026-09-04T07:30:00+08:00",
+    cancelled_reason: null, created_by: "usr_made", created_at: "2026-09-04T07:30:00+07:00",
   },
   {
     id: "ins_03", install_no: "pas-26-09-15_01", project_code: "25009",
     visit_date: "2026-09-15", crew: "Tim Wayan", status: "SCHEDULED",
     note: "Sisa tiga nakas, dan lemari kalau sudah sampai.",
-    cancelled_reason: null, created_by: "usr_made", created_at: "2026-09-09T09:00:00+08:00",
+    cancelled_reason: null, created_by: "usr_made", created_at: "2026-09-09T09:00:00+07:00",
   },
   {
     id: "ins_04", install_no: "pas-26-06-12_01", project_code: "25012",
     visit_date: "2026-06-12", crew: "Tim Wayan (2 orang)", status: "DONE",
-    note: null, cancelled_reason: null, created_by: "usr_made", created_at: "2026-06-12T07:30:00+08:00",
+    note: null, cancelled_reason: null, created_by: "usr_made", created_at: "2026-06-12T07:30:00+07:00",
   },
 ];
 
@@ -147,6 +147,6 @@ export const HANDOVERS: Handover[] = [
     open_snags_at_handover: 2,
     open_snag_nos: ["tmn-26-06-12_01", "tmn-26-06-12_02"],
     note: "Diserahterimakan dengan dua catatan; klien setuju diselesaikan menyusul.",
-    created_by: "usr_made", created_at: "2026-06-18T15:00:00+08:00",
+    created_by: "usr_made", created_at: "2026-06-18T15:00:00+07:00",
   },
 ];

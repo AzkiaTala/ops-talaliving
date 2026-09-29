@@ -37,9 +37,9 @@ set local request.jwt.claim.sub = 'ffffffff-0000-0000-0000-000000005002';
 do $$
 declare a jsonb; n int;
 begin
-  a := ops_hr.import_scans('mesin.csv','[{"employee_ref":"12","at":"2026-09-14T08:05:00+08"}]'::jsonb);
+  a := ops_hr.import_scans('mesin.csv','[{"employee_ref":"12","at":"2026-09-14T08:05:00+07"}]'::jsonb);
   assert a -> 'error' ->> 'code' = 'not_permitted', 'got ' || coalesce(a -> 'error' ->> 'code','(null)');
-  a := ops_hr.add_scan('B-0012','2026-09-14T08:05:00+08','lupa tap');
+  a := ops_hr.add_scan('B-0012','2026-09-14T08:05:00+07','lupa tap');
   assert a -> 'error' ->> 'code' = 'not_permitted', 'got ' || coalesce(a -> 'error' ->> 'code','(null)');
   a := ops_hr.mark_day('2026-09-14','sick','demam','B-0012');
   assert a -> 'error' ->> 'code' = 'not_permitted', 'got ' || coalesce(a -> 'error' ->> 'code','(null)');
@@ -63,12 +63,12 @@ begin
   -- person and nothing in either system says so, so the refs are compared with
   -- the prefix off both sides.
   a := ops_hr.import_scans('mesin-14.csv', $j$[
-    {"employee_ref":"0012","at":"2026-09-14T08:05:00+08","verify":"FP"},
-    {"employee_ref":"12",  "at":"2026-09-14T17:02:00+08","verify":"FP"},
-    {"employee_ref":"12",  "at":"2026-09-14T17:02:00+08","verify":"FP"},
-    {"employee_ref":"7",   "at":"2026-09-14T07:58:00+08","verify":"FP"},
-    {"employee_ref":"99",  "at":"2026-09-14T08:01:00+08","verify":"FP"},
-    {"employee_ref":"99",  "at":"2026-09-14T17:30:00+08","verify":"FP"}
+    {"employee_ref":"0012","at":"2026-09-14T08:05:00+07","verify":"FP"},
+    {"employee_ref":"12",  "at":"2026-09-14T17:02:00+07","verify":"FP"},
+    {"employee_ref":"12",  "at":"2026-09-14T17:02:00+07","verify":"FP"},
+    {"employee_ref":"7",   "at":"2026-09-14T06:58:00+07","verify":"FP"},
+    {"employee_ref":"99",  "at":"2026-09-14T08:01:00+07","verify":"FP"},
+    {"employee_ref":"99",  "at":"2026-09-14T17:30:00+07","verify":"FP"}
   ]$j$::jsonb,'k-50-import');
   assert ops_core.said_ok(a), 'got ' || coalesce(a -> 'error' ->> 'code', a::text);
 
@@ -94,25 +94,26 @@ begin
          = '[{"ref":"99","count":2}]'::jsonb, 'and remembers who it could not place';
 
   -- **The office day, not the server''s** (F17, F39, F102). Siti tapped at
-  -- 07:58 WITA, which is 23:58 the previous day in UTC — so this is the row
-  -- that tells the two apart, and a tap at 08:05 would not have.
+  -- 06:58 WIB, which is 23:58 the previous day in UTC — so this is the row
+  -- that tells the two apart, and a tap at 08:05 would not have. (07:58 until
+  -- D334: under WITA that crossed, under WIB it no longer does.)
   assert (select work_date from ops_hr.attendance_scans
-           where at = '2026-09-14T07:58:00+08') = '2026-09-14',
-    'a tap before eight belongs to that morning, not to the night before, got '
+           where at = '2026-09-14T06:58:00+07') = '2026-09-14',
+    'a tap before seven belongs to that morning, not to the night before, got '
     || coalesce((select work_date::text from ops_hr.attendance_scans
-                  where at = '2026-09-14T07:58:00+08'),'(null)');
+                  where at = '2026-09-14T06:58:00+07'),'(null)');
 
   -- Running the file again adds nothing.
   a := ops_hr.import_scans('mesin-14.csv', $j$[
-    {"employee_ref":"0012","at":"2026-09-14T08:05:00+08"},
-    {"employee_ref":"12",  "at":"2026-09-14T17:02:00+08"}
+    {"employee_ref":"0012","at":"2026-09-14T08:05:00+07"},
+    {"employee_ref":"12",  "at":"2026-09-14T17:02:00+07"}
   ]$j$::jsonb);
   assert (a -> 'data' ->> 'added')::int = 0, 'got ' || coalesce(a -> 'data' ->> 'added','(null)');
   select count(*) into n from ops_hr.attendance_scans;
   assert n = 3, 'still three taps, got ' || n;
 
   -- And a retry with the key is the earlier answer, not a third run.
-  a := ops_hr.import_scans('mesin-14.csv','[{"employee_ref":"12","at":"2026-09-15T08:00:00+08"}]'::jsonb,
+  a := ops_hr.import_scans('mesin-14.csv','[{"employee_ref":"12","at":"2026-09-15T08:00:00+07"}]'::jsonb,
                            'k-50-import');
   assert a ->> 'outcome' = 'duplicate', 'got ' || coalesce(a ->> 'outcome','(null)');
   select count(*) into n from ops_hr.attendance_scans;
@@ -123,25 +124,25 @@ end $$;
 do $$
 declare a jsonb; s record;
 begin
-  a := ops_hr.add_scan('B-0012','2026-09-15T07:30:00+08','   ');
+  a := ops_hr.add_scan('B-0012','2026-09-15T06:30:00+07','   ');
   assert a -> 'error' ->> 'code' = 'reason_required',
     'the whole value of source=manual is that a dispute can tell it from a tap, got '
     || coalesce(a -> 'error' ->> 'code','(null)');
 
-  a := ops_hr.add_scan('B-9999','2026-09-15T07:30:00+08','lupa');
+  a := ops_hr.add_scan('B-9999','2026-09-15T06:30:00+07','lupa');
   assert a -> 'error' ->> 'code' = 'not_found', 'got ' || coalesce(a -> 'error' ->> 'code','(null)');
 
-  -- 07:30 WITA is 23:30 the night before in UTC, so this one crosses too.
-  a := ops_hr.add_scan('B-0012','2026-09-15T07:30:00+08','mesin mati pagi itu');
+  -- 06:30 WIB is 23:30 the night before in UTC, so this one crosses too.
+  a := ops_hr.add_scan('B-0012','2026-09-15T06:30:00+07','mesin mati pagi itu');
   assert ops_core.said_ok(a), 'got ' || coalesce(a -> 'error' ->> 'code', a::text);
 
-  select * into s from ops_hr.attendance_scans where at = '2026-09-15T07:30:00+08';
+  select * into s from ops_hr.attendance_scans where at = '2026-09-15T06:30:00+07';
   assert s.work_date = '2026-09-15', 'the office day again, got ' || coalesce(s.work_date::text,'(null)');
   assert s.source = 'manual', 'got ' || coalesce(s.source::text,'(null)');
   assert s.reason = 'mesin mati pagi itu', 'and it says why';
   assert s.recorded_by = 'ffffffff-0000-0000-0000-000000005001', 'and who';
 
-  a := ops_hr.add_scan('B-0012','2026-09-15T07:30:00+08','lagi');
+  a := ops_hr.add_scan('B-0012','2026-09-15T06:30:00+07','lagi');
   assert a -> 'error' ->> 'code' = 'already_recorded', 'got ' || coalesce(a -> 'error' ->> 'code','(null)');
 end $$;
 

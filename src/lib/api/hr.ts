@@ -58,6 +58,7 @@ import {
 import { instantInDay, nextOfficeDay } from "@/services/hr/schedule-rules";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fromSeam, fromRows, notFound, invalid, ok, type Result } from "./_kit";
+import { officeStamp } from "@/lib/office";
 
 const SERVICE = "hr" as const;
 
@@ -833,8 +834,8 @@ export async function addScan(
   input: { employee_no: string; work_date: string; time: string; reason: string },
 ): Promise<Result<AttendanceScan>> {
   /* The contract carries the day and the clock time apart, because that is how
-     somebody types it off a note; the seam takes the instant. WITA is the
-     office's zone and the one the machine prints in (F17).
+     somebody types it off a note; the seam takes the instant. The office clock
+     is the one the machine prints in and the one HRD reads off it (F17, D334).
 
      *The day* is the working day, and for a guard that is a night: 07.05
      typed against Monday's shift is Tuesday 07.05 (D330). Which calendar day

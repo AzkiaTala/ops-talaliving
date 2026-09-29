@@ -183,7 +183,7 @@ await page.waitForURL((u) => !u.pathname.startsWith("/signin"), { timeout: 15000
 await page.goto(`${APP}/hrd/cuti`, { waitUntil: "networkidle" });
 await page.locator("[data-dock-open='john-lau']").click().catch(() => {});
 
-const year = new Date(Date.now() + 8 * 3_600_000).getUTCFullYear();
+const year = new Date(Date.now() + 7 * 3_600_000).getUTCFullYear();
 const before2 = sql(`select count(*) from ops_hr.leave_requests`);
 await ask("ajukan cuti untuk Wulan 2 sampai 3 Oktober, acara keluarga");
 t = lastTurnOf("sari@talaliving.com").split("|");

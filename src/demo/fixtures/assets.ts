@@ -17,7 +17,7 @@ export const ASSET_CATEGORIES: AssetCategory[] = [
   { code: "other", name: "Other", description: null, is_active: true },
 ];
 
-const base = { created_at: "2026-09-01T09:00:00+08:00", updated_at: "2026-09-01T09:00:00+08:00" };
+const base = { created_at: "2026-09-01T09:00:00+07:00", updated_at: "2026-09-01T09:00:00+07:00" };
 const owned = {
   ownership: "owned", rent_amount: null, rent_period: null, rent_due_day: null,
   contract_start: null, contract_end: null,
@@ -96,16 +96,16 @@ export const ASSET_SERVICES: Omit<AssetService, "vendor_name">[] = [
   {
     id: "asv_001", asset_no: "AST-0004", service_date: "2026-03-28", kind: "service",
     description: "Ganti oli + filter oli", vendor_code: null, cost: 385_000, trx_no: null,
-    next_due: "2026-06-28", recorded_by: "usr_anggun", recorded_at: "2026-03-28T10:00:00+08:00",
+    next_due: "2026-06-28", recorded_by: "usr_anggun", recorded_at: "2026-03-28T10:00:00+07:00",
   },
   {
     id: "asv_002", asset_no: "AST-0004", service_date: "2026-07-03", kind: "service",
     description: "Ganti oli, cek rem, spooring", vendor_code: null, cost: 640_000, trx_no: null,
-    next_due: "2026-10-03", recorded_by: "usr_anggun", recorded_at: "2026-07-03T10:00:00+08:00",
+    next_due: "2026-10-03", recorded_by: "usr_anggun", recorded_at: "2026-07-03T10:00:00+07:00",
   },
   {
     id: "asv_003", asset_no: "AST-0005", service_date: "2026-09-15", kind: "repair",
     description: "Paper jam — fuser unit replaced", vendor_code: null, cost: 1_150_000, trx_no: null,
-    next_due: null, recorded_by: "usr_anggun", recorded_at: "2026-09-15T14:00:00+08:00",
+    next_due: null, recorded_by: "usr_anggun", recorded_at: "2026-09-15T14:00:00+07:00",
   },
 ];

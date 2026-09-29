@@ -6,7 +6,7 @@
 --              written and flagged, photo linked to the tap in the HRD drive's
 --              PRESENSI LUAR AREA; no location with a note → written and
 --              flagged; a circle straddling the edge → `uncertain`; the label
---              is the office clock (WITA, D327) and says *di luar area*;
+--              is the office clock (WIB since D334) and says *di luar area*;
 --              a replayed key writes nothing twice
 -- REFUSALS     outside without a note (invalid, carries the verdict, writes
 --              no tap); no location without a note; half a point; a photo
@@ -192,21 +192,21 @@ begin
     ops_core.drive_path_for('foto_presensi', 'attendance_scan');
 end $$;
 
-/* ── the label is WITA, and says off-site ─────────────────────────────────── */
+/* ── the label is the office clock (WIB since D334), and says off-site ──── */
 do $$
 declare v_at timestamptz; v_label text;
 begin
   select (res -> 'data' ->> 'at')::timestamptz into v_at from t188 where who = 'out';
   select label into v_label from ops_core.activity_events
    where actor_id = 'ffffffff-0000-0000-0000-000000018803' and kind = 'attendance_tap';
-  assert v_label = 'Tap presensi pukul ' || to_char(v_at at time zone 'Asia/Makassar', 'HH24:MI') || ' · di luar area',
-    format('label should read the WITA clock and say off-site, got %s', v_label);
-  assert to_char(v_at at time zone 'Asia/Makassar', 'HH24:MI') <> to_char(v_at, 'HH24:MI'),
+  assert v_label = 'Tap presensi pukul ' || to_char(v_at at time zone 'Asia/Jakarta', 'HH24:MI') || ' · di luar area',
+    format('label should read the WIB clock and say off-site, got %s', v_label);
+  assert to_char(v_at at time zone 'Asia/Jakarta', 'HH24:MI') <> to_char(v_at, 'HH24:MI'),
     'the session is not on UTC, so this proves nothing';
 
   select label into v_label from ops_core.activity_events
    where actor_id = 'ffffffff-0000-0000-0000-000000018802' and kind = 'attendance_tap';
-  assert v_label = 'Tap presensi pukul ' || to_char(v_at at time zone 'Asia/Makassar', 'HH24:MI'), v_label;
+  assert v_label = 'Tap presensi pukul ' || to_char(v_at at time zone 'Asia/Jakarta', 'HH24:MI'), v_label;
 
   -- D141 unchanged: a self tap, recorded by its caller, no slot decided.
   assert (select count(*) from ops_hr.attendance_scans s join ops_hr.scan_locations l on l.scan_id = s.id

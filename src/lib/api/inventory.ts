@@ -34,6 +34,7 @@ import type { ItemPurchase } from "@/services/procurement/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromRows, fromSeam, invalid, noop, notFound, ok, conflict, refused, type Result } from "./_kit";
 import { scanNota } from "./_nota_kayu";
+import { officeStamp } from "@/lib/office";
 
 const SERVICE = "inventory" as const;
 
@@ -1263,7 +1264,7 @@ export async function listBoardMoves(
     const { rate, basis } = rateFor(sb.purchase_id as string, species);
     const createdBy = (purchase?.created_by as string) ?? "";
     return {
-      id: sb.id as string, move_no: sb.id as string, at: `${sb.sawn_on}T12:00:00+08:00`,
+      id: sb.id as string, move_no: sb.id as string, at: officeStamp(sb.sawn_on as string, "12:00"),
       board_key: `${species}|${t}x${w}x${l}`,
       species, thickness_mm: t, width_mm: w, length_mm: l,
       qty, kind: "sawn",

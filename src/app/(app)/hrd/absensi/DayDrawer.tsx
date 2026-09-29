@@ -8,6 +8,7 @@ import { Badge, Button } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { NumberInput } from "@/components/ui/number-input";
 import { formatNumber } from "@/lib/format";
+import { officeClock, officeDay } from "@/lib/office";
 import { cn } from "@/lib/cn";
 import { documents, hr } from "@/demo/api";
 import {
@@ -19,14 +20,15 @@ import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
 import { instantInDay } from "@/services/hr/schedule-rules";
 
-/** A tap's WITA calendar day and clock face, from the instant rather than from
- *  the string's own offset, so a night's morning tap can say it is *tomorrow*
- *  whichever zone the row arrived in (F17). */
-function witaDay(iso: string): string {
-  return new Date(Date.parse(iso) + 8 * 3_600_000).toISOString().slice(0, 10);
+/** A tap's office calendar day and clock face, from the instant rather than
+ *  from the string's own offset, so a night's morning tap can say it is
+ *  *tomorrow* whichever zone the row arrived in (F17). The zone is
+ *  `src/lib/office.ts`'s (WIB since D334), not a number written here. */
+function tapDay(iso: string): string {
+  return officeDay(Date.parse(iso));
 }
-function witaClock(iso: string): string {
-  return new Date(Date.parse(iso) + 8 * 3_600_000).toISOString().slice(11, 16);
+function tapClock(iso: string): string {
+  return officeClock(Date.parse(iso));
 }
 
 /** One person, one day, and everything that is known about it.
@@ -269,8 +271,8 @@ export function DayDrawer({
                 </p>
                 <p className="mt-0.5 text-[12px] text-indigo-900">
                   {tr(
-                    `Taps from ${witaClock(d.window_from)} on ${d.work_date} until ${witaClock(d.window_to)} the next day are read into this day. Each tap is still stored on the calendar day it happened.`,
-                    `Tap dari ${witaClock(d.window_from)} tanggal ${d.work_date} sampai ${witaClock(d.window_to)} esok harinya dibaca ke hari ini. Setiap tap tetap tersimpan pada tanggal kalender kejadiannya.`,
+                    `Taps from ${tapClock(d.window_from)} on ${d.work_date} until ${tapClock(d.window_to)} the next day are read into this day. Each tap is still stored on the calendar day it happened.`,
+                    `Tap dari ${tapClock(d.window_from)} tanggal ${d.work_date} sampai ${tapClock(d.window_to)} esok harinya dibaca ke hari ini. Setiap tap tetap tersimpan pada tanggal kalender kejadiannya.`,
                   )}
                 </p>
               </div>
@@ -323,8 +325,8 @@ export function DayDrawer({
                       </span>
                       <span className="flex-1 text-[13px] text-slate-700">{SLOT_LABEL[slot]}</span>
                       <span className={cn("font-mono text-[13px] tabular-nums", at ? "text-slate-800" : "text-slate-300")}>
-                        {at ? witaClock(at) : "··:··"}
-                        {at && witaDay(at) > workDate && (
+                        {at ? tapClock(at) : "··:··"}
+                        {at && tapDay(at) > workDate && (
                           <span className="ml-1 text-[10px] font-sans text-indigo-700">{tr("next day", "esok")}</span>
                         )}
                       </span>
@@ -356,8 +358,8 @@ export function DayDrawer({
                       "rounded-lg border px-2 py-1 text-[11px]",
                       s.slot ? "border-slate-200 bg-white text-slate-700" : "border-amber-300 bg-amber-50 text-amber-900",
                     )}>
-                      <span className="font-mono tabular-nums">{witaClock(s.at)}</span>
-                      {witaDay(s.at) > workDate && <span className="ml-1 text-indigo-700">{tr("next day", "esok")}</span>}
+                      <span className="font-mono tabular-nums">{tapClock(s.at)}</span>
+                      {tapDay(s.at) > workDate && <span className="ml-1 text-indigo-700">{tr("next day", "esok")}</span>}
                       <span className="ml-1.5 text-slate-400">{s.verify}</span>
                       <span className="ml-1.5">{s.slot ? SLOT_LABEL[s.slot] : tr("unreadable", "tidak terbaca")}</span>
                       {s.source === "manual" && <span className="ml-1.5 text-slate-400">· {tr("manual", "manual")}</span>}

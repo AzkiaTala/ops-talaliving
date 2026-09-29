@@ -6,7 +6,7 @@ import { Loaded, useLoad } from "@/components/ui/loaded";
 import { hr } from "@/demo/api";
 import { LocatedTap } from "@/components/attendance/located-tap";
 import type { TimesheetDay } from "@/services/hr/contracts";
-import { officeClock, officeDay, officeToday, shiftDay } from "@/lib/office";
+import { OFFICE_TZ, officeClock, officeDay, officeToday, shiftDay } from "@/lib/office";
 import { formatNumber } from "@/lib/format";
 import { useTr } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -65,7 +65,7 @@ export function PresensiTab({ employeeNo }: { employeeNo: string }) {
         <p className="mt-1 font-mono text-[64px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
           {officeClock(now)}<span className="text-[28px] text-slate-400">:{secs}</span>
         </p>
-        <p className="mt-1 text-[12px] text-slate-400">WITA</p>
+        <p className="mt-1 text-[12px] text-slate-400">{OFFICE_TZ.short}</p>
 
         <p className="mt-4 text-[17px] font-medium text-slate-800" data-testid="today-state">
           {days.status === "loading" ? "…"

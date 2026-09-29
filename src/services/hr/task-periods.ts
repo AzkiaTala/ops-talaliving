@@ -29,7 +29,7 @@
  *  Everything here is UTC arithmetic on `YYYY-MM-DD` strings. A period boundary
  *  is a calendar fact and has no clock in it; going through a local `Date`
  *  would put the browser's timezone into a figure the database computed in
- *  WITA, which is F17 arriving by another road.
+ *  the office zone, which is F17 arriving by another road.
  *
  *  ## Why the age bands live here too
  *
