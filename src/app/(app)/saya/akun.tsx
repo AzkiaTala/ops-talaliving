@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { KeyRound, LogOut, Smartphone, UserRound } from "lucide-react";
+import { KeyRound, LogOut, UserRound } from "lucide-react";
+import { InstallApp } from "@/components/pwa/install-app";
 import { Button, Card } from "@/components/ui/primitives";
 import { useSession } from "@/store/session";
 import { isLiveMode } from "@/lib/live";
@@ -50,15 +51,11 @@ export function AkunTab({ employeeOnly }: { employeeOnly: boolean }) {
         </div>
       </Card>
 
-      {/* D328 slot: the reusable "install this app" action mounts here once it
-          lands on main. Kept visible and inert so the place is obvious. */}
-      <Card data-slot="install" className="flex items-center gap-3 px-5 py-4 text-[14px] text-slate-500">
-        <Smartphone className="h-5 w-5 shrink-0" />
-        {tr(
-          "Add to home screen: open your browser's menu and choose “Add to Home screen”.",
-          "Pasang di layar utama: buka menu browser lalu pilih “Tambahkan ke layar utama”.",
-        )}
-      </Card>
+      {/* D328's install action. It draws nothing where the browser cannot
+          install or the app is already running installed. */}
+      <div data-slot="install" className="flex justify-center">
+        <InstallApp label className="[&_button]:h-12 [&_button]:text-base" />
+      </div>
 
       <Card className="px-5 py-4">
         <p className="flex items-center gap-2 text-[14px] font-semibold text-slate-800">

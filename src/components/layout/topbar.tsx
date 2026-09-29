@@ -11,6 +11,7 @@ import { consumeResetNotice } from "@/demo/store";
 import { useToast } from "@/store/toast";
 import { isLiveMode } from "@/lib/live";
 import { LANGS, setLang, useLang, useTr } from "@/lib/i18n";
+import { InstallApp } from "@/components/pwa/install-app";
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const { session, signOut } = useSession();
@@ -119,6 +120,12 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               <GrantPickerButton onOpen={() => setPickerOpen(true)} />
             </>
           )}
+
+          {/* Only where the browser can install and the app is not already
+              running installed; otherwise nothing (D328). On a phone the
+              sandbox's own two controls leave no room for it in the demo, and
+              the demo is not what anybody installs; live, it is always there. */}
+          <InstallApp className={live ? undefined : "hidden sm:block"} />
 
           {/* The way out, and it only exists where there is something to leave.
               A session somebody cannot end is one that ends only when the token

@@ -16,9 +16,9 @@ export function Toaster() {
   const { toasts, dismissToast } = useToast();
   const tr = useTr();
   return (
-    /* Never wider than the phone (it used to start 24px off the left edge at
-       390px), and above the bottom tab bar in the employee shell (D331). */
-    <div className="pointer-events-none fixed bottom-6 right-6 z-[60] flex w-[calc(100vw-3rem)] max-w-sm flex-col gap-3 [[data-shell=employee]_&]:bottom-[calc(88px+env(safe-area-inset-bottom))]">
+    /* A 16px gutter on phones (D328); above the bottom tab bar in the
+       employee shell (D331). */
+    <div className="pointer-events-none fixed bottom-4 left-4 right-4 z-[60] flex flex-col gap-3 sm:bottom-6 sm:left-auto sm:right-6 sm:w-full sm:max-w-sm [[data-shell=employee]_&]:bottom-[calc(88px+env(safe-area-inset-bottom))]">
       {toasts.map((t) => {
         const c = config[t.level];
         const Icon = c.icon;
@@ -34,6 +34,18 @@ export function Toaster() {
             <div className="flex-1">
               <p className="text-sm font-semibold text-slate-800">{t.title}</p>
               {t.message && <p className="mt-0.5 text-xs text-slate-500">{t.message}</p>}
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismissToast(t.id);
+                    t.action?.onClick();
+                  }}
+                  className="mt-2 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                >
+                  {t.action.label}
+                </button>
+              )}
             </div>
             <button
               onClick={() => dismissToast(t.id)}
