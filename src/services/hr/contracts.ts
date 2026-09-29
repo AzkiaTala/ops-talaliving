@@ -110,7 +110,7 @@ export type ScanSource = "import" | "manual" | "self";
 export interface AttendanceScan {
   id: string;
   employee_id: string;
-  /** Office day this tap belongs to, WITA. */
+  /** Office day this tap belongs to, on the office clock (`src/lib/office.ts`). */
   work_date: string;
   at: string;
   /** `FACE`, `FP`, whatever the device calls it. Carried verbatim. */
@@ -251,7 +251,7 @@ export interface TimesheetDay {
    *  look* are different sentences, and only the first one blocks. */
   notes: string[];
   /** The instants this day's taps were read from: `[window_from, window_to)`.
-   *  Midnight to midnight WITA for an ordinary pattern; for somebody on a
+   *  Midnight to midnight on the office clock for an ordinary pattern; for somebody on a
    *  night (D330) the day claims the next morning, up to the middle of the
    *  off-duty gap — so a guard's 07.05 pulang is on the evening it began,
    *  while the tap's own `work_date` stays the calendar day it happened on.

@@ -34,7 +34,7 @@ import {
   employeeIdentityViews, wlkpRecap,
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
-import { officeClock, officeToday as sharedOfficeToday } from "@/lib/office";
+import { OFFICE_TZ, officeClock, officeToday as sharedOfficeToday, officeStamp } from "@/lib/office";
 import { carrySickNote } from "../self-link";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
@@ -458,8 +458,8 @@ function judge(state: DemoState, reading: Partial<TapReading>): LocationJudgemen
 }
 
 /** The office clock as `YYYY-MM-DDTHH:MM:SS.ffffff`, for the tap's code. */
-function officeStamp(iso: string): string {
-  const d = new Date(new Date(iso).getTime() + 8 * 3_600_000).toISOString();
+function tapCodeStamp(iso: string): string {
+  const d = new Date(Date.parse(iso) + OFFICE_TZ.offset_hours * 3_600_000).toISOString();
   return `${d.slice(0, 23)}000`;
 }
 
@@ -515,14 +515,16 @@ export async function tapSelf(
 
   const at = new Date().toISOString();
   const work_date = sharedOfficeToday();
-  const tap_no = `${emp.employee_no}/${officeStamp(at)}`;
+  const tap_no = `${emp.employee_no}/${tapCodeStamp(at)}`;
   const { site_id, ...location } = where;
   let id = "";
   apply((draft) => {
     id = newId("scn");
     draft.attendance_scans.push({
       id, employee_id: emp.id, work_date, at,
-      verify: "APP", location: null, source: "manual",
+      /* `self`, as `tap_self` writes it: a real instant from the phone, the
+         one kind of tap D334's hour never applied to. */
+      verify: "app", location: null, source: "self",
       import_id: null, reason: null,
       recorded_by: actingUser().id, recorded_at: at,
     });
@@ -2046,7 +2048,7 @@ function contractView(state: DemoState, c: EmploymentContract): ContractView {
 
   let probation_until: string | null = null;
   if (months != null) {
-    const d = new Date(`${c.effective_from}T00:00:00+08:00`);
+    const d = new Date(officeStamp(c.effective_from));
     d.setMonth(d.getMonth() + months);
     probation_until = d.toISOString().slice(0, 10);
   }
@@ -2057,8 +2059,8 @@ function contractView(state: DemoState, c: EmploymentContract): ContractView {
     employee_no: emp?.employee_no ?? "",
     full_name: emp?.full_name ?? "",
     ends_in_days: c.ends_on
-      ? Math.round((Date.parse(`${c.ends_on}T00:00:00+08:00`)
-                    - Date.parse(`${today}T00:00:00+08:00`)) / 86_400_000)
+      ? Math.round((Date.parse(officeStamp(c.ends_on))
+                    - Date.parse(officeStamp(today))) / 86_400_000)
       : null,
     probation_until,
     required_missing: state.clause_checklist.filter(
@@ -2706,7 +2708,7 @@ export async function decideLeave(
   });
 }
 
-/** The office day, WITA. Not the browser's day (F17); one definition for the
+/** The office day. Not the browser's day (F17); one definition for the
  *  whole system (F63). */
 function officeToday(): string {
   return sharedOfficeToday();
@@ -2910,7 +2912,7 @@ export async function updateTask(
       /* The day it was finished, not the day it was typed — the same rule the
          production board follows (D148). */
       row.done_at = input.done_on
-        ? `${input.done_on}T12:00:00+08:00`
+        ? officeStamp(input.done_on, "12:00")
         : new Date().toISOString();
       row.done_by = user.id;
       row.delivered_note = input.delivered?.trim() || row.delivered_note;
@@ -4115,6 +4117,111 @@ export async function listSchedules(): Promise<Result<{
       })),
     week_pattern: rules.week_pattern,
   });
+}
+
+/** HRD adds a working pattern (D335).
+ *
+ *  The same act as `ops_hr.add_schedule`: the new pattern is appended to a new
+ *  dated version of the book in force on that date, everything else copied,
+ *  and it refuses what the seam refuses with the same sentences — including a
+ *  code already in the book, which is an edit made with the row's own *Jam*
+ *  button rather than an addition.
+ */
+export async function addSchedule(
+  input: {
+    code: string;
+    name: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    friday_break_minutes: number | null;
+    friday_end_minutes: number | null;
+    pattern_note: string | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  await latency();
+  const cached = replayed<{ code: string; version: number; effective_from: string }>(
+    SERVICE, "addSchedule", idempotencyKey);
+  if (cached) return cached;
+
+  const denied = requireLevel(SERVICE, "hrd", "write");
+  if (denied) return denied;
+  if (!input.note?.trim()) {
+    return invalid(
+      SERVICE, "note_required",
+      "Tulis alasannya. Pola kerja yang muncul tanpa keterangan tidak bisa dijelaskan ke orang yang dipasang padanya.",
+      { field: "note" },
+    );
+  }
+
+  const state = getState();
+  const code = (input.code ?? "").trim();
+  const from = input.effective_from || sharedOfficeToday();
+  const sorted = [...state.pay_rule_sets].sort(
+    (a, b) => a.effective_from.localeCompare(b.effective_from) || a.version - b.version);
+  const base = sorted.filter((r) => r.effective_from <= from).pop();
+  if (!base) {
+    return conflict(SERVICE, "no_rule_book",
+      `Belum ada buku aturan gaji yang berlaku pada ${from}. IT menerbitkannya dulu.`);
+  }
+  const later = sorted.find((r) => r.effective_from > from);
+  if (later) {
+    return conflict(SERVICE, "later_version_exists",
+      `Versi ${later.version} berlaku mulai ${later.effective_from}, sesudah tanggal ini, dan tidak memuat pola ini — polanya akan hilang pada tanggal itu. Pilih tanggal mulai ${later.effective_from} atau sesudahnya.`);
+  }
+  if ((base.rules.schedules ?? []).some((sc) => sc.code === code)) {
+    return conflict(SERVICE, "schedule_exists",
+      `Pola ${code} sudah ada di buku aturan. Ubah jamnya dengan tombol Jam di barisnya.`);
+  }
+
+  const added: WorkSchedule = {
+    code,
+    name: (input.name ?? "").trim(),
+    start_minutes: input.start_minutes,
+    end_minutes: input.end_minutes,
+    break_minutes: input.break_minutes,
+    friday_break_minutes: input.friday_break_minutes,
+    friday_end_minutes: input.friday_end_minutes,
+    note: input.pattern_note?.trim() || null,
+  };
+  const rules: PayRules = { ...base.rules, schedules: [...(base.rules.schedules ?? []), added] };
+
+  const problem = scheduleProblem(rules.schedules ?? [], rules.schedule_by_unit ?? {});
+  if (problem) return invalid(SERVICE, problem.code, problem.message, { field: "schedules" });
+
+  const spent = state.payroll_runs
+    .filter((r) => r.status !== "DRAFT" && r.period_end >= from)
+    .sort((a, b) => a.period_start.localeCompare(b.period_start))[0];
+  if (spent) {
+    return conflict(SERVICE, "already_paid",
+      `${spent.run_no} sudah ditandatangani untuk periode yang berakhir ${from} atau sesudahnya. Aturan tidak bisa mundur melewati uang yang sudah dibayarkan — terbitkan yang baru berlaku setelahnya.`);
+  }
+  const clash = state.payroll_runs.find((r) => from > r.period_start && from <= r.period_end);
+  if (clash) {
+    return conflict(SERVICE, "inside_existing_run",
+      `${clash.run_no} mencakup tanggal itu, dan periode itu dihitung dengan aturan yang berlaku saat dibuka. Pilih tanggal di luar periode yang sudah ada.`);
+  }
+
+  const user = actingUser();
+  let version = 0;
+  apply((draft) => {
+    version = Math.max(0, ...draft.pay_rule_sets.map((r) => r.version)) + 1;
+    draft.pay_rule_sets.push({
+      id: newId("prs"), version, effective_from: from, note: input.note.trim(), rules,
+      created_by: user.id, created_at: new Date().toISOString(),
+    });
+    writeAudit(draft, {
+      service: SERVICE, entity: "schedule", entity_no: code,
+      action: "add", outcome: "ok", reason: input.note.trim(),
+      detail: { after: { ...added, version, effective_from: from }, by: user.email },
+    });
+  });
+  const answer = { code, version, effective_from: from };
+  remember(SERVICE, "addSchedule", idempotencyKey, answer);
+  return ok(SERVICE, answer);
 }
 
 /** HRD sets one pattern's start, end and break (D330).

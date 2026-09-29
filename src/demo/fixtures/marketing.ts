@@ -49,7 +49,7 @@ export const PROPERTIES: Property[] = [
     chain: null, reno_signal: "Lobi direnovasi 2024, unit belum",
     reno_source: "Ulasan tamu Mei 2026", review_note: null, rating: 4.1,
     score: 4, validated: true, notes: null, import_id: "imp_scr01",
-    created_at: "2026-08-18T09:00:00+08:00",
+    created_at: "2026-08-18T09:00:00+07:00",
   },
   {
     id: "prp_02", ref: "TL-0002", market_code: "AU-QLD-GOLDCOAST-SPMIDDLE", name: "Mantra on View",
@@ -58,7 +58,7 @@ export const PROPERTIES: Property[] = [
     chain: "Mantra", reno_signal: "Beberapa pemilik unit menjual dengan catatan 'needs update'",
     reno_source: "Listing realestate.com.au", review_note: null, rating: 4.3,
     score: 4, validated: true, notes: "Gedung besar — satu agen bisa membuka banyak unit.",
-    import_id: "imp_scr01", created_at: "2026-08-18T09:00:00+08:00",
+    import_id: "imp_scr01", created_at: "2026-08-18T09:00:00+07:00",
   },
   {
     id: "prp_03", ref: "TL-0003", market_code: "AU-QLD-GOLDCOAST-SPSOUTH", name: "Meriton Suites Southport",
@@ -66,7 +66,7 @@ export const PROPERTIES: Property[] = [
     status: "QUALIFIED", is_condo: true, rooms: 208, adr: 115, adr_flag: "CHECK",
     chain: "Meriton", reno_signal: null, reno_source: null, review_note: null, rating: 4.5,
     score: 3, validated: false, notes: "ADR terbaca 115 dari satu sumber saja — perlu dicek.",
-    import_id: "imp_scr01", created_at: "2026-08-18T09:00:00+08:00",
+    import_id: "imp_scr01", created_at: "2026-08-18T09:00:00+07:00",
   },
   {
     id: "prp_04", ref: "TL-0004", market_code: "AU-QLD-GOLDCOAST-SPNORTH", name: "Paradise Island Resort",
@@ -75,7 +75,7 @@ export const PROPERTIES: Property[] = [
     chain: null, reno_signal: "Strata meeting membahas perbaikan interior",
     reno_source: "Notulen rapat strata, dari agen", review_note: null, rating: 3.9,
     score: 3, validated: true, notes: null, import_id: "imp_scr01",
-    created_at: "2026-08-18T09:00:00+08:00",
+    created_at: "2026-08-18T09:00:00+07:00",
   },
   {
     id: "prp_05", ref: "TL-0005", market_code: "AU-QLD-GOLDCOAST-SPNORTH", name: "Budds Beach Apartments",
@@ -83,7 +83,7 @@ export const PROPERTIES: Property[] = [
     status: "QUALIFIED", is_condo: true, rooms: 48, adr: 58, adr_flag: "OK",
     chain: null, reno_signal: null, reno_source: null, review_note: null, rating: 3.6,
     score: 2, validated: true, notes: null, import_id: "imp_scr01",
-    created_at: "2026-08-18T09:00:00+08:00",
+    created_at: "2026-08-18T09:00:00+07:00",
   },
   {
     id: "prp_06", ref: "TL-0006", market_code: "AU-QLD-GOLDCOAST-SPMIDDLE", name: "Dorsett Gold Coast",
@@ -91,7 +91,7 @@ export const PROPERTIES: Property[] = [
     status: "DISQUALIFIED — NOT CONDO", is_condo: false, rooms: 313, adr: 119, adr_flag: "OK",
     chain: "Dorsett", reno_signal: null, reno_source: null, review_note: null, rating: 4.4,
     score: 0, validated: true, notes: "Satu pemilik, dikelola operator — tidak ada pemilik unit.",
-    import_id: "imp_scr01", created_at: "2026-08-18T09:00:00+08:00",
+    import_id: "imp_scr01", created_at: "2026-08-18T09:00:00+07:00",
   },
 ];
 
@@ -128,7 +128,7 @@ export const PROPERTY_AGENTS: PropertyAgent[] = AGENTS.map(
     id, property_id, slot, name, agency, phone,
     email: null, profile_url: null, suburb: null,
     stage, sent_on, replied_on, next_action_on, remark, rep_id,
-    updated_at: "2026-09-09T10:00:00+08:00",
+    updated_at: "2026-09-09T10:00:00+07:00",
   }),
 );
 
@@ -152,7 +152,7 @@ export const REFERRALS: Referral[] = [
     project_code: "25011", contract_value: 186_000_000,
     commission_trx_no: null,
     note: "Renovasi dapur dan ruang tamu. Masuk sebagai bagian proyek HOTEL UBUD? — perlu dicek, kode proyek sementara.",
-    updated_at: "2026-09-09T11:00:00+08:00",
+    updated_at: "2026-09-09T11:00:00+07:00",
   },
   {
     id: "ref_02", referral_no: "lead-26-09-06_01", rep_id: "rep_01",
@@ -161,7 +161,7 @@ export const REFERRALS: Referral[] = [
     introduced_on: "2026-09-06",
     project_code: null, contract_value: null, commission_trx_no: null,
     note: "Penawaran dikirim 9 September, menunggu jawaban.",
-    updated_at: "2026-09-09T11:05:00+08:00",
+    updated_at: "2026-09-09T11:05:00+07:00",
   },
   {
     id: "ref_03", referral_no: "lead-26-09-08_01", rep_id: "rep_01",
@@ -170,7 +170,7 @@ export const REFERRALS: Referral[] = [
     introduced_on: "2026-09-08",
     project_code: null, contract_value: null, commission_trx_no: null,
     note: null,
-    updated_at: "2026-09-08T16:00:00+08:00",
+    updated_at: "2026-09-08T16:00:00+07:00",
   },
 ];
 

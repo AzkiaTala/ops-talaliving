@@ -24,7 +24,7 @@ import { officeToday as sharedOfficeToday } from "@/lib/office";
 
 const SERVICE = "marketing" as const;
 
-/** The office day, WITA. The follow-up rule counts days, so which day it is
+/** The office day. The follow-up rule counts days, so which day it is
  *  has to be the office's (F17); one definition for the whole system (F63). */
 function officeToday(): string {
   return sharedOfficeToday();

@@ -55,13 +55,13 @@ values
   ('aaaa1860-0000-0000-0000-000000000003','P-0863','Tukang siang','Tukang','Produksi',
    'daily', 180000, 0, 8, '2025-01-01', null, 12, null);
 
--- Tap mandiri ditulis seperti `tap_self` menulisnya — kalender WITA sebagai
+-- Tap mandiri ditulis seperti `tap_self` menulisnya — kalender WIB sebagai
 -- `work_date`, `source = 'self'`, pemanggilnya sebagai `recorded_by` —
 -- karena `tap_self` memakai `now()` dan jamnya tidak bisa dipilih di sini.
 insert into ops_hr.attendance_scans (employee_id, work_date, at, verify, source, recorded_by)
 select 'aaaa1860-0000-0000-0000-000000000002', ops_core.office_day(t), t, 'app', 'self',
        'ffffffff-0000-0000-0000-000000018602'
-  from unnest(array['2026-08-03 19:05+08','2026-08-04 07:01+08']::timestamptz[]) t;
+  from unnest(array['2026-08-03 19:05+07','2026-08-04 07:01+07']::timestamptz[]) t;
 
 set local role authenticated;
 set local request.jwt.claim.sub = 'ffffffff-0000-0000-0000-000000018601';
@@ -71,24 +71,24 @@ do $$
 declare a jsonb;
 begin
   a := ops_hr.import_scans('mesin-186.csv', $j$[
-    {"employee_ref":"861","at":"2026-08-03T19:02:00+08"},
-    {"employee_ref":"861","at":"2026-08-04T07:05:00+08"},
-    {"employee_ref":"861","at":"2026-08-04T19:30:00+08"},
-    {"employee_ref":"861","at":"2026-08-06T00:40:00+08"},
-    {"employee_ref":"861","at":"2026-08-06T07:10:00+08"},
-    {"employee_ref":"861","at":"2026-08-06T19:00:00+08"},
-    {"employee_ref":"861","at":"2026-08-06T23:00:00+08"},
-    {"employee_ref":"861","at":"2026-08-06T23:30:00+08"},
-    {"employee_ref":"861","at":"2026-08-07T07:00:00+08"},
-    {"employee_ref":"863","at":"2026-08-03T07:25:00+08"},
-    {"employee_ref":"863","at":"2026-08-03T12:00:00+08"},
-    {"employee_ref":"863","at":"2026-08-03T12:40:00+08"},
-    {"employee_ref":"863","at":"2026-08-03T16:35:00+08"},
-    {"employee_ref":"863","at":"2026-08-04T07:50:00+08"},
-    {"employee_ref":"863","at":"2026-08-04T12:00:00+08"},
-    {"employee_ref":"863","at":"2026-08-04T12:45:00+08"},
-    {"employee_ref":"863","at":"2026-08-04T16:31:00+08"},
-    {"employee_ref":"863","at":"2026-08-05T00:30:00+08"}
+    {"employee_ref":"861","at":"2026-08-03T19:02:00+07"},
+    {"employee_ref":"861","at":"2026-08-04T07:05:00+07"},
+    {"employee_ref":"861","at":"2026-08-04T19:30:00+07"},
+    {"employee_ref":"861","at":"2026-08-06T00:40:00+07"},
+    {"employee_ref":"861","at":"2026-08-06T07:10:00+07"},
+    {"employee_ref":"861","at":"2026-08-06T19:00:00+07"},
+    {"employee_ref":"861","at":"2026-08-06T23:00:00+07"},
+    {"employee_ref":"861","at":"2026-08-06T23:30:00+07"},
+    {"employee_ref":"861","at":"2026-08-07T07:00:00+07"},
+    {"employee_ref":"863","at":"2026-08-03T07:25:00+07"},
+    {"employee_ref":"863","at":"2026-08-03T12:00:00+07"},
+    {"employee_ref":"863","at":"2026-08-03T12:40:00+07"},
+    {"employee_ref":"863","at":"2026-08-03T16:35:00+07"},
+    {"employee_ref":"863","at":"2026-08-04T07:50:00+07"},
+    {"employee_ref":"863","at":"2026-08-04T12:00:00+07"},
+    {"employee_ref":"863","at":"2026-08-04T12:45:00+07"},
+    {"employee_ref":"863","at":"2026-08-04T16:31:00+07"},
+    {"employee_ref":"863","at":"2026-08-05T00:30:00+07"}
   ]$j$::jsonb);
   assert a ->> 'outcome' = 'ok', a::text;
   assert (a -> 'data' ->> 'added')::int = 18, a::text;
@@ -99,17 +99,17 @@ do $$
 declare v date;
 begin
   select work_date into v from ops_hr.attendance_scans
-   where employee_id = 'aaaa1860-0000-0000-0000-000000000001' and at = '2026-08-04 07:05+08';
+   where employee_id = 'aaaa1860-0000-0000-0000-000000000001' and at = '2026-08-04 07:05+07';
   assert v = '2026-08-04', 'work_date yang tersimpan harus tetap hari kalender: ' || v;
 
-  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 07:05+08') = '2026-08-03',
+  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 07:05+07') = '2026-08-03',
     'tap 07.05 satpam harus milik malam sebelumnya';
-  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 12:59+08') = '2026-08-03',
+  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 12:59+07') = '2026-08-03',
     '12.59 masih sisa malam sebelumnya (batas 13.00)';
-  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 13:00+08') = '2026-08-04',
+  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 13:00+07') = '2026-08-04',
     '13.00 sudah milik shift malam itu';
   -- Pekerja siang: tengah malam tetap batasnya.
-  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000003', '2026-08-05 00:30+08') = '2026-08-05',
+  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000003', '2026-08-05 00:30+07') = '2026-08-05',
     'tap 00.30 pekerja siang tetap milik hari kalendernya';
 end $$;
 
@@ -121,10 +121,10 @@ begin
   assert d.state = 'complete', format('19.02–07.05 harus lengkap: %s %s', d.state, d.issues);
   assert d.overnight, 'harus terbaca sebagai shift malam';
   assert d.taps = 2, 'dua tap: ' || d.taps;
-  assert d.in_at = '2026-08-03 19:02+08' and d.out_at = '2026-08-04 07:05+08', d::text;
+  assert d.in_at = '2026-08-03 19:02+07' and d.out_at = '2026-08-04 07:05+07', d::text;
   assert d.work_hours = 12.05, 'jam kerja 12,05: ' || d.work_hours;
   assert d.day_value = 1, 'nilai hari 1: ' || d.day_value;
-  assert d.window_from = '2026-08-03 13:00+08' and d.window_to = '2026-08-04 13:00+08',
+  assert d.window_from = '2026-08-03 13:00+07' and d.window_to = '2026-08-04 13:00+07',
     format('jendela %s → %s', d.window_from, d.window_to);
 
   -- Pagi yang hilang: tap 19.30 saja. `review` yang sama dengan hari satu-tap.
@@ -135,13 +135,13 @@ begin
 
   -- Datang lewat tengah malam: masih milik shift 5 Agustus.
   select * into d from ops_hr.read_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-05');
-  assert d.state = 'complete' and d.in_at = '2026-08-06 00:40+08', format('%s %s', d.state, d.in_at);
+  assert d.state = 'complete' and d.in_at = '2026-08-06 00:40+07', format('%s %s', d.state, d.in_at);
   assert d.work_hours = 6.50, 'jam 00.40–07.10: ' || d.work_hours;
 
   -- Istirahat di tengah malam dibaca sebagai istirahat, dan lewat jatah 0.
   select * into d from ops_hr.read_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-06');
   assert d.state = 'complete', format('%s %s', d.state, d.issues);
-  assert d.break_out_at = '2026-08-06 23:00+08' and d.break_in_at = '2026-08-06 23:30+08', d::text;
+  assert d.break_out_at = '2026-08-06 23:00+07' and d.break_in_at = '2026-08-06 23:30+07', d::text;
   assert d.work_hours = 11.50 and d.break_hours = 0.50, format('%s / %s', d.work_hours, d.break_hours);
   assert array_length(d.notes, 1) = 1, 'istirahat lewat jatah dicatat, tidak memblokir: ' || d.notes::text;
 
@@ -161,7 +161,7 @@ begin
 
   -- timesheet_rows membawa jendela dan tanda malam ke klien.
   perform 1 from ops_hr.timesheet_rows('2026-08-03','2026-08-03', null, 'S-0861') r
-   where r.overnight and r.window_to = '2026-08-04 13:00+08' and r.state = 'complete';
+   where r.overnight and r.window_to = '2026-08-04 13:00+07' and r.state = 'complete';
   assert found, 'timesheet_rows harus membawa window dan overnight';
 end $$;
 
@@ -205,7 +205,7 @@ declare d ops_hr.day_reading; p ops_hr.payroll_figures;
 begin
   select * into d from ops_hr.read_day('aaaa1860-0000-0000-0000-000000000003', '2026-08-03');
   assert not d.overnight, 'pola siang bukan malam';
-  assert d.window_from = '2026-08-03 00:00+08' and d.window_to = '2026-08-04 00:00+08',
+  assert d.window_from = '2026-08-03 00:00+07' and d.window_to = '2026-08-04 00:00+07',
     format('jendela siang harus tengah malam: %s → %s', d.window_from, d.window_to);
   assert d.state = 'complete' and d.work_hours = 8.50 and d.break_hours = 0.67,
     format('%s %s %s', d.state, d.work_hours, d.break_hours);
@@ -216,7 +216,7 @@ begin
 
   -- Terlambat: 07.50 terhadap 07.30 + 15 = 5 menit, sama dengan rumus lama.
   p := ops_hr.payroll_line_for('aaaa1860-0000-0000-0000-000000000003', '2026-08-03', '2026-08-04');
-  assert p.late_minutes = greatest(ops_hr.wita_minutes('2026-08-04 07:50+08') - 450 - 15, 0)
+  assert p.late_minutes = greatest(ops_hr.wita_minutes('2026-08-04 07:50+07') - 450 - 15, 0)
      and p.late_minutes = 5, 'terlambat pekerja siang: ' || p.late_minutes;
   assert p.worked_days = 2 and p.normal_hours = 16.43, format('%s hari %s jam', p.worked_days, p.normal_hours);
 end $$;
@@ -226,9 +226,9 @@ end $$;
 do $$
 declare t timestamptz;
 begin
-  foreach t in array array['2026-08-03 07:45:59+08','2026-08-03 07:20:30+08',
-                           '2026-08-03 07:29:30+08','2026-08-03 07:30:00+08',
-                           '2026-08-03 23:59:59+08']::timestamptz[] loop
+  foreach t in array array['2026-08-03 07:45:59+07','2026-08-03 07:20:30+07',
+                           '2026-08-03 07:29:30+07','2026-08-03 07:30:00+07',
+                           '2026-08-03 23:59:59+07']::timestamptz[] loop
     assert ops_hr.late_minutes(t, '2026-08-03', 450, 15) = ops_hr.wita_minutes(t) - 450 - 15,
       format('late_minutes berbeda dari rumus lama pada %s', t);
   end loop;
@@ -338,7 +338,7 @@ begin
   assert ops_hr.rules_on('2026-09-01') - 'schedules' = ops_hr.rules_on('2026-08-01') - 'schedules',
     'aturan lain ikut berubah';
   -- Agustus tetap dibaca dengan buku lama.
-  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 07:05+08') = '2026-08-03';
+  assert ops_hr.shift_day('aaaa1860-0000-0000-0000-000000000001', '2026-08-04 07:05+07') = '2026-08-03';
 
   a := ops_hr.set_schedule_hours('SATPAM', 1080, 360, 0, '2026-09-01', 'lagi');
   assert a ->> 'outcome' = 'noop', a::text;

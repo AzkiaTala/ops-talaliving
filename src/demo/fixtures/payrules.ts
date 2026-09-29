@@ -42,7 +42,7 @@ export const PAY_RULE_SETS: PayRuleSet[] = [
       late_forfeits_allowance: false,
     },
     created_by: "usr_shared",
-    created_at: "2026-01-01T08:00:00+08:00",
+    created_at: "2026-01-01T08:00:00+07:00",
   },
   {
     id: "prs_02", version: 2,
@@ -79,7 +79,7 @@ export const PAY_RULE_SETS: PayRuleSet[] = [
       late_forfeits_allowance: false,
     },
     created_by: "usr_shared",
-    created_at: "2026-06-28T16:30:00+08:00",
+    created_at: "2026-06-28T16:30:00+07:00",
   },
   {
     id: "prs_03", version: 3,
@@ -126,7 +126,7 @@ export const PAY_RULE_SETS: PayRuleSet[] = [
       late_forfeits_allowance: false,
     },
     created_by: "usr_shared",
-    created_at: "2026-09-12T10:00:00+08:00",
+    created_at: "2026-09-12T10:00:00+07:00",
   },
   {
     /* Q44 terjawab: bengkel mulai 07.30, kantor tetap 08.00, istirahat 45
@@ -216,7 +216,7 @@ export const PAY_RULE_SETS: PayRuleSet[] = [
       late_forfeits_allowance: false,
     },
     created_by: "usr_shared",
-    created_at: "2026-09-13T09:00:00+08:00",
+    created_at: "2026-09-13T09:00:00+07:00",
   },
   {
     /* Q45 dan minggu kerja lima hari (D288, D290, D292).
@@ -317,7 +317,7 @@ export const PAY_RULE_SETS: PayRuleSet[] = [
       late_forfeits_allowance: false,
     },
     created_by: "usr_shared",
-    created_at: "2026-09-23T11:00:00+08:00",
+    created_at: "2026-09-23T11:00:00+07:00",
   },
 ];
 
@@ -345,5 +345,5 @@ PAY_RULE_SETS.push(((v5: PayRuleSet): PayRuleSet => ({
       ? { ...sc, start_minutes: 19 * 60, end_minutes: 7 * 60, break_minutes: 0, hours_unconfirmed: true }
       : sc)),
   },
-  created_at: "2026-09-29T08:00:00+08:00",
+  created_at: "2026-09-29T08:00:00+07:00",
 }))(PAY_RULE_SETS[PAY_RULE_SETS.length - 1]));

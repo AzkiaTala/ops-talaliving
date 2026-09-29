@@ -60,6 +60,7 @@ import { instantInDay, nextOfficeDay } from "@/services/hr/schedule-rules";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fromSeam, fromRows, notFound, invalid, ok, type Result } from "./_kit";
 import { link as linkDocument } from "./documents";
+import { officeStamp } from "@/lib/office";
 
 const SERVICE = "hr" as const;
 
@@ -207,6 +208,43 @@ export async function listSchedules(): Promise<Result<{
 }>> {
   const { data, error } = await db().rpc("schedule_roll");
   return fromRows(SERVICE, data as never, error);
+}
+
+/** HRD adds a working pattern (D335).
+ *
+ *  Appended to a new dated version of the rule book in force on
+ *  `effective_from`, every other rule copied. Removing a pattern and a unit's
+ *  default pattern stay with IT's full editor: people can be on a pattern, and
+ *  a unit default changes what a whole unit is measured against. */
+export async function addSchedule(
+  input: {
+    code: string;
+    name: string;
+    start_minutes: number | null;
+    end_minutes: number | null;
+    break_minutes: number | null;
+    friday_break_minutes: number | null;
+    friday_end_minutes: number | null;
+    pattern_note: string | null;
+    effective_from: string;
+    note: string;
+  },
+  idempotencyKey?: string,
+): Promise<Result<{ code: string; version: number; effective_from: string }>> {
+  const { data, error } = await db().rpc("add_schedule", {
+    p_code: input.code,
+    p_name: input.name,
+    p_start_minutes: input.start_minutes,
+    p_end_minutes: input.end_minutes,
+    p_break_minutes: input.break_minutes,
+    p_friday_break_minutes: input.friday_break_minutes,
+    p_friday_end_minutes: input.friday_end_minutes,
+    p_pattern_note: input.pattern_note,
+    p_effective_from: input.effective_from,
+    p_note: input.note,
+    p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<{ code: string; version: number; effective_from: string }>(SERVICE, data, error);
 }
 
 /** HRD sets one pattern's start, end and break (D330).
@@ -798,8 +836,8 @@ export async function addScan(
   input: { employee_no: string; work_date: string; time: string; reason: string },
 ): Promise<Result<AttendanceScan>> {
   /* The contract carries the day and the clock time apart, because that is how
-     somebody types it off a note; the seam takes the instant. WITA is the
-     office's zone and the one the machine prints in (F17).
+     somebody types it off a note; the seam takes the instant. The office clock
+     is the one the machine prints in and the one HRD reads off it (F17, D334).
 
      *The day* is the working day, and for a guard that is a night: 07.05
      typed against Monday's shift is Tuesday 07.05 (D330). Which calendar day

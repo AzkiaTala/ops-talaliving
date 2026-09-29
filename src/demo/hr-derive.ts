@@ -8,7 +8,7 @@
  */
 import type { DemoState } from "./state";
 import { settingNumber } from "./settings";
-import { officeToday } from "@/lib/office";
+import { officeClock, officeDay, officeStamp, officeToday } from "@/lib/office";
 import { personWork, workAttribution } from "./production-derive";
 import type {
   Employee, TimesheetDay, DayState, ScanSlot, DayPay, DayMark,
@@ -75,7 +75,7 @@ function tapsOf(state: DemoState, employeeId: string, from: string, to: string) 
   return kept;
 }
 
-/** The instant a working day begins for this person, as a WITA ISO string:
+/** The instant a working day begins for this person, as an office-clock ISO string:
  *  midnight, or — when the **previous** day's pattern is a night — the middle
  *  of that night's off-duty gap, 13.00 for 19.00–07.00. Transcribes
  *  `ops_hr.day_begins()`; the boundary between two days is decided by the day
@@ -83,13 +83,13 @@ function tapsOf(state: DemoState, employeeId: string, from: string, to: string) 
 export function dayBeginsAt(state: DemoState, employee: Employee, workDate: string): string {
   const prev = previousOfficeDay(workDate);
   const b = dayBoundaryMinutes(scheduleFor(activePayRules(state, prev).rules, employee));
-  return `${workDate}T${clockOf(b).replace(".", ":")}:00+08:00`;
+  return officeStamp(workDate, clockOf(b).replace(".", ":"));
 }
 
 /** Which working day a tap belongs to. `work_date` stays the calendar day; this
  *  is the reading of it (D330). Transcribes `ops_hr.shift_day()`. */
 export function shiftDayOf(state: DemoState, employee: Employee, at: string): string {
-  const calendar = new Date(Date.parse(at) + 8 * HOURS).toISOString().slice(0, 10);
+  const calendar = officeDay(Date.parse(at));
   return Date.parse(at) < Date.parse(dayBeginsAt(state, employee, calendar))
     ? previousOfficeDay(calendar)
     : calendar;
@@ -101,7 +101,7 @@ export function shiftDayOf(state: DemoState, employee: Employee, at: string): st
  *  for everybody whose masuk is on the day itself. Transcribes
  *  `ops_hr.late_minutes()`. */
 export function lateMinutesOf(inAt: string, workDate: string, start: number, grace: number): number {
-  const due = Date.parse(`${workDate}T${clockOf(start).replace(".", ":")}:00+08:00`);
+  const due = Date.parse(officeStamp(workDate, clockOf(start).replace(".", ":")));
   return Math.floor((Date.parse(inAt) - due) / 60_000) - grace;
 }
 
@@ -110,8 +110,15 @@ function previousOfficeDay(key: string): string {
   return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
 }
 
-const hhmm = (iso: string) => iso.slice(11, 16);
-const minutes = (iso: string) => Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16));
+/* The office clock, not the characters of the string. A fixture stamp carries
+   the office offset and reads the same either way; a tap made while the app
+   runs is stored in `Z`, and slicing that read UTC as if it were the workshop's
+   clock — the reading the database makes with `wita_minutes` (D334). */
+const hhmm = (iso: string) => officeClock(Date.parse(iso));
+const minutes = (iso: string) => {
+  const c = hhmm(iso);
+  return Number(c.slice(0, 2)) * 60 + Number(c.slice(3, 5));
+};
 
 /** Is the doctor's letter behind this mark?
  *
@@ -265,7 +272,7 @@ export function timesheetDay(
        break going out and coming back. */
     const end = sc.end_minutes as number;
     const span = shiftMinutes(sc.start_minutes, end) as number;
-    const outFrom = Date.parse(`${nextOfficeDay(workDate)}T${clockOf(end).replace(".", ":")}:00+08:00`)
+    const outFrom = Date.parse(officeStamp(nextOfficeDay(workDate), clockOf(end).replace(".", ":")))
       - Math.min(180, Math.floor(span / 2)) * 60_000;
     take("in", () => true);
     take("break_out", (t) => Date.parse(t.at) < outFrom);
@@ -644,8 +651,8 @@ export function payrollLine(
   const payslipDays: PayslipDay[] = days.map((d) => ({
     work_date: d.work_date,
     weekday: weekdayOf(d.work_date),
-    in_at: d.slots.in ? d.slots.in.slice(11, 16) : null,
-    out_at: d.slots.out ? d.slots.out.slice(11, 16) : null,
+    in_at: d.slots.in ? hhmm(d.slots.in) : null,
+    out_at: d.slots.out ? hhmm(d.slots.out) : null,
     work_hours: d.work_hours,
     overtime_hours: d.overtime_hours,
     mark: d.mark ? DAY_MARK_SHORT[d.mark.kind] : null,
