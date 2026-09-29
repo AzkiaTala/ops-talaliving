@@ -33,7 +33,7 @@ import type { ContributionAuditGroup } from "@/services/hr/contracts";
 import type { LineCoverage } from "@/services/procurement/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { getActiveLocale, formatIDRCompact } from "@/lib/format";
-import { officeToday } from "@/lib/office";
+import { officeToday, officeStamp } from "@/lib/office";
 import { fail, fromSeam, fromPage, fromRows, invalid, notFound, ok, type Result } from "./_kit";
 
 const SERVICE = "accounting" as const;
@@ -1383,11 +1383,11 @@ function monthLabel(month: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString(getActiveLocale(), { month: "short", year: "numeric" });
 }
 
-/** `to − from`, in whole days, the same WITA-anchored arithmetic
+/** `to − from`, in whole days, the same office-clock arithmetic
  *  `src/demo/derive.ts`'s own `daysBetween` uses — so a "3 hari lagi" here and
  *  in the demo never disagree over which side of midnight a date fell on. */
 function daysBetween(from: string, to: string): number {
-  return Math.round((Date.parse(`${to}T00:00:00+08:00`) - Date.parse(`${from}T00:00:00+08:00`)) / 86_400_000);
+  return Math.round((Date.parse(officeStamp(to)) - Date.parse(officeStamp(from))) / 86_400_000);
 }
 
 /** One month opened up, day by day, with the balance running through it.

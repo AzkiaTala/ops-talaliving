@@ -89,7 +89,7 @@ export type ScanSource = "import" | "manual" | "self";
 export interface AttendanceScan {
   id: string;
   employee_id: string;
-  /** Office day this tap belongs to, WITA. */
+  /** Office day this tap belongs to, on the office clock (`src/lib/office.ts`). */
   work_date: string;
   at: string;
   /** `FACE`, `FP`, whatever the device calls it. Carried verbatim. */

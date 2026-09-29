@@ -147,15 +147,15 @@ export const BOM_COMPONENTS: BomComponent[] = [
 export const BOM_REVISIONS: BomRevision[] = [
   ...["prd_01", "prd_02", "prd_03", "prd_04", "prd_05", "prd_07"].map((product_id) => ({
     id: `bmr_${product_id}_1`, product_id, rev: 1,
-    released_at: "2026-08-01T08:00:00+08:00", released_by: "usr_made",
+    released_at: "2026-08-01T08:00:00+07:00", released_by: "usr_made",
     note: "Versi awal, dari katalog yang dipakai sebelum BOM diberi versi.",
-    created_at: "2026-08-01T08:00:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-01T08:00:00+07:00", created_by: "usr_made",
   })),
   {
     id: "bmr_prd_01_2", product_id: "prd_01", rev: 2,
     released_at: null, released_by: null,
     note: "Sekrup diganti ke ukuran yang lebih panjang dan susut papan dinaikkan — meja 220 sering kurang bahan.",
-    created_at: "2026-09-10T09:00:00+08:00", created_by: "usr_made",
+    created_at: "2026-09-10T09:00:00+07:00", created_by: "usr_made",
   },
 ];
 
@@ -237,7 +237,7 @@ const rate = (
 ): BomRate => ({
   id: `rt_${String(n).padStart(3, "0")}`, code: `RT-${String(n).padStart(4, "0")}`,
   name, rate_group, uom, rate: value, item_code, note, active: true,
-  created_at: "2026-09-20T08:00:00+08:00", updated_at: "2026-09-20T08:00:00+08:00",
+  created_at: "2026-09-20T08:00:00+07:00", updated_at: "2026-09-20T08:00:00+07:00",
 });
 
 export const BOM_RATES: BomRate[] = [

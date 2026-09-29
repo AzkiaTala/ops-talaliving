@@ -25,7 +25,7 @@ export const LOG_PURCHASES: LogPurchase[] = [
     received_on: "2026-07-12", species: "Jati",
     total_cost: 54_700_000, claimed_m3: 3.2, measure: "round", nota_attachment_id: "att_50",
     note: "Sortimen A, kering angin. Bongkar di halaman belakang.",
-    created_at: "2026-07-12T09:30:00+08:00", created_by: "usr_made",
+    created_at: "2026-07-12T09:30:00+07:00", created_by: "usr_made",
   },
   {
     id: "lgp_02", purchase_no: "kyu-26-08-05_01",
@@ -33,7 +33,7 @@ export const LOG_PURCHASES: LogPurchase[] = [
     received_on: "2026-08-05", species: "Jati",
     total_cost: 33_200_000, claimed_m3: 2.3, measure: "round", nota_attachment_id: "att_51",
     note: "Harga per m³ lebih murah dari Sumber Kayu — makanya dicoba.",
-    created_at: "2026-08-05T14:10:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-05T14:10:00+07:00", created_by: "usr_made",
   },
   {
     id: "lgp_03", purchase_no: "kyu-26-08-26_01",
@@ -41,7 +41,7 @@ export const LOG_PURCHASES: LogPurchase[] = [
     received_on: "2026-08-26", species: "Jati",
     total_cost: 34_600_000, claimed_m3: 1.87, measure: "round", nota_attachment_id: "att_52",
     note: null,
-    created_at: "2026-08-26T10:05:00+08:00", created_by: "usr_made",
+    created_at: "2026-08-26T10:05:00+07:00", created_by: "usr_made",
   },
   {
     id: "lgp_04", purchase_no: "kyu-26-09-08_01",
@@ -49,7 +49,7 @@ export const LOG_PURCHASES: LogPurchase[] = [
     received_on: "2026-09-08", species: "Mahoni",
     total_cost: 6_600_000, claimed_m3: 0.95, measure: "round", nota_attachment_id: null,
     note: "Belum digergaji — masih menunggu jadwal sawmill.",
-    created_at: "2026-09-08T16:40:00+08:00", created_by: "usr_made",
+    created_at: "2026-09-08T16:40:00+07:00", created_by: "usr_made",
   },
 ];
 
@@ -60,27 +60,27 @@ export const LOG_COSTS: DemoLogCost[] = [
   {
     id: "lgc_01", cost_no: "kyb-26-07-12_01", purchase_id: "lgp_01", kind: "angkut",
     amount: 1_500_000, incurred_on: "2026-07-12", payee: "Pak Darto (colt diesel)", vendor_id: null,
-    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-07-12T11:00:00+08:00",
+    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-07-12T11:00:00+07:00",
   },
   {
     id: "lgc_02", cost_no: "kyb-26-07-20_01", purchase_id: "lgp_01", kind: "potong",
     amount: 1_800_000, incurred_on: "2026-07-20", payee: "Sawmill Sinar Jaya", vendor_id: null,
-    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-07-20T15:00:00+08:00",
+    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-07-20T15:00:00+07:00",
   },
   {
     id: "lgc_03", cost_no: "kyb-26-08-05_01", purchase_id: "lgp_02", kind: "angkut",
     amount: 2_400_000, incurred_on: "2026-08-05", payee: "Ekspedisi Borneo Trans", vendor_id: null,
-    trx_no: null, nota_attachment_id: null, note: "Dari Kotabaru, dua hari jalan.", created_at: "2026-08-05T16:00:00+08:00",
+    trx_no: null, nota_attachment_id: null, note: "Dari Kotabaru, dua hari jalan.", created_at: "2026-08-05T16:00:00+07:00",
   },
   {
     id: "lgc_04", cost_no: "kyb-26-08-12_01", purchase_id: "lgp_02", kind: "potong",
     amount: 1_400_000, incurred_on: "2026-08-12", payee: "Sawmill Sinar Jaya", vendor_id: null,
-    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-08-12T15:00:00+08:00",
+    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-08-12T15:00:00+07:00",
   },
   {
     id: "lgc_05", cost_no: "kyb-26-08-26_01", purchase_id: "lgp_03", kind: "angkut",
     amount: 1_200_000, incurred_on: "2026-08-26", payee: "Pak Darto (colt diesel)", vendor_id: null,
-    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-08-26T12:00:00+08:00",
+    trx_no: null, nota_attachment_id: null, note: null, created_at: "2026-08-26T12:00:00+07:00",
   },
 ];
 
@@ -187,7 +187,7 @@ export const SAWN_BOARDS: SawnBoard[] = [
  */
 export const BOARD_MOVES: BoardMove[] = [
   {
-    id: "bmv_01", move_no: "ppn-26-08-18_01", at: "2026-08-18T09:10:00+08:00",
+    id: "bmv_01", move_no: "ppn-26-08-18_01", at: "2026-08-18T09:10:00+07:00",
     board_key: "Jati|30x200x3000", species: "Jati",
     thickness_mm: 30, width_mm: 200, length_mm: 3000,
     qty: -14, kind: "issue",
@@ -195,7 +195,7 @@ export const BOARD_MOVES: BoardMove[] = [
     reason: null, by: "usr_made",
   },
   {
-    id: "bmv_02", move_no: "ppn-26-08-26_01", at: "2026-08-26T14:40:00+08:00",
+    id: "bmv_02", move_no: "ppn-26-08-26_01", at: "2026-08-26T14:40:00+07:00",
     board_key: "Jati|30x220x2800", species: "Jati",
     thickness_mm: 30, width_mm: 220, length_mm: 2800,
     qty: -6, kind: "issue",
@@ -205,7 +205,7 @@ export const BOARD_MOVES: BoardMove[] = [
     reason: null, by: "usr_made",
   },
   {
-    id: "bmv_03", move_no: "ppn-26-08-29_01", at: "2026-08-29T16:05:00+08:00",
+    id: "bmv_03", move_no: "ppn-26-08-29_01", at: "2026-08-29T16:05:00+07:00",
     board_key: "Jati|30x200x3000", species: "Jati",
     thickness_mm: 30, width_mm: 200, length_mm: 3000,
     qty: 3, kind: "return",
@@ -213,7 +213,7 @@ export const BOARD_MOVES: BoardMove[] = [
     reason: "Sisa potong, masih utuh.", by: "usr_made",
   },
   {
-    id: "bmv_04", move_no: "ppn-26-09-01_01", at: "2026-09-01T08:20:00+08:00",
+    id: "bmv_04", move_no: "ppn-26-09-01_01", at: "2026-09-01T08:20:00+07:00",
     board_key: "Jati|30x180x3000", species: "Jati",
     thickness_mm: 30, width_mm: 180, length_mm: 3000,
     qty: -2, kind: "scrap",
@@ -221,7 +221,7 @@ export const BOARD_MOVES: BoardMove[] = [
     reason: "Melengkung setelah seminggu di rak terbuka.", by: "usr_made",
   },
   {
-    id: "bmv_05", move_no: "ppn-26-09-05_01", at: "2026-09-05T10:00:00+08:00",
+    id: "bmv_05", move_no: "ppn-26-09-05_01", at: "2026-09-05T10:00:00+07:00",
     board_key: "Jati|30x190x2500", species: "Jati",
     thickness_mm: 30, width_mm: 190, length_mm: 2500,
     qty: 4, kind: "adjust",

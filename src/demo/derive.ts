@@ -38,7 +38,7 @@ import type {
 import type { DocKind } from "@/services/documents/contracts";
 import { REQUEST_SUPPORT_KINDS } from "@/services/documents/contracts";
 import { getActiveLocale } from "@/lib/format";
-import { officeToday, officeDay } from "@/lib/office";
+import { officeToday, officeDay, officeStamp } from "@/lib/office";
 /* HR owns who is enrolled; accounting owns what was paid. The audit is
    composed here rather than in either service's tables, and it reads HR's
    **derived roll** rather than its rows (ADR-004). */
@@ -53,8 +53,9 @@ export const PAYMENT_TOLERANCE_IDR = 1_000;
 
 /** Compare two timestamps as instants, never as strings.
  *
- *  The fixtures carry `+08:00` (the office is in WITA) and anything written
- *  while the app runs carries `Z`. Sorted as text, `09:05:00+08:00` lands
+ *  The fixtures carry the office offset (`+07:00`, WIB since D334) and
+ *  anything written while the app runs carries `Z`. Sorted as text,
+ *  `09:05:00+07:00` lands
  *  after `06:45:00Z` even though it happened three hours earlier — and since
  *  "the current decision is the latest row" is how approval, notes and
  *  variances all work, that reads as the wrong answer rather than as a wrong
@@ -870,7 +871,7 @@ export function itemSources(state: DemoState, itemId: string): ItemSource[] {
 
 const dayOf = (iso: string) => iso.slice(0, 10);
 const daysBetween = (from: string, to: string) =>
-  Math.round((Date.parse(`${to}T00:00:00+08:00`) - Date.parse(`${from}T00:00:00+08:00`)) / 86_400_000);
+  Math.round((Date.parse(officeStamp(to)) - Date.parse(officeStamp(from))) / 86_400_000);
 
 /** Ledger rows in the order a bank statement has them: by day, then by the
  *  number that was minted that day. */
@@ -1639,7 +1640,7 @@ export function poDetail(state: DemoState, poId: string): PoDetail | null {
   const days_late = po.expected_delivery && view.delivery_state !== "COMPLETE"
     && po.expected_delivery < today
     ? Math.round(
-      (Date.parse(`${today}T00:00:00+08:00`) - Date.parse(`${po.expected_delivery}T00:00:00+08:00`)) / 86_400_000,
+      (Date.parse(officeStamp(today)) - Date.parse(officeStamp(po.expected_delivery))) / 86_400_000,
     )
     : null;
 

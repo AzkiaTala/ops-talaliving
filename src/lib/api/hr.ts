@@ -55,6 +55,7 @@ import {
 } from "@/services/hr/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fromSeam, fromRows, notFound, invalid, ok, type Result } from "./_kit";
+import { officeStamp } from "@/lib/office";
 
 const SERVICE = "hr" as const;
 
@@ -731,11 +732,11 @@ export async function addScan(
   input: { employee_no: string; work_date: string; time: string; reason: string },
 ): Promise<Result<AttendanceScan>> {
   /* The contract carries the day and the clock time apart, because that is how
-     somebody types it off a note; the seam takes the instant. WITA is the
-     office's zone and the one the machine prints in (F17). */
+     somebody types it off a note; the seam takes the instant. The office clock
+     is the one the machine prints in and the one HRD reads off it (F17, D334). */
   const { data, error } = await db().rpc("add_scan", {
     p_employee_no: input.employee_no,
-    p_at: `${input.work_date}T${input.time}:00+08`,
+    p_at: officeStamp(input.work_date, input.time),
     p_reason: input.reason,
     p_key: null,
   });

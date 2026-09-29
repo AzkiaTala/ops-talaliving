@@ -17,6 +17,7 @@ import type {
 } from "@/services/identity/contracts";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fail, fromRows, fromSeam, invalid, notFound, ok, type Result } from "./_kit";
+import { officeStamp } from "@/lib/office";
 
 const SERVICE = "identity" as const;
 
@@ -372,13 +373,13 @@ export async function listActivity(
      audit filter works: somebody types a name or part of an address, never a
      uuid they have never seen. */
   if (opts.actor) q = q.ilike("actor_email", `%${opts.actor}%`);
-  /* The office day is WITA, and `at` is a timestamptz — so a day is the window
+  /* The office day is the office clock's, and `at` is a timestamptz — so a day is the window
      between its two boundaries, not a `date()` of a UTC instant, which would
      cut the workshop's afternoon in half (F17, F63). */
   if (opts.day) {
-    const next = new Date(`${opts.day}T00:00:00+08:00`);
+    const next = new Date(officeStamp(opts.day));
     next.setUTCDate(next.getUTCDate() + 1);
-    q = q.gte("at", `${opts.day}T00:00:00+08:00`).lt("at", next.toISOString());
+    q = q.gte("at", officeStamp(opts.day)).lt("at", next.toISOString());
   }
 
   const { data, error } = await q

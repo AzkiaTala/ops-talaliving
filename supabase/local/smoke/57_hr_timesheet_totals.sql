@@ -42,7 +42,7 @@ values
 -- terlihat persis seperti bug di aturan slotnya.
 insert into ops_hr.attendance_scans (employee_id, work_date, at, verify, source, reason, recorded_by)
 select 'aaaa5700-0000-0000-0000-000000000001', d::date,
-       (d::date + t)::timestamp at time zone 'Asia/Makassar', 'MANUAL','manual','seed',
+       (d::date + t)::timestamp at time zone 'Asia/Jakarta', 'MANUAL','manual','seed',
        'ffffffff-0000-0000-0000-000000005701'
 from generate_series(current_date - 10, current_date - 9, interval '1 day') d,
      unnest(array[time '07:30', time '12:00', time '12:30', time '16:30']) t;
@@ -50,7 +50,7 @@ from generate_series(current_date - 10, current_date - 9, interval '1 day') d,
 -- Hari 3: tiga tap — pulangnya tidak ada, jadi hari itu **belum dibaca**.
 insert into ops_hr.attendance_scans (employee_id, work_date, at, verify, source, reason, recorded_by)
 select 'aaaa5700-0000-0000-0000-000000000001', (current_date - 8)::date,
-       ((current_date - 8)::date + t)::timestamp at time zone 'Asia/Makassar', 'MANUAL','manual','seed',
+       ((current_date - 8)::date + t)::timestamp at time zone 'Asia/Jakarta', 'MANUAL','manual','seed',
        'ffffffff-0000-0000-0000-000000005701'
 from unnest(array[time '07:30', time '12:00', time '12:30']) t;
 

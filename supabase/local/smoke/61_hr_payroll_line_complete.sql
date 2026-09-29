@@ -42,14 +42,14 @@ values ('aaaa6100-0000-0000-0000-000000000001','B-6101','Karjo','Tukang kayu','P
 -- empat tap bersih. Rabu 03-04: hanya satu tap, jadi harinya **belum dibaca**.
 insert into ops_hr.attendance_scans (employee_id, work_date, at, verify, source, reason, recorded_by)
 select 'aaaa6100-0000-0000-0000-000000000001', d,
-       (d + t)::timestamp at time zone 'Asia/Makassar', 'MANUAL','manual','seed',
+       (d + t)::timestamp at time zone 'Asia/Jakarta', 'MANUAL','manual','seed',
        'ffffffff-0000-0000-0000-000000006101'
   from (values ('2026-03-02'::date), ('2026-03-03'::date)) days(d),
        (values ('07:45'::time), ('12:00'::time), ('12:45'::time), ('16:30'::time)) taps(t);
 -- Rabu: satu tap saja, jadi harinya tidak bisa dibaca dan bernilai nol.
 insert into ops_hr.attendance_scans (employee_id, work_date, at, verify, source, reason, recorded_by)
 values ('aaaa6100-0000-0000-0000-000000000001', '2026-03-04',
-        ('2026-03-04'::date + '07:40'::time)::timestamp at time zone 'Asia/Makassar',
+        ('2026-03-04'::date + '07:40'::time)::timestamp at time zone 'Asia/Jakarta',
         'MANUAL','manual','seed','ffffffff-0000-0000-0000-000000006101');
 
 -- Tunjangan ditahan satu hari, dengan alasan dan nama yang memutuskan.

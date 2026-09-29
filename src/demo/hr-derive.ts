@@ -8,7 +8,7 @@
  */
 import type { DemoState } from "./state";
 import { settingNumber } from "./settings";
-import { officeToday } from "@/lib/office";
+import { officeClock, officeToday } from "@/lib/office";
 import { personWork, workAttribution } from "./production-derive";
 import type {
   Employee, TimesheetDay, DayState, ScanSlot, DayPay, DayMark,
@@ -63,8 +63,15 @@ function tapsOf(state: DemoState, employeeId: string, workDate: string) {
   return kept;
 }
 
-const hhmm = (iso: string) => iso.slice(11, 16);
-const minutes = (iso: string) => Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16));
+/* The office clock, not the characters of the string. A fixture stamp carries
+   the office offset and reads the same either way; a tap made while the app
+   runs is stored in `Z`, and slicing that read UTC as if it were the workshop's
+   clock — the reading the database makes with `wita_minutes` (D334). */
+const hhmm = (iso: string) => officeClock(Date.parse(iso));
+const minutes = (iso: string) => {
+  const c = hhmm(iso);
+  return Number(c.slice(0, 2)) * 60 + Number(c.slice(3, 5));
+};
 
 /** Is the doctor's letter behind this mark?
  *
@@ -486,7 +493,7 @@ export function payrollLine(
   const lateBy = (d: (typeof days)[number]): number => {
     const inAt = d.slots.in;
     if (!inAt || d.mark) return 0;
-    const mins = Number(inAt.slice(11, 13)) * 60 + Number(inAt.slice(14, 16));
+    const mins = minutes(inAt);
     const start = dayStartFor(rules, employee);
     /* Nobody has said when this person's day starts, so nothing about this day
        is late. Not zero because they were punctual — zero because there is no
@@ -560,8 +567,8 @@ export function payrollLine(
   const payslipDays: PayslipDay[] = days.map((d) => ({
     work_date: d.work_date,
     weekday: weekdayOf(d.work_date),
-    in_at: d.slots.in ? d.slots.in.slice(11, 16) : null,
-    out_at: d.slots.out ? d.slots.out.slice(11, 16) : null,
+    in_at: d.slots.in ? hhmm(d.slots.in) : null,
+    out_at: d.slots.out ? hhmm(d.slots.out) : null,
     work_hours: d.work_hours,
     overtime_hours: d.overtime_hours,
     mark: d.mark ? DAY_MARK_SHORT[d.mark.kind] : null,
@@ -982,8 +989,7 @@ export function kpiView(
   const startOn = (d: (typeof days)[number]) =>
     dayStartFor(activePayRules(state, d.work_date).rules, employee);
   const lateOn = (d: (typeof days)[number]): boolean => {
-    const inAt = d.slots.in!;
-    const mins = Number(inAt.slice(11, 13)) * 60 + Number(inAt.slice(14, 16));
+    const mins = minutes(d.slots.in!);
     const r = activePayRules(state, d.work_date).rules;
     const start = startOn(d);
     return start !== null && mins - start - r.late_grace_minutes > 0;

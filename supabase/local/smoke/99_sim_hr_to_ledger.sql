@@ -216,23 +216,23 @@ begin
   foreach i in array array[0,1,3,4] loop
     d := mon + i;
     rows := rows || jsonb_build_array(
-      jsonb_build_object('employee_ref','101','at', (d + time '07:25')::text || '+08'),
-      jsonb_build_object('employee_ref','101','at', (d + time '12:00')::text || '+08'),
-      jsonb_build_object('employee_ref','101','at', (d + time '12:44')::text || '+08'),
-      jsonb_build_object('employee_ref','101','at', (d + case when i = 4 then time '16:05' else time '16:35' end)::text || '+08'));
+      jsonb_build_object('employee_ref','101','at', (d + time '07:25')::text || '+07'),
+      jsonb_build_object('employee_ref','101','at', (d + time '12:00')::text || '+07'),
+      jsonb_build_object('employee_ref','101','at', (d + time '12:44')::text || '+07'),
+      jsonb_build_object('employee_ref','101','at', (d + case when i = 4 then time '16:05' else time '16:35' end)::text || '+07'));
   end loop;
   foreach i in array array[0,1,4] loop
     d := mon + i;
     rows := rows || jsonb_build_array(
-      jsonb_build_object('employee_ref','102','at', (d + time '07:55')::text || '+08'),
-      jsonb_build_object('employee_ref','102','at', (d + time '12:00')::text || '+08'),
-      jsonb_build_object('employee_ref','102','at', (d + time '12:58')::text || '+08'));
+      jsonb_build_object('employee_ref','102','at', (d + time '07:55')::text || '+07'),
+      jsonb_build_object('employee_ref','102','at', (d + time '12:00')::text || '+07'),
+      jsonb_build_object('employee_ref','102','at', (d + time '12:58')::text || '+07'));
     if i < 4 then
       rows := rows || jsonb_build_array(
-        jsonb_build_object('employee_ref','102','at', (d + time '17:20')::text || '+08'));
+        jsonb_build_object('employee_ref','102','at', (d + time '17:20')::text || '+07'));
     end if;
   end loop;
-  rows := rows || jsonb_build_array(jsonb_build_object('employee_ref','999','at', (mon + time '08:00')::text || '+08'));
+  rows := rows || jsonb_build_array(jsonb_build_object('employee_ref','999','at', (mon + time '08:00')::text || '+07'));
 
   r := ops_hr.import_scans('mesin-minggu-lalu.csv', rows);
   assert ops_core.said_ok(r), format('import: %s', r);
@@ -243,7 +243,7 @@ begin
     'Tap bernomor yang tidak dikenal tidak masuk, dan nomornya disebut. Tambahkan orangnya dulu, lalu impor ulang file yang sama — tap yang sudah masuk tidak dobel.');
 
   -- Wulan's Friday: the machine missed the evening tap.
-  r := ops_hr.add_scan('B-0102', (mon + 4 + time '16:31')::text::timestamp at time zone 'Asia/Makassar', 'jari tidak terbaca mesin, dikonfirmasi satpam');
+  r := ops_hr.add_scan('B-0102', (mon + 4 + time '16:31')::text::timestamp at time zone 'Asia/Jakarta', 'jari tidak terbaca mesin, dikonfirmasi satpam');
   assert ops_core.said_ok(r), format('add scan: %s', r);
   perform pg_temp.log('6. Absensi','Tap yang terlewat: buka sel harinya, "Tap the machine missed", isi jam dan alasannya','Sari',
     '/hrd/absensi','ops_hr.add_scan','OK','hari lengkap');

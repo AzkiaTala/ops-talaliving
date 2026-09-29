@@ -63,14 +63,14 @@ do $$
 begin
   begin
     insert into ops_hr.attendance_scans (employee_id, work_date, at, source)
-    values ('aaaa0000-0000-0000-0000-00000000e001','2026-09-01','2026-09-01T07:28:00+08','manual');
+    values ('aaaa0000-0000-0000-0000-00000000e001','2026-09-01','2026-09-01T07:28:00+07','manual');
     raise exception 'a manual scan with no reason should be refused';
   exception when check_violation then null;
   end;
 
   -- With the sentence, it lands.
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
-  values ('aaaa0000-0000-0000-0000-00000000e001','2026-09-01','2026-09-01T07:28:00+08','manual',
+  values ('aaaa0000-0000-0000-0000-00000000e001','2026-09-01','2026-09-01T07:28:00+07','manual',
           'mesin mati, jam dari buku satpam','ffffffff-0000-0000-0000-0000000000a1');
 end $$;
 
@@ -79,7 +79,7 @@ do $$
 begin
   begin
     insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
-    values ('aaaa0000-0000-0000-0000-00000000e001','2026-09-01','2026-09-01T07:28:00+08','manual',
+    values ('aaaa0000-0000-0000-0000-00000000e001','2026-09-01','2026-09-01T07:28:00+07','manual',
             'diketik dua kali','ffffffff-0000-0000-0000-0000000000a1');
     raise exception 're-uploading the same tap should be refused';
   exception when unique_violation then null;

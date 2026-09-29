@@ -37,7 +37,7 @@ function toDirectoryRow(user: DemoUser, state: DemoState = getState()): UserDire
   return {
     ...toSession(user),
     status: !user.is_active ? "inactive" : pending ? "pending" : "active",
-    created_at: user.created_at ?? "2026-01-01T00:00:00+08:00",
+    created_at: user.created_at ?? "2026-01-01T00:00:00+07:00",
     invited_at: user.invited_at ?? null,
     last_sign_in_at: lastAt,
     left_on: null,
@@ -406,7 +406,7 @@ function overflowRecapIds(recaps: ActivityDaily[]): Set<string> {
   return out;
 }
 
-/** The office day, WITA. A log that rolls over at UTC midnight cuts the
+/** The office day. A log that rolls over at UTC midnight cuts the
  *  workshop's afternoon in half (F17); one definition for the whole system
  *  (F63). */
 function officeDay(at: Date = new Date()): string {

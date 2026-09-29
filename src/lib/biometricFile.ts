@@ -15,6 +15,7 @@
  *  machine export in the john-lau HRD build (`apps/ops/lib/absensi/berkas.ts`).
  */
 import { parseCsv } from "@/lib/csv";
+import { OFFICE_TZ, officeStamp } from "@/lib/office";
 
 export type ParsedRow = {
   employee_ref: string;
@@ -68,12 +69,14 @@ function fromExcelSerial(n: number): string | null {
   const p = (x: number) => String(x).padStart(2, "0");
   return (
     `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T` +
-    `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}+08:00`
+    `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}${OFFICE_TZ.iso}`
   );
 }
 
-/** `DD/MM/YYYY H:MM:SS` or `YYYY-MM-DD HH:MM:SS` → an ISO stamp in WITA, the
- *  same two shapes the machine's CSV export already used. */
+/** `DD/MM/YYYY H:MM:SS` or `YYYY-MM-DD HH:MM:SS` → an ISO stamp on the office
+ *  clock, the same two shapes the machine's CSV export already used. The
+ *  machine writes WIB wall-clock time with no zone (D334); reading it as WITA
+ *  put every tap an hour early for as long as imports existed (F191). */
 function fromTextStamp(raw: string): string | null {
   const s = raw.trim();
   const p = (v: string) => v.padStart(2, "0");
@@ -81,13 +84,13 @@ function fromTextStamp(raw: string): string | null {
   let m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (m) {
     const [, d, mo, y, h, mi, se] = m;
-    return `${y}-${p(mo)}-${p(d)}T${p(h)}:${p(mi)}:${p(se ?? "00")}+08:00`;
+    return officeStamp(`${y}-${p(mo)}-${p(d)}`, `${p(h)}:${p(mi)}:${p(se ?? "00")}`);
   }
 
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (m) {
     const [, y, mo, d, h, mi, se] = m;
-    return `${y}-${p(mo)}-${p(d)}T${p(h)}:${p(mi)}:${p(se ?? "00")}+08:00`;
+    return officeStamp(`${y}-${p(mo)}-${p(d)}`, `${p(h)}:${p(mi)}:${p(se ?? "00")}`);
   }
 
   return null;

@@ -7630,3 +7630,59 @@ local zone and printing UTC, so they land one day early in a WITA browser:
 
 A later branch can fix these together; `officeToday()` and `shiftDay()`
 cover all of them.
+
+## F191 · 2026-09-29 · two errors of one hour that cancelled, until one of them was fixed
+
+D334. The fingerprint machine writes WIB wall-clock time with no zone; every
+import since `0044` glued `+08:00` onto it, and every reader since `0004`
+read the result back in `Asia/Makassar`. A 07:25 tap was stored as 23:25 UTC
+— an hour before it happened — and printed as 07:25, because the reader made
+the same mistake in the other direction. **Nothing on any screen was wrong,
+and every stored instant was.** That is why it survived: the only symptom of
+two cancelling errors is the day somebody fixes one of them. Moving the
+readers to WIB alone would have made every historical tap read 06:25.
+
+So the zone and the data move in one migration (`0190`), and the data move
+is chosen by what each row *is*, not by where it sits:
+
+- `import` and `manual` rows are wall-clock times a person or a machine
+  wrote, with a zone we guessed. They move +1 h and read exactly as written.
+- `self` rows are `now()` on the server — real instants. They do not move;
+  what changes is only how they are printed, and the ones between 23:00 and
+  24:00 WIB change day, which is the correction.
+
+**"Do not touch the approved runs" turned out to mean "do shift their
+taps".** A payroll run stores no lines; `payroll_line_for` reads `read_day`
+live. Leaving an approved period's machine taps unshifted would have changed
+its lateness and slot placement under WIB. Shifting them is what keeps the
+wall clock — and so the run — identical. The only rows whose reading moves
+inside a closed run are self taps, and the migration counts them into its
+marker row instead of guessing (production: none, and no runs at all yet).
+
+**A migration that recreates a function from an old body races the lanes.**
+`read_day` names the zone, and D330's `0186` rewrites `read_day`. Copying
+`0053`'s body here would have silently undone `0186` wherever it ran first.
+The sweep instead rewrites the literal inside *whatever definition is
+current* (`pg_get_functiondef`) and then refuses to commit if any `ops_*`
+function or view still names `Asia/Makassar` or a `+08` literal — proved by
+applying D330's `0186` under it locally. Smoke `190` repeats the check, so
+the next migration that writes the literal fails the ladder.
+
+**Printing a timestamp by slicing its characters is a zone decision nobody
+made.** `/hrd/absensi`'s day drawer and `/it/aktivitas` showed
+`at.slice(11, 16)`. The demo's fixtures carried the office offset, so the
+slice read right there; PostgREST hands back `+00:00` (production's session
+zone is UTC, checked), so on the real layer the drawer printed 23:25 for a
+07:25 tap. The demo's timesheet reader did the same to a demo self tap
+(`Z`). All three read `officeClock()` now. The rule: a stamp's text is not
+its clock; only `src/lib/office.ts` says what time it was.
+
+Also found on the way: `src/demo/store.ts` kept a private `officeDay` with its
+own `8` — and a browser-offset term that made it right only in a UTC browser —
+a fourteenth copy F63 missed. It calls the shared one now. The demo's
+`tapSelf` wrote `source: "manual"`, so the demo could not tell a phone tap
+from an HRD one, which is the exact line D334's data rule draws.
+
+Fixture stamps were rewritten `+08:00` → `+07:00`: they were authored as
+office wall-clock times, and the demo should read as the real layer does
+after `0190` — the machine's 07:25 still 07:25.

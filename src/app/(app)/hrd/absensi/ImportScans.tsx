@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/primitives";
 import { hr } from "@/demo/api";
 import { readBiometricFile, type ParsedRow } from "@/lib/biometricFile";
+import { OFFICE_TZ } from "@/lib/office";
 import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
 
@@ -20,7 +21,8 @@ import { useTr } from "@/lib/i18n";
  *    is how a ghost ends up on a payslip (D143).
  *  - **Re-uploading is safe.** A tap is who and when, to the second; the second
  *    upload of the same week adds nothing.
- *  - **The time is read as WITA.** The device writes local time with no zone.
+ *  - **The time is read on the office clock** (`src/lib/office.ts`, WIB since
+ *    D334). The device writes local time with no zone.
  *    Parsing it as the browser's zone would move every stamp by the distance
  *    between the reader and whoever opened the screen (F17).
  *
@@ -119,7 +121,7 @@ export function ImportScans({ onClose, onDone }: { onClose: () => void; onDone: 
             className="mt-1 block w-full rounded-lg border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-700 hover:border-brand-300"
           />
           <p className="mt-1 text-[11px] text-slate-500">
-            {tr("Times are read as WITA, the way the machine wrote them.", "Waktu dibaca sebagai WITA, sesuai yang ditulis mesin.")}
+            {tr(`Times are read as ${OFFICE_TZ.short}, the way the machine wrote them.`, `Waktu dibaca sebagai ${OFFICE_TZ.short}, sesuai yang ditulis mesin.`)}
           </p>
         </div>
 

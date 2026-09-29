@@ -108,7 +108,7 @@ export const TRANSACTIONS: Transaction[] = TRX_SEEDS.map(
     status,
     source_ref: `seed:${trx_no}`,
     posted_by: i % 3 === 0 ? "usr_anggun" : "usr_putri",
-    posted_at: `${trx_date}T16:00:00+08:00`,
+    posted_at: `${trx_date}T16:00:00+07:00`,
     void_reason:
       trx_no === "trx-26-08-29_004"
         ? "VOID 2026-08-29 — the same receipt was already posted as trx-26-08-29_002."
@@ -142,29 +142,29 @@ export const TRANSACTION_LINES: TransactionLine[] = [
  * A model that cannot hold those two rows is a model that quietly rounds one
  * of them away. */
 export const PAYMENT_ALLOCATIONS: PaymentAllocation[] = [
-  { id: "alc_01", trx_id: trxIdByNo("trx-26-08-20_003"), pr_line_no: "pr-26-08-18_01-L01", po_no: null, amount: 4_050_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-20T16:10:00+08:00" },
-  { id: "alc_02", trx_id: trxIdByNo("trx-26-08-21_001"), pr_line_no: "pr-26-08-18_01-L02", po_no: null, amount: 5_550_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-21T16:10:00+08:00" },
-  { id: "alc_03", trx_id: trxIdByNo("trx-26-08-21_002"), pr_line_no: "pr-26-08-18_01-L03", po_no: "po-26-08-14_01", amount: 19_668_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-21T16:12:00+08:00" },
+  { id: "alc_01", trx_id: trxIdByNo("trx-26-08-20_003"), pr_line_no: "pr-26-08-18_01-L01", po_no: null, amount: 4_050_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-20T16:10:00+07:00" },
+  { id: "alc_02", trx_id: trxIdByNo("trx-26-08-21_001"), pr_line_no: "pr-26-08-18_01-L02", po_no: null, amount: 5_550_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-21T16:10:00+07:00" },
+  { id: "alc_03", trx_id: trxIdByNo("trx-26-08-21_002"), pr_line_no: "pr-26-08-18_01-L03", po_no: "po-26-08-14_01", amount: 19_668_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-21T16:12:00+07:00" },
   /* One request line, two payments. Neither allocation is wrong and neither
      is the whole story — together they settle the line, and a screen that
      showed only one of them would call a paid purchase half paid (D206). */
-  { id: "alc_04", trx_id: trxIdByNo("trx-26-08-29_002"), pr_line_no: "pr-26-08-27_01-L01", po_no: null, amount: 9_500_000, method: "transfer", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-29T16:20:00+08:00" },
-  { id: "alc_04b", trx_id: trxIdByNo("trx-26-08-28_002"), pr_line_no: "pr-26-08-27_01-L01", po_no: null, amount: 2_000_000, method: "cash", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-28T15:40:00+08:00" },
+  { id: "alc_04", trx_id: trxIdByNo("trx-26-08-29_002"), pr_line_no: "pr-26-08-27_01-L01", po_no: null, amount: 9_500_000, method: "transfer", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-29T16:20:00+07:00" },
+  { id: "alc_04b", trx_id: trxIdByNo("trx-26-08-28_002"), pr_line_no: "pr-26-08-27_01-L01", po_no: null, amount: 2_000_000, method: "cash", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-28T15:40:00+07:00" },
   /* Cash out of petty cash against a line nobody had approved. The allocation
    * is real, so the coverage is real, so the board shows it — which is the
    * point (A6: warn, never hide). */
-  { id: "alc_06", trx_id: trxIdByNo("trx-26-08-22_001"), pr_line_no: "pr-26-08-27_01-L03", po_no: null, amount: 95_000, method: "cash", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-22T17:00:00+08:00" },
+  { id: "alc_06", trx_id: trxIdByNo("trx-26-08-22_001"), pr_line_no: "pr-26-08-27_01-L03", po_no: null, amount: 95_000, method: "cash", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-22T17:00:00+07:00" },
   /* The split: one transfer, three orders. Recording it as three allocations
    * against one transaction is the only way both facts survive — the bank saw
    * one payment, the vendor closed three orders (D97). */
-  { id: "alc_10", trx_id: trxIdByNo("trx-26-07-01_001"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 9_562_500, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-07-01T16:00:00+08:00" },
-  { id: "alc_11", trx_id: trxIdByNo("trx-26-07-24_001"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 15_847_500, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-07-24T16:00:00+08:00" },
-  { id: "alc_12", trx_id: trxIdByNo("trx-26-07-31_001"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 4_915_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-07-31T16:00:00+08:00" },
-  { id: "alc_13", trx_id: trxIdByNo("trx-26-08-10_001"), pr_line_no: null, po_no: "po-26-07-25_01", amount: 12_750_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-10T16:00:00+08:00" },
-  { id: "alc_14", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-07-25_01", amount: 12_680_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:00:00+08:00" },
-  { id: "alc_15", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-08-19_01", amount: 850_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:01:00+08:00" },
-  { id: "alc_16", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 280_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:02:00+08:00" },
-  { id: "alc_05", trx_id: trxIdByNo("trx-26-08-29_003"), pr_line_no: "pr-26-08-27_01-L02", po_no: null, amount: 350_000, method: "cash", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-29T16:22:00+08:00" },
+  { id: "alc_10", trx_id: trxIdByNo("trx-26-07-01_001"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 9_562_500, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-07-01T16:00:00+07:00" },
+  { id: "alc_11", trx_id: trxIdByNo("trx-26-07-24_001"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 15_847_500, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-07-24T16:00:00+07:00" },
+  { id: "alc_12", trx_id: trxIdByNo("trx-26-07-31_001"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 4_915_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-07-31T16:00:00+07:00" },
+  { id: "alc_13", trx_id: trxIdByNo("trx-26-08-10_001"), pr_line_no: null, po_no: "po-26-07-25_01", amount: 12_750_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-10T16:00:00+07:00" },
+  { id: "alc_14", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-07-25_01", amount: 12_680_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:00:00+07:00" },
+  { id: "alc_15", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-08-19_01", amount: 850_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:01:00+07:00" },
+  { id: "alc_16", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 280_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:02:00+07:00" },
+  { id: "alc_05", trx_id: trxIdByNo("trx-26-08-29_003"), pr_line_no: "pr-26-08-27_01-L02", po_no: null, amount: 350_000, method: "cash", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-29T16:22:00+07:00" },
 ];
 
 /* The exception road, and only that: documents whose parent is genuinely
@@ -182,13 +182,13 @@ export const EVIDENCE_INBOX: Omit<EvidenceInboxRow, "reported_by_name">[] = [
      is exactly why the history is kept at all (A16). */
   {
     id: "inb_07", ref_id: "upl_26-04-17_01~x0", origin: "chat", status: "REJECTED",
-    attachment_id: "att_13", reported_by: "usr_shared", reported_at: "2026-04-17T20:10:00+08:00",
+    attachment_id: "att_13", reported_by: "usr_shared", reported_at: "2026-04-17T20:10:00+07:00",
     extracted: { vendor_name: null, document_date: "2026-04-17", amount_idr: null, doc_type: null, confidence: 22, note: "Foto pribadi, masuk ke grup chat yang salah. Ditolak, filenya tetap disimpan." },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_08", ref_id: "upl_26-06-05_01~x0", origin: "web", status: "CONFIRMED",
-    attachment_id: "att_06", reported_by: "usr_anggun", reported_at: "2026-06-05T16:30:00+08:00",
+    attachment_id: "att_06", reported_by: "usr_anggun", reported_at: "2026-06-05T16:30:00+07:00",
     extracted: { vendor_name: "JASA POTONG RUMPUT", document_date: "2026-06-05", amount_idr: 350_000, doc_type: "Receipt / Invoice / Nota", confidence: 78, note: "Kwitansi tulis tangan, dibayar tunai dari kas kecil." },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
     money_direction: "OUT",
@@ -201,7 +201,7 @@ export const EVIDENCE_INBOX: Omit<EvidenceInboxRow, "reported_by_name">[] = [
      all visible at once. */
   {
     id: "inb_06", ref_id: "upl_26-08-28_01~x0", origin: "web", status: "ATTACHED",
-    attachment_id: "att_43", reported_by: "usr_anggun", reported_at: "2026-08-28T15:44:00+08:00",
+    attachment_id: "att_43", reported_by: "usr_anggun", reported_at: "2026-08-28T15:44:00+07:00",
     extracted: { vendor_name: "TOKO BANGUNAN MAKMUR SENTOSA", document_date: "2026-08-28", amount_idr: 11_500_000, doc_type: "Receipt / Invoice / Nota", confidence: 91, note: "PLYWOOD 18MM 122x244, 40 lembar. Uang muka tunai, sisanya transfer." },
     produced_trx_id: null, produced_pr_line_no: "pr-26-08-27_01-L01", similar_trx_nos: [],
     money_direction: "OUT",
@@ -211,7 +211,7 @@ export const EVIDENCE_INBOX: Omit<EvidenceInboxRow, "reported_by_name">[] = [
    * meant to fund cannot be marked funded — which is the point (D80, D81). */
   {
     id: "inb_05", ref_id: "upl_26-09-10_03~x0", origin: "chat", status: "PENDING",
-    attachment_id: "att_17", reported_by: "usr_geryle", reported_at: "2026-09-10T08:22:00+08:00",
+    attachment_id: "att_17", reported_by: "usr_geryle", reported_at: "2026-09-10T08:22:00+07:00",
     extracted: { vendor_name: null, document_date: "2026-09-10", amount_idr: 60_000_000, doc_type: "Payment Proof", confidence: 93, note: "Transfer BCA 064 → BCA 271, funding the September round." },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
     money_direction: "IN",
@@ -221,31 +221,31 @@ export const EVIDENCE_INBOX: Omit<EvidenceInboxRow, "reported_by_name">[] = [
    *  with five lines, booked once (owner, 2026-09-24). */
   {
     id: "inb_01", ref_id: "upl_26-09-09_01~x0", origin: "chat", status: "PENDING",
-    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+08:00",
+    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+07:00",
     extracted: { vendor_name: "TOKO BANGUNAN MAKMUR SENTOSA", document_date: "2026-09-09", amount_idr: 325_000, doc_type: "Receipt / Invoice / Nota", confidence: 88, note: "SEMEN TIGA RODA 50KG" },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_09", ref_id: "upl_26-09-09_01~x1", origin: "chat", status: "PENDING",
-    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+08:00",
+    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+07:00",
     extracted: { vendor_name: "TOKO BANGUNAN MAKMUR SENTOSA", document_date: "2026-09-09", amount_idr: 180_000, doc_type: "Receipt / Invoice / Nota", confidence: 88, note: "PASIR BETON 1 PICK UP" },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_10", ref_id: "upl_26-09-09_01~x2", origin: "chat", status: "PENDING",
-    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+08:00",
+    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+07:00",
     extracted: { vendor_name: "TOKO BANGUNAN MAKMUR SENTOSA", document_date: "2026-09-09", amount_idr: 100_000, doc_type: "Receipt / Invoice / Nota", confidence: 88, note: "PAKU 5CM 4 KG" },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_11", ref_id: "upl_26-09-09_01~x3", origin: "chat", status: "PENDING",
-    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+08:00",
+    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+07:00",
     extracted: { vendor_name: "TOKO BANGUNAN MAKMUR SENTOSA", document_date: "2026-09-09", amount_idr: 60_000, doc_type: "Receipt / Invoice / Nota", confidence: 88, note: "KAWAT BENDRAT 2 ROL" },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_12", ref_id: "upl_26-09-09_01~x4", origin: "chat", status: "PENDING",
-    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+08:00",
+    attachment_id: "att_10", reported_by: "usr_made", reported_at: "2026-09-09T17:22:00+07:00",
     extracted: { vendor_name: "TOKO BANGUNAN MAKMUR SENTOSA", document_date: "2026-09-09", amount_idr: 20_000, doc_type: "Receipt / Invoice / Nota", confidence: 88, note: "AMPLAS NO. 120" },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
@@ -253,38 +253,38 @@ export const EVIDENCE_INBOX: Omit<EvidenceInboxRow, "reported_by_name">[] = [
    *  slots (the transfer and its fee). Linking it is one act on six rows. */
   {
     id: "inb_13", ref_id: "upl_26-09-15_04~x0", origin: "chat", status: "PENDING",
-    attachment_id: "att_69", reported_by: "usr_made", reported_at: "2026-09-15T15:10:00+08:00",
+    attachment_id: "att_69", reported_by: "usr_made", reported_at: "2026-09-15T15:10:00+07:00",
     extracted: { vendor_name: "UD KARYA LOGAM ABADI", document_date: "2026-09-15", amount_idr: 1_311_500, doc_type: "Payment Proof", confidence: 95, note: "Transfer BCA 271 ke UD KARYA LOGAM" },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_14", ref_id: "upl_26-09-15_04~x1", origin: "chat", status: "PENDING",
-    attachment_id: "att_69", reported_by: "usr_made", reported_at: "2026-09-15T15:10:00+08:00",
+    attachment_id: "att_69", reported_by: "usr_made", reported_at: "2026-09-15T15:10:00+07:00",
     extracted: { vendor_name: "UD KARYA LOGAM ABADI", document_date: "2026-09-15", amount_idr: 2_500, doc_type: "Payment Proof", confidence: 95, note: "Transfer admin fee" },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_02", ref_id: "upl_26-09-10_01~x0", origin: "chat", status: "PENDING",
-    attachment_id: "att_11", reported_by: "usr_andi", reported_at: "2026-09-10T08:05:00+08:00",
+    attachment_id: "att_11", reported_by: "usr_andi", reported_at: "2026-09-10T08:05:00+07:00",
     extracted: { vendor_name: "UD SINAR ABADI", document_date: "2026-09-10", amount_idr: 1_450_000, doc_type: "Receipt / Invoice / Nota", confidence: 64, note: "Handwritten, partly illegible." },
     produced_trx_id: null, produced_pr_line_no: null,
     similar_trx_nos: ["trx-26-09-03_001"],
   },
   {
     id: "inb_03", ref_id: "upl_26-09-10_02~x0", origin: "web", status: "PENDING",
-    attachment_id: "att_12", reported_by: "usr_anggun", reported_at: "2026-09-10T09:40:00+08:00",
+    attachment_id: "att_12", reported_by: "usr_anggun", reported_at: "2026-09-10T09:40:00+07:00",
     extracted: { vendor_name: null, document_date: "2026-09-06", amount_idr: 96_000, doc_type: "Receipt / Invoice / Nota", confidence: 41, note: "Faded receipt." },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_04", ref_id: "upl_26-09-07_01~x0", origin: "chat", status: "NOTED",
-    attachment_id: "att_13", reported_by: "usr_shared", reported_at: "2026-09-07T20:10:00+08:00",
+    attachment_id: "att_13", reported_by: "usr_shared", reported_at: "2026-09-07T20:10:00+07:00",
     extracted: { vendor_name: null, document_date: "2026-09-07", amount_idr: 2_400_000, doc_type: "Others", confidence: 72, note: "Not a company transaction." },
     produced_trx_id: null, produced_pr_line_no: null, similar_trx_nos: [],
   },
   {
     id: "inb_05", ref_id: "upl_26-09-02_01~x0", origin: "chat", status: "CONFIRMED",
-    attachment_id: "att_14", reported_by: "usr_made", reported_at: "2026-09-02T18:30:00+08:00",
+    attachment_id: "att_14", reported_by: "usr_made", reported_at: "2026-09-02T18:30:00+07:00",
     extracted: { vendor_name: "TOKO BANGUNAN MAKMUR SENTOSA", document_date: "2026-09-02", amount_idr: 420_000, doc_type: "Receipt / Invoice / Nota", confidence: 91 },
     produced_trx_id: trxIdByNo("trx-26-09-07_001"), produced_pr_line_no: null, similar_trx_nos: [],
   },

@@ -8,6 +8,7 @@ import { Badge, Button } from "@/components/ui/primitives";
 import { Loaded, useLoad } from "@/components/ui/loaded";
 import { NumberInput } from "@/components/ui/number-input";
 import { formatNumber } from "@/lib/format";
+import { officeClock } from "@/lib/office";
 import { cn } from "@/lib/cn";
 import { documents, hr } from "@/demo/api";
 import {
@@ -294,7 +295,7 @@ export function DayDrawer({
                       </span>
                       <span className="flex-1 text-[13px] text-slate-700">{SLOT_LABEL[slot]}</span>
                       <span className={cn("font-mono text-[13px] tabular-nums", at ? "text-slate-800" : "text-slate-300")}>
-                        {at ? at.slice(11, 16) : "··:··"}
+                        {at ? officeClock(Date.parse(at)) : "··:··"}
                       </span>
                       <span className="w-16 text-right text-[10px] uppercase tracking-wide text-slate-400">
                         {tap ? tap.verify : ""}
@@ -324,7 +325,7 @@ export function DayDrawer({
                       "rounded-lg border px-2 py-1 text-[11px]",
                       s.slot ? "border-slate-200 bg-white text-slate-700" : "border-amber-300 bg-amber-50 text-amber-900",
                     )}>
-                      <span className="font-mono tabular-nums">{s.at.slice(11, 16)}</span>
+                      <span className="font-mono tabular-nums">{officeClock(Date.parse(s.at))}</span>
                       <span className="ml-1.5 text-slate-400">{s.verify}</span>
                       <span className="ml-1.5">{s.slot ? SLOT_LABEL[s.slot] : tr("unreadable", "tidak terbaca")}</span>
                       {s.source === "manual" && <span className="ml-1.5 text-slate-400">· {tr("manual", "manual")}</span>}

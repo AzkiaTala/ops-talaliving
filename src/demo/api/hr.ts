@@ -32,7 +32,7 @@ import {
   employeeIdentityViews, wlkpRecap,
 } from "../hr-derive";
 import { latency, actingUser, requireModule, requireLevel, requireAuthority, conflict, replayed, remember } from "./_kit";
-import { officeClock, officeToday as sharedOfficeToday } from "@/lib/office";
+import { officeClock, officeToday as sharedOfficeToday, officeStamp } from "@/lib/office";
 import { CADENCE_LABELS, addDays, taskPeriodsBetween, ageOn } from "@/services/hr/task-periods";
 
 const SERVICE = "hr" as const;
@@ -356,7 +356,9 @@ export async function tapSelf(): Promise<Result<{ id: string; at: string; work_d
     id = newId("scn");
     draft.attendance_scans.push({
       id, employee_id: emp.id, work_date, at,
-      verify: "APP", location: null, source: "manual",
+      /* `self`, as `tap_self` writes it: a real instant from the phone, the
+         one kind of tap D334's hour never applied to. */
+      verify: "app", location: null, source: "self",
       import_id: null, reason: null,
       recorded_by: actingUser().id, recorded_at: at,
     });
@@ -480,7 +482,7 @@ export async function addScan(
       id: newId("scn"),
       employee_id: emp.id,
       work_date: input.work_date,
-      at: `${input.work_date}T${input.time}:00+08:00`,
+      at: officeStamp(input.work_date, input.time),
       verify: "MANUAL",
       location: null,
       source: "manual",
@@ -1585,7 +1587,7 @@ function contractView(state: DemoState, c: EmploymentContract): ContractView {
 
   let probation_until: string | null = null;
   if (months != null) {
-    const d = new Date(`${c.effective_from}T00:00:00+08:00`);
+    const d = new Date(officeStamp(c.effective_from));
     d.setMonth(d.getMonth() + months);
     probation_until = d.toISOString().slice(0, 10);
   }
@@ -1596,8 +1598,8 @@ function contractView(state: DemoState, c: EmploymentContract): ContractView {
     employee_no: emp?.employee_no ?? "",
     full_name: emp?.full_name ?? "",
     ends_in_days: c.ends_on
-      ? Math.round((Date.parse(`${c.ends_on}T00:00:00+08:00`)
-                    - Date.parse(`${today}T00:00:00+08:00`)) / 86_400_000)
+      ? Math.round((Date.parse(officeStamp(c.ends_on))
+                    - Date.parse(officeStamp(today))) / 86_400_000)
       : null,
     probation_until,
     required_missing: state.clause_checklist.filter(
@@ -2243,7 +2245,7 @@ export async function decideLeave(
   });
 }
 
-/** The office day, WITA. Not the browser's day (F17); one definition for the
+/** The office day. Not the browser's day (F17); one definition for the
  *  whole system (F63). */
 function officeToday(): string {
   return sharedOfficeToday();
@@ -2447,7 +2449,7 @@ export async function updateTask(
       /* The day it was finished, not the day it was typed — the same rule the
          production board follows (D148). */
       row.done_at = input.done_on
-        ? `${input.done_on}T12:00:00+08:00`
+        ? officeStamp(input.done_on, "12:00")
         : new Date().toISOString();
       row.done_by = user.id;
       row.delivered_note = input.delivered?.trim() || row.delivered_note;

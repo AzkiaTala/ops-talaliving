@@ -1,9 +1,10 @@
--- 184_hr_tap_self_office_clock.sql — a self-tap's activity label is WITA (0184, D327).
+-- 184_hr_tap_self_office_clock.sql — a self-tap's activity label is the office
+-- clock (0184, D327; WIB since 0190, D334).
 --
 --   derivation — the label `tap_self` writes is the tap's own moment on the
---                office clock (Asia/Makassar), whatever the session's time
+--                office clock (Asia/Jakarta since D334), whatever the session's time
 --                zone is; with the session on UTC (Supabase's default) it is
---                eight hours away from the UTC rendering `0164` wrote
+--                seven hours away from the UTC rendering `0164` wrote
 --   refusal    — an account with no employee link is still refused, and
 --                writes no label; the grants are unchanged
 --
@@ -51,7 +52,7 @@ reset role;
 
 -- ── derivation: the label is the office clock ─────────────────────────────
 do $$
-declare v_at timestamptz; v_label text; v_wita text; v_utc text; v_n int;
+declare v_at timestamptz; v_label text; v_office text; v_utc text; v_n int;
 begin
   select (res -> 'data' ->> 'at')::timestamptz into v_at from t184;
   assert v_at is not null, 'tap_self returned no `at`';
@@ -59,19 +60,19 @@ begin
   select label into v_label from ops_core.activity_events
    where actor_id = 'ffffffff-0000-0000-0000-000000018401' and kind = 'attendance_tap';
 
-  v_wita := to_char(v_at at time zone 'Asia/Makassar', 'HH24:MI');
+  v_office := to_char(v_at at time zone 'Asia/Jakarta', 'HH24:MI');
   v_utc  := to_char(v_at, 'HH24:MI');   -- what 0164 wrote, on a UTC session
 
-  assert v_label = 'Tap presensi pukul ' || v_wita,
-    format('label should read the WITA clock %s, got %s', v_wita, v_label);
-  assert v_wita <> v_utc, 'WITA and UTC render the same — the session is not on UTC';
+  assert v_label = 'Tap presensi pukul ' || v_office,
+    format('label should read the WIB clock %s, got %s', v_office, v_label);
+  assert v_office <> v_utc, 'WIB and UTC render the same — the session is not on UTC';
   assert v_label <> 'Tap presensi pukul ' || v_utc, 'label still reads the UTC clock';
 
   -- The work day is the office day too (unchanged from 0164, pinned here so
   -- D332's rewrite keeps it).
   assert (select work_date from ops_hr.attendance_scans
            where employee_id = 'aaaa1840-0000-0000-0000-000000000001')
-         = (v_at at time zone 'Asia/Makassar')::date,
+         = (v_at at time zone 'Asia/Jakarta')::date,
     'the tap was filed under a day that is not the office day';
 
   -- The refused account wrote no label.
