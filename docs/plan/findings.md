@@ -8081,3 +8081,74 @@ would have done to them. Production was read back after that: one
 WITA. A sweep-only `0191` was drafted for the race and dropped once
 production no longer needed it: a migration with no job is one more thing
 to read in the ladder.
+
+## F193 · 2026-09-29 · the business had written its waste down, and the model was still asked to guess it
+
+D324 gave the AI a working drawing and the rate list's names, and asked it
+for a `waste_percent` from general knowledge: *kayu solid 10–20, panel 5–15*.
+Two tables in production already held the business's own answer:
+`ops_prod.bom_norms` (28 rows: *Panel · Plywood cutting waste 12 %*, *Wood ·
+Square to finished component yield 80 %*, *Finishing · NC sanding sealer
+coverage 9 m²/L/coat*…) and `ops_prod.finishing_recipes` (two systems, 13
+steps, a cost per m² each). `0174` had written them into the ladder with RLS on
+and no policy, which was right for a table nothing read, and it kept them out
+of sight of the feature that needed them. `0192` gives both a read policy for
+`production.read`, a view each (`v_bom_norm`, `v_finishing_system`), and hands
+the norms to the model. The price rule already in D324 is applied to waste
+too: the model names the norm (`waste_norm`), and the figure is read from the
+norm on the server (D335).
+
+**A yield is not a waste, and the costing decides the conversion.** A BOM line
+is costed as `qty × (1 + waste ÷ 100)` (`0182`'s `qty_with_waste`). An 80 %
+yield therefore needs 25 % waste, since 1 ÷ 0,8 = 1,25. The easy reading,
+`100 − 80`, gives 20 % and under-buys: 1,20 × 0,8 = 0,96 of the net need. The
+business's own remark on that norm says *sama dengan waste_percent 15–20 %*,
+the same slip written down. `wasteFromNorm` (`src/lib/bom-norms.ts`) converts
+a yield, and `scripts/check-bom-norms.mjs` runs the validator on fixed answers
+and fails on `100 − yield` (it was mutated to check). The owner's remark is
+left as it is, since it is the owner's.
+
+**The category did not say what a norm is for.** The first rule was *a
+`Factor` or `Overhead` norm is never a line's waste*. Reading production's
+rows showed `Factor` holding *Waste kayu (log ke komponen) 15 %* and *Waste
+material lain 5 %* beside *Kontingensi 5 %* and *Overhead pabrik 17 %*. So
+the rule would have thrown away the owner's own timber-waste decision. A
+norm's use is read from its name instead (waste, susut, breakage, yield,
+rendemen), which sorts all 28 production rows correctly: five line wastes, two
+yields, five whole-BOM factors, the rest coverages and sizes. The check holds
+both halves.
+
+**The norms disagree with each other, and that is the owner's to settle.**
+Timber: *Waste kayu 15 %* (decision), *Square to finished 80 %* (industry, =
+25 %), and *Log to square 55 %*, which with the 80 % gives 44 % of the log, so
+the 15 % cannot mean "from the log". Plywood and fabric: *Waste material lain
+5 %* (decision) against 12 % and 15 % (industry). The model is told to prefer
+`decision`, then `empirical`, then `industry`, and each line in the panel names
+the norm its waste came from, so a wrong pick can be seen. The default and
+the question are Q-D335a.
+
+**A finishing recipe is not the finishing cost.** The NC natural recipe totals
+Rp 69.918/m² (Rp 59.918 without the optional bleach). The empirical norm
+*Total finishing material (NC natural, all-in)*, from the STMV actuals, is Rp
+96.300/m². That is why the rate screen offers the recipe total and does not
+write it, and why an existing rate whose figure differs from the recipe shows
+both figures with an *Update* button a person must press. PU/duco totals Rp
+90.808/m².
+
+**Walked.** The demo passed 28 checks at 1366 in English and 390 in
+Indonesian: offered, added, changed by hand, updated back, a reader with no
+button, the AI panel naming each norm, and the norm kept in the added line's
+note. The live walk ran against local PostgREST with production's 28 norms and
+13 recipe steps copied into the local ladder. It checked the NC total, the PU
+mismatch at 85.000 → 90.808, the add stored as `finishing`/`m2` with the
+estimator on the audit trail, and a reader with no button. PostgREST as the
+person: 28 norms for production write and read, **none** for a
+procurement-only account, anon refused, a write refused. The AI route reached
+Drive and stopped there, readably, as D324's did: no Drive credentials here.
+To prove what lies past Drive, the route was run once with a local,
+uncommitted stub for the file and a recording mock model. The estimator's 28
+norms reached the prompt, no price did, and the generic range was gone. The
+model's 20 % became the owner's 15 % and the yield's 25 %, a cited
+*Kontingensi* was not taken as waste, and an unbacked 12 % stayed with a
+warning. **Not verified here:** a real model reading a real drawing, as in
+D324. The stub was reverted before commit.
