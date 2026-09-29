@@ -1,0 +1,24 @@
+# Response headers for the static half of the build (D328).
+#
+# Cloudflare Workers static assets serve `.open-next/assets` before the worker
+# runs, so `headers()` in next.config.mjs never reaches these files. This file
+# does: opennextjs-cloudflare copies `public/` into the assets directory, and
+# Workers read `_headers` from there.
+#
+# The service worker and the build id it imports must never be answered from
+# an HTTP cache, or an installed app keeps running an old build and never
+# learns there is a new one (F24).
+
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/sw-version.js
+  Cache-Control: no-cache
+
+/offline.html
+  Cache-Control: no-cache
+
+# Workers' asset server answers /offline.html with a redirect to /offline.
+/offline
+  Cache-Control: no-cache

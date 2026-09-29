@@ -16,7 +16,7 @@ export function Toaster() {
   const { toasts, dismissToast } = useToast();
   const tr = useTr();
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-[60] flex w-full max-w-sm flex-col gap-3">
+    <div className="pointer-events-none fixed bottom-4 left-4 right-4 z-[60] flex flex-col gap-3 sm:bottom-6 sm:left-auto sm:right-6 sm:w-full sm:max-w-sm">
       {toasts.map((t) => {
         const c = config[t.level];
         const Icon = c.icon;
@@ -32,6 +32,18 @@ export function Toaster() {
             <div className="flex-1">
               <p className="text-sm font-semibold text-slate-800">{t.title}</p>
               {t.message && <p className="mt-0.5 text-xs text-slate-500">{t.message}</p>}
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismissToast(t.id);
+                    t.action?.onClick();
+                  }}
+                  className="mt-2 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                >
+                  {t.action.label}
+                </button>
+              )}
             </div>
             <button
               onClick={() => dismissToast(t.id)}
