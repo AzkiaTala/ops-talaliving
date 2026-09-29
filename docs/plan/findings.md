@@ -7985,6 +7985,48 @@ recreating it. The lesson is F167's again: the order migrations reach
 production is not the order they sit in the ladder, and a file that names a
 zone is a file that can be wrong about which one.
 
+## F190 · 2026-09-29 · an ask is not a record, and a screen that was never live hides that
+
+D333 lets an employee ask for overtime from the phone, with a deliverable,
+and has HRD or leadership approve it. Four things came out of building it.
+
+**The same table held two different acts.** A staff sheet HRD keyed from
+signed paper is a record — D146 is right that it is paid unless somebody
+turns it off. The sheet `report_overtime_self` wrote (0165) went into the
+same table with the same `kind = 'staff'`, so it inherited *paid by default*
+without anyone deciding it should: a button anybody with a login could press
+was worth money until HRD noticed. The only thing telling the two apart was
+the sentence `0165` happened to put in `purpose`. `via` is now a column and
+the stage view reads it first. The lesson is older than this module: when a
+second road onto a table appears, ask whether it writes the same *fact* or
+only the same *shape*.
+
+**Deliverable and result are asked at different moments, so they cannot be
+required at the same one.** The deliverable is known before the night — it
+is the thing the approver weighs — so it is required up front and asking on
+the evening itself is allowed. The result exists only afterwards, so it may
+follow; approval is where it becomes mandatory. Requiring both at
+submission (as 0165 did for the result) quietly forces people to ask after
+the fact or to invent the result.
+
+**`/hrd/lembur` had never been live.** The real client had no
+`createOvertimeSheet`, `addOvertimeLine`, `decideOvertimeSheet`,
+`getOvertimeSheet`, `attachOvertimeDoc` or `importOvertimeForm`, so the
+route guard kept the screen dark in production even though the seams had
+existed since `0054`. An approval queue added there would have been demo-only
+without anybody noticing, because the demo walk passes. Writing the six
+functions made the route live (`check-live-routes` said so on its own).
+Before putting a feature on a screen, check the screen is in `LIVE_ROUTES`.
+
+**Leadership decides by authority, and RLS answers by module.** The
+Direktur holds `approve_overtime` and no HR module, so `overtime_lines` and
+`employees` return nothing to him — a queue built on the admin screen's
+reads would show sheet numbers with no names. The queue is one definer
+function that answers only to HRD or the authority, instead of widening two
+table policies. The raw rows stay closed (smoke `189` checks that), and the
+sidebar learned `orAuthority`, since a menu gated only by module permissions
+could not show the one screen where his decision is made.
+
 ## F191 · 2026-09-29 · two errors of one hour that cancelled, until one of them was fixed
 
 D334. The fingerprint machine writes WIB wall-clock time with no zone; every
@@ -8082,6 +8124,34 @@ WITA. A sweep-only `0191` was drafted for the race and dropped once
 production no longer needed it: a migration with no job is one more thing
 to read in the ladder.
 
+---
+
+## F192 · 2026-09-29 · production had no guard pattern to set the hours of
+
+D330 gave HRD a way to set an **existing** pattern's hours and wrote the guard
+default only where a SATPAM pattern already had no hours. Applied to
+production, it wrote nothing: production's book holds PRODUKSI and KANTOR and
+no guard pattern at all. The demo fixture had five patterns since M57, and
+production was seeded later from answers only (D288, F138). That was the right
+call for the numbers and it meant that *which patterns exist* never reached
+production either. The check that caught it was the one before applying:
+reading the production book rather than assuming it looked like the demo's.
+
+The fix is not a migration that invents the pattern. That would be F138
+again, a default written into a real company's book. The fix is a door: HRD
+adds the pattern and types its hours, which are then HRD's statement and not
+the system's guess, so the new pattern carries no `hours_unconfirmed`.
+
+**Scope held on purpose.** Removing a pattern and changing a unit's default
+stay in IT's full editor. A pattern can have people on it, and removing it
+strands them (`schedules_in_use_lost`). A unit default changes what a whole
+unit is measured against. Both are pay-policy decisions (D173), not *what
+patterns exist*.
+
+**One line of test setup, worth recording.** The smoke file first inserted
+taps directly with `source = 'import'` and hit `import_scan_has_import`. An
+import tap must name its import. The file uses `add_scan` instead, the seam
+HRD actually uses, which is the better test anyway.
 ## F194 · 2026-09-29 · the business had written its waste down, and the model was still asked to guess it
 
 D324 gave the AI a working drawing and the rate list's names, and asked it
