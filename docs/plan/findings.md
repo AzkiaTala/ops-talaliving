@@ -8152,6 +8152,7 @@ patterns exist*.
 taps directly with `source = 'import'` and hit `import_scan_has_import`. An
 import tap must name its import. The file uses `add_scan` instead, the seam
 HRD actually uses, which is the better test anyway.
+
 ## F194 · 2026-09-29 · the business had written its waste down, and the model was still asked to guess it
 
 D324 gave the AI a working drawing and the rate list's names, and asked it
