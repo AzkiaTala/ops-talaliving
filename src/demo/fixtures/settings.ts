@@ -1,4 +1,5 @@
 import type { AppSetting } from "@/services/identity/contracts";
+import { OFFICE_TZ } from "@/lib/office";
 
 /** Every number and name in this system that somebody might reasonably think
  *  is theirs to change — with a straight answer about each one (D214).
@@ -162,7 +163,7 @@ export const APP_SETTINGS: AppSetting[] = [
   {
     key: "time.office_tz", group: "retention", label: "Zona waktu kantor",
     help: "Menentukan hari kerja sebuah absensi, lembur, dan rekap harian termasuk hari yang mana.",
-    kind: "choice", value: "WITA (UTC+8)", default_value: "WITA (UTC+8)",
+    kind: "choice", value: OFFICE_TZ.label, default_value: OFFICE_TZ.label,
     unit: null, choices: null, reach: "retroactive",
     locked_reason: "Mengubahnya tidak mengubah apa yang terjadi berikutnya — ia mengubah hari kerja mana yang dimiliki setiap scan, setiap slip gaji, dan setiap rekap harian yang sudah ada. Perusahaan yang benar-benar pindah zona waktu butuh migrasi, bukan dropdown.",
     managed_at: null,

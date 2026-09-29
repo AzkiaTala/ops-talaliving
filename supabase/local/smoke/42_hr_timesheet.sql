@@ -73,8 +73,8 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, import_id, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-08-24', t, 'import', imp,
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-08-24 07:28+08','2026-08-24 12:05+08',
-                      '2026-08-24 12:50+08','2026-08-24 17:02+08']::timestamptz[]) t;
+    from unnest(array['2026-08-24 07:28+07','2026-08-24 12:05+07',
+                      '2026-08-24 12:50+07','2026-08-24 17:02+07']::timestamptz[]) t;
 
   select * into d from ops_hr.read_day('aaaa0000-0000-0000-0000-00000000d001','2026-08-24');
   assert d.taps = 4,            'four taps, got ' || d.taps;
@@ -93,8 +93,8 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-08-25', t, 'manual','uji lembur',
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-08-25 07:30+08','2026-08-25 12:00+08','2026-08-25 12:45+08',
-                      '2026-08-25 17:00+08','2026-08-25 18:00+08','2026-08-25 20:30+08']::timestamptz[]) t;
+    from unnest(array['2026-08-25 07:30+07','2026-08-25 12:00+07','2026-08-25 12:45+07',
+                      '2026-08-25 17:00+07','2026-08-25 18:00+07','2026-08-25 20:30+07']::timestamptz[]) t;
 
   select * into d from ops_hr.read_day('aaaa0000-0000-0000-0000-00000000d001','2026-08-25');
   assert d.taps = 6,               'six taps on a lembur night, got ' || d.taps;
@@ -111,8 +111,8 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-08-26', t, 'manual','uji dedupe',
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-08-26 07:28+08','2026-08-26 07:28:40+08',
-                      '2026-08-26 12:00+08','2026-08-26 12:45+08','2026-08-26 17:00+08']::timestamptz[]) t;
+    from unnest(array['2026-08-26 07:28+07','2026-08-26 07:28:40+07',
+                      '2026-08-26 12:00+07','2026-08-26 12:45+07','2026-08-26 17:00+07']::timestamptz[]) t;
 
   select * into d from ops_hr.read_day('aaaa0000-0000-0000-0000-00000000d001','2026-08-26');
   assert d.taps = 4,          'the finger that did not take the first time is one arrival, got ' || d.taps;
@@ -127,7 +127,7 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-08-27', t, 'manual','uji tanpa pulang',
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-08-27 07:30+08','2026-08-27 12:00+08','2026-08-27 12:45+08']::timestamptz[]) t;
+    from unnest(array['2026-08-27 07:30+07','2026-08-27 12:00+07','2026-08-27 12:45+07']::timestamptz[]) t;
 
   select * into d from ops_hr.read_day('aaaa0000-0000-0000-0000-00000000d001','2026-08-27');
   assert d.state = 'review',  'no pulang is a day somebody must read, got ' || d.state;
@@ -142,7 +142,7 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-08-29', t, 'manual','uji tap nyasar',
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-08-29 07:30+08','2026-08-29 09:15+08']::timestamptz[]) t;
+    from unnest(array['2026-08-29 07:30+07','2026-08-29 09:15+07']::timestamptz[]) t;
 
   select * into d from ops_hr.read_day('aaaa0000-0000-0000-0000-00000000d001','2026-08-29');
   assert d.unplaced = 1,     'the 09:15 tap fits no slot, got ' || d.unplaced;
@@ -158,8 +158,8 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-08-31', t, 'manual','uji istirahat',
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-08-31 07:30+08','2026-08-31 12:00+08',
-                      '2026-08-31 13:00+08','2026-08-31 17:00+08']::timestamptz[]) t;
+    from unnest(array['2026-08-31 07:30+07','2026-08-31 12:00+07',
+                      '2026-08-31 13:00+07','2026-08-31 17:00+07']::timestamptz[]) t;
 
   select * into d from ops_hr.read_day('aaaa0000-0000-0000-0000-00000000d001','2026-08-31');
   assert d.break_hours = 1,     'an hour of break, got ' || d.break_hours;
@@ -176,8 +176,8 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-09-01', t, 'manual','uji sakit',
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-09-01 07:30+08','2026-09-01 12:00+08',
-                      '2026-09-01 12:45+08','2026-09-01 17:00+08']::timestamptz[]) t;
+    from unnest(array['2026-09-01 07:30+07','2026-09-01 12:00+07',
+                      '2026-09-01 12:45+07','2026-09-01 17:00+07']::timestamptz[]) t;
   insert into ops_hr.day_marks (employee_id, work_date, kind, reason, marked_by)
   values ('aaaa0000-0000-0000-0000-00000000d001','2026-09-01','sick','demam','ffffffff-0000-0000-0000-0000000000c1');
 
@@ -196,8 +196,8 @@ begin
   insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
   select 'aaaa0000-0000-0000-0000-00000000d001','2026-08-30', t, 'manual','uji tanggal merah',
          'ffffffff-0000-0000-0000-0000000000c1'
-    from unnest(array['2026-08-30 08:00+08','2026-08-30 12:00+08',
-                      '2026-08-30 12:45+08','2026-08-30 15:00+08']::timestamptz[]) t;
+    from unnest(array['2026-08-30 08:00+07','2026-08-30 12:00+07',
+                      '2026-08-30 12:45+07','2026-08-30 15:00+07']::timestamptz[]) t;
   insert into ops_hr.day_marks (employee_id, work_date, kind, reason, marked_by)
   values (null,'2026-08-30','holiday','Libur nasional','ffffffff-0000-0000-0000-0000000000c1');
 

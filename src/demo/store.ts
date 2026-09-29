@@ -13,6 +13,7 @@ import { initialState, stateSignature } from "./fixtures";
 import type { DemoState, AuditRow, OutboxRow } from "./state";
 import { setActiveLocale } from "@/lib/format";
 import { setActiveLang } from "@/lib/i18n";
+import { officeDay as sharedOfficeDay } from "@/lib/office";
 
 const STORAGE_KEY = "ops-v2-demo/v2";
 
@@ -130,11 +131,11 @@ export function apply(mutator: (draft: DemoState) => void) {
 /* Identifiers — minted here, because here is the database (ADR-005)   */
 /* ------------------------------------------------------------------ */
 
-/** The office day is WITA (`Asia/Makassar`), as it is today: "trx ids follow
- *  the office day". */
+/** The office day, from `src/lib/office.ts` like everywhere else: "trx ids
+ *  follow the office day". This was a private copy with its own `8` until
+ *  D334 found it (F191). */
 export function officeDay(at: Date = new Date()): string {
-  const wita = new Date(at.getTime() + (8 * 60 + at.getTimezoneOffset()) * 60_000);
-  return wita.toISOString().slice(0, 10);
+  return sharedOfficeDay(at);
 }
 
 /** One atomic step, no collision loop: `core.next_doc_number()` in miniature.

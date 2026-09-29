@@ -75,8 +75,8 @@ export default function LocatedTapsPage() {
         <CardHeader
           title={tr("Taps to look at", "Tap yang perlu dilihat")}
           subtitle={tr(
-            "Outside the area, no location, or a location too loose to tell. Times in WITA.",
-            "Di luar area, tanpa lokasi, atau lokasi kurang tepat. Jam dalam WITA.",
+            `Outside the area, no location, or a location too loose to tell. Times in ${OFFICE_TZ.short}.`,
+            `Di luar area, tanpa lokasi, atau lokasi kurang tepat. Jam dalam ${OFFICE_TZ.short}.`,
           )}
           icon={MapPinned}
         />

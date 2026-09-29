@@ -19,9 +19,9 @@ const PEOPLE = {
   Rina: { email: "rina@talaliving.com", id: "e2e00000-0000-0000-0000-00000000f11a" },
 };
 
-/* Last week, Monday to Sunday, in the office's own calendar (WITA). */
+/* Last week, Monday to Sunday, in the office's own calendar (WIB, D334). */
 const day = (ms) => new Date(ms).toISOString().slice(0, 10);
-const todayMs = Date.parse(day(Date.now() + 8 * 3_600_000));
+const todayMs = Date.parse(day(Date.now() + 7 * 3_600_000));
 const dow = new Date(todayMs).getUTCDay() || 7;
 const MON = day(todayMs - (dow - 1 + 7) * 86_400_000);
 const d = (i) => day(Date.parse(MON) + i * 86_400_000);

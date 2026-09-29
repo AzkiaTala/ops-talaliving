@@ -176,8 +176,9 @@ function ActivityTab() {
 function AttendanceTab({ me }: { me: ReturnType<typeof useLoad<Awaited<ReturnType<typeof hr.myProfile>>["data"]>>[0] }) {
   const tr = useTr();
   const linked = me.status === "ready" ? me.data : null;
-  /* The office day, not UTC's (D327): before 08:00 WITA the UTC day is still
-     yesterday, and a 07:25 clock-in would sit outside `to` until it turned. */
+  /* The office day, not UTC's (D327): early in the office morning the UTC day
+     is still yesterday, and a 07:25 clock-in would sit outside `to` until it
+     turned. */
   const [days, reloadDays] = useLoad(
     () => {
       const to = officeToday();

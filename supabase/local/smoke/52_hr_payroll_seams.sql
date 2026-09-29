@@ -97,13 +97,13 @@ do $$
 declare a jsonb;
 begin
   a := ops_hr.import_scans('mesin-38.csv', $j$[
-    {"employee_ref":"12","at":"2026-09-14T08:05:00+08"},
-    {"employee_ref":"12","at":"2026-09-14T12:00:00+08"},
-    {"employee_ref":"12","at":"2026-09-14T13:00:00+08"},
-    {"employee_ref":"12","at":"2026-09-14T17:02:00+08"},
-    {"employee_ref":"7", "at":"2026-09-15T07:58:00+08"},
-    {"employee_ref":"7", "at":"2026-09-15T12:00:00+08"},
-    {"employee_ref":"7", "at":"2026-09-15T13:00:00+08"}
+    {"employee_ref":"12","at":"2026-09-14T08:05:00+07"},
+    {"employee_ref":"12","at":"2026-09-14T12:00:00+07"},
+    {"employee_ref":"12","at":"2026-09-14T13:00:00+07"},
+    {"employee_ref":"12","at":"2026-09-14T17:02:00+07"},
+    {"employee_ref":"7", "at":"2026-09-15T07:58:00+07"},
+    {"employee_ref":"7", "at":"2026-09-15T12:00:00+07"},
+    {"employee_ref":"7", "at":"2026-09-15T13:00:00+07"}
   ]$j$::jsonb);
   assert ops_core.said_ok(a), 'got ' || coalesce(a -> 'error' ->> 'code', a::text);
 end $$;
@@ -323,7 +323,7 @@ set local request.jwt.claim.sub = 'ffffffff-0000-0000-0000-000000005203';
 do $$
 declare a jsonb;
 begin
-  a := ops_hr.add_scan('B-0007','2026-09-15T16:30:00+08','mesin tidak membaca sidik jarinya');
+  a := ops_hr.add_scan('B-0007','2026-09-15T16:30:00+07','mesin tidak membaca sidik jarinya');
   assert ops_core.said_ok(a), 'got ' || coalesce(a -> 'error' ->> 'code', a::text);
 end $$;
 

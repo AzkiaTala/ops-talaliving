@@ -22,21 +22,21 @@ export const CASH_COMPONENTS: CashComponent[] = [
     type_code: "RECCURING - PAYROLL", vendor_id: null, account_id: "acc_bni325",
     scheme_codes: [], starts_on: "2026-01", ends_on: null,
     note: "Every Friday. Four runs in most months, five in some — and that is a real difference.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+07:00",
   },
   {
     id: "cmp_02", name: "Workshop electricity", direction: "OUT", amount: 4_300_000, amount_kind: "estimate",
     frequency: "monthly", due_day: 24, due_weekday: null, due_date: null,
     type_code: "RECCURING - UTILITIES", vendor_id: null, account_id: "acc_bni325",
     scheme_codes: [], starts_on: "2026-01", ends_on: null, note: null,
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:02:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:02:00+07:00",
   },
   {
     id: "cmp_03", name: "Credit card — monthly bill", direction: "OUT", amount: 2_500_000,
     frequency: "monthly", due_day: 8, due_weekday: null, due_date: null,
     type_code: "CREDIT CARD", vendor_id: null, account_id: "acc_bni325",
     scheme_codes: [], starts_on: "2026-01", ends_on: null, note: "Mandiri, the previous month's spending.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:04:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:04:00+07:00",
   },
   {
     id: "cmp_04", name: "Materials and hardware", direction: "OUT", amount: 45_000_000,
@@ -44,14 +44,14 @@ export const CASH_COMPONENTS: CashComponent[] = [
     type_code: "SUPPLIERS", vendor_id: null, account_id: "acc_bca271",
     scheme_codes: [], starts_on: "2026-01", ends_on: null,
     note: "What the workshop buys in an ordinary month, across all suppliers.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:06:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:06:00+07:00",
   },
   {
     id: "cmp_05", name: "Office and warehouse", direction: "OUT", amount: 1_500_000,
     frequency: "monthly", due_day: 20, due_weekday: null, due_date: null,
     type_code: "OFFICE", vendor_id: null, account_id: "acc_petty",
     scheme_codes: [], starts_on: "2026-01", ends_on: null, note: null,
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:08:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:08:00+07:00",
   },
   {
     id: "cmp_06", name: "Imported hardware — Guangzhou", direction: "OUT", amount: 8_400_000,
@@ -59,7 +59,7 @@ export const CASH_COMPONENTS: CashComponent[] = [
     type_code: "CHINA", vendor_id: null, account_id: "acc_bca271",
     scheme_codes: [], starts_on: "2026-09", ends_on: "2026-12",
     note: "Four instalments to the end of the year, then it stops.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-05T09:00:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-05T09:00:00+07:00",
   },
 
   /* Certain, but only that once. Neither of these is a bill that repeats, and
@@ -70,7 +70,7 @@ export const CASH_COMPONENTS: CashComponent[] = [
     type_code: "SUPPLIERS", vendor_id: "vnd_13", account_id: "acc_bca271",
     scheme_codes: [], starts_on: "2026-10", ends_on: "2026-10",
     note: "The balance of the July order, agreed for October.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-09T10:00:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-09T10:00:00+07:00",
   },
   {
     id: "cmp_09", name: "Credit card — pay it off", direction: "OUT", amount: 26_000_000,
@@ -78,7 +78,7 @@ export const CASH_COMPONENTS: CashComponent[] = [
     type_code: "CREDIT CARD", vendor_id: null, account_id: "acc_bni325",
     scheme_codes: [], starts_on: "2026-11", ends_on: "2026-11",
     note: "Clearing the balance rather than carrying it. Separate from the monthly bill, and only in November.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-09T10:04:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-09T10:04:00+07:00",
   },
 
   /* The only way money arrives. Everything above is paid out of it. */
@@ -88,7 +88,7 @@ export const CASH_COMPONENTS: CashComponent[] = [
     type_code: "CASHFLOW", vendor_id: null, account_id: "acc_bca271",
     scheme_codes: [], starts_on: "2026-01", ends_on: null,
     note: "What has been going in each month. Change it and the year changes.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:10:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:10:00+07:00",
   },
   {
     id: "cmp_10", name: "BPJS Kesehatan", direction: "OUT", amount: 1_450_000,
@@ -100,7 +100,7 @@ export const CASH_COMPONENTS: CashComponent[] = [
        of names rather than against last month's number (D259). */
     scheme_codes: ["BPJS_KESEHATAN"], starts_on: "2026-01", ends_on: null,
     note: "Tagihan bulanan. Yang diharapkan dihitung dari daftar karyawan terdaftar × tarif, bukan dari angka bulan lalu.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+07:00",
   },
   {
     id: "cmp_11", name: "BPJS Ketenagakerjaan", direction: "OUT", amount: 1_900_000,
@@ -110,7 +110,7 @@ export const CASH_COMPONENTS: CashComponent[] = [
        four beside it, because one line pays for all of them. */
     scheme_codes: ["JHT", "JP", "JKK", "JKM"], starts_on: "2026-01", ends_on: null,
     note: "Satu tagihan untuk JHT, JP, JKK dan JKM.",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+07:00",
   },
   {
     /* Put here by "Create payment schedule" on the asset, not typed (`0116`). */
@@ -119,7 +119,7 @@ export const CASH_COMPONENTS: CashComponent[] = [
     type_code: null, vendor_id: "vnd_05", account_id: "acc_bni325",
     scheme_codes: [], starts_on: "2026-06", ends_on: "2027-05", note: "From AST-0007",
     source_ref: "asset:AST-0007",
-    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+08:00",
+    active: true, created_by: "usr_anggun", created_at: "2026-09-01T09:00:00+07:00",
   },
 ];
 
@@ -132,12 +132,12 @@ export const CASH_OVERRIDES: CashOverride[] = [
   {
     id: "cov_01", component_id: "cmp_01", month: "2026-12", amount: 160_000_000, due_day: null,
     reason: "THR — the last December run carries the holiday allowance.",
-    recorded_by: "usr_anggun", recorded_at: "2026-09-01T09:12:00+08:00",
+    recorded_by: "usr_anggun", recorded_at: "2026-09-01T09:12:00+07:00",
   },
   {
     id: "cov_02", component_id: "cmp_05", month: "2026-10", amount: null, due_day: null,
     reason: "Nothing planned — the stationery order was pulled forward into September.",
-    recorded_by: "usr_anggun", recorded_at: "2026-09-01T09:14:00+08:00",
+    recorded_by: "usr_anggun", recorded_at: "2026-09-01T09:14:00+07:00",
   },
 ];
 
@@ -145,6 +145,6 @@ export const CASH_OVERRIDES: CashOverride[] = [
 export const CASH_SETTLEMENTS: CashSettlement[] = [
   {
     id: "cst_01", component_id: "cmp_03", month: "2026-09", trx_no: "trx-26-09-08_001",
-    recorded_by: "usr_anggun", recorded_at: "2026-09-08T16:30:00+08:00",
+    recorded_by: "usr_anggun", recorded_at: "2026-09-08T16:30:00+07:00",
   },
 ];

@@ -425,17 +425,24 @@ export function nextOfficeDay(key: string): string {
 
 /** The instant a person means by *this clock time, on this working day*.
  *
- *  For almost everybody it is that day at that time, WITA. For a guard on a
+ *  For almost everybody it is that day at that time, on the office clock
+ *  (`src/lib/office.ts`, WIB since D334). For a guard on a
  *  night (D330) the working day runs into the next morning, so 07.05 typed
  *  against Monday's shift is **Tuesday** 07.05. Decided by the day's own
  *  window as the reading reported it — a time earlier than the window opens
  *  can only be the morning after — so neither client works out the shift
  *  rule a second time.
  */
+/** The office clock's offset (WIB, D334). `src/lib/office.ts` is where it is
+ *  decided, but this file may not import anything (see the header), so it is
+ *  restated here — and `office.ts` refuses to compile if the two disagree
+ *  (`OfficeOffsetAgrees`), so a second zone change cannot miss this copy. */
+export const OFFICE_OFFSET = "+07:00" as const;
+
 export function instantInDay(workDate: string, time: string, windowFrom: string | null): string {
-  const at = `${workDate}T${time}:00+08:00`;
+  const at = `${workDate}T${time}:00${OFFICE_OFFSET}`;
   if (windowFrom && Date.parse(at) < Date.parse(windowFrom)) {
-    return `${nextOfficeDay(workDate)}T${time}:00+08:00`;
+    return `${nextOfficeDay(workDate)}T${time}:00${OFFICE_OFFSET}`;
   }
   return at;
 }

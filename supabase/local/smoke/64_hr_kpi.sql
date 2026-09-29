@@ -48,7 +48,7 @@ set local request.jwt.claim.sub = 'ffffffff-0000-0000-0000-000000001101';
 insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
 select 'aaaa0000-0000-0000-0000-000000001101', ops_core.office_day() - n,
        ((ops_core.office_day() - n) + case when n in (7,6) then time '08:00' else time '07:28' end)
-         at time zone 'Asia/Makassar',
+         at time zone 'Asia/Jakarta',
        'manual','uji kpi','ffffffff-0000-0000-0000-000000001101'
   from generate_series(5, 10) n;
 
@@ -60,7 +60,7 @@ insert into ops_hr.day_marks (employee_id, work_date, kind, reason, marked_by) v
 -- Slamet: six days with a tap and nothing else.
 insert into ops_hr.attendance_scans (employee_id, work_date, at, source, reason, recorded_by)
 select 'aaaa0000-0000-0000-0000-000000001102', ops_core.office_day() - n,
-       ((ops_core.office_day() - n) + time '19:00') at time zone 'Asia/Makassar',
+       ((ops_core.office_day() - n) + time '19:00') at time zone 'Asia/Jakarta',
        'manual','uji kpi','ffffffff-0000-0000-0000-000000001101'
   from generate_series(5, 10) n;
 
