@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Landmark, AlertTriangle, Upload, Link2, Plus, EyeOff, Coins } from "lucide-react";
+import { Landmark, AlertTriangle, Upload, Link2, Plus, EyeOff, Coins, Trash2 } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Paged } from "@/components/ui/pager";
@@ -39,6 +39,7 @@ export default function StatementsPage() {
   const [statements, reload] = useLoad(() => accounting.listStatements(), []);
   const [open, setOpen] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const mayPost = hasAuthority("post_ledger");
   const mayEdit = can("accounting.update");
 
@@ -57,7 +58,13 @@ export default function StatementsPage() {
       />
 
       <Loaded state={statements} onRetry={reload}>
-        {(all) => (
+        {(everything) => {
+          /* A deleted upload (ABANDONED, 0195) is kept for the audit trail but
+             is out of the way: it no longer counts, so it no longer takes a
+             place in the list unless somebody asks to see it. */
+          const deleted = everything.filter((s) => s.status === "ABANDONED");
+          const all = showDeleted ? everything : everything.filter((s) => s.status !== "ABANDONED");
+          return (
           <div className="space-y-4">
             {all.map((s) => (
               <StatementCard
@@ -83,8 +90,17 @@ export default function StatementsPage() {
                 </p>
               </Card>
             )}
+            {deleted.length > 0 && (
+              <button type="button" onClick={() => setShowDeleted(!showDeleted)}
+                className="text-[12px] font-medium text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
+                {showDeleted
+                  ? tr("Hide deleted uploads", "Sembunyikan unggahan yang dihapus")
+                  : tr(`Show deleted uploads (${deleted.length})`, `Tampilkan unggahan yang dihapus (${deleted.length})`)}
+              </button>
+            )}
           </div>
-        )}
+          );
+        }}
       </Loaded>
     </div>
   );
@@ -101,10 +117,32 @@ function StatementCard({
   onChanged: () => void;
 }) {
   const tr = useTr();
+  const { toast } = useToast();
   const money = (n: number) => s.currency === "IDR" ? formatIDR(n) : `${s.currency} ${formatNumber(n)}`;
+  const abandoned = s.status === "ABANDONED";
+  /* Lines already in the ledger hold the statement (0195): the button says so
+     instead of promising something the seam will refuse. */
+  const inLedger = s.booked + s.matched;
+  const [abandoning, setAbandoning] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function abandon() {
+    setBusy(true);
+    const res = await accounting.abandonStatement({ statement_no: s.statement_no, reason });
+    setBusy(false);
+    if (res.error) {
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not deleted", "Tidak jadi dihapus"), res.error.message);
+      return;
+    }
+    toast("success", tr(`${s.statement_no} deleted`, `${s.statement_no} dihapus`),
+      tr("Its period is free: upload the correct file.", "Periodenya kosong lagi: unggah file yang benar."));
+    setAbandoning(false);
+    onChanged();
+  }
 
   return (
-    <Card>
+    <Card className={abandoned ? "opacity-70" : undefined}>
       <CardHeader
         title={`${s.account_code} · ${s.period_start} → ${s.period_end}`}
         subtitle={tr(
@@ -114,6 +152,13 @@ function StatementCard({
         icon={Landmark}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {abandoned && <Badge tone="slate">{tr("Deleted", "Dihapus")}</Badge>}
+            {!abandoned && mayEdit && !abandoning && (
+              <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setAbandoning(true)}>
+                {tr("Delete", "Hapus")}
+              </Button>
+            )}
+            {!s.continuity_ok && <Badge tone="red">{tr("Not continuous", "Tidak bersambung")}</Badge>}
             {s.unmatched > 0 && <Badge tone="amber">{tr(`${s.unmatched} undecided`, `${s.unmatched} belum diputuskan`)}</Badge>}
             {s.awaiting_rate > 0 && <Badge tone="red">{tr(`${s.awaiting_rate} awaiting a rate`, `${s.awaiting_rate} menunggu kurs`)}</Badge>}
             {s.booked > 0 && <Badge tone="green">{tr(`${s.booked} in the ledger`, `${s.booked} masuk buku besar`)}</Badge>}
@@ -124,9 +169,58 @@ function StatementCard({
         }
       />
 
+      {abandoning && (
+        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 text-[12px] text-slate-700">
+          {inLedger > 0 ? (
+            <p className="flex items-start gap-1.5 text-rose-800">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {tr(`${inLedger} row(s) of this statement are already in the ledger or tied to it, so it cannot be deleted. Void the transactions booked from it first.`,
+                `${inLedger} baris dari rekening koran ini sudah masuk atau ditautkan ke buku besar, jadi tidak bisa dihapus. Void dulu transaksi yang dibukukan dari sini.`)}
+            </p>
+          ) : (
+            <>
+              <p>
+                {tr(`Delete ${s.statement_no}? It disappears from the list and stops counting, and its period (${s.period_start} → ${s.period_end}) can be uploaded again with the right file. Who deleted it, when and why stay in the audit trail.`,
+                  `Hapus ${s.statement_no}? Rekening koran ini hilang dari daftar dan tidak dihitung lagi, dan periodenya (${s.period_start} → ${s.period_end}) bisa diunggah ulang dengan file yang benar. Siapa yang menghapus, kapan, dan alasannya tetap tercatat di jejak audit.`)}
+              </p>
+              <textarea
+                id={`abandon-${s.statement_no}`}
+                value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+                placeholder={tr("Reason — e.g. wrong account, wrong opening balance, wrong file", "Alasan — mis. salah rekening, salah saldo awal, salah file")}
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm focus:border-brand-400 focus:outline-none"
+              />
+            </>
+          )}
+          <div className="mt-2 flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => { setAbandoning(false); setReason(""); }} disabled={busy}>
+              {tr("Cancel", "Batal")}
+            </Button>
+            {inLedger === 0 && (
+              <Button size="sm" variant="danger" icon={Trash2} onClick={abandon} disabled={busy || reason.trim() === ""}>
+                {busy ? tr("Deleting…", "Menghapus…") : tr("Delete this statement", "Hapus rekening koran ini")}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {abandoned && (
+        <p className="flex items-start gap-2 border-t border-slate-100 bg-slate-50 px-5 py-2.5 text-[12px] text-slate-700">
+          <Trash2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <span>
+            <strong>{tr("Deleted", "Dihapus")}</strong>{" "}
+            {tr(`by ${s.abandoned_by_name ?? "—"}, ${s.abandoned_at?.slice(0, 10) ?? ""}.`, `oleh ${s.abandoned_by_name ?? "—"}, ${s.abandoned_at?.slice(0, 10) ?? ""}.`)}{" "}
+            {tr("Reason:", "Alasan:")} <em>{s.abandoned_reason}</em>
+          </span>
+        </p>
+      )}
+
       <dl className="grid divide-y divide-slate-100 border-t border-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
         {([
-          [tr("Opening balance", "Saldo awal"), money(s.opening_balance), tr(`according to ${s.account_code}`, `menurut ${s.account_code}`)],
+          [tr("Opening balance", "Saldo awal"), money(s.opening_balance),
+            s.prev_statement_no == null ? tr(`according to ${s.account_code}`, `menurut ${s.account_code}`)
+              : s.continuity_ok ? tr(`continues ${s.prev_statement_no}`, `menyambung ${s.prev_statement_no}`)
+              : tr(`${s.prev_statement_no} closed at ${money(s.prev_closing_balance ?? 0)}`, `${s.prev_statement_no} ditutup ${money(s.prev_closing_balance ?? 0)}`)],
           [tr("Movements", "Mutasi"), `${s.movement >= 0 ? "+" : "−"}${money(Math.abs(s.movement))}`, tr(`${s.lines.length} row(s)`, `${s.lines.length} baris`)],
           [tr("Closing balance (bank)", "Saldo akhir (bank)"), money(s.closing_balance), tr("as printed on the statement", "tertulis di rekening koran")],
           [tr("Closing balance (computed)", "Saldo akhir (hitung)"), money(s.computed_closing),
@@ -156,6 +250,22 @@ function StatementCard({
         </p>
       )}
 
+      {!s.continuity_ok && (
+        <p className="flex items-start gap-2 border-t border-slate-100 bg-rose-50/70 px-5 py-2.5 text-[12px] text-rose-900">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <strong>{tr("Does not continue the statement before it.", "Tidak menyambung rekening koran sebelumnya.")}</strong>{" "}
+            {Math.abs(s.opening_balance - (s.prev_closing_balance ?? 0)) >= 0.005 && tr(
+              `Opening ${money(s.opening_balance)}, but ${s.prev_statement_no} closed at ${money(s.prev_closing_balance ?? 0)}.`,
+              `Saldo awal ${money(s.opening_balance)}, padahal ${s.prev_statement_no} ditutup ${money(s.prev_closing_balance ?? 0)}.`)}{" "}
+            {(s.gap_days ?? 0) > 0 && tr(`${s.gap_days} day(s) between them are in no statement.`, `${s.gap_days} hari di antaranya tidak ada di rekening koran mana pun.`)}{" "}
+            {s.continuity_reason
+              ? <>{tr("Reason given:", "Alasan:")} <em>{s.continuity_reason}</em></>
+              : tr("Uploaded before this was checked — no reason on record.", "Diunggah sebelum hal ini diperiksa — tidak ada alasan tercatat.")}
+          </span>
+        </p>
+      )}
+
       {s.awaiting_rate > 0 && (
         <p className="flex items-start gap-2 border-t border-slate-100 bg-amber-50/70 px-5 py-2.5 text-[12px] text-amber-900">
           <Coins className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -175,7 +285,7 @@ function StatementCard({
               {page.map((l) => (
                 <LineRow
                   key={l.id} line={l} statement={s}
-                  mayPost={mayPost} mayEdit={mayEdit} onChanged={onChanged}
+                  mayPost={mayPost && !abandoned} mayEdit={mayEdit && !abandoned} onChanged={onChanged}
                 />
               ))}
             </ul>

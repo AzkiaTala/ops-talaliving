@@ -302,6 +302,16 @@ export interface BankStatement {
   note: string | null;
   uploaded_by: string;
   uploaded_at: string;
+  /** Why this statement is allowed not to continue its neighbours — a hole in
+   *  the dates, or a balance that does not meet (0194). Null when it continues,
+   *  which is the ordinary case. */
+  continuity_reason: string | null;
+  /** A wrong upload taken back out (0195): status ABANDONED, never deleted.
+   *  Out of the chain, its period free for the corrected file, its lines no
+   *  longer anybody's to decide. Null on every statement still in use. */
+  abandoned_reason: string | null;
+  abandoned_at: string | null;
+  abandoned_by: string | null;
 }
 
 /** Where one line of the statement has got to. */
@@ -379,6 +389,16 @@ export interface BankStatementView extends BankStatement {
   /** Lines in a foreign currency with no rate typed yet: they cannot reach the
    *  ledger, and the screen says which (D181). */
   awaiting_rate: number;
+  /** The statement this one continues — same account, same currency, the
+   *  latest that ends before it starts. Null for the first on the account. */
+  prev_statement_no: string | null;
+  prev_closing_balance: number | null;
+  /** Days between the previous statement's end and this one's start that no
+   *  statement covers. 0 when they meet; null when there is no previous. */
+  gap_days: number | null;
+  /** Opening equals the previous closing and no day is missing (0194). */
+  continuity_ok: boolean;
+  abandoned_by_name: string | null;
 }
 
 /* ------------------------------------------------------------------ */

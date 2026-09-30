@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Upload, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Upload, FileSpreadsheet, AlertTriangle, Link2 } from "lucide-react";
 import { Modal } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/primitives";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -10,6 +10,7 @@ import { formatNumber } from "@/lib/format";
 import { accounting } from "@/demo/api";
 import { parseCsv } from "@/lib/csv";
 import type { Direction } from "@/services/accounting/contracts";
+import { continuityProblems, describeProblem, overlapping, type ChainStatement } from "@/services/accounting/continuity";
 import { useToast } from "@/store/toast";
 import { useTr } from "@/lib/i18n";
 
@@ -116,8 +117,36 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
   const { toast } = useToast();
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
   const [file, setFile] = useState<{ name: string; rows: Row[]; skipped: number } | null>(null);
-  const [form, setForm] = useState({ account_code: "BCA 064", opening: 0, closing: 0, note: "" });
+  const [statements] = useLoad(() => accounting.listStatements(), []);
+  const [form, setForm] = useState({ account_code: "BCA 064", opening: 0, closing: 0, note: "", reason: "" });
   const [busy, setBusy] = useState(false);
+
+  /* The chain this upload has to continue (0194). Statements are matched by
+     account code on both sides, so `account_id` here is the code. */
+  const currency = (accounts.status === "ready"
+    ? accounts.data.find((a) => a.code === form.account_code)?.currency : undefined) ?? "IDR";
+  const chain: ChainStatement[] = useMemo(() => statements.status === "ready"
+    ? statements.data.map((s) => ({ ...s, account_id: s.account_code }))
+    : [], [statements]);
+  const latest = chain
+    .filter((s) => s.account_id === form.account_code && s.currency === currency && s.status !== "ABANDONED")
+    .sort((a, b) => b.period_end.localeCompare(a.period_end))[0] ?? null;
+
+  /* An account starts from where its last statement closed. The number follows
+     the account while it is still the one the form put there; once somebody
+     types their own, it is theirs and is never overwritten. QA 2026-09-30: the
+     form opened on BCA 064, filled in 064's closing, and kept it after the
+     account was switched to BNI 325 — another account's balance, presented as
+     this one's opening. */
+  const [openingAuto, setOpeningAuto] = useState(true);
+  const latestNo = latest?.statement_no ?? null;
+  useEffect(() => {
+    if (openingAuto || form.opening === 0) {
+      setForm((f) => ({ ...f, opening: latest?.closing_balance ?? 0 }));
+      setOpeningAuto(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestNo, form.account_code]);
 
   async function read(f: File) {
     const { rows, skipped } = parseStatement(await f.text());
@@ -131,9 +160,16 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
   const computed = form.opening + movement;
   const balanced = file != null && Math.abs(computed - form.closing) < 0.01;
 
+  const dates = file?.rows.map((r) => r.value_date).sort() ?? [];
+  const period = dates.length > 0
+    ? { account_id: form.account_code, currency, period_start: dates[0], period_end: dates[dates.length - 1] }
+    : null;
+  const overlap = period ? overlapping(chain, period) : null;
+  const problems = period ? continuityProblems(chain, { ...period, opening: form.opening, closing: form.closing }) : [];
+  const needsReason = problems.length > 0 && form.reason.trim() === "";
+
   async function run() {
     if (!file || file.rows.length === 0) return;
-    const dates = file.rows.map((r) => r.value_date).sort();
     const account = accounts.status === "ready"
       ? accounts.data.find((a) => a.code === form.account_code)
       : undefined;
@@ -146,6 +182,7 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
       currency: account?.currency ?? "IDR",
       filename: file.name,
       note: form.note || null,
+      continuity_reason: problems.length > 0 ? form.reason.trim() : null,
       rows: file.rows,
     });
     setBusy(false);
@@ -169,10 +206,10 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
       title={tr("Upload a bank statement", "Upload rekening koran")}
       footer={
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-slate-500">{tr("The same period cannot be uploaded twice.", "Periode yang sama tidak bisa diunggah dua kali.")}</p>
+          <p className="text-[11px] text-slate-500">{tr("A statement continues the one before it: no overlap, no missing days.", "Rekening koran menyambung yang sebelumnya: tidak bertumpuk, tidak ada hari yang hilang.")}</p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={busy}>{tr("Cancel", "Batal")}</Button>
-            <Button icon={Upload} onClick={run} disabled={busy || !file || file.rows.length === 0 || form.closing === 0}>
+            <Button icon={Upload} onClick={run} disabled={busy || !file || file.rows.length === 0 || form.closing === 0 || overlap != null || needsReason}>
               {busy ? tr("Reading…", "Membaca…") : file ? tr(`Import ${file.rows.length} row(s)`, `Masukkan ${file.rows.length} baris`) : tr("Import", "Masukkan")}
             </Button>
           </div>
@@ -211,10 +248,29 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
           />
         </div>
 
+        {latest ? (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
+            <Link2 className="h-3.5 w-3.5 text-slate-400" />
+            {tr("Continues", "Menyambung")} <span className="font-medium text-slate-800">{latest.statement_no}</span>
+            · {tr("ended", "berakhir")} {latest.period_end} · {tr("closing", "saldo akhir")}
+            <span className="font-semibold tabular-nums text-slate-800">{formatNumber(latest.closing_balance)}</span>
+            {form.opening !== latest.closing_balance && (
+              <button type="button" onClick={() => { setForm({ ...form, opening: latest.closing_balance }); setOpeningAuto(true); }}
+                className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-brand-700 hover:border-brand-300">
+                {tr("Use as opening", "Pakai sebagai saldo awal")}
+              </button>
+            )}
+          </p>
+        ) : statements.status === "ready" && (
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-[12px] text-slate-500">
+            {tr(`The first statement for ${form.account_code} — nothing to continue.`, `Rekening koran pertama untuk ${form.account_code} — belum ada yang disambung.`)}
+          </p>
+        )}
+
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="block">
             <span className="block text-xs text-slate-500">{tr("Opening balance (from the statement)", "Saldo awal (dari rekening koran)")}</span>
-            <div className="mt-1"><MoneyInput value={form.opening} onChange={(v) => setForm({ ...form, opening: v })} /></div>
+            <div className="mt-1"><MoneyInput value={form.opening} onChange={(v) => { setForm({ ...form, opening: v }); setOpeningAuto(false); }} /></div>
           </label>
           <label className="block">
             <span className="block text-xs text-slate-500">{tr("Closing balance (from the statement)", "Saldo akhir (dari rekening koran)")}</span>
@@ -265,6 +321,36 @@ export function ImportStatement({ onClose, onDone }: { onClose: () => void; onDo
               ))}
               {file.rows.length > 5 && <li className="text-slate-400">{tr(`+${file.rows.length - 5} more row(s)`, `+${file.rows.length - 5} baris lagi`)}</li>}
             </ul>
+          </div>
+        )}
+
+        {overlap && (
+          <p className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-800">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {tr(`The file's dates overlap ${overlap.statement_no} (${overlap.period_start} → ${overlap.period_end}). A day in two statements can be booked twice, so this cannot be uploaded.`,
+              `Tanggal di file ini bertumpuk dengan ${overlap.statement_no} (${overlap.period_start} → ${overlap.period_end}). Satu hari di dua rekening koran bisa terbukukan dua kali, jadi file ini tidak bisa diunggah.`)}
+          </p>
+        )}
+
+        {!overlap && problems.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+            <p className="flex items-center gap-1.5 font-medium">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {tr("This statement does not continue the chain", "Rekening koran ini tidak bersambung")}
+            </p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5">
+              {problems.map((p, i) => <li key={i}>{describeProblem(p, formatNumber)}</li>)}
+            </ul>
+            <p className="mt-1.5 text-[11px] text-amber-800">
+              {tr("Check the balances and the period first. If it really is so — a new account, a month the bank never sent — write down why. The reason stays on the statement.",
+                "Periksa dulu saldo dan periodenya. Bila memang begitu — rekening baru, bulan yang tidak dikirim bank — tulis alasannya. Alasan ini tersimpan di rekening koran.")}
+            </p>
+            <textarea
+              id="rk-continuity-reason"
+              value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2}
+              placeholder={tr("Reason (required to upload)", "Alasan (wajib untuk mengunggah)")}
+              className="mt-1.5 w-full rounded-lg border border-amber-300 bg-white px-2 py-1.5 text-sm text-slate-800 focus:border-amber-500 focus:outline-none"
+            />
           </div>
         )}
 

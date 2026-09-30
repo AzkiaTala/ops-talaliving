@@ -1959,6 +1959,8 @@ export async function importStatement(
     filename: string;
     attachment_id?: string | null;
     note?: string | null;
+    /** Why the statement may break the chain (0194). Only kept when it does. */
+    continuity_reason?: string | null;
     rows: {
       value_date: string; direction: Direction; amount: number;
       raw_description: string; balance_after?: number | null;
@@ -1978,10 +1980,26 @@ export async function importStatement(
     p_attachment_id: input.attachment_id ?? null,
     p_note: input.note ?? null,
     p_key: idempotencyKey ?? null,
+    p_continuity_reason: input.continuity_reason ?? null,
   });
   const res = fromSeam<{ statement_no: string }>(SERVICE, data, error);
   if (res.error) return res;
   return getStatement(res.data.statement_no);
+}
+
+/** Taking a wrong upload back out (0195) — abandoned, never deleted. */
+export async function abandonStatement(
+  input: { statement_no: string; reason: string },
+  idempotencyKey?: string,
+): Promise<Result<BankStatementView>> {
+  const { data, error } = await db().rpc("abandon_statement", {
+    p_statement_no: input.statement_no,
+    p_reason: input.reason,
+    p_key: idempotencyKey ?? null,
+  });
+  const res = fromSeam<{ statement_no: string }>(SERVICE, data, error);
+  if (res.error) return res;
+  return getStatement(input.statement_no);
 }
 
 /** The rate for one foreign line. Typed, never looked up (D181). */

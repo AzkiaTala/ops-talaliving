@@ -46,6 +46,7 @@ import { contributionRoll } from "./hr-derive";
 import type { ContributionScheme, ContributionAuditGroup } from "@/services/hr/contracts";
 import { SCHEME_LABELS, COMPUTED_SCHEMES } from "@/services/hr/contracts";
 import { settingNumber } from "./settings";
+import { neighbours, STATEMENT_TOLERANCE } from "@/services/accounting/continuity";
 
 /** One definition, read from settings — never a literal repeated in three
  *  files, which is how `john-lau` ended up with three different tolerances. */
@@ -1742,6 +1743,26 @@ export function bankStatementView(state: DemoState, statement: BankStatement): B
     matched: lines.filter((l) => l.status === "matched").length,
     ignored: lines.filter((l) => l.status === "ignored").length,
     awaiting_rate: lines.filter((l) => l.status === "unmatched" && l.amount_idr == null).length,
+    ...statementChain(state, statement),
+    abandoned_by_name: statement.abandoned_at
+      ? state.users.find((u) => u.id === statement.abandoned_by)?.full_name ?? "—" : null,
+  };
+}
+
+/** The same four columns `v_bank_statement` adds in 0194, from the same rule
+ *  (`src/services/accounting/continuity.ts`). */
+function statementChain(state: DemoState, s: BankStatement) {
+  const { prev } = neighbours(state.bank_statements, {
+    account_id: s.account_id, currency: s.currency,
+    period_start: s.period_start, period_end: s.period_end, exclude: s.id,
+  });
+  const gap = prev ? daysApartIso(prev.period_end, s.period_start) - 1 : null;
+  return {
+    prev_statement_no: prev?.statement_no ?? null,
+    prev_closing_balance: prev?.closing_balance ?? null,
+    gap_days: gap,
+    continuity_ok: s.status === "ABANDONED" || !prev
+      || (Math.abs(s.opening_balance - prev.closing_balance) <= STATEMENT_TOLERANCE && gap === 0),
   };
 }
 

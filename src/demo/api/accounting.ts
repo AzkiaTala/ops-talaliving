@@ -1,5 +1,5 @@
 /** Implements `/api/v1/accounting` from `03-api.md`. */
-import { ok, noop, invalid, notFound, type Result } from "@/services/_shared/envelope";
+import { ok, noop, invalid, notFound, refused, type Result } from "@/services/_shared/envelope";
 import type { ContributionAuditGroup } from "@/services/hr/contracts";
 import type {
   Account, AccountBalance, Transaction, TransactionView, TransactionTypeCode,
@@ -23,6 +23,7 @@ import {
 } from "../derive";
 import { latency, actingUser, requireAuthority, requireModule, requireLevel, conflict, replayed, remember, paged } from "./_kit";
 import { PRIMARY_DOC_KINDS, COMPLETION_DOC_KINDS, type DocKind } from "@/services/documents/contracts";
+import { overlapping, continuityProblems, describeProblem } from "@/services/accounting/continuity";
 import * as procurement from "./procurement";
 import { link as linkDocument } from "./documents";
 
@@ -2000,6 +2001,8 @@ export async function importStatement(
     filename: string;
     attachment_id?: string | null;
     note?: string | null;
+    /** Why the statement may break the chain (0194). Only kept when it does. */
+    continuity_reason?: string | null;
     rows: {
       value_date: string; direction: Direction; amount: number;
       raw_description: string; balance_after?: number | null;
@@ -2025,12 +2028,39 @@ export async function importStatement(
      mistake available on this screen. */
   const clash = state.bank_statements.find(
     (s) => s.account_id === account.id
-      && s.period_start === input.period_start && s.period_end === input.period_end,
+      && s.period_start === input.period_start && s.period_end === input.period_end
+      /* An abandoned upload (0195) no longer holds its period. */
+      && s.status !== "ABANDONED",
   );
   if (clash) {
     return conflict(
       SERVICE, "period_already_uploaded",
       `${clash.statement_no} sudah memuat ${input.period_start} → ${input.period_end} untuk ${account.code}.`,
+    );
+  }
+
+  /* The chain (0194, `src/services/accounting/continuity.ts`). A day in two
+     statements is refused whatever the reason; a hole or a balance that does
+     not meet is refused unless somebody writes down why. */
+  const currency = input.currency || account.currency;
+  const period = { account_id: account.id, currency, period_start: input.period_start, period_end: input.period_end };
+  const over = overlapping(state.bank_statements, period);
+  if (over) {
+    return conflict(
+      SERVICE, "period_overlaps",
+      `Periode ${input.period_start} → ${input.period_end} bertumpuk dengan ${over.statement_no} untuk ${account.code}. Satu hari di dua rekening koran bisa terbukukan dua kali.`,
+      { field: "period_start", statement_no: over.statement_no },
+    );
+  }
+  const problems = continuityProblems(state.bank_statements, {
+    ...period, opening: input.opening_balance, closing: input.closing_balance,
+  });
+  const reason = input.continuity_reason?.trim() || null;
+  if (problems.length > 0 && !reason) {
+    return invalid(
+      SERVICE, "continuity_broken",
+      `Rekening koran ${account.code} ini tidak bersambung: ${problems.map((p) => describeProblem(p, String)).join("; ")}. Periksa saldo dan periodenya, atau tulis alasannya bila memang begitu.`,
+      { field: "opening_balance", problems },
     );
   }
 
@@ -2049,6 +2079,10 @@ export async function importStatement(
       attachment_id: input.attachment_id ?? null,
       note: input.note?.trim() || null,
       uploaded_by: user.id, uploaded_at: new Date().toISOString(),
+      /* Only kept when it was needed: a reason typed against an intact chain
+         would read later as an exception that never happened. */
+      continuity_reason: problems.length > 0 ? reason : null,
+      abandoned_reason: null, abandoned_at: null, abandoned_by: null,
     });
     input.rows.forEach((r, i) => {
       draft.statement_lines.push({
@@ -2067,12 +2101,67 @@ export async function importStatement(
     writeAudit(draft, {
       service: SERVICE, entity: "bank_statement", entity_no: no,
       action: "import", outcome: "ok", reason: null,
-      detail: { account: account.code, rows: input.rows.length, period: `${input.period_start}…${input.period_end}`, by: user.email },
+      detail: {
+        account: account.code, rows: input.rows.length, period: `${input.period_start}…${input.period_end}`, by: user.email,
+        ...(problems.length > 0 ? { continuity_problems: problems, continuity_reason: reason } : {}),
+      },
     });
   });
 
   const view = await getStatement(no);
   if (view.data) remember(SERVICE, "importStatement", idempotencyKey, view.data);
+  return view;
+}
+
+/** Taking a wrong upload back out (0195). **Abandoned, never deleted**: the
+ *  statement stays with who, when and why; it leaves the chain, frees its
+ *  period, and its lines can no longer be decided. Refused while any line is
+ *  in the ledger — void those transactions first. */
+export async function abandonStatement(
+  input: { statement_no: string; reason: string },
+  idempotencyKey?: string,
+): Promise<Result<BankStatementView>> {
+  await latency();
+  const cached = replayed<BankStatementView>(SERVICE, "abandonStatement", idempotencyKey);
+  if (cached) return cached;
+
+  const denied = requireLevel(SERVICE, "accounting", "write");
+  if (denied) return denied;
+
+  const state = getState();
+  const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
+  if (!st) return notFound(SERVICE, "statement_not_found", `Tidak ada rekening koran ${input.statement_no}.`);
+  if (st.status === "ABANDONED") return getStatement(st.statement_no);
+  const reason = input.reason.trim();
+  if (!reason) {
+    return invalid(SERVICE, "reason_required", "Tulis kenapa rekening koran ini dihapus — mis. salah rekening, salah saldo, salah file.", { field: "reason" });
+  }
+  const decided = state.statement_lines.filter((l) => l.statement_id === st.id && (l.status === "matched" || l.status === "booked")).length;
+  if (decided > 0) {
+    return refused(
+      SERVICE, "lines_in_ledger",
+      `${decided} baris dari ${st.statement_no} sudah masuk atau ditautkan ke buku besar. Void dulu transaksi yang dibukukan dari rekening koran ini, baru hapus.`,
+      { decided_lines: decided },
+    );
+  }
+
+  const user = actingUser();
+  apply((draft) => {
+    const row = draft.bank_statements.find((s) => s.id === st.id);
+    if (!row) return;
+    row.status = "ABANDONED";
+    row.abandoned_reason = reason;
+    row.abandoned_at = new Date().toISOString();
+    row.abandoned_by = user.id;
+    writeAudit(draft, {
+      service: SERVICE, entity: "bank_statement", entity_no: st.statement_no,
+      action: "abandon", outcome: "ok", reason,
+      detail: { period: `${st.period_start}…${st.period_end}`, by: user.email },
+    });
+  });
+
+  const view = await getStatement(st.statement_no);
+  if (view.data) remember(SERVICE, "abandonStatement", idempotencyKey, view.data);
   return view;
 }
 
@@ -2092,6 +2181,9 @@ export async function setStatementRate(
   const state = getState();
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
+  if (st.status === "ABANDONED") {
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+  }
   const line = state.statement_lines.find((l) => l.id === input.line_id);
   if (!line) return notFound(SERVICE, "line_not_found", "Baris itu tidak ada.");
   if (line.status === "booked") {
@@ -2124,6 +2216,9 @@ export async function matchStatementLine(
   const state = getState();
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
+  if (st.status === "ABANDONED") {
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+  }
   const trx = state.transactions.find((t) => t.trx_no === input.trx_no);
   if (!trx) return notFound(SERVICE, "trx_not_found", `No ledger row ${input.trx_no}.`);
   const taken = state.statement_lines.find((l) => l.trx_no === input.trx_no && l.id !== input.line_id);
@@ -2172,6 +2267,9 @@ export async function bookStatementLine(
   const state = getState();
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
+  if (st.status === "ABANDONED") {
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+  }
   const line = state.statement_lines.find((l) => l.id === input.line_id);
   if (!line) return notFound(SERVICE, "line_not_found", "Baris itu tidak ada.");
   if (line.status !== "unmatched") {
@@ -2257,6 +2355,9 @@ export async function ignoreStatementLine(
   const state = getState();
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
+  if (st.status === "ABANDONED") {
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+  }
 
   const user = actingUser();
   apply((draft) => {

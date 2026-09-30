@@ -8223,3 +8223,38 @@ model's 20 % became the owner's 15 % and the yield's 25 %, a cited
 *Kontingensi* was not taken as waste, and an unbacked 12 % stayed with a
 warning. **Not verified here:** a real model reading a real drawing, as in
 D324. The stub was reverted before commit.
+
+## F195 · 2026-09-30 · a statement that matched itself and lost half a billion to the one before it
+
+`import_statement` (0025) checked one file against itself: opening plus the
+lines equals the closing the bank printed. QA uploaded BCA 064 for 8–21
+September with an opening of Rp 0 after a statement that closed at
+Rp 508.855.500. The lines added up to the closing typed beside them, so the
+card said *cocok*, and nothing anywhere compared the new opening with the old
+closing. For the leadership accounts the statement is the ledger (D180), so
+the gap was in the books, not only on the screen.
+
+Reading the seam for that found a second road to the same place: only the
+**exact** same period was refused. 25 Aug–7 Sep followed by 1–15 Sep went
+through, and every movement on the seven shared days could be booked twice.
+
+`0194` makes the statements of one account and currency a chain (D339):
+overlap refused always, a hole or an unmatched balance refused unless a
+reason is written, and the view flags statements already uploaded. The rule
+is stated twice, in `ops_acct.import_statement` and in
+`src/services/accounting/continuity.ts`, and `194_acct_statement_continuity.sql`
+is the battery for the database half.
+
+**Left alone on purpose, and worth its own change:** `balance_ok` on
+`v_bank_statement` still compares with `ops_core.money_tolerance()`, which is
+the Rp 1.000 *payment* tolerance. 00-context §B gives statement balancing a
+tolerance of zero, the demo uses 0,01, and on a dollar statement the database
+accepts a file that is up to 1.000 dollars short as *matches*. The continuity
+check does not reuse it (`ops_acct.statement_tolerance()`).
+
+**Not verified here:** the migration and the smoke file were not run. This
+machine's Postgres 18 fails `initdb` and Docker is unavailable, so the ladder
+and smoke suite run in CI (`database` job). The TypeScript rule was checked
+against the QA case, a clean continuation, a hole, an overlap, another
+currency and a back-filled month.
+
