@@ -318,9 +318,6 @@ function ProjectCost({ code }: { code: string }) {
                                     "Angka ini termasuk yang tidak ada di BOM — jasa pasang, ongkos kirim, subkontrak. Perbandingan proyeksi vs aktual di atas sengaja hanya memakai bahan, supaya dua sisi yang dibandingkan sama isinya. Upah tetap belum dialokasikan ke proyek sama sekali.",
                                   )}
                                 </p>
-                                <Link href="/accounting/liquidation">
-                                  <Button size="sm" variant="outline" className="mt-2">{tr("See the details in liquidation", "Lihat rinciannya di likuidasi")}</Button>
-                                </Link>
                               </div>
                             </Card>
                           </>

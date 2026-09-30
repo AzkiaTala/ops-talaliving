@@ -3,7 +3,7 @@ import {
   BellRing, FileSignature,
   LayoutDashboard, Users, CalendarCheck, MapPin, FileBadge, Wallet,
   ShoppingCart, ClipboardList, FileText, PackageCheck, Boxes, TreePine,
-  Landmark, BookOpen, TrendingUp, PiggyBank, Receipt,
+  Landmark, BookOpen, PiggyBank, Receipt,
   Megaphone, UserRound, Target, HandCoins, MessageSquare,
   FolderKanban, Hammer, Truck, Wrench, Stamp, Package,
   PencilRuler, ListTree, ListChecks, CalendarClock, CalendarRange, Link2,
@@ -124,7 +124,11 @@ export const NAV: NavSection[] = [
     items: [
       { label: "Rekening koran", labelKey: "statements", href: "/accounting/rekening-koran", icon: Landmark, permission: "accounting.read", badge: "new" },
       { label: "Ledger", labelKey: "ledger", href: "/accounting/ledger", icon: BookOpen, permission: "accounting.read", badge: "core" },
-      { label: "Liquidation", labelKey: "liquidation", href: "/accounting/liquidation", icon: TrendingUp, permission: "accounting.read", badge: "new" },
+      /* Liquidation (/accounting/liquidation) hidden, QA 2026-09-30: it has no
+         live backend yet (demo-only, D106) and the owner asked for it out of
+         the menu until it does. The route still exists; put the line back to
+         show it: { label: "Liquidation", labelKey: "liquidation", href:
+         "/accounting/liquidation", icon: TrendingUp, permission: "accounting.read" } */
       { label: "Payment Calendar", labelKey: "calendar", href: "/accounting/calendar", icon: PiggyBank, permission: "accounting.read", badge: "new" },
       { label: "Monthly bills", labelKey: "monthlyBills", href: "/accounting/tagihan", icon: CalendarClock, permission: "accounting.read", badge: "new" },
       { label: "Documents", labelKey: "documents", href: "/accounting/documents", icon: FileBadge, permission: "accounting.read" },
