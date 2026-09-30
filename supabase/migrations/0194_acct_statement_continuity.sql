@@ -56,6 +56,7 @@ alter table ops_acct.bank_statements
 
 create or replace function ops_acct.statement_tolerance()
 returns numeric language sql immutable set search_path = pg_temp as $$ select 0.005::numeric $$;
+revoke execute on function ops_acct.statement_tolerance() from public;
 grant execute on function ops_acct.statement_tolerance() to authenticated;
 
 -- The neighbours of a period, for one account and currency. One definition, so
@@ -87,6 +88,7 @@ language sql stable security invoker set search_path = ops_acct, pg_temp as $$
        order by s.period_start asc limit 1) n on true
 $$;
 
+revoke execute on function ops_acct.statement_neighbours(uuid, text, date, date, uuid) from public;
 grant execute on function ops_acct.statement_neighbours(uuid, text, date, date, uuid) to authenticated;
 
 -- ── the seam ──────────────────────────────────────────────────────────────
@@ -254,6 +256,11 @@ begin
   return ops_core.idem_remember('accounting','import_statement', p_key, v_res);
 end $$;
 
+-- A function is executable by PUBLIC — `anon` included, the key in every
+-- browser — the moment it is created (0125, A2_core_execute_grants).
+revoke execute on function
+  ops_acct.import_statement(text, date, date, numeric, numeric, text, text, jsonb, uuid, text, text, text)
+  from public;
 grant execute on function
   ops_acct.import_statement(text, date, date, numeric, numeric, text, text, jsonb, uuid, text, text, text)
   to authenticated;

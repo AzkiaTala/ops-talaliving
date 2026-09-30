@@ -44,7 +44,7 @@ begin
   assert r ->> 'outcome' = 'noop', format('twice is a noop, got %s', r);
 
   -- Its lines are nobody's to decide now.
-  select id into v_line from ops_acct.statement_lines sl
+  select sl.id into v_line from ops_acct.statement_lines sl
     join ops_acct.bank_statements s on s.id = sl.statement_id where s.statement_no = v_wrong;
   begin
     r := ops_acct.ignore_statement_line(v_line, 'coba');

@@ -83,6 +83,7 @@ begin
   return ops_core.idem_remember('accounting','abandon_statement:' || p_statement_no, p_key, v_res);
 end $$;
 
+revoke execute on function ops_acct.abandon_statement(text, text, text) from public;
 grant execute on function ops_acct.abandon_statement(text, text, text) to authenticated;
 
 -- ── an abandoned statement's lines are not anybody's to decide ────────────
