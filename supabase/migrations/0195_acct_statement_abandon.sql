@@ -41,7 +41,7 @@ begin
 
   if not ops_core.has_permission('accounting.update') then
     return ops_core.refused('accounting','bank_statement', p_statement_no,'abandon',
-      'permission_required','Menghapus rekening koran adalah pekerjaan Accounting.');
+      'permission_required','Me-void rekening koran adalah pekerjaan Accounting.');
   end if;
 
   select * into v_s from ops_acct.bank_statements where statement_no = p_statement_no for update;
@@ -55,7 +55,7 @@ begin
   end if;
   if v_reason is null then
     return ops_core.invalid('accounting','bank_statement', p_statement_no,'abandon',
-      'reason_required','Tulis kenapa rekening koran ini dihapus — mis. salah rekening, salah saldo, salah file.',
+      'reason_required','Tulis kenapa rekening koran ini di-void — mis. salah rekening, salah saldo, salah file.',
       jsonb_build_object('field','reason'));
   end if;
 
@@ -64,7 +64,7 @@ begin
   if v_decided > 0 then
     return ops_core.refused('accounting','bank_statement', p_statement_no,'abandon',
       'lines_in_ledger',
-      format('%s baris dari %s sudah masuk atau ditautkan ke buku besar. Void dulu transaksi yang dibukukan dari rekening koran ini, baru hapus.',
+      format('%s baris dari %s sudah masuk atau ditautkan ke buku besar. Void dulu transaksi yang dibukukan dari rekening koran ini, baru void rekening koran ini.',
              v_decided, p_statement_no),
       jsonb_build_object('decided_lines', v_decided));
   end if;

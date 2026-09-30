@@ -2134,13 +2134,13 @@ export async function abandonStatement(
   if (st.status === "ABANDONED") return getStatement(st.statement_no);
   const reason = input.reason.trim();
   if (!reason) {
-    return invalid(SERVICE, "reason_required", "Tulis kenapa rekening koran ini dihapus — mis. salah rekening, salah saldo, salah file.", { field: "reason" });
+    return invalid(SERVICE, "reason_required", "Tulis kenapa rekening koran ini di-void — mis. salah rekening, salah saldo, salah file.", { field: "reason" });
   }
   const decided = state.statement_lines.filter((l) => l.statement_id === st.id && (l.status === "matched" || l.status === "booked")).length;
   if (decided > 0) {
     return refused(
       SERVICE, "lines_in_ledger",
-      `${decided} baris dari ${st.statement_no} sudah masuk atau ditautkan ke buku besar. Void dulu transaksi yang dibukukan dari rekening koran ini, baru hapus.`,
+      `${decided} baris dari ${st.statement_no} sudah masuk atau ditautkan ke buku besar. Void dulu transaksi yang dibukukan dari rekening koran ini, baru void rekening koran ini.`,
       { decided_lines: decided },
     );
   }
@@ -2182,7 +2182,7 @@ export async function setStatementRate(
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
   if (st.status === "ABANDONED") {
-    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah di-void — barisnya tidak diputuskan lagi.`);
   }
   const line = state.statement_lines.find((l) => l.id === input.line_id);
   if (!line) return notFound(SERVICE, "line_not_found", "Baris itu tidak ada.");
@@ -2217,7 +2217,7 @@ export async function matchStatementLine(
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
   if (st.status === "ABANDONED") {
-    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah di-void — barisnya tidak diputuskan lagi.`);
   }
   const trx = state.transactions.find((t) => t.trx_no === input.trx_no);
   if (!trx) return notFound(SERVICE, "trx_not_found", `No ledger row ${input.trx_no}.`);
@@ -2268,7 +2268,7 @@ export async function bookStatementLine(
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
   if (st.status === "ABANDONED") {
-    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah di-void — barisnya tidak diputuskan lagi.`);
   }
   const line = state.statement_lines.find((l) => l.id === input.line_id);
   if (!line) return notFound(SERVICE, "line_not_found", "Baris itu tidak ada.");
@@ -2356,7 +2356,7 @@ export async function ignoreStatementLine(
   const st = state.bank_statements.find((s) => s.statement_no === input.statement_no);
   if (!st) return notFound(SERVICE, "statement_not_found", `No statement ${input.statement_no}.`);
   if (st.status === "ABANDONED") {
-    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah dihapus — barisnya tidak diputuskan lagi.`);
+    return conflict(SERVICE, "statement_abandoned", `${st.statement_no} sudah di-void — barisnya tidak diputuskan lagi.`);
   }
 
   const user = actingUser();
