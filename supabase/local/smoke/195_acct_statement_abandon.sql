@@ -69,7 +69,7 @@ begin
   -- marked matched directly (as the table owner) — how it got there is
   -- 09_acct_statement's business, not this file's.
   execute 'reset role';
-  update ops_acct.statement_lines set status = 'matched'
+  update ops_acct.statement_lines set status = 'matched', trx_no = 'trx-26-10-10_001'
    where statement_id = (select id from ops_acct.bank_statements where statement_no = r #>> '{data,statement_no}');
   execute 'set local role authenticated';
   r := ops_acct.abandon_statement(r #>> '{data,statement_no}', 'salah');
