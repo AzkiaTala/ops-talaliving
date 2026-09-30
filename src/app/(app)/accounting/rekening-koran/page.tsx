@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Landmark, AlertTriangle, Upload, Link2, Plus, EyeOff, Coins, Trash2 } from "lucide-react";
+import { Landmark, AlertTriangle, Upload, Link2, Plus, EyeOff, Coins, Pencil, Ban } from "lucide-react";
 import { Badge, Button, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 import { Loaded, SourceBadge, useLoad } from "@/components/ui/loaded";
 import { Paged } from "@/components/ui/pager";
@@ -39,7 +39,7 @@ export default function StatementsPage() {
   const [statements, reload] = useLoad(() => accounting.listStatements(), []);
   const [open, setOpen] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
-  const [showDeleted, setShowDeleted] = useState(false);
+  const [showVoided, setShowVoided] = useState(false);
   const mayPost = hasAuthority("post_ledger");
   const mayEdit = can("accounting.update");
 
@@ -59,11 +59,12 @@ export default function StatementsPage() {
 
       <Loaded state={statements} onRetry={reload}>
         {(everything) => {
-          /* A deleted upload (ABANDONED, 0195) is kept for the audit trail but
-             is out of the way: it no longer counts, so it no longer takes a
-             place in the list unless somebody asks to see it. */
-          const deleted = everything.filter((s) => s.status === "ABANDONED");
-          const all = showDeleted ? everything : everything.filter((s) => s.status !== "ABANDONED");
+          /* A voided statement (ABANDONED, 0195) is kept for the audit trail
+             but is out of the way: it no longer counts, so it no longer takes a
+             place in the list unless somebody asks to see it — the same as a
+             voided row on the ledger behind *Include voided*. */
+          const voided = everything.filter((s) => s.status === "ABANDONED");
+          const all = showVoided ? everything : everything.filter((s) => s.status !== "ABANDONED");
           return (
           <div className="space-y-4">
             {all.map((s) => (
@@ -90,12 +91,12 @@ export default function StatementsPage() {
                 </p>
               </Card>
             )}
-            {deleted.length > 0 && (
-              <button type="button" onClick={() => setShowDeleted(!showDeleted)}
+            {voided.length > 0 && (
+              <button type="button" onClick={() => setShowVoided(!showVoided)}
                 className="text-[12px] font-medium text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
-                {showDeleted
-                  ? tr("Hide deleted uploads", "Sembunyikan unggahan yang dihapus")
-                  : tr(`Show deleted uploads (${deleted.length})`, `Tampilkan unggahan yang dihapus (${deleted.length})`)}
+                {showVoided
+                  ? tr("Hide voided statements", "Sembunyikan rekening koran yang di-void")
+                  : tr(`Show voided statements (${voided.length})`, `Tampilkan rekening koran yang di-void (${voided.length})`)}
               </button>
             )}
           </div>
@@ -132,10 +133,10 @@ function StatementCard({
     const res = await accounting.abandonStatement({ statement_no: s.statement_no, reason });
     setBusy(false);
     if (res.error) {
-      toast(res.error.status === 403 ? "critical" : "warning", tr("Not deleted", "Tidak jadi dihapus"), res.error.message);
+      toast(res.error.status === 403 ? "critical" : "warning", tr("Not voided", "Tidak jadi di-void"), res.error.message);
       return;
     }
-    toast("success", tr(`${s.statement_no} deleted`, `${s.statement_no} dihapus`),
+    toast("success", tr(`${s.statement_no} voided`, `${s.statement_no} di-void`),
       tr("Its period is free: upload the correct file.", "Periodenya kosong lagi: unggah file yang benar."));
     setAbandoning(false);
     onChanged();
@@ -152,10 +153,10 @@ function StatementCard({
         icon={Landmark}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            {abandoned && <Badge tone="slate">{tr("Deleted", "Dihapus")}</Badge>}
+            {abandoned && <Badge tone="slate">{tr("Voided", "Void")}</Badge>}
             {!abandoned && mayEdit && !abandoning && (
-              <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setAbandoning(true)}>
-                {tr("Delete", "Hapus")}
+              <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setAbandoning(true)}>
+                {tr("Edit", "Edit")}
               </Button>
             )}
             {!s.continuity_ok && <Badge tone="red">{tr("Not continuous", "Tidak bersambung")}</Badge>}
@@ -174,14 +175,14 @@ function StatementCard({
           {inLedger > 0 ? (
             <p className="flex items-start gap-1.5 text-rose-800">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {tr(`${inLedger} row(s) of this statement are already in the ledger or tied to it, so it cannot be deleted. Void the transactions booked from it first.`,
-                `${inLedger} baris dari rekening koran ini sudah masuk atau ditautkan ke buku besar, jadi tidak bisa dihapus. Void dulu transaksi yang dibukukan dari sini.`)}
+              {tr(`${inLedger} row(s) of this statement are already in the ledger or tied to it, so it cannot be voided. Void the transactions booked from it in the ledger first.`,
+                `${inLedger} baris dari rekening koran ini sudah masuk atau ditautkan ke buku besar, jadi tidak bisa di-void. Void dulu transaksi yang dibukukan dari sini di Ledger.`)}
             </p>
           ) : (
             <>
               <p>
-                {tr(`Delete ${s.statement_no}? It disappears from the list and stops counting, and its period (${s.period_start} → ${s.period_end}) can be uploaded again with the right file. Who deleted it, when and why stay in the audit trail.`,
-                  `Hapus ${s.statement_no}? Rekening koran ini hilang dari daftar dan tidak dihitung lagi, dan periodenya (${s.period_start} → ${s.period_end}) bisa diunggah ulang dengan file yang benar. Siapa yang menghapus, kapan, dan alasannya tetap tercatat di jejak audit.`)}
+                {tr(`Void ${s.statement_no}? It is kept, marked void, and stops counting: it leaves the list and the chain, its rows can no longer be decided, and its period (${s.period_start} → ${s.period_end}) can be uploaded again with the right file. Who voided it, when and why stay on record. Nothing is deleted.`,
+                  `Void ${s.statement_no}? Rekening koran ini tetap tersimpan dengan tanda void dan tidak dihitung lagi: keluar dari daftar dan rantai, barisnya tidak bisa diputuskan lagi, dan periodenya (${s.period_start} → ${s.period_end}) bisa diunggah ulang dengan file yang benar. Siapa yang me-void, kapan, dan alasannya tetap tercatat. Tidak ada yang dihapus.`)}
               </p>
               <textarea
                 id={`abandon-${s.statement_no}`}
@@ -196,8 +197,8 @@ function StatementCard({
               {tr("Cancel", "Batal")}
             </Button>
             {inLedger === 0 && (
-              <Button size="sm" variant="danger" icon={Trash2} onClick={abandon} disabled={busy || reason.trim() === ""}>
-                {busy ? tr("Deleting…", "Menghapus…") : tr("Delete this statement", "Hapus rekening koran ini")}
+              <Button size="sm" variant="danger" icon={Ban} onClick={abandon} disabled={busy || reason.trim() === ""}>
+                {busy ? tr("Voiding…", "Me-void…") : tr("Void this statement", "Void rekening koran ini")}
               </Button>
             )}
           </div>
@@ -206,9 +207,9 @@ function StatementCard({
 
       {abandoned && (
         <p className="flex items-start gap-2 border-t border-slate-100 bg-slate-50 px-5 py-2.5 text-[12px] text-slate-700">
-          <Trash2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <Ban className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
           <span>
-            <strong>{tr("Deleted", "Dihapus")}</strong>{" "}
+            <strong>{tr("Voided", "Di-void")}</strong>{" "}
             {tr(`by ${s.abandoned_by_name ?? "—"}, ${s.abandoned_at?.slice(0, 10) ?? ""}.`, `oleh ${s.abandoned_by_name ?? "—"}, ${s.abandoned_at?.slice(0, 10) ?? ""}.`)}{" "}
             {tr("Reason:", "Alasan:")} <em>{s.abandoned_reason}</em>
           </span>
