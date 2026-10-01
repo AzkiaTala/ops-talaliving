@@ -1970,6 +1970,8 @@ export interface PoView extends PurchaseOrder {
   /** Days past the date the vendor promised, when not everything has arrived.
    *  Null without a promise: nothing is late, it is merely absent (D134). */
   days_late: number | null;
+  /** Issued, paid and delivered: waiting only to be closed (0196, ACC-007). */
+  ready_to_close: boolean;
 }
 
 /** The board.

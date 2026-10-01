@@ -182,6 +182,15 @@ begin
     r := ops_procure.confirm_receipt(r->'data'->>'receipt_no');
     assert ops_core.said_ok(r), format('confirm: %s', r);
   end loop;
+end $$;
+
+-- Read as Rina: the money behind *paid* is accounting's to see (RLS), so a
+-- procurement-only reader sees every order unpaid — the same reason 22 reads
+-- money as Rina. Whoever closes holds accounting read (Penyetuju dana).
+set local request.jwt.claim.sub = '19600000-0000-0000-0000-00000000f11a';
+do $$
+declare po text := (select v from t_ctx where k='po');
+begin
   assert (select ready_to_close from ops_procure.v_po_detail where po_no = po), 'paid and delivered: ready to close';
   assert (select ready_to_close from ops_procure.v_po_board where po_no = po), 'and the board says so too';
   assert (select jsonb_array_length(close_blockers) from ops_procure.v_po_detail where po_no = po) = 0,
