@@ -1625,9 +1625,8 @@ export function poDetail(state: DemoState, poId: string): PoDetail | null {
   if (view.delivery_state !== "COMPLETE") {
     close_blockers.push("Not everything ordered has arrived.");
   }
-  if (documents.length === 0) {
-    close_blockers.push("Nothing is filed against it — no photo, no tanda terima, no invoice.");
-  }
+  /* No "nothing is filed" blocker: `ops_procure.close_po` has none, and a demo
+     that refused what production allows rehearsed the wrong answer (0196). */
 
   const issuer = state.users.find((u) => u.id === po.issued_by);
   const vendor = state.vendors.find((v) => v.id === po.vendor_id);
@@ -1674,6 +1673,11 @@ export function poDetail(state: DemoState, poId: string): PoDetail | null {
     documents,
     status_view: view,
     close_blockers,
+    closed_at: po.closed_at ?? null,
+    closed_by_name: po.closed_by ? state.users.find((u) => u.id === po.closed_by)?.full_name ?? "—" : null,
+    close_reason: po.close_reason ?? null,
+    settled_early: po.settled_early ?? null,
+    ready_to_close: po.status === "ISSUED" && view.payment_state === "SETTLED" && view.delivery_state === "COMPLETE",
   };
 }
 

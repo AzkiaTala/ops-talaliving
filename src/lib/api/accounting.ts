@@ -27,6 +27,7 @@ import type {
   InboxOrigin, EvidenceInboxRow, IncomingMoney,
   DocumentCoverage, TransactionCoverage, CoverageTransaction,
   CoverageLine, CoveragePayment,
+  UnlinkedVendorPayment,
 } from "@/services/accounting/contracts";
 import type { DocKind } from "@/services/documents/contracts";
 import type { ContributionAuditGroup } from "@/services/hr/contracts";
@@ -1982,6 +1983,32 @@ export async function importStatement(
   const res = fromSeam<{ statement_no: string }>(SERVICE, data, error);
   if (res.error) return res;
   return getStatement(res.data.statement_no);
+}
+
+/** Money out to a vendor that still has an open order, with part of it
+ *  applied to nothing (`v_unlinked_vendor_payment`, 0196, ACC-002). */
+export async function listUnlinkedVendorPayments(
+  filter?: { vendor_id?: string; po_no?: string },
+): Promise<Result<UnlinkedVendorPayment[]>> {
+  let q = db().from("v_unlinked_vendor_payment").select("*").order("trx_date", { ascending: false });
+  if (filter?.vendor_id) q = q.eq("vendor_id", filter.vendor_id);
+  if (filter?.po_no) q = q.contains("open_orders", [{ po_no: filter.po_no }]);
+  const { data, error } = await q;
+  return fromRows<UnlinkedVendorPayment[]>(SERVICE, (data ?? []) as unknown as UnlinkedVendorPayment[], error);
+}
+
+/** An existing payment applied to the order it paid (0196, ACC-002). */
+export async function linkPaymentToPo(
+  input: { trx_no: string; po_no: string; amount?: number | null },
+  idempotencyKey?: string,
+): Promise<Result<{ trx_no: string; po_no: string; amount: number }>> {
+  const { data, error } = await db().rpc("link_payment_to_po", {
+    p_trx_no: input.trx_no,
+    p_po_no: input.po_no,
+    p_amount: input.amount ?? null,
+    p_key: idempotencyKey ?? null,
+  });
+  return fromSeam<{ trx_no: string; po_no: string; amount: number }>(SERVICE, data, error);
 }
 
 /** The rate for one foreign line. Typed, never looked up (D181). */

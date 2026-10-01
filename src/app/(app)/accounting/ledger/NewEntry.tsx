@@ -2,7 +2,7 @@
 
 import { TypeOptions } from "@/components/ui/type-options";
 import { useRef, useState } from "react";
-import { Plus, Trash2, Upload, FileText, Save } from "lucide-react";
+import { Plus, Trash2, Upload, FileText, Save, AlertTriangle, ExternalLink } from "lucide-react";
 import { Badge, Button } from "@/components/ui/primitives";
 import { Drawer } from "@/components/ui/drawer";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -46,6 +46,10 @@ export function NewEntry({ onClose, onPosted }: { onClose: () => void; onPosted:
   const [accounts] = useLoad(() => accounting.listAccounts(), []);
   const [vendors] = useLoad(() => procurement.listVendors({}), []);
   const [types] = useLoad(() => accounting.listTypeRows(), []);
+  /* Orders still owing money, to warn when this payment is probably one of
+     them (0196, ACC-002). A reader without procurement gets an error here and
+     simply no warning. */
+  const [orders] = useLoad(() => procurement.listPo(), []);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [accountId, setAccountId] = useState("");
@@ -66,6 +70,13 @@ export function NewEntry({ onClose, onPosted }: { onClose: () => void; onPosted:
     ? types.data.find((t) => t.code === typeCode)?.is_purchase ?? false
     : false;
   const total = lines.reduce((s, l) => s + Math.round(l.qty * l.unit_price), 0);
+  /* Money out to a vendor with an issued order still owing: booked here it
+     names no order, the order stays UNPAID and could be paid a second time
+     from its own screen. Said before posting, not refused (A6) — a payment to
+     the same vendor for something else is legitimate. */
+  const openOrders = direction === "OUT" && vendorId && orders.status === "ready"
+    ? orders.data.filter((o) => o.vendor_id === vendorId && o.status === "ISSUED" && o.status_view.outstanding > 1_000)
+    : [];
   const hasPrimary = docs.some((d) => PRIMARY_DOC_KINDS.includes(d.kind));
   const payingAccounts = accounts.status === "ready" ? accounts.data.filter((a) => a.is_active !== false) : [];
 
@@ -195,11 +206,36 @@ export function NewEntry({ onClose, onPosted }: { onClose: () => void; onPosted:
                 isPurchase && !vendorId ? "border-amber-300" : "border-slate-200",
               )}
             >
-              <option value="">{tr("Not a vendor purchase", "Bukan pembelian dari vendor")}</option>
+              {/* For a purchase type the vendor is required, so the empty choice
+                  says so instead of offering "not a vendor purchase". */}
+              <option value="">{isPurchase ? tr("— Choose the vendor —", "— Pilih vendor —") : tr("Not a vendor purchase", "Bukan pembelian dari vendor")}</option>
               {vendors.status === "ready" && vendors.data.map((v) => (
                 <option key={v.id} value={v.id}>{v.name}</option>
               ))}
             </select>
+            {openOrders.length > 0 && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                <p className="flex items-center gap-1.5 font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  {tr("This vendor has an order still owing money", "Vendor ini punya PO yang belum lunas")}
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {openOrders.map((o) => (
+                    <li key={o.po_no}>
+                      <a href={`/procurement/po/${encodeURIComponent(o.po_no)}`} target="_blank" rel="noopener"
+                        className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                        {o.po_no} <ExternalLink className="h-3 w-3" />
+                      </a>{" "}
+                      · {tr("still owing", "sisa")} {formatIDR(o.status_view.outstanding)}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-[11px] text-amber-800">
+                  {tr("If this payment is for that order, pay it from the order's page (Pay this order). Recorded here it names no order: the order stays unpaid and could be paid twice.",
+                    "Kalau pembayaran ini untuk PO tersebut, bayar dari halaman PO-nya (Pay this order). Kalau dicatat di sini, PO tidak ikut terhitung: tetap belum lunas dan bisa terbayar dua kali.")}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

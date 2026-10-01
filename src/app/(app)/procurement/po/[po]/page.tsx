@@ -20,6 +20,7 @@ import { useToast } from "@/store/toast";
 import { AmendLine } from "./AmendLine";
 import { ClosePo } from "./ClosePo";
 import { PayPo } from "./PayPo";
+import { UnlinkedPayments } from "./UnlinkedPayments";
 
 /** One order, end to end.
  *
@@ -54,6 +55,11 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
   const [busy, setBusy] = useState(false);
   const mayEdit = can("procurement.update");
   const mayApprove = hasAuthority("approve_goods");
+  /* Closing asks for `approve_funds` in `ops_procure.close_po`; the button asks
+     the same, so nobody is shown a button that is certain to be refused
+     (ACC-003). */
+  const mayClose = hasAuthority("approve_funds");
+  const mayPost = hasAuthority("post_ledger");
 
   async function ask() {
     setBusy(true);
@@ -229,12 +235,41 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                       {busy ? tr("Issuing…", "Menerbitkan…") : tr("Issue and send it", "Terbitkan dan kirim")}
                     </Button>
                   )}
-                  {mayEdit && d.status === "ISSUED" && (
-                    <Button variant="outline" icon={Lock} onClick={() => setClosing(true)}>{tr("Close it", "Tutup")}</Button>
+                  {d.ready_to_close && <Badge tone="green">{tr("Ready to close", "Siap ditutup")}</Badge>}
+                  {mayClose && d.status === "ISSUED" && (
+                    <Button variant={d.ready_to_close ? "primary" : "outline"} icon={Lock} onClick={() => setClosing(true)}>{tr("Close it", "Tutup")}</Button>
                   )}
                 </div>
               }
             />
+
+            {d.ready_to_close && !mayClose && (
+              <p className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-[13px] text-emerald-900">
+                <Check className="h-4 w-4 shrink-0" />
+                {tr("Paid and fully delivered. Only closing is left — that is done by whoever approves funds.",
+                  "Sudah lunas dan barang lengkap. Tinggal ditutup — itu dilakukan oleh Penyetuju dana.")}
+              </p>
+            )}
+
+            {d.status === "CLOSED" && (
+              <div className={cn(
+                "mb-4 flex items-start gap-2 rounded-xl border px-4 py-3 text-[13px]",
+                d.settled_early ? "border-amber-200 bg-amber-50/70 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-700",
+              )}>
+                <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {d.closed_at ? tr(
+                    `Closed ${d.closed_at.slice(0, 10)}${d.closed_by_name ? ` by ${d.closed_by_name}` : ""}.`,
+                    `Ditutup ${d.closed_at.slice(0, 10)}${d.closed_by_name ? ` oleh ${d.closed_by_name}` : ""}.`,
+                  ) : tr("Closed.", "Ditutup.")}{" "}
+                  {d.settled_early
+                    ? <>{tr("Closed early, with money or goods still outstanding. Reason:", "Ditutup lebih awal, saat uang atau barang masih kurang. Alasan:")} <em>{d.close_reason ?? "—"}</em></>
+                    : d.closed_at
+                      ? tr("Paid and delivered in full.", "Lunas dan barang lengkap.")
+                      : tr("Closed before the reason was recorded on the order — see the audit log.", "Ditutup sebelum alasannya dicatat di PO — lihat Audit Log.")}
+                </span>
+              </div>
+            )}
 
             {d.status === "DRAFT" && (
               <div className={cn(
@@ -418,6 +453,10 @@ export default function PoDetailPage({ params }: { params: Promise<{ po: string 
                 </div>
               </div>
             </Card>
+
+            {d.status === "ISSUED" && mayPost && (
+              <UnlinkedPayments poNo={d.po_no} outstanding={d.status_view.outstanding} onLinked={reload} />
+            )}
 
             <PayPo po={d} onPosted={reload} />
 
