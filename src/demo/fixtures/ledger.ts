@@ -90,6 +90,14 @@ const TRX_SEEDS: TrxSeed[] = [
   ["trx-26-07-31_001", "2026-07-31", "acc_bca271", "OUT", 4_915_000, "SUPPLIERS", "vnd_13", "prj_25007", "HADI GLASS — balance, po-26-06-30_01 closed", "COMPLETED"],
   ["trx-26-08-10_001", "2026-08-10", "acc_bca271", "OUT", 12_750_000, "SUPPLIERS", "vnd_13", "prj_25007", "HADI GLASS — progress 1, po-26-07-25_01", "COMPLETED"],
   ["trx-26-08-19_002", "2026-08-19", "acc_bca271", "OUT", 13_810_000, "SUPPLIERS", "vnd_13", "prj_25007", "HADI GLASS — one transfer, three orders", "COMPLETED"],
+  /* QA 0196 (PO ↔ Ledger). Two payments to CV BALI PACKING PRIMA booked from
+     New ledger entry with no allocation — the order they paid never heard.
+     The second is bigger than what will be left owing after the first is
+     linked, so linking it caps at the outstanding and leaves the rest free. */
+  ["trx-26-09-16_001", "2026-09-16", "acc_bca271", "OUT", 2_000_000, "SUPPLIERS", "vnd_09", null, "DP karton packing — CV Bali Packing", "POSTED"],
+  ["trx-26-09-18_001", "2026-09-18", "acc_bca271", "OUT", 3_500_000, "SUPPLIERS", "vnd_09", null, "Pelunasan karton + ongkir — CV Bali Packing", "POSTED"],
+  ["trx-26-09-12_001", "2026-09-12", "acc_bca271", "OUT", 1_699_500, "SUPPLIERS", "vnd_02", null, "Pembayaran po-26-09-10_02 (pembulatan Rp 500)", "POSTED"],
+  ["trx-26-09-11_001", "2026-09-11", "acc_bca271", "OUT", 2_000_000, "SUPPLIERS", "vnd_04", null, "Pembayaran sebagian po-26-09-08_02", "POSTED"],
 ];
 
 export const TRANSACTIONS: Transaction[] = TRX_SEEDS.map(
@@ -165,6 +173,9 @@ export const PAYMENT_ALLOCATIONS: PaymentAllocation[] = [
   { id: "alc_15", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-08-19_01", amount: 850_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:01:00+07:00" },
   { id: "alc_16", trx_id: trxIdByNo("trx-26-08-19_002"), pr_line_no: null, po_no: "po-26-06-30_01", amount: 280_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-08-19T16:02:00+07:00" },
   { id: "alc_05", trx_id: trxIdByNo("trx-26-08-29_003"), pr_line_no: "pr-26-08-27_01-L02", po_no: null, amount: 350_000, method: "cash", superseded_by: null, allocated_by: "usr_anggun", allocated_at: "2026-08-29T16:22:00+07:00" },
+  /* QA 0196: the two orders that were paid from their own screen. */
+  { id: "alc_qa2", trx_id: trxIdByNo("trx-26-09-12_001"), pr_line_no: null, po_no: "po-26-09-10_02", amount: 1_699_500, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-09-12T16:00:00+07:00" },
+  { id: "alc_qa3", trx_id: trxIdByNo("trx-26-09-11_001"), pr_line_no: null, po_no: "po-26-09-08_02", amount: 2_000_000, method: "transfer", superseded_by: null, allocated_by: "usr_putri", allocated_at: "2026-09-11T16:00:00+07:00" },
 ];
 
 /* The exception road, and only that: documents whose parent is genuinely
