@@ -62,6 +62,9 @@ export default function PoPage() {
           {p.days_late != null && (
             <p className="mt-0.5 text-[11px] text-rose-700">{tr(`${p.days_late} day(s) late`, `terlambat ${p.days_late} hari`)}</p>
           )}
+          {p.ready_to_close && (
+            <p className="mt-0.5 text-[11px] font-medium text-emerald-700">{tr("paid & delivered — ready to close", "lunas & lengkap — siap ditutup")}</p>
+          )}
         </div>
       ),
     },

@@ -143,6 +143,7 @@ const VIEW_CONTRACTS = {
 
   /* ── accounting ──────────────────────────────────────────────────────── */
   v_transaction:        "TransactionView",
+  v_unlinked_vendor_payment: "UnlinkedVendorPayment",
   v_transaction_detail: "TransactionDetail",
   /* `suggestions` is a second read — `v_statement_suggestion`, keyed by line —
      stitched on before the result is returned. The intermediate cast is

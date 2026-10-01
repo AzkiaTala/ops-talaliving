@@ -8258,3 +8258,29 @@ and smoke suite run in CI (`database` job). The TypeScript rule was checked
 against the QA case, a clean continuation, a hole, an overlap, another
 currency and a back-filled month.
 
+## F196 · 2026-10-01 · money that left for a vendor and never reached the order it paid
+
+`v_po_status` counts an order's money from allocations that name it. Three
+roads name it: *Pay this order*, a request line linked to an order line, and an
+allocation to such a line. *New ledger entry* names nothing unless somebody
+allocates, and its form never said a vendor had an open order. So a payment
+booked there left the bank, the order stayed UNPAID, could not close, and
+*Pay this order* would have paid the vendor again. QA found the shape as *a PO
+with no ledger row*; the demo already held one (`po-26-09-02_01`, and the
+vendor's unallocated planer-service payment).
+
+The same pass found three smaller things in the close: `payment_state` and
+`close_po` used different tolerances, so a SETTLED order was refused; the
+reason for an early close lived only in the audit log; and the Close button
+was drawn for `procurement.update` while the seam asked `approve_funds`. The
+demo agreed with the button, not the seam, and also refused a close for
+*nothing is filed* — a rule the database never had — so QA in demo mode
+rehearsed answers production does not give.
+
+`0196` and D341. The split `post_to_po` did inline is now `split_to_po`,
+**security invoker and granted to nobody**: it writes allocations without
+asking, so it may only run inside the two seams that already decided.
+
+**Not verified here:** the migration and `196_procure_po_ledger_link.sql` run in
+CI; this machine has no working Postgres.
+

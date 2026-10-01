@@ -1835,6 +1835,8 @@ export interface PoView extends PurchaseOrder {
   /** Days past the date the vendor promised, when not everything has arrived.
    *  Null without a promise: nothing is late, it is merely absent (D134). */
   days_late: number | null;
+  /** Issued, paid and delivered: waiting only to be closed (0196, ACC-007). */
+  ready_to_close: boolean;
 }
 
 /** Issue a purchase order.
@@ -1946,6 +1948,7 @@ export async function createPo(
       approved_by: selfConfirm ? user.id : null,
       approval_note: null,
       revision: 0, sent_revision: 0,
+      closed_at: null, closed_by: null, close_reason: null, settled_early: null,
     });
     lines.forEach((l, i) => {
       draft.po_lines.push({
@@ -2007,6 +2010,7 @@ export async function listPo(): Promise<Result<PoView[]>> {
     lines: state.po_lines.filter((l) => l.po_id === po.id && l.superseded_by === null),
     vendor_name: state.vendors.find((v) => v.id === po.vendor_id)?.name ?? "—",
     days_late: poDetail(state, po.id)?.days_late ?? null,
+    ready_to_close: poDetail(state, po.id)?.ready_to_close ?? false,
   })));
 }
 
@@ -2021,6 +2025,7 @@ export async function getPo(poNo: string): Promise<Result<PoView>> {
     lines: state.po_lines.filter((l) => l.po_id === po.id && l.superseded_by === null),
     vendor_name: state.vendors.find((v) => v.id === po.vendor_id)?.name ?? "—",
     days_late: poDetail(state, po.id)?.days_late ?? null,
+    ready_to_close: poDetail(state, po.id)?.ready_to_close ?? false,
   });
 }
 
@@ -3187,7 +3192,10 @@ export async function closePo(
   input: { po_no: string; settle_reason?: string | null },
 ): Promise<Result<PoDetail>> {
   await latency();
-  const denied = requireModule(SERVICE, "procurement");
+  /* The authority `ops_procure.close_po` asks for. The demo used to accept any
+     procurement grant, so a QA run in demo mode closed orders that production
+     refuses (ACC-003). */
+  const denied = requireAuthority(SERVICE, "approve_funds");
   if (denied) return denied;
 
   const state = getState();
@@ -3215,6 +3223,11 @@ export async function closePo(
     const row = draft.purchase_orders.find((p) => p.po_no === input.po_no);
     if (!row) return;
     row.status = "CLOSED";
+    /* Kept on the order, not only in the audit trail (0196, ACC-006). */
+    row.closed_at = new Date().toISOString();
+    row.closed_by = user.id;
+    row.close_reason = input.settle_reason?.trim() || null;
+    row.settled_early = detail.close_blockers.length > 0;
     writeAudit(draft, {
       service: SERVICE, entity: "purchase_order", entity_no: input.po_no,
       action: "close", outcome: "ok",

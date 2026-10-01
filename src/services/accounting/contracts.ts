@@ -401,6 +401,23 @@ export interface BankStatementView extends BankStatement {
   abandoned_by_name: string | null;
 }
 
+/** Money out to a vendor that still has an open order, with part of it
+ *  applied to nothing (0196, ACC-002). Booked from *New ledger entry* with no
+ *  allocation, so the order it most likely paid never heard about it. */
+export interface UnlinkedVendorPayment {
+  trx_no: string;
+  trx_date: string;
+  account_code: string;
+  vendor_id: string;
+  vendor_name: string;
+  description: string;
+  amount_idr: number;
+  /** What of the row is applied to nothing yet. */
+  unallocated: number;
+  /** The vendor's issued orders that still owe money, oldest first. */
+  open_orders: { po_no: string; outstanding: number; issued_at: string | null }[];
+}
+
 /* ------------------------------------------------------------------ */
 /* Derived views                                                       */
 /* ------------------------------------------------------------------ */

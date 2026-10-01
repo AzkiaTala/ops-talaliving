@@ -698,6 +698,14 @@ export interface PurchaseOrder {
   /** The revision the vendor has actually been sent. Behind `revision` means
    *  the paper in their hand is out of date. */
   sent_revision: number;
+  /** How the order was closed (0196, ACC-006). Null on orders still open and
+   *  on orders closed before 0196 recorded it. `settled_early` is true when
+   *  money or goods were still outstanding and somebody closed it anyway —
+   *  `close_reason` says why. */
+  closed_at: string | null;
+  closed_by: string | null;
+  close_reason: string | null;
+  settled_early: boolean | null;
 }
 
 export interface PoLine {
@@ -1193,4 +1201,12 @@ export interface PoDetail {
   status_view: PoStatusView;
   /** Why this order cannot be closed yet, empty when it can. */
   close_blockers: string[];
+  /** 0196 (ACC-006): who closed it, when, why, and whether anything was waived. */
+  closed_at: string | null;
+  closed_by_name: string | null;
+  close_reason: string | null;
+  settled_early: boolean | null;
+  /** 0196 (ACC-007): issued, paid within the payment tolerance and fully
+   *  delivered — nothing left to do on it but close. */
+  ready_to_close: boolean;
 }

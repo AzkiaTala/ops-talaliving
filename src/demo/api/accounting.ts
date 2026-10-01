@@ -9,7 +9,7 @@ import type {
   CashFrequency, CashMonthDetail, CashAmountKind,
   Direction, PaymentAllocation, EvidenceInboxRow, InboxHealth, AllocMethod,
   BankStatementView, DocumentCoverage, TransactionCoverage, MonthlyBills,
-  AssetRentSchedule, AccountCode,
+  AssetRentSchedule, AccountCode, UnlinkedVendorPayment,
 } from "@/services/accounting/contracts";
 import { getActiveLocale, formatIDR } from "@/lib/format";
 import { officeToday } from "@/lib/office";
@@ -19,7 +19,7 @@ import {
   accountBalances, transactionView, allocatedTotal, inboxHealth, lineCoverage,
   lineStatus, fundings, fundingView, cashPlan, cashDue, cashMonthDetail,
   bankStatementView, bankStatementViews, documentCoverage, transactionCoverage,
-  monthlyBills, contributionAudit, orderOfLine,
+  monthlyBills, contributionAudit, orderOfLine, poStatus, PAYMENT_TOLERANCE_IDR,
 } from "../derive";
 import { latency, actingUser, requireAuthority, requireModule, requireLevel, conflict, replayed, remember, paged } from "./_kit";
 import { PRIMARY_DOC_KINDS, COMPLETION_DOC_KINDS, type DocKind } from "@/services/documents/contracts";
@@ -1583,24 +1583,7 @@ export async function postToPo(
       description: `Pembayaran ${input.po_no}`, qty: 1, uom: "unit" as never,
       unit_price: input.amount, amount: input.amount,
     });
-    let spent = 0;
-    for (const l of live) {
-      if (!l.pr_line_id || contract <= 0) continue;
-      const lineNo = draft.pr_lines.find((p) => p.id === l.pr_line_id)?.line_no_full;
-      const share = Math.min(Math.round(input.amount * l.line_total / contract), input.amount - spent);
-      if (!lineNo || share <= 0) continue;
-      draft.payment_allocations.push({
-        id: newId("alc"), trx_id: trxId, pr_line_no: lineNo, po_no: input.po_no,
-        amount: share, method: "transfer", superseded_by: null, allocated_by: user.id, allocated_at: now,
-      });
-      spent += share;
-    }
-    if (input.amount - spent > 0) {
-      draft.payment_allocations.push({
-        id: newId("alc"), trx_id: trxId, pr_line_no: null, po_no: input.po_no,
-        amount: input.amount - spent, method: "transfer", superseded_by: null, allocated_by: user.id, allocated_at: now,
-      });
-    }
+    splitToPo(draft, trxId, po.id, input.po_no, input.amount, user.id, now);
     draft.attachment_links.push({
       id: newId("lnk"), attachment_id: input.attachment_id,
       entity: "transaction", entity_no: trxNo, kind: input.document_kind ?? "Payment Proof",
@@ -1620,6 +1603,134 @@ export async function postToPo(
   const view = transactionView(getState(), getState().transactions.find((t) => t.trx_no === trxNo)!);
   remember(SERVICE, endpoint, idempotencyKey, view);
   return ok(SERVICE, view);
+}
+
+/** The one place a payment is spread over an order (`ops_acct.split_to_po`,
+ *  0196): each linked request line takes its share of the contract, rounded to
+ *  the rupiah; the rest — unlinked lines and rounding — names the order alone.
+ *  Paying an order and linking an old payment to it cannot split differently. */
+function splitToPo(
+  draft: DemoState, trxId: string, poId: string, poNo: string, amount: number, userId: string, now: string,
+): { pr_line_no: string; amount: number }[] {
+  const live = draft.po_lines.filter((l) => l.po_id === poId && l.superseded_by === null);
+  const contract = live.reduce((t, l) => t + l.line_total, 0);
+  const shares: { pr_line_no: string; amount: number }[] = [];
+  let spent = 0;
+  for (const l of live) {
+    if (!l.pr_line_id || contract <= 0) continue;
+    const lineNo = draft.pr_lines.find((p) => p.id === l.pr_line_id)?.line_no_full;
+    const share = Math.min(Math.round(amount * l.line_total / contract), amount - spent);
+    if (!lineNo || share <= 0) continue;
+    draft.payment_allocations.push({
+      id: newId("alc"), trx_id: trxId, pr_line_no: lineNo, po_no: poNo,
+      amount: share, method: "transfer", superseded_by: null, allocated_by: userId, allocated_at: now,
+    });
+    shares.push({ pr_line_no: lineNo, amount: share });
+    spent += share;
+  }
+  if (amount - spent > 0) {
+    draft.payment_allocations.push({
+      id: newId("alc"), trx_id: trxId, pr_line_no: null, po_no: poNo,
+      amount: amount - spent, method: "transfer", superseded_by: null, allocated_by: userId, allocated_at: now,
+    });
+  }
+  return shares;
+}
+
+/** Money out to a vendor that still has an open order, with part of it applied
+ *  to nothing (`v_unlinked_vendor_payment`, 0196, ACC-002). */
+export async function listUnlinkedVendorPayments(
+  filter?: { vendor_id?: string; po_no?: string },
+): Promise<Result<UnlinkedVendorPayment[]>> {
+  await latency();
+  const denied = requireModule(SERVICE, "accounting");
+  if (denied) return denied;
+  const state = getState();
+  const openOrders = (vendorId: string) => state.purchase_orders
+    .filter((p) => p.vendor_id === vendorId && p.status === "ISSUED")
+    .map((p) => ({ po_no: p.po_no, outstanding: poStatus(state, p.id).outstanding, issued_at: p.issued_at }))
+    .filter((o) => o.outstanding > PAYMENT_TOLERANCE_IDR)
+    .sort((a, b) => (a.issued_at ?? "").localeCompare(b.issued_at ?? ""));
+  const rows: UnlinkedVendorPayment[] = [];
+  for (const t of state.transactions) {
+    if (t.status === "VOID" || t.direction !== "OUT" || !t.vendor_id) continue;
+    if (filter?.vendor_id && t.vendor_id !== filter.vendor_id) continue;
+    const unallocated = t.amount_idr - allocatedTotal(state, t.id);
+    if (unallocated <= 0) continue;
+    const open = openOrders(t.vendor_id);
+    if (open.length === 0) continue;
+    if (filter?.po_no && !open.some((o) => o.po_no === filter.po_no)) continue;
+    rows.push({
+      trx_no: t.trx_no, trx_date: t.trx_date,
+      account_code: state.accounts.find((a) => a.id === t.account_id)?.code ?? "—",
+      vendor_id: t.vendor_id, vendor_name: state.vendors.find((v) => v.id === t.vendor_id)?.name ?? "—",
+      description: t.description, amount_idr: t.amount_idr, unallocated, open_orders: open,
+    });
+  }
+  return ok(SERVICE, rows.sort((a, b) => b.trx_date.localeCompare(a.trx_date)));
+}
+
+/** An existing payment applied to the order it paid (`ops_acct.link_payment_to_po`,
+ *  0196, ACC-002). Nothing new is posted: the money moved once. */
+export async function linkPaymentToPo(
+  input: { trx_no: string; po_no: string; amount?: number | null },
+  idempotencyKey?: string,
+): Promise<Result<{ trx_no: string; po_no: string; amount: number }>> {
+  await latency();
+  const endpoint = `linkPaymentToPo:${input.trx_no}:${input.po_no}`;
+  const cached = replayed<{ trx_no: string; po_no: string; amount: number }>(SERVICE, endpoint, idempotencyKey);
+  if (cached) return cached;
+
+  const denied = requireAuthority(SERVICE, "post_ledger");
+  if (denied) return denied;
+
+  const state = getState();
+  const trx = state.transactions.find((t) => t.trx_no === input.trx_no);
+  if (!trx) return notFound(SERVICE, "transaction_not_found", `Tidak ada transaksi ${input.trx_no}.`);
+  if (trx.status === "VOID") return conflict(SERVICE, "transaction_void", `${input.trx_no} sudah VOID dan tidak membiayai apa pun.`);
+  if (trx.direction !== "OUT") {
+    return invalid(SERVICE, "not_a_payment", `${input.trx_no} adalah uang masuk, bukan pembayaran ke vendor.`, { field: "trx_no" });
+  }
+  const po = state.purchase_orders.find((p) => p.po_no === input.po_no);
+  if (!po) return notFound(SERVICE, "po_not_found", `Tidak ada PO ${input.po_no}.`);
+  if (po.status !== "ISSUED") {
+    return conflict(SERVICE, "order_not_open",
+      `${input.po_no} berstatus ${po.status} — hanya PO yang sudah terbit dan belum ditutup yang bisa menerima pembayaran.`);
+  }
+  if (trx.vendor_id !== po.vendor_id) {
+    return invalid(SERVICE, "vendor_differs", `${input.trx_no} dibayar ke vendor lain, bukan vendor ${input.po_no}.`, { field: "po_no" });
+  }
+  const free = trx.amount_idr - allocatedTotal(state, trx.id);
+  const outstanding = poStatus(state, po.id).outstanding;
+  const amount = input.amount ?? Math.min(free, outstanding);
+  if (!(amount > 0)) {
+    return invalid(SERVICE, "nothing_to_link",
+      free <= 0 ? `Seluruh ${input.trx_no} sudah dialokasikan.` : `${input.po_no} sudah lunas.`,
+      { field: "amount", unallocated: free, outstanding });
+  }
+  if (amount > free) {
+    return invalid(SERVICE, "over_allocated", `${input.trx_no} hanya punya ${free} yang belum dialokasikan.`, { field: "amount", unallocated: free });
+  }
+  if (amount > outstanding + PAYMENT_TOLERANCE_IDR) {
+    return invalid(SERVICE, "over_contract", `Sisa tagihan ${input.po_no} hanya ${outstanding}.`, { field: "amount", outstanding });
+  }
+
+  const user = actingUser();
+  apply((draft) => {
+    const shares = splitToPo(draft, trx.id, po.id, po.po_no, amount, user.id, new Date().toISOString());
+    writeAudit(draft, {
+      service: SERVICE, entity: "allocation", entity_no: po.po_no,
+      action: "link_po", outcome: "ok", reason: null,
+      detail: { trx_no: trx.trx_no, amount, lines: shares, by: user.email },
+    });
+    writeOutbox(draft, {
+      service: SERVICE, event_type: "accounting.allocation.recorded",
+      payload: { trx_no: trx.trx_no, po_no: po.po_no, amount, linked: true },
+    });
+  });
+  const res = ok(SERVICE, { trx_no: trx.trx_no, po_no: po.po_no, amount });
+  remember(SERVICE, endpoint, idempotencyKey, res.data);
+  return res;
 }
 
 export async function listFundings(): Promise<Result<FundingView[]>> {
